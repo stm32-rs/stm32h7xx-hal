@@ -1,0 +1,38 @@
+[package]
+name = "stm32h7xx-hal"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+categories = ["embedded", "hardware-support", "no-std"]
+description = "Peripheral access API for STM32H7 series microcontrollers"
+keywords = ["arm", "cortex-m", "stm32h7xx", "hal"]
+license = "0BSD"
+
+[package.metadata.docs.rs]
+features = ["stm32h7x3", "rt"]
+
+[dependencies]
+cortex-m = "0.5.8"
+cortex-m-rt = "0.6.7"
+nb = "0.1.1"
+stm32h7 = "0.7.1"
+embedded-hal = "0.2.3"
+
+[dependencies.bare-metal]
+version = "0.2.4"
+features = ["const-fn"]
+
+[dependencies.cast]
+default-features = false
+version = "0.2.2"
+
+[dependencies.void]
+default-features = false
+version = "1.0.2"
+
+[features]
+default = ["unproven"]
+device-selected = []
+rt = ["stm32h7/rt"]
+stm32h7x3 = ["stm32h7/stm32h7x3", "device-selected"]
+unproven = ["embedded-hal/unproven"]
