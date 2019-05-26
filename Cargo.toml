@@ -7,6 +7,9 @@ categories = ["embedded", "hardware-support", "no-std"]
 description = "Peripheral access API for STM32H7 series microcontrollers"
 keywords = ["arm", "cortex-m", "stm32h7xx", "hal"]
 license = "0BSD"
+repository = "https://github.com/stm32-rs/stm32h7xx-hal"
+documentation = "https://docs.rs/stm32h7xx-hal"
+readme = "README.md"
 
 [package.metadata.docs.rs]
 features = ["stm32h7x3", "rt"]
