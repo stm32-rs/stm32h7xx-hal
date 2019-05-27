@@ -10,12 +10,12 @@ use cast::{u16, u32};
 use nb;
 use void::Void;
 
-use crate::rcc::{Clocks, APB1, APB2};
+use crate::rcc::{CoreClocks, APB1, APB2};
 use crate::time::Hertz;
 
 /// Hardware timers
 pub struct Timer<TIM> {
-    clocks: Clocks,
+    clocks: CoreClocks,
     tim: TIM,
     timeout: Hertz,
 }
@@ -65,7 +65,7 @@ macro_rules! hal {
                 // even if the `$TIM` are non overlapping (compare to the `free` function below
                 // which just works)
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut $APB) -> Self
+                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: CoreClocks, apb: &mut $APB) -> Self
                 where
                     T: Into<Hertz>,
                 {

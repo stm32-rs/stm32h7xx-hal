@@ -5,19 +5,19 @@ use crate::stm32::{flash, FLASH};
 /// Extension trait to constrain the FLASH peripheral
 pub trait FlashExt {
     /// Constrains the FLASH peripheral to play nicely with the other abstractions
-    fn constrain(self) -> Parts;
+    fn constrain(self) -> Flash;
 }
 
 impl FlashExt for FLASH {
-    fn constrain(self) -> Parts {
-        Parts {
+    fn constrain(self) -> Flash {
+        Flash {
             acr: ACR { _0: () },
         }
     }
 }
 
 /// Constrained FLASH peripheral
-pub struct Parts {
+pub struct Flash {
     /// Opaque ACR register
     pub acr: ACR,
 }
