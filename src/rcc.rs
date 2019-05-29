@@ -324,8 +324,8 @@ impl Rcc {
             // Currently we use the Medium Range VCO with 1 - 2 MHz
             // input
 
-            // Input divisor, resulting in a frequency in the range
-            // from 1 to 2 MHz
+            // Input divisor, resulting in a reference clock in the
+            // range 1 to 2 MHz. Choose the highest reference clock
             let pll1_m = (srcclk + 1_999_999) / 2_000_000;
 
             assert!(pll1_m < 64);
@@ -334,13 +334,13 @@ impl Rcc {
             let ref1_ck = srcclk / pll1_m;
             assert!(ref1_ck >= 1_000_000 && ref1_ck <= 2_000_000);
 
-            // VCO output frequency. Choose the lowest VCO frequency
+            // VCO output frequency. Choose the highest VCO frequency
             let pll1_vco_min = 150_000_000;
             let pll1_vco_max = 420_000_000;
-            let pll1_p = if sys_ck > pll1_vco_min {
+            let pll1_p = if sys_ck > pll1_vco_max / 2 {
                 1
             } else {
-                ((pll1_vco_min / sys_ck) | 1) + 1 // Must be even or unity
+                ((pll1_vco_max / sys_ck) | 1) - 1 // Must be even or unity
             };
             let vco1_ck = sys_ck * pll1_p;
 
