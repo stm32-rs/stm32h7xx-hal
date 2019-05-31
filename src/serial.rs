@@ -46,6 +46,8 @@ use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::Ccdr;
 use crate::time::Hertz;
 
+use crate::Never;
+
 /// Serial error
 #[derive(Debug)]
 pub enum Error {
@@ -586,16 +588,16 @@ macro_rules! usart {
             }
 
             impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
-                type Error = !;
+                type Error = Never;
 
-                fn flush(&mut self) -> nb::Result<(), !> {
+                fn flush(&mut self) -> nb::Result<(), Never> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.flush()
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), !> {
+                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
@@ -610,9 +612,9 @@ macro_rules! usart {
                 // framing errors (which only occur in SmartCard
                 // mode); neither of these apply to our hardware
                 // configuration
-                type Error = !;
+                type Error = Never;
 
-                fn flush(&mut self) -> nb::Result<(), !> {
+                fn flush(&mut self) -> nb::Result<(), Never> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -623,7 +625,7 @@ macro_rules! usart {
                     }
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), !> {
+                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 

@@ -5,3 +5,5 @@
 max_width = 80
 # Number of spaces per tab.
 tab_spaces = 4
+
+newline_style = "Unix"

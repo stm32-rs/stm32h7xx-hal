@@ -1,7 +1,6 @@
 //! Reset and Clock Control
 #![deny(missing_docs)]
 
-use crate::flash::ACR;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SWW;
 use crate::stm32::rcc::d1ccipr::CKPERSELW;

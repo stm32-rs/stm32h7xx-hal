@@ -1,7 +1,9 @@
 #![no_std]
 #![allow(non_camel_case_types)]
 #![feature(type_alias_enum_variants)]
-#![feature(never_type)]
+
+#[derive(Debug)]
+pub enum Never {}
 
 #[cfg(not(feature = "device-selected"))]
 compile_error!(

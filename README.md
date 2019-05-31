@@ -4,6 +4,12 @@
 it to use most peripherals. Collaboration on this crate is highly welcome as
 are pull requests!**
 
+🚧 *Work in progress*
+
+❗ *Nightly required*
+
+📂 *[Local dependancy required](#Hacking)*
+
 `stm32h7xx-hal` contains a hardware abstraction on top of the peripheral access
 API for the STMicro STM32H7 series microcontrollers. The selection of the MCU
 is done by feature gates, typically specified by board support crates.
