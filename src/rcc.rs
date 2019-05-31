@@ -1,12 +1,13 @@
 //! Reset and Clock Control
+#![deny(missing_docs)]
 
 use crate::flash::ACR;
-use crate::pwr::VoltageScale;
+use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SWW;
 use crate::stm32::rcc::d1ccipr::CKPERSELW;
 use crate::stm32::rcc::d1cfgr::HPREW;
 use crate::stm32::rcc::pllckselr::PLLSRCW;
-use crate::stm32::{rcc, RCC};
+use crate::stm32::{rcc, RCC, SYSCFG};
 use crate::time::Hertz;
 
 /// This module configures the RCC unit to provide set frequencies for
@@ -54,7 +55,7 @@ impl RccExt for RCC {
 /// let rcc = dp.RCC.constrain();
 /// ```
 pub struct Rcc {
-    pub config: Config,
+    config: Config,
     pub(crate) rb: RCC,
 }
 
@@ -67,6 +68,7 @@ pub struct Rcc {
 /// modified and peripherals enabled / reset by passing this object
 /// to other implementations in this stack.
 pub struct Ccdr {
+    /// A record of the frozen core clock frequencies
     pub clocks: CoreClocks,
     /// AMBA High-performance Bus (AHB3) registers
     pub ahb3: AHB3,
@@ -201,6 +203,8 @@ pub struct Config {
 macro_rules! pclk_setter {
     ($($name:ident: $pclk:ident,)+) => {
         $(
+            /// Set the peripheral clock frequency for APB
+            /// peripherals.
             pub fn $name<F>(mut self, freq: F) -> Self
             where
                 F: Into<Hertz>,
@@ -242,6 +246,7 @@ impl Rcc {
         self
     }
 
+    /// Set peripheral clock frequency
     pub fn per_ck<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -277,7 +282,7 @@ macro_rules! ppre_calculate {
             // Get intended rcc_pclkN frequency
             let $pclk: u32 = $self.config
                 .$pclk
-                .unwrap_or_else(|| core::cmp::min($max, $hclk));
+                .unwrap_or_else(|| core::cmp::min($max, $hclk / 2));
 
             // Calculate suitable divider
             let ($bits, $ppre) = match ($hclk + $pclk - 1) / $pclk
@@ -320,6 +325,8 @@ impl Rcc {
             } else {
                 PLLSRCW::HSI
             };
+
+            assert!(srcclk > 0);
 
             // Currently we use the Medium Range VCO with 1 - 2 MHz
             // input
@@ -380,15 +387,15 @@ impl Rcc {
             // Configure PLL
             rcc.pllcfgr.write(|w| {
                 w.pll1fracen()
-                    .clear_bit() // No FRACN
+                    .reset() // No FRACN
                     .pll1vcosel()
-                    .set_bit() // 150 - 420MHz Medium VCO
+                    .medium_vco() // 150 - 420MHz Medium VCO
                     .pll1rge()
                     .range1() // ref1_ck is 1 - 2 MHz
                     .divp1en()
-                    .set_bit() // Enable P output divider
+                    .enabled()
                     .divq1en()
-                    .set_bit() // Enable Q output divider
+                    .enabled()
             });
 
             (Some(Hertz(pll1_p_ck)), Some(Hertz(pll1_q_ck)), None)
@@ -397,7 +404,7 @@ impl Rcc {
         }
     }
 
-    fn flash_setup(rcc_aclk: u32, vos: u8) {
+    fn flash_setup(rcc_aclk: u32, vos: Voltage) {
         use crate::stm32::FLASH;
         let rcc_aclk_mhz = rcc_aclk / 1_000_000;
 
@@ -405,7 +412,7 @@ impl Rcc {
         // states and programming delay
         let (wait_states, progr_delay) = match vos {
             // VOS 1 range VCORE 1.15V - 1.26V
-            1 => match rcc_aclk_mhz {
+            Voltage::Scale0 | Voltage::Scale1 => match rcc_aclk_mhz {
                 0...69 => (0, 0),
                 70...139 => (1, 1),
                 140...184 => (2, 1),
@@ -414,7 +421,7 @@ impl Rcc {
                 _ => (7, 3),
             },
             // VOS 2 range VCORE 1.05V - 1.15V
-            2 => match rcc_aclk_mhz {
+            Voltage::Scale2 => match rcc_aclk_mhz {
                 0...54 => (0, 0),
                 55...109 => (1, 1),
                 110...164 => (2, 1),
@@ -423,7 +430,7 @@ impl Rcc {
                 _ => (7, 3),
             },
             // VOS 3 range VCORE 0.95V - 1.05V
-            3 => match rcc_aclk_mhz {
+            Voltage::Scale3 => match rcc_aclk_mhz {
                 0...44 => (0, 0),
                 45...89 => (1, 1),
                 90...134 => (2, 1),
@@ -442,7 +449,11 @@ impl Rcc {
         while flash.acr.read().latency().bits() != wait_states {}
     }
 
-    pub fn freeze(self, _vos: VoltageScale) -> Ccdr {
+    /// Freeze the core clocks, returning a Core Clocks Distribution
+    /// and Reset (CCDR) object.
+    ///
+    /// `syscfg` is required to enable the I/O compensation cell.
+    pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         let rcc = &self.rb;
 
         // sys_ck from PLL if needed, else HSE or HSI
@@ -476,16 +487,23 @@ impl Rcc {
         let d1cpre_div = 1;
         let sys_d1cpre_ck = sys_ck.0 / d1cpre_div;
 
-        // Check resulting sys_d1cpre_ck
+        // Refer to part datasheet "General operating conditions"
+        // table for (rev V). We do not assert checks for earlier
+        // revisions which may have lower limits.
         #[cfg(any(
             feature = "stm32h742",
             feature = "stm32h743",
             feature = "stm32h753",
             feature = "stm32h750"
         ))]
-        let sys_d1cpre_ck_max = 480_000_000;
-        let rcc_hclk_max = 240_000_000;
+        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match vos {
+            Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
+            Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
+            Voltage::Scale2 => (300_000_000, 150_000_000, 75_000_000),
+            _ => (200_000_000, 100_000_000, 50_000_000),
+        };
 
+        // Check resulting sys_d1cpre_ck
         assert!(sys_d1cpre_ck <= sys_d1cpre_ck_max);
 
         // Get ideal AHB clock
@@ -511,39 +529,29 @@ impl Rcc {
         let rcc_hclk = sys_d1cpre_ck / hpre_div;
         assert!(rcc_hclk <= rcc_hclk_max);
 
-        #[cfg(any(
-            feature = "stm32h742",
-            feature = "stm32h743",
-            feature = "stm32h753",
-            feature = "stm32h750"
-        ))]
-        // This information was retrieved from stm32cubemx
-        let (pclk1_max, pclk2_max, pclk3_max, pclk4_max) =
-            (120_000_000, 120_000_000, 120_000_000, 120_000_000);
-
         // Calculate ppreN dividers and real rcc_pclkN frequencies
         ppre_calculate! {
-            (ppre1, ppre1_bits): (self, rcc_hclk, rcc_pclk1, pclk1_max),
-            (ppre2, ppre2_bits): (self, rcc_hclk, rcc_pclk2, pclk2_max),
-            (ppre3, ppre3_bits): (self, rcc_hclk, rcc_pclk3, pclk3_max),
-            (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk4_max),
+            (ppre1, ppre1_bits): (self, rcc_hclk, rcc_pclk1, pclk_max),
+            (ppre2, ppre2_bits): (self, rcc_hclk, rcc_pclk2, pclk_max),
+            (ppre3, ppre3_bits): (self, rcc_hclk, rcc_pclk3, pclk_max),
+            (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk_max),
         }
 
-        // Flash setup ** ASSUMES VOS1 **
-        Self::flash_setup(sys_d1cpre_ck, 1);
+        // Flash setup
+        Self::flash_setup(sys_d1cpre_ck, vos);
 
         // Ensure CSI is on and stable
-        rcc.cr.modify(|_, w| w.csion().set_bit());
-        while rcc.cr.read().csirdy().bit_is_clear() {}
+        rcc.cr.modify(|_, w| w.csion().on());
+        while rcc.cr.read().csirdy().is_not_ready() {}
 
         // HSE
         let hse_ck = match self.config.hse {
             Some(hse) => {
                 // Ensure HSE is on and stable
                 rcc.cr.modify(|_, w| {
-                    w.hseon().set_bit().hsebyp().clear_bit()
+                    w.hseon().on().hsebyp().not_bypassed()
                 });
-                while rcc.cr.read().hserdy().bit_is_clear() {}
+                while rcc.cr.read().hserdy().is_not_ready() {}
 
                 Some(Hertz(hse))
             }
@@ -553,8 +561,8 @@ impl Rcc {
         // PLL1
         if pll1_p_ck.is_some() {
             // Enable PLL and wait for it to stabilise
-            rcc.cr.modify(|_, w| w.pll1on().set_bit());
-            while rcc.cr.read().pll1rdy().bit_is_clear() {}
+            rcc.cr.modify(|_, w| w.pll1on().on());
+            while rcc.cr.read().pll1rdy().is_not_ready() {}
         }
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
@@ -596,6 +604,17 @@ impl Rcc {
             };
         rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(swbits) });
         while rcc.cfgr.read().sws().bits() != swbits {}
+
+        // IO compensation cell - Requires CSI clock and SYSCFG
+        assert!(rcc.cr.read().csirdy().is_ready());
+        rcc.apb4enr.modify(|_, w| w.syscfgen().enabled());
+
+        // Enable the compensation cell, using back-bias voltage code
+        // provide by the cell.
+        syscfg.cccsr.modify(|_, w| {
+            w.en().set_bit().cs().clear_bit().hslv().clear_bit()
+        });
+        while syscfg.cccsr.read().ready().bit_is_clear() {}
 
         // Return frozen clock configuration
         Ccdr {

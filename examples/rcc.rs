@@ -28,7 +28,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(100.mhz()).freeze(vos);
+    let ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - RCC");
