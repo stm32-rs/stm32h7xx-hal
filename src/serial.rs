@@ -9,6 +9,7 @@ use embedded_hal::serial;
 use nb::block;
 
 use crate::stm32::rcc::d2ccip2r;
+use crate::stm32::usart1::cr1::{M0W, PCEW, PSW};
 
 #[cfg(any(
     feature = "stm32h742",
@@ -396,7 +397,7 @@ macro_rules! usart {
                     use self::config::*;
 
                     // Enable clock for USART and reset
-                    ccdr.$apb.$enr().modify(|_, w| w.$usartXen().set_bit());
+                    ccdr.$apb.$enr().modify(|_, w| w.$usartXen().enabled());
                     ccdr.$apb.$rstr().modify(|_, w| w.$usartXrst().set_bit());
                     ccdr.$apb.$rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
@@ -442,27 +443,27 @@ macro_rules! usart {
                         w.fifoen()
                             .set_bit() // FIFO mode enabled
                             .over8()
-                            .clear_bit() // Oversampling by 16
+                            .oversampling16() // Oversampling by 16
                             .ue()
-                            .set_bit()
+                            .enabled()
                             .te()
-                            .set_bit()
+                            .enabled()
                             .re()
-                            .set_bit()
+                            .enabled()
                             .m1()
                             .clear_bit()
                             .m0()
-                            .bit(match config.wordlength {
-                                WordLength::DataBits8 => false,
-                                WordLength::DataBits9 => true,
+                            .variant(match config.wordlength {
+                                WordLength::DataBits8 => M0W::BIT8,
+                                WordLength::DataBits9 => M0W::BIT9,
                             }).pce()
-                            .bit(match config.parity {
-                                Parity::ParityNone => false,
-                                _ => true,
+                            .variant(match config.parity {
+                                Parity::ParityNone => PCEW::DISABLED,
+                                _ => PCEW::ENABLED,
                             }).ps()
-                            .bit(match config.parity {
-                                Parity::ParityOdd => true,
-                                _ => false,
+                            .variant(match config.parity {
+                                Parity::ParityOdd => PSW::EVEN,
+                                _ => PSW::ODD,
                             })
                     });
 
@@ -473,13 +474,13 @@ macro_rules! usart {
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().set_bit())
+                            self.usart.cr1.modify(|_, w| w.rxneie().enabled())
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().set_bit())
+                            self.usart.cr1.modify(|_, w| w.txeie().enabled())
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().set_bit())
+                            self.usart.cr1.modify(|_, w| w.idleie().enabled())
                         },
                     }
                 }
@@ -488,13 +489,13 @@ macro_rules! usart {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().clear_bit())
+                            self.usart.cr1.modify(|_, w| w.rxneie().disabled())
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().clear_bit())
+                            self.usart.cr1.modify(|_, w| w.txeie().disabled())
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().clear_bit())
+                            self.usart.cr1.modify(|_, w| w.idleie().disabled())
                         },
                     }
                 }
@@ -695,9 +696,8 @@ usart! {
 
     UART4: (uart4, apb1, uart4en, uart4rst, pclk1, lenr, lrstr),
     UART5: (uart5, apb1, uart5en, uart5rst, pclk1, lenr, lrstr),
-    // TODO waiting on upstream stm32h7
-    // UART7: (uart7, apb1, uart7en, uart7rst, pclk1, lenr, lrstr),
-    // UART8: (uart8, apb1, uart8en, uart8rst, pclk1, lenr, lrstr),
+    UART7: (uart7, apb1, uart7en, uart7rst, pclk1, lenr, lrstr),
+    UART8: (uart8, apb1, uart8en, uart8rst, pclk1, lenr, lrstr),
 }
 
 #[cfg(any(

@@ -5,6 +5,7 @@ pub use crate::hal::spi::{
     Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
 };
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
+use crate::stm32::spi1::cfg1::MBRW;
 use core::ptr;
 use nb;
 
@@ -263,10 +264,10 @@ macro_rules! spi {
                     T: Into<Hertz>,
                 {
                     // Enable clock for SPI
-                    ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().set_bit());
+                    ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
 
                     // Disable SS output
-                    spi.cfg2.write(|w| w.ssoe().clear_bit());
+                    spi.cfg2.write(|w| w.ssoe().disabled());
 
                     let spi_freq = freq.into().0;
 	                let spi_ker_ck = match Self::kernel_clk(ccdr) {
@@ -275,24 +276,24 @@ macro_rules! spi {
                     };
                     let mbr = match spi_ker_ck / spi_freq {
                         0 => unreachable!(),
-                        1...2 => 0b000,
-                        3...5 => 0b001,
-                        6...11 => 0b010,
-                        12...23 => 0b011,
-                        24...47 => 0b100,
-                        48...95 => 0b101,
-                        96...191 => 0b110,
-                        _ => 0b111,
+                        1...2 => MBRW::DIV2,
+                        3...5 => MBRW::DIV4,
+                        6...11 => MBRW::DIV8,
+                        12...23 => MBRW::DIV16,
+                        24...47 => MBRW::DIV32,
+                        48...95 => MBRW::DIV64,
+                        96...191 => MBRW::DIV128,
+                        _ => MBRW::DIV256,
                     };
                     spi.cfg1.modify(|_, w| {
                         w.mbr()
-                            .bits(mbr) // master baud rate
+                            .variant(mbr) // master baud rate
                             .dsize()
                             .bits(8 - 1) // 8 bit frames
                     });
 
-                    // ssi: set nss high = master mode
-                    spi.cr1.write(|w| w.ssi().set_bit());
+                    // ssi: select slave = master mode
+                    spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                     // mstr: master configuration
                     // lsbfrst: MSB first
@@ -306,17 +307,17 @@ macro_rules! spi {
                             .cpol()
                             .bit(mode.polarity == Polarity::IdleHigh)
                             .master()
-                            .set_bit()
+                            .master()
                             .lsbfrst()
-                            .clear_bit()
+                            .msbfirst()
                             .ssm()
-                            .set_bit()
+                            .enabled()
                             .comm()
-                            .bits(0)
+                            .full_duplex()
                     });
 
                     // spe: enable the SPI bus
-                    spi.cr1.write(|w| w.ssi().set_bit().spe().set_bit());
+                    spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
                     Spi { spi, pins }
                 }
@@ -328,18 +329,18 @@ macro_rules! spi {
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().set_bit()),
+                                                w.rxpie().not_masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().set_bit()),
+                                                w.txpie().not_masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
-                                .set_bit()
+                                .not_masked()
                                 .ovrie() // Overrun
-                                .set_bit()
+                                .not_masked()
                                 .crceie() // CRC error
-                                .set_bit()
+                                .not_masked()
                                 .modfie() // Mode fault
-                                .set_bit()
+                                .not_masked()
                         }),
                     }
                 }
@@ -351,18 +352,18 @@ macro_rules! spi {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().clear_bit()),
+                                                w.rxpie().masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().clear_bit()),
+                                                w.txpie().masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
-                                .clear_bit()
+                                .masked()
                                 .ovrie() // Overrun
-                                .clear_bit()
+                                .masked()
                                 .crceie() // CRC error
-                                .clear_bit()
+                                .masked()
                                 .modfie() // Mode fault
-                                .clear_bit()
+                                .masked()
                         }),
                     }
                 }
@@ -370,27 +371,27 @@ macro_rules! spi {
                 /// Return `true` if the TXP flag is set, i.e. new
                 /// data to transmit can be written to the SPI.
                 pub fn is_txp(&self) -> bool {
-                    self.spi.sr.read().txp().bit_is_set()
+                    self.spi.sr.read().txp().is_not_full()
                 }
 
                 /// Return `true` if the RXP flag is set, i.e. new
                 /// data has been received and can be read from the
                 /// SPI.
                 pub fn is_rxp(&self) -> bool {
-                    self.spi.sr.read().rxp().bit_is_set()
+                    self.spi.sr.read().rxp().is_not_empty()
                 }
 
                 /// Return `true` if the MODF flag is set, i.e. the
                 /// SPI has experienced a mode fault
                 pub fn is_modf(&self) -> bool {
-                    self.spi.sr.read().modf().bit_is_set()
+                    self.spi.sr.read().modf().is_fault()
                 }
 
                 /// Return `true` if the OVR flag is set, i.e. new
                 /// data has been received while the receive data
                 /// register was already filled.
                 pub fn is_ovr(&self) -> bool {
-                    self.spi.sr.read().ovr().bit_is_set()
+                    self.spi.sr.read().ovr().is_overrun()
                 }
 
                 pub fn free(self) -> ($SPIX, PINS) {
@@ -419,13 +420,13 @@ macro_rules! spi {
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     let sr = self.spi.sr.read();
 
-                    Err(if sr.ovr().bit_is_set() {
+                    Err(if sr.ovr().is_overrun() {
                         nb::Error::Other(Error::Overrun)
-                    } else if sr.modf().bit_is_set() {
+                    } else if sr.modf().is_fault() {
                         nb::Error::Other(Error::ModeFault)
-                    } else if sr.crce().bit_is_set() {
+                    } else if sr.crce().is_error() {
                         nb::Error::Other(Error::Crc)
-                    } else if sr.rxp().bit_is_set() {
+                    } else if sr.rxp().is_not_empty() {
                         // NOTE(read_volatile) read only 1 byte (the
                         // svd2rust API only allows reading a
                         // half-word)
@@ -442,13 +443,13 @@ macro_rules! spi {
                 fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
                     let sr = self.spi.sr.read();
 
-                    Err(if sr.ovr().bit_is_set() {
+                    Err(if sr.ovr().is_overrun() {
                         nb::Error::Other(Error::Overrun)
-                    } else if sr.modf().bit_is_set() {
+                    } else if sr.modf().is_fault() {
                         nb::Error::Other(Error::ModeFault)
-                    } else if sr.crce().bit_is_set() {
+                    } else if sr.crce().is_error() {
                         nb::Error::Other(Error::Crc)
-                    } else if sr.txp().bit_is_set() {
+                    } else if sr.txp().is_not_full() {
                         // NOTE(write_volatile) see note above
                         unsafe {
                             ptr::write_volatile(
@@ -458,7 +459,7 @@ macro_rules! spi {
                         }
                         // write CSTART to start a transaction in
                         // master mode
-                        self.spi.cr1.modify(|_, w| w.cstart().set_bit());
+                        self.spi.cr1.modify(|_, w| w.cstart().started());
 
                         return Ok(());
                     } else {
