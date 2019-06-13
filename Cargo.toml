@@ -1,41 +1,53 @@
 [package]
 name = "stm32h7xx-hal"
 version = "0.1.0"
-authors = ["Andrew Straw <strawman@astraw.com>"]
+authors = ["Andrew Straw <strawman@astraw.com>",
+           "Richard Meadows <richard@richard.fish>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Peripheral access API for STM32H7 series microcontrollers"
-keywords = ["arm", "cortex-m", "stm32h7xx", "hal"]
+keywords = ["arm", "cortex-m", "stm32h7xx", "hal", "embedded-hal"]
 license = "0BSD"
 repository = "https://github.com/stm32-rs/stm32h7xx-hal"
 documentation = "https://docs.rs/stm32h7xx-hal"
 readme = "README.md"
 
 [package.metadata.docs.rs]
-features = ["stm32h7x3", "rt"]
+features = ["stm32h743", "rt"]
 
 [dependencies]
-cortex-m = "0.5.8"
-cortex-m-rt = "0.6.7"
-nb = "0.1.1"
-stm32h7 = "0.7.1"
 embedded-hal = "0.2.3"
-
+cortex-m = "^0.6.0"
+cortex-m-rt = "0.6.8"
+stm32h7 = { path = "/your/path/here/stm32-rs/stm32h7" }
+void = { version = "1.0.2", default-features = false }
+cast = { version = "0.2.2", default-features = false }
+nb = "0.1.2"
 [dependencies.bare-metal]
 version = "0.2.4"
 features = ["const-fn"]
 
-[dependencies.cast]
-default-features = false
-version = "0.2.2"
-
-[dependencies.void]
-default-features = false
-version = "1.0.2"
+[dev-dependencies]
+panic-itm = "~0.4.1"
+cortex-m-log = { version = "~0.6", features = ["itm"] }
 
 [features]
 default = ["unproven"]
+unproven = ["embedded-hal/unproven"]
 device-selected = []
 rt = ["stm32h7/rt"]
-stm32h7x3 = ["stm32h7/stm32h7x3", "device-selected"]
-unproven = ["embedded-hal/unproven"]
+stm32h742 = ["stm32h7/stm32h7x3", "device-selected"]
+stm32h743 = ["stm32h7/stm32h7x3", "device-selected"]
+stm32h753 = ["stm32h7/stm32h7x3", "device-selected"]
+stm32h750 = ["stm32h7/stm32h7x3", "device-selected"]
+
+[profile.dev]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size in flash
+incremental = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size in flash
+lto = true # better optimizations
+opt-level = "s" # optimize for binary size
