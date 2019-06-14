@@ -2,7 +2,8 @@
 name = "stm32h7xx-hal"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
-           "Richard Meadows <richard@richard.fish>"]
+           "Richard Meadows <richard@richard.fish>",
+           "Henrik Böving <hargonix@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Peripheral access API for STM32H7 series microcontrollers"

@@ -77,6 +77,8 @@ pub struct Ccdr {
     pub apb1: APB1,
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
+    /// Advanced Peripheral Bus 3 (APB3) registers
+    pub apb3: APB3,
     /// Advanced Peripheral Bus 4 (APB4) registers
     pub apb4: APB4,
     // Yes, it lives (locally)! We retain the right to switch most
@@ -161,6 +163,25 @@ impl APB2 {
     pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb2rstr }
+    }
+}
+
+/// Advanced Peripheral Bus 3 (APB3) peripheral registers
+pub struct APB3 {
+    _0: (),
+}
+
+impl APB3 {
+    #[allow(unused)]
+    pub(crate) fn enr(&mut self) -> &rcc::APB3ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb3enr }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn rstr(&mut self) -> &rcc::APB3RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb3rstr }
     }
 }
 
@@ -289,8 +310,8 @@ macro_rules! ppre_calculate {
                 0 => unreachable!(),
                 1 => (0b000, 1 as u8),
                 2 => (0b100, 2),
-                3...5 => (0b101, 4),
-                6...11 => (0b110, 8),
+                3..=5 => (0b101, 4),
+                6..=11 => (0b110, 8),
                 _ => (0b111, 16),
             };
 
@@ -412,29 +433,29 @@ impl Rcc {
         let (wait_states, progr_delay) = match vos {
             // VOS 1 range VCORE 1.15V - 1.26V
             Voltage::Scale0 | Voltage::Scale1 => match rcc_aclk_mhz {
-                0...69 => (0, 0),
-                70...139 => (1, 1),
-                140...184 => (2, 1),
-                185...209 => (2, 2),
-                210...224 => (3, 2),
+                0..=69 => (0, 0),
+                70..=139 => (1, 1),
+                140..=184 => (2, 1),
+                185..=209 => (2, 2),
+                210..=224 => (3, 2),
                 _ => (7, 3),
             },
             // VOS 2 range VCORE 1.05V - 1.15V
             Voltage::Scale2 => match rcc_aclk_mhz {
-                0...54 => (0, 0),
-                55...109 => (1, 1),
-                110...164 => (2, 1),
-                165...224 => (3, 2),
+                0..=54 => (0, 0),
+                55..=109 => (1, 1),
+                110..=164 => (2, 1),
+                165..=224 => (3, 2),
                 225 => (4, 2),
                 _ => (7, 3),
             },
             // VOS 3 range VCORE 0.95V - 1.05V
             Voltage::Scale3 => match rcc_aclk_mhz {
-                0...44 => (0, 0),
-                45...89 => (1, 1),
-                90...134 => (2, 1),
-                135...179 => (3, 2),
-                180...224 => (4, 2),
+                0..=44 => (0, 0),
+                45..=89 => (1, 1),
+                90..=134 => (2, 1),
+                135..=179 => (3, 2),
+                180..=224 => (4, 2),
                 _ => (7, 3),
             },
             _ => (7, 3),
@@ -515,12 +536,12 @@ impl Rcc {
                 0 => unreachable!(),
                 1 => (HPREW::DIV1, 1),
                 2 => (HPREW::DIV2, 2),
-                3...5 => (HPREW::DIV4, 4),
-                6...11 => (HPREW::DIV8, 8),
-                12...39 => (HPREW::DIV16, 16),
-                40...95 => (HPREW::DIV64, 64),
-                96...191 => (HPREW::DIV128, 128),
-                192...383 => (HPREW::DIV256, 256),
+                3..=5 => (HPREW::DIV4, 4),
+                6..=11 => (HPREW::DIV8, 8),
+                12..=39 => (HPREW::DIV16, 16),
+                40..=95 => (HPREW::DIV64, 64),
+                96..=191 => (HPREW::DIV128, 128),
+                192..=383 => (HPREW::DIV256, 256),
                 _ => (HPREW::DIV512, 512),
             };
 
@@ -621,6 +642,7 @@ impl Rcc {
             ahb4: AHB4 { _0: () },
             apb1: APB1 { _0: () },
             apb2: APB2 { _0: () },
+            apb3: APB3 { _0: () },
             apb4: APB4 { _0: () },
             clocks: CoreClocks {
                 hclk: Hertz(rcc_hclk),
