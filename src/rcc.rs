@@ -492,14 +492,12 @@ impl Rcc {
         let csi = CSI;
 
         // per_ck from HSI by default
-        let (per_ck, ckpersel) = match (
-            self.config.per_ck == self.config.hse,
-            self.config.per_ck,
-        ) {
-            (true, Some(hse)) => (hse, CKPERSELW::HSE), // HSE
-            (_, Some(CSI)) => (csi, CKPERSELW::CSI),    // CSI
-            _ => (hsi, CKPERSELW::HSI),                 // HSI
-        };
+        let (per_ck, ckpersel) =
+            match (self.config.per_ck == self.config.hse, self.config.per_ck) {
+                (true, Some(hse)) => (hse, CKPERSELW::HSE), // HSE
+                (_, Some(CSI)) => (csi, CKPERSELW::CSI),    // CSI
+                _ => (hsi, CKPERSELW::HSI),                 // HSI
+            };
 
         // D1 Core Prescaler
         // Set to 1
@@ -568,9 +566,7 @@ impl Rcc {
         let hse_ck = match self.config.hse {
             Some(hse) => {
                 // Ensure HSE is on and stable
-                rcc.cr.modify(|_, w| {
-                    w.hseon().on().hsebyp().not_bypassed()
-                });
+                rcc.cr.modify(|_, w| w.hseon().on().hsebyp().not_bypassed());
                 while rcc.cr.read().hserdy().is_not_ready() {}
 
                 Some(Hertz(hse))
@@ -616,12 +612,11 @@ impl Rcc {
         rcc.d1ccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
 
         // Select system clock source
-        let swbits =
-            match (pll1_p_ck.is_some(), self.config.hse.is_some()) {
-                (true, _) => SWW::PLL1 as u8,
-                (false, true) => SWW::HSE as u8,
-                _ => SWW::HSI as u8,
-            };
+        let swbits = match (pll1_p_ck.is_some(), self.config.hse.is_some()) {
+            (true, _) => SWW::PLL1 as u8,
+            (false, true) => SWW::HSE as u8,
+            _ => SWW::HSI as u8,
+        };
         rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(swbits) });
         while rcc.cfgr.read().sws().bits() != swbits {}
 

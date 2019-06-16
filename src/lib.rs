@@ -44,6 +44,8 @@ pub mod flash;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 #[cfg(feature = "device-selected")]
+pub mod i2c;
+#[cfg(feature = "device-selected")]
 pub mod prelude;
 #[cfg(feature = "device-selected")]
 pub mod pwr;
@@ -59,7 +61,5 @@ pub mod spi;
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
-#[cfg(feature = "device-selected")]
-pub mod i2c;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;

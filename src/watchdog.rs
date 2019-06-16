@@ -1,10 +1,10 @@
 //! System Window Watchdog implementation
 
-use crate::rcc::Ccdr;
-use crate::time::Hertz;
-use cast::u8;
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
-use stm32h7::stm32h7x3::WWDG;
+use crate::rcc::Ccdr;
+use crate::stm32::WWDG;
+use crate::time::{Hertz, MilliSeconds};
+use cast::u8;
 
 /// Implements the System Window Watchdog
 pub struct SystemWindowWatchdog {
@@ -38,39 +38,39 @@ impl Watchdog for SystemWindowWatchdog {
 }
 
 impl WatchdogEnable for SystemWindowWatchdog {
-    type Time = u32;
+    type Time = MilliSeconds;
     /// Starts the watchdog with a given timeout period, if this period is out of bounds the function
     /// is going to panic
     fn start<T>(&mut self, period: T)
     where
         T: Into<Self::Time>,
     {
-        let period = period.into();
+        let period_ms = period.into().0;
         let maximum =
             (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.0 / 1000);
-        assert!(period <= maximum);
+        assert!(period_ms <= maximum);
 
-        // cant approximate this at compile time as the apb clock frequency is not known at compile time
-        // TODO: find a better way for this
-        let mut best_config: (u32, u32) = (0, 0);
-        let mut closest: u32 = 33334;
-        for wdgtb in 0..8 {
-            for t in 1..64 {
-                // timeout = pclk * 4096 * 2^WDGTB[2:0] * (t[5:0] +1)
-                let current_timeout = (4096 * (1 << wdgtb) * (t + 1))
-                    / (self.pclk3_frequency.0 / 1000);
-                if period > current_timeout {
-                    let difference = period - current_timeout;
-                    if difference < closest {
-                        closest = difference;
-                        best_config = (wdgtb, t);
-                    }
-                }
-            }
-        }
 
-        let wdgtb = u8(best_config.0).unwrap();
-        self.down_counter = u8(best_config.1).unwrap() | (1 << 6);
+        // timeout = pclk * 4096 * 2^WDGTB[2:0] * (t[5:0] +1)
+        let ratio = period_ms * (self.pclk3_frequency.0 / 1000) / 4096;
+
+        // Prescaler
+        let (tb_div, wdgtb) = match ratio / 64 {
+            0 => (1, 0),
+            1 => (2, 1),
+            2..=3 => (4, 2),
+            4..=7 => (8, 3),
+            8..=15 => (16, 4),
+            16..=31 => (32, 5),
+            32..=63 => (64, 6),
+            64..=127 => (128, 7),
+            _ => (128, 7),
+        };
+
+        let t = ratio / tb_div;
+        assert!(t < 64);
+
+        self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
         self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));

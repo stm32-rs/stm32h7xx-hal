@@ -6,13 +6,12 @@ use crate::gpio::gpioc::PC9;
 use crate::gpio::gpiod::{PD12, PD13};
 use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
 use crate::gpio::gpioh::{PH11, PH12, PH4, PH5, PH7, PH8};
-use crate::gpio::{Alternate, AF4};
+use crate::gpio::{Alternate, AF4, AF6};
+use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::Ccdr;
-use crate::time::Hertz;
-use crate::hal::blocking::i2c::{Write, WriteRead, Read};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
-use cast::{u8, u16};
-
+use crate::time::Hertz;
+use cast::{u16, u8};
 
 /// I2C error
 #[derive(Debug)]
@@ -81,9 +80,9 @@ macro_rules! i2c {
 
                     assert!(freq <= 1_000_000);
 
-                    let i2cclk = ccdr.clocks.$pclkX().0;    
+                    let i2cclk = ccdr.clocks.$pclkX().0;
 
-                    // Refer to figure 539 for this:
+                    // Refer to RM0433 Rev 6 - Figure 539 for this:
                     // Clear PE bit in I2C_CR1
                     unsafe { &(*I2C1::ptr()).cr1.modify(|_, w| w.pe().clear_bit())};
 
@@ -146,7 +145,7 @@ macro_rules! i2c {
                     let scll = u8(scll).unwrap();
 
                     // Configure for "fast mode" (400 KHz)
-                    i2c.timingr.write(|w| 
+                    i2c.timingr.write(|w|
                         w.presc()
                             .bits(presc)
                             .scll()
@@ -165,7 +164,7 @@ macro_rules! i2c {
                     I2c { i2c, pins}
 
                 }
-                
+
                 /// Releases the I2C peripheral and associated pins
                 pub fn free(self) -> ($I2CX, (SCL, SDA)) {
                     (self.i2c, self.pins)
@@ -245,7 +244,7 @@ macro_rules! i2c {
                         // put byte on the wire
                         busy_wait!(self.i2c, txis);
                         self.i2c.txdr.write(|w| w.txdata().bits(*byte));
-                        
+
                     }
 
                     // Wait until the last transmission is finished
@@ -337,7 +336,7 @@ macro_rules! pins {
 }
 
 pins! {
-    I2C1: 
+    I2C1:
         SCL: [
             PB6<Alternate<AF4>>,
             PB8<Alternate<AF4>>
@@ -347,7 +346,7 @@ pins! {
             PB7<Alternate<AF4>>,
             PB9<Alternate<AF4>>
         ]
-    
+
     I2C2:
         SCL: [
             PB10<Alternate<AF4>>,
@@ -371,25 +370,31 @@ pins! {
             PC9<Alternate<AF4>>,
             PH8<Alternate<AF4>>
         ]
-    
+
     I2C4:
         SCL: [
             PD12<Alternate<AF4>>,
             PF14<Alternate<AF4>>,
             PH11<Alternate<AF4>>,
-            PB6<Alternate<AF4>>,
-            PB8<Alternate<AF4>>
+            PB6<Alternate<AF6>>,
+            PB8<Alternate<AF6>>
         ]
 
         SDA: [
-            PB7<Alternate<AF4>>,
-            PB9<Alternate<AF4>>,
+            PB7<Alternate<AF6>>,
+            PB9<Alternate<AF6>>,
             PD13<Alternate<AF4>>,
             PF15<Alternate<AF4>>,
             PH12<Alternate<AF4>>
         ]
 }
 
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750"
+))]
 i2c!(
     I2C1: (i2c1, i2c1en, i2c1rst, apb1lenr, apb1lrstr, pclk1),
     I2C2: (i2c2, i2c2en, i2c2rst, apb1lenr, apb1lrstr, pclk1),

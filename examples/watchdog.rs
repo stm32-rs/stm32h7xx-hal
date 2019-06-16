@@ -3,11 +3,7 @@
 
 extern crate panic_itm;
 
-use stm32h7xx_hal::{
-    prelude::*,
-    pac,
-    watchdog::SystemWindowWatchdog,
-};
+use stm32h7xx_hal::{pac, prelude::*, watchdog::SystemWindowWatchdog};
 
 use cortex_m_rt::entry;
 
@@ -15,7 +11,6 @@ use cortex_m_log::println;
 use cortex_m_log::{
     destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
 };
-
 
 #[entry]
 fn main() -> ! {
@@ -33,10 +28,7 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc.sys_ck(96.mhz()).freeze(vos, &dp.SYSCFG);
 
-    let mut watchdog = SystemWindowWatchdog::new(
-        dp.WWDG,
-        &ccdr
-    );
+    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG, &ccdr);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - Watchdog");
@@ -48,8 +40,7 @@ fn main() -> ! {
 
     // Enable the watchdog with a limit of 100 ms and wait forever
     // -> restart the chip
-    watchdog.start(100u32);
+    watchdog.start(100.ms());
 
     loop {}
-
 }
