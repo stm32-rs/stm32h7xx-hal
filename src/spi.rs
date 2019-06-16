@@ -276,13 +276,13 @@ macro_rules! spi {
                     };
                     let mbr = match spi_ker_ck / spi_freq {
                         0 => unreachable!(),
-                        1...2 => MBRW::DIV2,
-                        3...5 => MBRW::DIV4,
-                        6...11 => MBRW::DIV8,
-                        12...23 => MBRW::DIV16,
-                        24...47 => MBRW::DIV32,
-                        48...95 => MBRW::DIV64,
-                        96...191 => MBRW::DIV128,
+                        1..=2 => MBRW::DIV2,
+                        3..=5 => MBRW::DIV4,
+                        6..=11 => MBRW::DIV8,
+                        12..=23 => MBRW::DIV16,
+                        24..=47 => MBRW::DIV32,
+                        48..=95 => MBRW::DIV64,
+                        96..=191 => MBRW::DIV128,
                         _ => MBRW::DIV256,
                     };
                     spi.cfg1.modify(|_, w| {

@@ -726,8 +726,7 @@ where
     Tx<USART>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ =
-            s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
+        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
         Ok(())
     }
 }
