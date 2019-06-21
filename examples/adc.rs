@@ -19,7 +19,6 @@ use cortex_m_log::println;
 use cortex_m_log::{
     destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
 };
-use cortex_m_semihosting::hprintln;
 
 #[entry]
 fn main() -> ! {
@@ -59,6 +58,5 @@ fn main() -> ! {
         let data: u32 = adc1.read(&mut channel).unwrap();
         // voltage = reading * (vref/resolution)
         println!(log, "ADC reading: {}, voltage for nucleo: {}", data, data as f32 * (3.3/65535.0));
-        hprintln!( "ADC reading: {}, voltage for nucleo: {}", data, data as f32 * (3.3/65535.0)).unwrap();
     }
 }
