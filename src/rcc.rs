@@ -71,6 +71,8 @@ pub struct Ccdr {
     pub clocks: CoreClocks,
     /// AMBA High-performance Bus (AHB1) registers
     pub ahb1: AHB1,
+    /// AMBA High-performance Bus (AHB2) registers
+    pub ahb2: AHB2,
     /// AMBA High-performance Bus (AHB3) registers
     pub ahb3: AHB3,
     /// AMBA High-performance Bus (AHB4) registers
@@ -111,8 +113,27 @@ impl AHB1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb1rstr }
     }
-
 }
+
+/// AMBA High-performance Bus (AHB) peripheral registers
+pub struct AHB2 {
+    _0: (),
+}
+
+impl AHB2 {
+    #[allow(unused)]
+    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2enr }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2rstr }
+    }
+}
+
 /// AMBA High-performance Bus (AHB) peripheral registers
 pub struct AHB3 {
     _0: (),
@@ -234,12 +255,13 @@ pub struct D3CCIPR {
 
 impl D3CCIPR {
     pub(crate) fn kernel_ccip(&mut self) -> &rcc::D3CCIPR {
-        unsafe {&(*RCC::ptr()).d3ccipr}
+        unsafe { &(*RCC::ptr()).d3ccipr }
     }
 }
 
 const HSI: u32 = 64_000_000; // Hz
 const CSI: u32 = 4_000_000; // Hz
+const HSI48: u32 = 48_000_000; // Hz
 
 /// Configuration of the core clocks
 pub struct Config {
@@ -522,8 +544,8 @@ impl Rcc {
         assert!(rcc.cr.read().hsion().is_on());
         assert!(rcc.cr.read().hsidiv().is_div1());
 
-        // csi_ck = CSI.
         let csi = CSI;
+        let hsi48 = HSI48;
 
         // per_ck from HSI by default
         let (per_ck, ckpersel) =
@@ -595,6 +617,10 @@ impl Rcc {
         // Ensure CSI is on and stable
         rcc.cr.modify(|_, w| w.csion().on());
         while rcc.cr.read().csirdy().is_not_ready() {}
+
+        // Ensure HSI48 is on and stable
+        rcc.cr.modify(|_, w| w.hsi48on().on());
+        while rcc.cr.read().hsi48rdy().is_not_ready() {}
 
         // HSE
         let hse_ck = match self.config.hse {
@@ -668,6 +694,7 @@ impl Rcc {
         // Return frozen clock configuration
         Ccdr {
             ahb1: AHB1 { _0: () },
+            ahb2: AHB2 { _0: () },
             ahb3: AHB3 { _0: () },
             ahb4: AHB4 { _0: () },
             apb1: APB1 { _0: () },
@@ -686,6 +713,7 @@ impl Rcc {
                 ppre4,
                 csi_ck: Some(Hertz(csi)),
                 hsi_ck: Some(Hertz(hsi)),
+                hsi48_ck: Some(Hertz(hsi48)),
                 per_ck: Some(Hertz(per_ck)),
                 hse_ck,
                 pll1_p_ck,
@@ -723,6 +751,7 @@ pub struct CoreClocks {
     ppre4: u8,
     csi_ck: Option<Hertz>,
     hsi_ck: Option<Hertz>,
+    hsi48_ck: Option<Hertz>,
     per_ck: Option<Hertz>,
     hse_ck: Option<Hertz>,
     pll1_p_ck: Option<Hertz>,
@@ -799,6 +828,7 @@ impl CoreClocks {
     optional_ck_getter! {
         csi_ck,
         hsi_ck,
+        hsi48_ck,
         per_ck,
         hse_ck,
     }

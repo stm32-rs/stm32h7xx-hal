@@ -54,6 +54,8 @@ pub mod qei;
 #[cfg(feature = "device-selected")]
 pub mod rcc;
 #[cfg(feature = "device-selected")]
+pub mod rng;
+#[cfg(feature = "device-selected")]
 pub mod serial;
 #[cfg(feature = "device-selected")]
 pub mod spi;
