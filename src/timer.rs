@@ -4,14 +4,103 @@
 // TIM1 is 16 bit.
 
 use crate::hal::timer::{CountDown, Periodic};
-use crate::stm32::{TIM1, TIM2};
+use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
+use crate::stm32::{
+    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
+    TIM6, TIM7, TIM8,
+};
 
 use cast::{u16, u32};
 use nb;
 use void::Void;
 
+use crate::rcc::Ccdr;
 use crate::rcc::{CoreClocks, APB1, APB2};
+use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
+
+/// Associate clocks with timers
+pub trait GetClk {
+    fn get_clk(ccdr: &Ccdr) -> Option<Hertz>;
+}
+
+/// Timers with CK_INT derived from rcc_tim[xy]_ker_ck
+macro_rules! impl_tim_ker_ck {
+    ($($ckX:ident: $($TIMX:ident),+)+) => {
+        $(
+            $(
+                impl GetClk for $TIMX {
+                    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
+                        Some(ccdr.clocks.$ckX())
+                    }
+                }
+            )+
+        )+
+    }
+}
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750"
+))]
+impl_tim_ker_ck! {
+    timx_ker_ck: TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM12, TIM13, TIM14
+    timy_ker_ck: TIM1, TIM8, TIM15, TIM16, TIM17
+}
+
+/// LPTIM1 Kernel Clock
+impl GetClk for LPTIM1 {
+    /// Current kernel clock
+    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
+        match ccdr.rb.d2ccip2r.read().lptim1sel() {
+            d2ccip2r::LPTIM1SELR::RCC_PCLK1 => Some(ccdr.clocks.pclk1()),
+            d2ccip2r::LPTIM1SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
+            d2ccip2r::LPTIM1SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
+            d2ccip2r::LPTIM1SELR::LSE => unimplemented!(),
+            d2ccip2r::LPTIM1SELR::LSI => unimplemented!(),
+            d2ccip2r::LPTIM1SELR::PER => ccdr.clocks.per_ck(),
+            _ => unreachable!(),
+        }
+    }
+}
+/// LPTIM2 Kernel Clock
+impl GetClk for LPTIM2 {
+    /// Current kernel clock
+    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
+        match ccdr.rb.d3ccipr.read().lptim2sel() {
+            d3ccipr::LPTIM2SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),
+            d3ccipr::LPTIM2SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
+            d3ccipr::LPTIM2SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
+            d3ccipr::LPTIM2SELR::LSE => unimplemented!(),
+            d3ccipr::LPTIM2SELR::LSI => unimplemented!(),
+            d3ccipr::LPTIM2SELR::PER => ccdr.clocks.per_ck(),
+            _ => unreachable!(),
+        }
+    }
+}
+/// LPTIM345 Kernel Clock
+macro_rules! impl_clk_lptim345 {
+	($($TIMX:ident),+) => {
+	    $(
+            impl GetClk for $TIMX {
+                /// Current kernel clock
+                fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
+                    match ccdr.rb.d3ccipr.read().lptim345sel() {
+                        d3ccipr::LPTIM345SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),
+                        d3ccipr::LPTIM345SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
+                        d3ccipr::LPTIM345SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
+                        d3ccipr::LPTIM345SELR::LSE => unimplemented!(),
+                        d3ccipr::LPTIM345SELR::LSI => unimplemented!(),
+                        d3ccipr::LPTIM345SELR::PER => ccdr.clocks.per_ck(),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        )+
+    }
+}
+impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
 /// Hardware timers
 pub struct Timer<TIM> {
@@ -84,15 +173,16 @@ macro_rules! hal {
                     timer
                 }
 
-                // #[allow(unused_unsafe)]
                 pub fn set_freq<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
                 {
                     self.timeout = timeout.into();
 
+                    let clk = $TIMX::get_clk(&ccdr)
+                        .expect("Timer input clock not running!").0;
                     let frequency = self.timeout.0;
-                    let ticks = self.clocks.pclk1().0 / frequency;
+                    let ticks = clk / frequency;
 
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
