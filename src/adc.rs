@@ -503,7 +503,7 @@ macro_rules! adc_hal {
                 fn enable_clock(&mut self, ahb: &mut $AHB, d3ccipr: &mut D3CCIPR) {
                     // Set per_ck as adc clock, TODO: we might want to change this so we can also
                     // use other clocks as input for this
-                    d3ccipr.constrain().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
+                    d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
                     ahb.enr().modify(|_, w| w.$adcxen().set_bit());
                 }
 

@@ -233,7 +233,7 @@ pub struct D3CCIPR {
 }
 
 impl D3CCIPR {
-    pub(crate) fn constrain(&mut self) -> &rcc::D3CCIPR {
+    pub(crate) fn kernel_ccip(&mut self) -> &rcc::D3CCIPR {
         unsafe {&(*RCC::ptr()).d3ccipr}
     }
 }
