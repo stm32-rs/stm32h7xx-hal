@@ -13,10 +13,12 @@ use crate::delay::Delay;
 use crate::rcc::Ccdr;
 use crate::rcc::{AHB1, AHB4, D3CCIPR};
 
+pub type Resolution = crate::stm32::adc3::cfgr::RESR;
+
 pub struct Adc<ADC> {
     rb: ADC,
     sample_time: AdcSampleTime,
-    resolution: AdcSampleResolution,
+    resolution: Resolution,
     lshift: AdcLshift,
 }
 
@@ -64,50 +66,6 @@ impl From<AdcSampleTime> for u8 {
             AdcSampleTime::T_64 => 0b101,
             AdcSampleTime::T_387 => 0b110,
             AdcSampleTime::T_810 => 0b111,
-        }
-    }
-}
-
-/// ADC sampling resolution
-///
-/// Options for sampling resolution
-//
-// Refer to RM0433 Rev 6 - Chapter 24.2
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum AdcSampleResolution {
-    /// 16 bit resulution
-    B_16,
-    /// 14 bit resolution
-    B_14,
-    /// 12 bit resolution
-    B_12,
-    /// 10 bit resolution
-    B_10,
-    /// 8 bit resolution
-    B_8,
-}
-
-impl AdcSampleResolution {
-    pub fn default() -> Self {
-        AdcSampleResolution::B_16
-    }
-}
-
-// Refer to RM0433 Rev 6 - Chapter 24.4.27 (Table 205)
-impl From<AdcSampleResolution> for u8 {
-    fn from(val: AdcSampleResolution) -> u8 {
-        match val {
-            AdcSampleResolution::B_16 => 0b000,
-            AdcSampleResolution::B_14 => 0b001,
-            AdcSampleResolution::B_12 => 0b010,
-            AdcSampleResolution::B_10 => 0b011,
-            // Revision model Y
-            #[cfg(not(feature = "rev_v"))]
-            AdcSampleResolution::B_8 => 0b100,
-            // Revision model V
-            #[cfg(feature = "rev_v")]
-            AdcSampleResolution::B_8 => 0b111,
         }
     }
 }
@@ -255,7 +213,7 @@ adc_pins!(ADC3,
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct StoredConfig(AdcSampleTime, AdcSampleResolution, AdcLshift);
+pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
 #[allow(unused_macros)]
 macro_rules! adc_hal {
@@ -278,7 +236,7 @@ macro_rules! adc_hal {
                     let mut s = Self {
                         rb: adc,
                         sample_time: AdcSampleTime::default(),
-                        resolution: AdcSampleResolution::default(),
+                        resolution: Resolution::SIXTEENBIT,
                         lshift: AdcLshift::default(),
                     };
                     s.enable_clock(&mut ccdr.$ahb, &mut ccdr.d3ccipr);
@@ -309,7 +267,7 @@ macro_rules! adc_hal {
                 pub fn default_cfg(&mut self) -> StoredConfig {
                     let cfg = self.save_cfg();
                     self.set_sample_time(AdcSampleTime::default());
-                    self.set_resolution(AdcSampleResolution::default());
+                    self.set_resolution(Resolution::SIXTEENBIT);
                     self.set_lshift(AdcLshift::default());
                     cfg
                 }
@@ -320,7 +278,7 @@ macro_rules! adc_hal {
                 }
 
                 /// Get ADC sampling resolution
-                pub fn get_resolution(&self) -> AdcSampleResolution {
+                pub fn get_resolution(&self) -> Resolution {
                     self.resolution
                 }
 
@@ -337,9 +295,7 @@ macro_rules! adc_hal {
                 }
 
                 /// Set ADC sampling resolution
-                ///
-                /// Options can be found in [AdcSampleResolution](crate::adc::AdcSampleResolution)
-                pub fn set_resolution(&mut self, res: AdcSampleResolution) {
+                pub fn set_resolution(&mut self, res: Resolution) {
                     self.resolution = res;
                 }
 
@@ -352,7 +308,7 @@ macro_rules! adc_hal {
 
                 /// Returns the largest possible sample value for the current settings
                 pub fn max_sample(&self) -> u32 {
-                    ((1 << self.get_resolution() as u32) - 1) << self.get_lshift().value() as u32
+                    ((1 << self.get_resolution().bits() as u32) - 1) << self.get_lshift().value() as u32
                 }
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
@@ -594,7 +550,7 @@ macro_rules! adc_hal {
                     self.check_conversion_conditions();
 
                     // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().bits()) });
 
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));

@@ -1,7 +1,7 @@
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
-
+#![feature(type_alias_enum_variants)]
 
 extern crate panic_itm;
 
@@ -46,7 +46,7 @@ fn main() -> ! {
 
     // Setup ADC
     let mut adc1 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr);
-    adc1.set_resolution(adc::AdcSampleResolution::B_16);
+    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup GPIOB
     let gpioc = dp.GPIOC.split(&mut ccdr.ahb4);
