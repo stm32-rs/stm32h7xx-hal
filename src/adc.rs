@@ -1,15 +1,17 @@
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
 
-use crate::stm32::{ADC1, ADC2, ADC3};
+use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
 
-use crate::gpio::Analog;
+use crate::delay::Delay;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1};
 use crate::gpio::gpioc::{PC0, PC1, PC2, PC3, PC4, PC5};
-use crate::gpio::gpiof::{PF3, PF4, PF5, PF6, PF7, PF8, PF9, PF10, PF11, PF12, PF13, PF14};
+use crate::gpio::gpiof::{
+    PF10, PF11, PF12, PF13, PF14, PF3, PF4, PF5, PF6, PF7, PF8, PF9,
+};
 use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
-use crate::delay::Delay;
+use crate::gpio::Analog;
 use crate::rcc::Ccdr;
 use crate::rcc::{AHB1, AHB4, D3CCIPR};
 
@@ -33,7 +35,7 @@ impl NumberOfBits for Resolution {
             Resolution::TENBIT => 10,
             Resolution::TWELVEBIT => 12,
             Resolution::FOURTEENBIT => 14,
-            _ => 16, 
+            _ => 16,
         }
     }
 }
@@ -136,9 +138,9 @@ impl AdcCalLinear {
 }
 
 macro_rules! adc_pins {
-    ($ADC:ident, $($pin:ident => $chan:expr),+ $(,)*) => {
+    ($ADC:ident, $($input:ty => $chan:expr),+ $(,)*) => {
         $(
-            impl Channel<$ADC> for $pin<Analog> {
+            impl Channel<$ADC> for $input {
                 type ID = u8;
 
                 fn channel() -> u8 {
@@ -148,6 +150,42 @@ macro_rules! adc_pins {
         )+
     };
 }
+
+macro_rules! adc_internal {
+    ($($input:ty => ($chan:expr, $en:ident)),+ $(,)*) => {
+        $(
+            impl $input {
+                pub fn new() -> Self {
+                    Self {}
+                }
+
+                /// Enables the internal voltage/sensor
+                /// ADC must be disabled.
+                pub fn enable(&mut self) {
+                    let common = unsafe { &*ADC3_COMMON::ptr() };
+
+                    common.ccr.modify(|_, w| w.$en().enabled());
+                }
+                /// Disables the internal voltage/sdissor
+                /// ADC must be disabled.
+                pub fn disable(&mut self) {
+                    let common = unsafe { &*ADC3_COMMON::ptr() };
+
+                    common.ccr.modify(|_, w| w.$en().disabled());
+                }
+            }
+
+            adc_pins!(ADC3, $input => $chan);
+        )+
+    };
+}
+
+/// Vref internal signal
+pub struct Vrefint;
+/// Vbat internal signal
+pub struct Vbat;
+/// Internal temperature sensor
+pub struct Temperature;
 
 // Not implementing Pxy_C adc pins
 // Just implmenting INPx pins (INNx defaulting to V_ref-)
@@ -160,25 +198,25 @@ macro_rules! adc_pins {
     feature = "stm32h750"
 ))]
 adc_pins!(ADC1,
-    // No 0, 1
-    PF11 => 2,
-    PA6 => 3,
-    PC4 => 4,
-    PB1 => 5,
-    PF12 => 6,
-    PA7 => 7,
-    PC5 => 8,
-    PB0 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PC3 => 13,
-    PA2 => 14,
-    PA3 => 15,
-    PA0 => 16,
-    PA1 => 17,
-    PA4 => 18,
-    PA5 => 19,
+          // 0, 1 are Pxy_C pins
+          PF11<Analog> => 2,
+          PA6<Analog> => 3,
+          PC4<Analog> => 4,
+          PB1<Analog> => 5,
+          PF12<Analog> => 6,
+          PA7<Analog> => 7,
+          PC5<Analog> => 8,
+          PB0<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PC3<Analog> => 13,
+          PA2<Analog> => 14,
+          PA3<Analog> => 15,
+          PA0<Analog> => 16,
+          PA1<Analog> => 17,
+          PA4<Analog> => 18,
+          PA5<Analog> => 19,
 );
 
 #[cfg(any(
@@ -188,24 +226,24 @@ adc_pins!(ADC1,
     feature = "stm32h750"
 ))]
 adc_pins!(ADC2,
-    // No 0, 1
-    PF13 => 2,
-    PA6 => 3,
-    PC4 => 4,
-    PB1 => 5,
-    PF14 => 6,
-    PA7 => 7,
-    PC5 => 8,
-    PB0 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PC3 => 13,
-    PA2 => 14,
-    PA3 => 15,
-    // No 16, 17
-    PA4 => 18,
-    PA5 => 19,
+          // 0, 1 are Pxy_C pins
+          PF13<Analog> => 2,
+          PA6<Analog> => 3,
+          PC4<Analog> => 4,
+          PB1<Analog> => 5,
+          PF14<Analog> => 6,
+          PA7<Analog> => 7,
+          PC5<Analog> => 8,
+          PB0<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PC3<Analog> => 13,
+          PA2<Analog> => 14,
+          PA3<Analog> => 15,
+          // 16, 17 are dac_outX
+          PA4<Analog> => 18,
+          PA5<Analog> => 19,
 );
 
 #[cfg(any(
@@ -215,23 +253,33 @@ adc_pins!(ADC2,
     feature = "stm32h750"
 ))]
 adc_pins!(ADC3,
-    // No 0, 1
-    PF9 => 2,
-    PF7 => 3,
-    PF5 => 4,
-    PF3 => 5,
-    PF10 => 6,
-    PF8 => 7,
-    PF6 => 8,
-    PF4 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PH2 => 13,
-    PH3 => 14,
-    PH4 => 15,
-    PH5 => 16,
-    // No 17...19
+          // 0, 1 are Pxy_C pins
+          PF9<Analog> => 2,
+          PF7<Analog> => 3,
+          PF5<Analog> => 4,
+          PF3<Analog> => 5,
+          PF10<Analog> => 6,
+          PF8<Analog> => 7,
+          PF6<Analog> => 8,
+          PF4<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PH2<Analog> => 13,
+          PH3<Analog> => 14,
+          PH4<Analog> => 15,
+          PH5<Analog> => 16,
+);
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750"
+))]
+adc_internal!(
+          Vbat => (17, vbaten),
+          Temperature => (18, vsenseen),
+          Vrefint => (19, vrefen)
 );
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
@@ -251,7 +299,11 @@ impl Adc<ADC1> {
             lshift: AdcLshift::default(),
         };
         let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
-        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.enable_clock(
+            &mut ccdr.ahb1,
+            &mut ccdr.d3ccipr,
+            ccdr.clocks.per_ck().unwrap().0,
+        );
         s.power_down();
         if !adc12en {
             s.reset(&mut ccdr.ahb1);
@@ -281,7 +333,11 @@ impl Adc<ADC2> {
         };
 
         let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
-        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.enable_clock(
+            &mut ccdr.ahb1,
+            &mut ccdr.d3ccipr,
+            ccdr.clocks.per_ck().unwrap().0,
+        );
         s.power_down();
         if !adc12en {
             s.reset(&mut ccdr.ahb1);
@@ -310,7 +366,11 @@ impl Adc<ADC3> {
             lshift: AdcLshift::default(),
         };
 
-        s.enable_clock(&mut ccdr.ahb4, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.enable_clock(
+            &mut ccdr.ahb4,
+            &mut ccdr.d3ccipr,
+            ccdr.clocks.per_ck().unwrap().0,
+        );
         s.power_down();
         s.reset(&mut ccdr.ahb4);
         s.power_up(delay);
@@ -331,7 +391,8 @@ macro_rules! adc_hal {
             $adcxen:ident,
             $adcxrst:ident,
             $AHB:ident,
-            $ahb:ident
+            $ahb:ident,
+            $COMMON:ident
         )
     ),+ $(,)*) => {
         $(
@@ -547,6 +608,7 @@ macro_rules! adc_hal {
                     // use other clocks as input for this
                     assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
                     d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
+
                     ahb.enr().modify(|_, w| w.$adcxen().set_bit());
                 }
 
@@ -585,7 +647,7 @@ macro_rules! adc_hal {
                     // Refer to RM0433 Rev 6 - Chapters 24.4.15, 24.4.19
                     self.rb.cfgr.modify(|_, w|
                         w.cont().clear_bit()
-                            .exten().bits(0b00)
+                            .exten().disabled()
                             .discen().set_bit()
                     );
 
@@ -699,22 +761,7 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (
-        adc12en,
-        adc12rst,
-        AHB1,
-        ahb1
-    ),
-    ADC2: (
-        adc12en,
-        adc12rst,
-        AHB1,
-        ahb1
-    ),
-    ADC3: (
-        adc3en,
-        adc3rst,
-        AHB4,
-        ahb4
-    ),
+    ADC1: (adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
+    ADC2: (adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
+    ADC3: (adc3en, adc3rst, AHB4, ahb4, ADC3_COMMON),
 );
