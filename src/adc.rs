@@ -13,7 +13,30 @@ use crate::delay::Delay;
 use crate::rcc::Ccdr;
 use crate::rcc::{AHB1, AHB4, D3CCIPR};
 
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750"
+))]
+const ADC_KER_CK_MAX: u32 = 36_000_000;
+
 pub type Resolution = crate::stm32::adc3::cfgr::RESR;
+trait NumberOfBits {
+    fn number_of_bits(&self) -> u32;
+}
+
+impl NumberOfBits for Resolution {
+    fn number_of_bits(&self) -> u32 {
+        match *self {
+            Resolution::EIGHTBIT => 8,
+            Resolution::TENBIT => 10,
+            Resolution::TWELVEBIT => 12,
+            Resolution::FOURTEENBIT => 14,
+            _ => 16, 
+        }
+    }
+}
 
 pub struct Adc<ADC> {
     rb: ADC,
@@ -215,11 +238,95 @@ adc_pins!(ADC3,
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
+impl Adc<ADC1> {
+    /// Init Adc 1
+    ///
+    /// Sets all configurable parameters to one-shot defaults,
+    /// performs a boot-time calibration.
+    pub fn adc1(adc: ADC1, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
+        let mut s = Self {
+            rb: adc,
+            sample_time: AdcSampleTime::default(),
+            resolution: Resolution::SIXTEENBIT,
+            lshift: AdcLshift::default(),
+        };
+
+        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.power_down();
+        if ccdr.ahb1.enr().read().adc12en().bit_is_clear() {
+            s.reset(&mut ccdr.ahb1);
+        }
+        s.power_up(delay);
+        s.disable();
+        s.preconfigure();
+        s.calibrate();
+        s.enable();
+        s.configure();
+
+        s
+    }
+}
+
+impl Adc<ADC2> {
+    /// Init Adc 2
+    ///
+    /// Sets all configurable parameters to one-shot defaults,
+    /// performs a boot-time calibration.
+    pub fn adc2(adc: ADC2, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
+        let mut s = Self {
+            rb: adc,
+            sample_time: AdcSampleTime::default(),
+            resolution: Resolution::SIXTEENBIT,
+            lshift: AdcLshift::default(),
+        };
+
+        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.power_down();
+        if ccdr.ahb1.enr().read().adc12en().bit_is_clear() {
+            s.reset(&mut ccdr.ahb1);
+        }
+        s.power_up(delay);
+        s.disable();
+        s.preconfigure();
+        s.calibrate();
+        s.enable();
+        s.configure();
+
+        s
+    }
+}
+
+impl Adc<ADC3> {
+    /// Init Adc 3
+    ///
+    /// Sets all configurable parameters to one-shot defaults,
+    /// performs a boot-time calibration.
+    pub fn adc3(adc: ADC3, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
+        let mut s = Self {
+            rb: adc,
+            sample_time: AdcSampleTime::default(),
+            resolution: Resolution::SIXTEENBIT,
+            lshift: AdcLshift::default(),
+        };
+
+        s.enable_clock(&mut ccdr.ahb4, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
+        s.power_down();
+        s.reset(&mut ccdr.ahb4);
+        s.power_up(delay);
+        s.disable();
+        s.preconfigure();
+        s.calibrate();
+        s.enable();
+        s.configure();
+
+        s
+    }
+}
+
 #[allow(unused_macros)]
 macro_rules! adc_hal {
     ($(
         $ADC:ident: (
-            $init:ident,
             $adcxen:ident,
             $adcxrst:ident,
             $AHB:ident,
@@ -228,29 +335,6 @@ macro_rules! adc_hal {
     ),+ $(,)*) => {
         $(
             impl Adc<$ADC> {
-                /// Init a new Adc
-                ///
-                /// Sets all configurable parameters to one-shot defaults,
-                /// performs a boot-time calibration.
-                pub fn $init(adc: $ADC, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
-                    let mut s = Self {
-                        rb: adc,
-                        sample_time: AdcSampleTime::default(),
-                        resolution: Resolution::SIXTEENBIT,
-                        lshift: AdcLshift::default(),
-                    };
-                    s.enable_clock(&mut ccdr.$ahb, &mut ccdr.d3ccipr);
-                    s.power_down();
-                    s.reset(&mut ccdr.$ahb);
-                    s.power_up(delay);
-                    s.disable();
-                    s.preconfigure();
-                    s.calibrate();
-                    s.enable();
-                    s.configure();
-                    s
-                }
-
                 /// Save current ADC config
                 pub fn save_cfg(&mut self) -> StoredConfig {
                     StoredConfig(self.get_sample_time(), self.get_resolution(), self.get_lshift())
@@ -308,7 +392,8 @@ macro_rules! adc_hal {
 
                 /// Returns the largest possible sample value for the current settings
                 pub fn max_sample(&self) -> u32 {
-                    ((1 << self.get_resolution().bits() as u32) - 1) << self.get_lshift().value() as u32
+                    // using this instead of bits() as bits() at the time of writing this returns 0 for 16 bits
+                    ((1 << self.get_resolution().number_of_bits() as u32) - 1) << self.get_lshift().value() as u32
                 }
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
@@ -456,9 +541,10 @@ macro_rules! adc_hal {
                     ahb.rstr().modify(|_, w| w.$adcxrst().clear_bit());
                 }
 
-                fn enable_clock(&mut self, ahb: &mut $AHB, d3ccipr: &mut D3CCIPR) {
+                fn enable_clock(&mut self, ahb: &mut $AHB, d3ccipr: &mut D3CCIPR, per_ck: u32) {
                     // Set per_ck as adc clock, TODO: we might want to change this so we can also
                     // use other clocks as input for this
+                    assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
                     d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
                     ahb.enr().modify(|_, w| w.$adcxen().set_bit());
                 }
@@ -613,21 +699,18 @@ macro_rules! adc_hal {
 
 adc_hal!(
     ADC1: (
-        adc1,
         adc12en,
         adc12rst,
         AHB1,
         ahb1
     ),
     ADC2: (
-        adc2,
         adc12en,
         adc12rst,
         AHB1,
         ahb1
     ),
     ADC3: (
-        adc3,
         adc3en,
         adc3rst,
         AHB4,
