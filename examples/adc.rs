@@ -19,7 +19,6 @@ use cortex_m_log::println;
 use cortex_m_log::{
     destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
 };
-use cortex_m_semihosting::hprintln;
 
 
 #[entry]
