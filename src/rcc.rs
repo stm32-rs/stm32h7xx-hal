@@ -69,6 +69,8 @@ pub struct Rcc {
 pub struct Ccdr {
     /// A record of the frozen core clock frequencies
     pub clocks: CoreClocks,
+    /// AMBA High-performance Bus (AHB1) registers
+    pub ahb1: AHB1,
     /// AMBA High-performance Bus (AHB3) registers
     pub ahb3: AHB3,
     /// AMBA High-performance Bus (AHB4) registers
@@ -81,6 +83,8 @@ pub struct Ccdr {
     pub apb3: APB3,
     /// Advanced Peripheral Bus 4 (APB4) registers
     pub apb4: APB4,
+    /// RCC Domain 3 Kernel Clock Configuration Register
+    pub d3ccipr: D3CCIPR,
     // Yes, it lives (locally)! We retain the right to switch most
     // PKSUs on the fly, to fine-tune PLL frequencies, and to enable /
     // reset peripherals.
@@ -90,6 +94,25 @@ pub struct Ccdr {
     pub(crate) rb: RCC,
 }
 
+/// AMBA High-performance Bus (AHB) peripheral registers
+pub struct AHB1 {
+    _0: (),
+}
+
+impl AHB1 {
+    #[allow(unused)]
+    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1enr }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1rstr }
+    }
+
+}
 /// AMBA High-performance Bus (AHB) peripheral registers
 pub struct AHB3 {
     _0: (),
@@ -201,6 +224,17 @@ impl APB4 {
     pub(crate) fn rstr(&mut self) -> &rcc::APB4RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb4rstr }
+    }
+}
+
+/// RCC Domain 3 Kernel Clock Configuration Register
+pub struct D3CCIPR {
+    _0: (),
+}
+
+impl D3CCIPR {
+    pub(crate) fn kernel_ccip(&mut self) -> &rcc::D3CCIPR {
+        unsafe {&(*RCC::ptr()).d3ccipr}
     }
 }
 
@@ -633,6 +667,7 @@ impl Rcc {
 
         // Return frozen clock configuration
         Ccdr {
+            ahb1: AHB1 { _0: () },
             ahb3: AHB3 { _0: () },
             ahb4: AHB4 { _0: () },
             apb1: APB1 { _0: () },
@@ -665,6 +700,7 @@ impl Rcc {
                 sys_ck,
                 c_ck: Hertz(sys_d1cpre_ck),
             },
+            d3ccipr: D3CCIPR { _0: () },
             rb: self.rb,
         }
     }

@@ -3,7 +3,8 @@ name = "stm32h7xx-hal"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
-           "Henrik Böving <hargonix@gmail.com>"]
+           "Henrik Böving <hargonix@gmail.com>",
+           "Jan Adä <jan.adae@outlook.de>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Peripheral access API for STM32H7 series microcontrollers"
@@ -41,6 +42,7 @@ stm32h742 = ["stm32h7/stm32h7x3", "device-selected"]
 stm32h743 = ["stm32h7/stm32h7x3", "device-selected"]
 stm32h753 = ["stm32h7/stm32h7x3", "device-selected"]
 stm32h750 = ["stm32h7/stm32h7x3", "device-selected"]
+rev_v = []
 
 [profile.dev]
 codegen-units = 1 # better optimizations

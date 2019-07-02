@@ -73,8 +73,8 @@ macro_rules! i2c {
                     SDA: PinSda<$I2CX>,
                 {
                     ccdr.rb.$apbXenr.modify(|_, w| w.$i2cXen().set_bit());
-                    ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().clear_bit());
                     ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().set_bit());
+                    ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().clear_bit());
 
                     let freq = freq.into().0;
 
