@@ -250,10 +250,10 @@ impl Adc<ADC1> {
             resolution: Resolution::SIXTEENBIT,
             lshift: AdcLshift::default(),
         };
-
+        let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
         s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
         s.power_down();
-        if ccdr.ahb1.enr().read().adc12en().bit_is_clear() {
+        if !adc12en {
             s.reset(&mut ccdr.ahb1);
         }
         s.power_up(delay);
@@ -280,9 +280,10 @@ impl Adc<ADC2> {
             lshift: AdcLshift::default(),
         };
 
+        let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
         s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
         s.power_down();
-        if ccdr.ahb1.enr().read().adc12en().bit_is_clear() {
+        if !adc12en {
             s.reset(&mut ccdr.ahb1);
         }
         s.power_up(delay);
