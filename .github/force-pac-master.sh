@@ -7,7 +7,7 @@ cd stm32-rs
 cargo install --force svd2rust
 # cargo install form  # not needed here
 rustup component add rustfmt
-pip3 install --user pyyaml
+# pip install --user pyyaml  # already installed
 cd svd
 ./extract.sh
 cd ..
