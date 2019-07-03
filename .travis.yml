@@ -1,9 +1,9 @@
 language: rust
 
 rust:
-  - stable
-  - beta
   - nightly
+#  - beta
+#  - stable
 
 cache: cargo
 
@@ -25,8 +25,7 @@ env:
 
 matrix:
   allow_failures:
-    - rust: stable
-    - rust: beta
+#    - rust: nightly
   fast_finish: true
 
 script:
