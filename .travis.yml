@@ -15,6 +15,7 @@ branches:
 
 before_script:
   - rustup target add thumbv7em-none-eabihf
+  - ./github/force-pac-master.sh
 
 env:
 - MCU=stm32h742
@@ -24,7 +25,8 @@ env:
 
 matrix:
   allow_failures:
-    - rust: nightly
+    - rust: stable
+    - rust: beta
   fast_finish: true
 
 script:
