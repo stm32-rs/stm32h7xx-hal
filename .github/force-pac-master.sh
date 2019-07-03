@@ -4,7 +4,7 @@ set -e
 
 git clone https://github.com/stm32-rs/stm32-rs
 cd stm32-rs
-cargo install svd2rust
+cargo install --force svd2rust
 # cargo install form  # not needed here
 rustup component add rustfmt
 pip3 install --user pyyaml
