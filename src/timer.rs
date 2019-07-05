@@ -157,7 +157,12 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "stm32h7x3"))]
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750",
+))]
 hal! {
     TIM1: (tim1, APB2, tim1en, tim1rst, enr, rstr),
     TIM2: (tim2, APB1, tim2en, tim2rst, lenr, lrstr),
