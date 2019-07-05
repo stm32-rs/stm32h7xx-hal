@@ -1,7 +1,6 @@
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
-#![feature(type_alias_enum_variants)]
 
 extern crate panic_itm;
 
