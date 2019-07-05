@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
-           "Jan Adä <jan.adae@outlook.de>"]
+           "Jan Adä <jan.adae@outlook.de>",
+           "Robert Jördens <rj@quartiq.de>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Peripheral access API for STM32H7 series microcontrollers"
