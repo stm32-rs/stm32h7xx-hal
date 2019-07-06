@@ -1,0 +1,35 @@
+language: rust
+
+rust:
+  - nightly
+#  - beta
+#  - stable
+
+cache: cargo
+
+branches:
+  only:
+    - staging
+    - trying
+    - master
+
+before_script:
+  - rustup target add thumbv7em-none-eabihf
+  - ./.github/force-pac-master.sh
+
+env:
+- MCU=stm32h742
+- MCU=stm32h743
+- MCU=stm32h753
+- MCU=stm32h750
+
+matrix:
+  allow_failures:
+#    - rust: nightly
+  fast_finish: true
+
+script:
+  - RUSTFLAGS="-D warnings" cargo build --release --examples --features rt,$MCU
+
+notifications:
+  email: false
