@@ -39,7 +39,7 @@
 /// ```
 ///
 use core::marker::PhantomData;
-use core::mem;
+use core::mem::MaybeUninit;
 
 use crate::hal;
 use crate::stm32::{lptim1, lptim3};
@@ -518,7 +518,7 @@ macro_rules! tim_hal {
                           w.cen().enabled()
                 );
 
-                unsafe { mem::uninitialized() }
+                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
             }
         )+
     }
@@ -551,6 +551,9 @@ macro_rules! tim_pin_hal {
         $(
             impl hal::PwmPin for Pwm<$TIMX, $CH> {
                 type Duty = $typ;
+
+                // You may not access self in the following methods!
+                // See unsafe above
 
                 fn disable(&mut self) {
                     let tim = unsafe { &*$TIMX::ptr() };
@@ -686,11 +689,14 @@ macro_rules! lptim_hal {
                 // entire timer
                 tim.cr.modify(|_, w| w.enable().disabled());
 
-                unsafe { mem::uninitialized() }
+                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
             }
 
             impl hal::PwmPin for Pwm<$TIMX, C1> {
                 type Duty = u16;
+
+                // You may not access self in the following methods!
+                // See unsafe above
 
                 fn disable(&mut self) {
                     let tim = unsafe { &*$TIMX::ptr() };
