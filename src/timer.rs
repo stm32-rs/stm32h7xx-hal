@@ -15,7 +15,7 @@ use nb;
 use void::Void;
 
 use crate::rcc::Ccdr;
-use crate::rcc::{CoreClocks, APB1, APB2};
+use crate::rcc::{APB1, APB2};
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
 
@@ -104,7 +104,7 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
 /// Hardware timers
 pub struct Timer<TIM> {
-    clocks: CoreClocks,
+    clk: u32,
     tim: TIM,
     timeout: Hertz,
 }
@@ -116,11 +116,11 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $APB:ident, $timXen:ident, $timXrst:ident, $enr:ident, $rstr:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $APB:ident, $timXen:ident, $timXrst:ident, $enr:ident, $rstr:ident),)+) => {
         $(
-            impl Periodic for Timer<$TIM> {}
+            impl Periodic for Timer<$TIMX> {}
 
-            impl CountDown for Timer<$TIM> {
+            impl CountDown for Timer<$TIMX> {
                 type Time = Hertz;
 
                 #[allow(unused_unsafe)]
@@ -149,12 +149,12 @@ macro_rules! hal {
                 }
             }
 
-            impl Timer<$TIM> {
+            impl Timer<$TIMX> {
                 // XXX(why not name this `new`?) bummer: constructors need to have different names
-                // even if the `$TIM` are non overlapping (compare to the `free` function below
+                // even if the `$TIMX` are non overlapping (compare to the `free` function below
                 // which just works)
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: CoreClocks, apb: &mut $APB) -> Self
+                pub fn $timX<T>(tim: $TIMX, timeout: T, ccdr: &Ccdr, apb: &mut $APB) -> Self
                 where
                     T: Into<Hertz>,
                 {
@@ -163,8 +163,11 @@ macro_rules! hal {
                     apb.$rstr().modify(|_, w| w.$timXrst().set_bit());
                     apb.$rstr().modify(|_, w| w.$timXrst().clear_bit());
 
+                    let clk = $TIMX::get_clk(&ccdr)
+                        .expect("Timer input clock not running!").0;
+
                     let mut timer = Timer {
-                        clocks,
+                        clk,
                         tim,
                         timeout: Hertz(0),
                     };
@@ -179,8 +182,7 @@ macro_rules! hal {
                 {
                     self.timeout = timeout.into();
 
-                    let clk = $TIMX::get_clk(&ccdr)
-                        .expect("Timer input clock not running!").0;
+                    let clk = self.clk;
                     let frequency = self.timeout.0;
                     let ticks = clk / frequency;
 
@@ -237,7 +239,7 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn free(mut self) -> $TIM {
+                pub fn free(mut self) -> $TIMX {
                     // pause counter
                     self.pause();
                     self.tim
