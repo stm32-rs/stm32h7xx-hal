@@ -95,7 +95,7 @@ macro_rules! hal {
                     let ticks = self.clocks.pclk1().0 / frequency;
 
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-                    self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
+                    self.tim.psc.write(|w| { w.psc().bits(psc) });
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
