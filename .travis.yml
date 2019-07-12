@@ -2,7 +2,7 @@ language: rust
 
 rust:
   - nightly
-#  - beta
+  - beta
 #  - stable
 
 cache: cargo
@@ -25,11 +25,11 @@ env:
 
 matrix:
   allow_failures:
-#    - rust: nightly
+    - rust: nightly
   fast_finish: true
 
 script:
-  - RUSTFLAGS="-D warnings" cargo build --release --examples --features rt,$MCU
+  - RUSTFLAGS="-D warnings" cargo build --verbose --release --examples --features rt,$MCU
 
 notifications:
   email: false
