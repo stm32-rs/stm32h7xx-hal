@@ -39,14 +39,20 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    // pause
+                    // Pause
                     self.pause();
-                    // restart counter
+
+                    // Reset counter
                     self.tim.cnt.reset();
 
+                    // UEV event occours on next overflow
+                    self.tim.cr1.modify(|_, w| w.urs().counter_only());
+                    self.clear_uif_bit();
+
+                    // Set PSC and ARR
                     self.set_freq(timeout);
 
-                    // start counter
+                    // Start counter
                     self.resume()
                 }
 
