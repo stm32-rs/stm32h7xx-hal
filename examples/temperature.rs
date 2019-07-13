@@ -47,21 +47,20 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     // Setup ADC
-    let mut adc = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr);
-    adc.set_resolution(adc::Resolution::SIXTEENBIT);
+    let mut adc3 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr);
+    adc3.set_resolution(adc::Resolution::SIXTEENBIT);
 
-    // Setup Temperature Sensor
+    // Setup Temperature Sensor on the disabled ADC
     let mut channel = adc::Temperature::new();
-    adc.disable();
-    channel.enable();
+    channel.enable(&adc3);
     delay.delay_us(25_u16);
-    adc.enable();
+    let mut adc3 = adc3.enable();
 
     let vdda = 2.500; // Volts
 
     loop {
         let word: u32 =
-            adc.read(&mut channel).expect("Temperature read failed.");
+            adc3.read(&mut channel).expect("Temperature read failed.");
 
         // Average slope
         let cal = (110.0 - 30.0)
