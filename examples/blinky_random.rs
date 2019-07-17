@@ -52,8 +52,16 @@ fn main() -> ! {
     }
 
     loop {
-        match rng.gen_range(20u32, 200) {
-            Ok(period) => {
+        let random_element: Result<u32, _> = rng.gen();
+
+        match random_element {
+            Ok(random) => {
+                // NOTE: the result of the expression `random % 200`
+                // is biased. This bias is called "modulo-bias". It is
+                // acceptable here for simplicity, but may not be
+                // acceptable for your application.
+                let period = random % 200_u32;
+
                 led.toggle().unwrap();
                 delay.delay_ms(period);
             }

@@ -54,7 +54,6 @@ impl RngExt for RNG {
 
 pub trait RngCore<W> {
     fn gen(&mut self) -> Result<W, ErrorKind>;
-    fn gen_range(&mut self, low: W, high: W) -> Result<W, ErrorKind>;
     fn fill(&mut self, dest: &mut [W]) -> Result<(), ErrorKind>;
 }
 
@@ -82,50 +81,6 @@ impl Rng {
     pub fn release(self) -> RNG {
         self.rb
     }
-
-    /// Return random boolean, or error
-    pub fn gen_bool(&mut self) -> Result<bool, ErrorKind> {
-        let val = self.next()?;
-        Ok(val & 1 == 1)
-    }
-
-    /// Return random booleans in the ratio one:zero = n:(d-n), or
-    /// error
-    pub fn gen_ratio(
-        &mut self,
-        numerator: u32,
-        denominator: u32,
-    ) -> Result<bool, ErrorKind> {
-        assert!(denominator > 0);
-        let val = self.gen_range(0, denominator)?;
-        Ok(numerator > val)
-    }
-
-    /// Choose random value from array, or error
-    pub fn choose<'a, T>(
-        &mut self,
-        values: &'a [T],
-    ) -> Result<&'a T, ErrorKind> {
-        let val = self.gen_range(0, values.len())?;
-        Ok(&values[val])
-    }
-
-    /// Choose random value from array, or error
-    pub fn choose_mut<'a, T>(
-        &mut self,
-        values: &'a mut [T],
-    ) -> Result<&'a mut T, ErrorKind> {
-        let val = self.gen_range(0, values.len())?;
-        Ok(&mut values[val])
-    }
-
-    /// Choose random value from array, or return error
-    pub fn shuffle<T>(&mut self, values: &mut [T]) -> Result<(), ErrorKind> {
-        for i in (1..values.len()).rev() {
-            values.swap(i, self.gen_range(0, i + 1)?);
-        }
-        Ok(())
-    }
 }
 
 impl rng::Read for Rng {
@@ -144,14 +99,6 @@ macro_rules! rng_core {
                 fn gen(&mut self) -> Result<$type, ErrorKind> {
                     let val = self.next()?;
                     Ok(val as $type)
-                }
-
-                /// Returns a single element with random value in range, or error
-                fn gen_range(&mut self, low: $type, high: $type) -> Result<$type, ErrorKind> {
-                    assert!(high > low);
-                    let range = high - low;
-                    let val: $type = self.gen()?;
-                    Ok(low + val % range)
                 }
 
                 /// Fills buffer with random values, or return error
