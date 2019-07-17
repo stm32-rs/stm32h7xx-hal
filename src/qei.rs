@@ -171,7 +171,7 @@ pub struct Qei<TIM, PINS> {
 }
 
 macro_rules! tim_hal {
-    ($($TIM:ident: ($tim:ident, $apb:ident, $enr:ident, $rstr:ident, $timXen:ident, $timXrst:ident, $bits:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $apb:ident, $timXen:ident, $timXrst:ident, $bits:ident),)+) => {
         $(
             impl<PINS> Qei<$TIM, PINS> {
                 /// Configures a TIM peripheral as a quadrature
@@ -185,9 +185,9 @@ macro_rules! tim_hal {
                 {
                     // enable and reset peripheral to a clean slate
                     // state
-                    ccdr.$apb.$enr().modify(|_, w| w.$timXen().set_bit());
-                    ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().set_bit());
-                    ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
+                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
 
                     // Configure TxC1 and TxC2 as captures
@@ -252,10 +252,10 @@ macro_rules! tim_hal {
     feature = "stm32h750"
 ))]
 tim_hal! {
-    TIM1: (tim1, apb2, enr, rstr, tim1en, tim1rst, u16),
-    TIM8: (tim8, apb2, enr, rstr, tim8en, tim8rst, u16),
-    TIM2: (tim2, apb1, lenr, lrstr, tim2en, tim2rst, u32),
-    TIM3: (tim3, apb1, lenr, lrstr, tim3en, tim3rst, u16),
-    TIM4: (tim4, apb1, lenr, lrstr, tim4en, tim4rst, u16),
-    TIM5: (tim5, apb1, lenr, lrstr, tim5en, tim5rst, u32),
+    TIM1: (tim1, apb2, tim1en, tim1rst, u16),
+    TIM8: (tim8, apb2, tim8en, tim8rst, u16),
+    TIM2: (tim2, apb1l, tim2en, tim2rst, u32),
+    TIM3: (tim3, apb1l, tim3en, tim3rst, u16),
+    TIM4: (tim4, apb1l, tim4en, tim4rst, u16),
+    TIM5: (tim5, apb1l, tim5en, tim5rst, u32),
 }
