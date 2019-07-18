@@ -524,7 +524,7 @@ macro_rules! spi6sel {
 	    $(
             impl<PINS> Spi<$SPIX, PINS> {
                 /// Returns the frequency of the current kernel clock
-                /// for SPI1, SPI2, SPI3
+                /// for SPI6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
                     match ccdr.rb.d3ccipr.read().spi6sel() {
                         d3ccipr::SPI6SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),

@@ -47,6 +47,8 @@ pub mod i2c;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
 #[cfg(feature = "device-selected")]
+pub mod pwm;
+#[cfg(feature = "device-selected")]
 pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
