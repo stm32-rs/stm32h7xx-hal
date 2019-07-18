@@ -1,17 +1,21 @@
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
 
-use crate::stm32::{ADC1, ADC2, ADC3};
+use core::marker::PhantomData;
 
-use crate::gpio::Analog;
+use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
+
+use crate::delay::Delay;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1};
 use crate::gpio::gpioc::{PC0, PC1, PC2, PC3, PC4, PC5};
-use crate::gpio::gpiof::{PF3, PF4, PF5, PF6, PF7, PF8, PF9, PF10, PF11, PF12, PF13, PF14};
+use crate::gpio::gpiof::{
+    PF10, PF11, PF12, PF13, PF14, PF3, PF4, PF5, PF6, PF7, PF8, PF9,
+};
 use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
-use crate::delay::Delay;
+use crate::gpio::Analog;
 use crate::rcc::Ccdr;
-use crate::rcc::{AHB1, AHB4, D3CCIPR};
+use crate::rcc::D3CCIPR;
 
 #[cfg(any(
     feature = "stm32h742",
@@ -33,16 +37,26 @@ impl NumberOfBits for Resolution {
             Resolution::TENBIT => 10,
             Resolution::TWELVEBIT => 12,
             Resolution::FOURTEENBIT => 14,
-            _ => 16, 
+            _ => 16,
         }
     }
 }
 
-pub struct Adc<ADC> {
+/// Enabled ADC (type state)
+pub struct Enabled;
+/// Disabled ADC (type state)
+pub struct Disabled;
+
+pub trait ED {}
+impl ED for Enabled {}
+impl ED for Disabled {}
+
+pub struct Adc<ADC, ED> {
     rb: ADC,
     sample_time: AdcSampleTime,
     resolution: Resolution,
     lshift: AdcLshift,
+    _enabled: PhantomData<ED>,
 }
 
 /// ADC sampling time
@@ -136,9 +150,9 @@ impl AdcCalLinear {
 }
 
 macro_rules! adc_pins {
-    ($ADC:ident, $($pin:ident => $chan:expr),+ $(,)*) => {
+    ($ADC:ident, $($input:ty => $chan:expr),+ $(,)*) => {
         $(
-            impl Channel<$ADC> for $pin<Analog> {
+            impl Channel<$ADC> for $input {
                 type ID = u8;
 
                 fn channel() -> u8 {
@@ -148,6 +162,44 @@ macro_rules! adc_pins {
         )+
     };
 }
+
+macro_rules! adc_internal {
+    ($($input:ty => ($chan:expr, $en:ident)),+ $(,)*) => {
+        $(
+            impl $input {
+                pub fn new() -> Self {
+                    Self {}
+                }
+
+                /// Enables the internal voltage/sensor
+                /// ADC must be disabled.
+                pub fn enable(&mut self, _adc: &Adc<ADC3, Disabled>) {
+
+                    let common = unsafe { &*ADC3_COMMON::ptr() };
+
+                    common.ccr.modify(|_, w| w.$en().enabled());
+                }
+                /// Disables the internal voltage/sdissor
+                /// ADC must be disabled.
+                pub fn disable(&mut self, _adc: &Adc<ADC3, Disabled>) {
+
+                    let common = unsafe { &*ADC3_COMMON::ptr() };
+
+                    common.ccr.modify(|_, w| w.$en().disabled());
+                }
+            }
+
+            adc_pins!(ADC3, $input => $chan);
+        )+
+    };
+}
+
+/// Vref internal signal
+pub struct Vrefint;
+/// Vbat internal signal
+pub struct Vbat;
+/// Internal temperature sensor
+pub struct Temperature;
 
 // Not implementing Pxy_C adc pins
 // Just implmenting INPx pins (INNx defaulting to V_ref-)
@@ -160,25 +212,25 @@ macro_rules! adc_pins {
     feature = "stm32h750"
 ))]
 adc_pins!(ADC1,
-    // No 0, 1
-    PF11 => 2,
-    PA6 => 3,
-    PC4 => 4,
-    PB1 => 5,
-    PF12 => 6,
-    PA7 => 7,
-    PC5 => 8,
-    PB0 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PC3 => 13,
-    PA2 => 14,
-    PA3 => 15,
-    PA0 => 16,
-    PA1 => 17,
-    PA4 => 18,
-    PA5 => 19,
+          // 0, 1 are Pxy_C pins
+          PF11<Analog> => 2,
+          PA6<Analog> => 3,
+          PC4<Analog> => 4,
+          PB1<Analog> => 5,
+          PF12<Analog> => 6,
+          PA7<Analog> => 7,
+          PC5<Analog> => 8,
+          PB0<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PC3<Analog> => 13,
+          PA2<Analog> => 14,
+          PA3<Analog> => 15,
+          PA0<Analog> => 16,
+          PA1<Analog> => 17,
+          PA4<Analog> => 18,
+          PA5<Analog> => 19,
 );
 
 #[cfg(any(
@@ -188,24 +240,24 @@ adc_pins!(ADC1,
     feature = "stm32h750"
 ))]
 adc_pins!(ADC2,
-    // No 0, 1
-    PF13 => 2,
-    PA6 => 3,
-    PC4 => 4,
-    PB1 => 5,
-    PF14 => 6,
-    PA7 => 7,
-    PC5 => 8,
-    PB0 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PC3 => 13,
-    PA2 => 14,
-    PA3 => 15,
-    // No 16, 17
-    PA4 => 18,
-    PA5 => 19,
+          // 0, 1 are Pxy_C pins
+          PF13<Analog> => 2,
+          PA6<Analog> => 3,
+          PC4<Analog> => 4,
+          PB1<Analog> => 5,
+          PF14<Analog> => 6,
+          PA7<Analog> => 7,
+          PC5<Analog> => 8,
+          PB0<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PC3<Analog> => 13,
+          PA2<Analog> => 14,
+          PA3<Analog> => 15,
+          // 16, 17 are dac_outX
+          PA4<Analog> => 18,
+          PA5<Analog> => 19,
 );
 
 #[cfg(any(
@@ -215,112 +267,57 @@ adc_pins!(ADC2,
     feature = "stm32h750"
 ))]
 adc_pins!(ADC3,
-    // No 0, 1
-    PF9 => 2,
-    PF7 => 3,
-    PF5 => 4,
-    PF3 => 5,
-    PF10 => 6,
-    PF8 => 7,
-    PF6 => 8,
-    PF4 => 9,
-    PC0 => 10,
-    PC1 => 11,
-    PC2 => 12,
-    PH2 => 13,
-    PH3 => 14,
-    PH4 => 15,
-    PH5 => 16,
-    // No 17...19
+          // 0, 1 are Pxy_C pins
+          PF9<Analog> => 2,
+          PF7<Analog> => 3,
+          PF5<Analog> => 4,
+          PF3<Analog> => 5,
+          PF10<Analog> => 6,
+          PF8<Analog> => 7,
+          PF6<Analog> => 8,
+          PF4<Analog> => 9,
+          PC0<Analog> => 10,
+          PC1<Analog> => 11,
+          PC2<Analog> => 12,
+          PH2<Analog> => 13,
+          PH3<Analog> => 14,
+          PH4<Analog> => 15,
+          PH5<Analog> => 16,
+);
+#[cfg(any(
+    feature = "stm32h742",
+    feature = "stm32h743",
+    feature = "stm32h753",
+    feature = "stm32h750"
+))]
+adc_internal!(
+          Vbat => (17, vbaten),
+          Temperature => (18, vsenseen),
+          Vrefint => (19, vrefen)
 );
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
-impl Adc<ADC1> {
-    /// Init Adc 1
-    ///
-    /// Sets all configurable parameters to one-shot defaults,
-    /// performs a boot-time calibration.
-    pub fn adc1(adc: ADC1, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
-        let mut s = Self {
-            rb: adc,
-            sample_time: AdcSampleTime::default(),
-            resolution: Resolution::SIXTEENBIT,
-            lshift: AdcLshift::default(),
-        };
-        let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
-        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
-        s.power_down();
-        if !adc12en {
-            s.reset(&mut ccdr.ahb1);
-        }
-        s.power_up(delay);
-        s.disable();
-        s.preconfigure();
-        s.calibrate();
-        s.enable();
-        s.configure();
-
-        s
+impl Adc<ADC1, Disabled> {
+    /// Check the ADC periperal can be safely reset
+    fn is_safe_to_reset(ccdr: &mut Ccdr) -> bool {
+        // Not safe if shared enable with ADC2 already enabled
+        !ccdr.ahb1.enr().read().adc12en().bit_is_set()
     }
 }
-
-impl Adc<ADC2> {
-    /// Init Adc 2
-    ///
-    /// Sets all configurable parameters to one-shot defaults,
-    /// performs a boot-time calibration.
-    pub fn adc2(adc: ADC2, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
-        let mut s = Self {
-            rb: adc,
-            sample_time: AdcSampleTime::default(),
-            resolution: Resolution::SIXTEENBIT,
-            lshift: AdcLshift::default(),
-        };
-
-        let adc12en = ccdr.ahb1.enr().read().adc12en().bit_is_set();
-        s.enable_clock(&mut ccdr.ahb1, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
-        s.power_down();
-        if !adc12en {
-            s.reset(&mut ccdr.ahb1);
-        }
-        s.power_up(delay);
-        s.disable();
-        s.preconfigure();
-        s.calibrate();
-        s.enable();
-        s.configure();
-
-        s
+impl Adc<ADC2, Disabled> {
+    /// Check the ADC periperal can be safely reset
+    fn is_safe_to_reset(ccdr: &mut Ccdr) -> bool {
+        // Not safe if shared enable with ADC1 already enabled
+        !ccdr.ahb1.enr().read().adc12en().bit_is_set()
     }
 }
-
-impl Adc<ADC3> {
-    /// Init Adc 3
-    ///
-    /// Sets all configurable parameters to one-shot defaults,
-    /// performs a boot-time calibration.
-    pub fn adc3(adc: ADC3, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
-        let mut s = Self {
-            rb: adc,
-            sample_time: AdcSampleTime::default(),
-            resolution: Resolution::SIXTEENBIT,
-            lshift: AdcLshift::default(),
-        };
-
-        s.enable_clock(&mut ccdr.ahb4, &mut ccdr.d3ccipr, ccdr.clocks.per_ck().unwrap().0);
-        s.power_down();
-        s.reset(&mut ccdr.ahb4);
-        s.power_up(delay);
-        s.disable();
-        s.preconfigure();
-        s.calibrate();
-        s.enable();
-        s.configure();
-
-        s
+impl Adc<ADC3, Disabled> {
+    /// Check the ADC periperal can be safely reset
+    fn is_safe_to_reset(_ccdr: &mut Ccdr) -> bool {
+        true // Always safe for ADC3
     }
 }
 
@@ -328,81 +325,72 @@ impl Adc<ADC3> {
 macro_rules! adc_hal {
     ($(
         $ADC:ident: (
+            $adcX: ident,
             $adcxen:ident,
             $adcxrst:ident,
             $AHB:ident,
-            $ahb:ident
+            $ahb:ident,
+            $COMMON:ident
         )
     ),+ $(,)*) => {
         $(
-            impl Adc<$ADC> {
-                /// Save current ADC config
-                pub fn save_cfg(&mut self) -> StoredConfig {
-                    StoredConfig(self.get_sample_time(), self.get_resolution(), self.get_lshift())
-                }
-
-                /// Restore saved ADC config
-                pub fn restore_cfg(&mut self, cfg: StoredConfig) {
-                    self.set_sample_time(cfg.0);
-                    self.set_resolution(cfg.1);
-                    self.set_lshift(cfg.2);
-                }
-
-                /// Reset the ADC config to default, return existing config
-                pub fn default_cfg(&mut self) -> StoredConfig {
-                    let cfg = self.save_cfg();
-                    self.set_sample_time(AdcSampleTime::default());
-                    self.set_resolution(Resolution::SIXTEENBIT);
-                    self.set_lshift(AdcLshift::default());
-                    cfg
-                }
-
-                /// Get ADC samping time
-                pub fn get_sample_time(&self) -> AdcSampleTime {
-                    self.sample_time
-                }
-
-                /// Get ADC sampling resolution
-                pub fn get_resolution(&self) -> Resolution {
-                    self.resolution
-                }
-
-                /// Get ADC lshift value
-                pub fn get_lshift(&self) -> AdcLshift {
-                    self.lshift
-                }
-
-                /// Set ADC sampling time
+            impl Adc<$ADC, Disabled> {
+                /// Initialise ADC
                 ///
-                /// Options can be found in [AdcSampleTime](crate::adc::AdcSampleTime).
-                pub fn set_sample_time(&mut self, t_samp: AdcSampleTime) {
-                    self.sample_time = t_samp;
+                /// Sets all configurable parameters to one-shot defaults,
+                /// performs a boot-time calibration.
+                pub fn $adcX(adc: $ADC, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
+                    let mut s = Self {
+                        rb: adc,
+                        sample_time: AdcSampleTime::default(),
+                        resolution: Resolution::SIXTEENBIT,
+                        lshift: AdcLshift::default(),
+                        _enabled: PhantomData,
+                    };
+
+                    // Some ADCs are not safe to reset, as the ADC
+                    // reset line is shared
+                    let is_safe_to_reset = Self::is_safe_to_reset(ccdr);
+
+                    // Select Kernel Clock
+                    s.enable_clock(
+                        &mut ccdr.d3ccipr,
+                        ccdr.clocks.per_ck().expect("per_ck is not running!").0,
+                    );
+
+                    // Enable AHB clock
+                    ccdr.$ahb.enr().modify(|_, w| w.$adcxen().set_bit());
+
+                    // Power Down
+                    s.power_down();
+
+                    // Reset
+                    if is_safe_to_reset {
+                        ccdr.$ahb.rstr().modify(|_, w| w.$adcxrst().set_bit());
+                        ccdr.$ahb.rstr().modify(|_, w| w.$adcxrst().clear_bit());
+                    }
+
+                    // Power Up, Preconfigure and Calibrate
+                    s.power_up(delay);
+                    s.preconfigure();
+                    s.calibrate();
+
+                    s
                 }
 
-                /// Set ADC sampling resolution
-                pub fn set_resolution(&mut self, res: Resolution) {
-                    self.resolution = res;
-                }
-
-                /// Set ADC lshift
-                ///
-                /// LSHIFT[3:0] must be in range of 0..=15
-                pub fn set_lshift(&mut self, lshift: AdcLshift) {
-                    self.lshift = lshift;
-                }
-
-                /// Returns the largest possible sample value for the current settings
-                pub fn max_sample(&self) -> u32 {
-                    // using this instead of bits() as bits() at the time of writing this returns 0 for 16 bits
-                    ((1 << self.get_resolution().number_of_bits() as u32) - 1) << self.get_lshift().value() as u32
+                fn enable_clock(&mut self, d3ccipr: &mut D3CCIPR, per_ck: u32) {
+                    // Set per_ck as adc clock, TODO: we might want to
+                    // change this so we can also use other clocks as
+                    // input for this
+                    assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
+                    d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
                 }
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`]: #method.calibrate shall be run
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.6
                 pub fn power_up(&mut self, delay: &mut Delay) {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
@@ -413,46 +401,19 @@ macro_rules! adc_hal {
                 /// Enables Deeppowerdown-mode and disables voltage regulator
                 ///
                 /// Note: This resets the [`calibration`]: #method.calibrate of the ADC
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.6
                 pub fn power_down(&mut self) {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().set_bit()
                             .advregen().clear_bit()
                     );
                 }
 
-                /// Turns ADC on
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.9
-                pub fn enable(&mut self) {
-                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
-                    self.rb.cr.modify(|_, w| w.aden().set_bit());
-                    while self.rb.isr.read().adrdy().bit_is_clear() {}
-                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
-                }
-
-                /// Turns ADC off
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.9
-                pub fn disable(&mut self) {
-                    if self.rb.cr.read().adstart().bit_is_set() {
-                        self.stop_regular_conversion();
-                    }
-                    if self.rb.cr.read().jadstart().bit_is_set() {
-                        self.stop_injected_conversion();
-                    }
-
-                    self.rb.cr.modify(|_, w| w.addis().set_bit());
-                    while self.rb.cr.read().aden().bit_is_set() {}
-                }
-
                 /// Calibrates the ADC in single channel mode
                 ///
                 /// Note: The ADC must be disabled
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.8
                 pub fn calibrate(&mut self) {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.8
                     self.check_calibration_conditions();
 
                     // single channel (INNx equals to V_ref-)
@@ -477,115 +438,25 @@ macro_rules! adc_hal {
                     }
                 }
 
-                /// Returns the offset calibration value for single ended channel
-                pub fn read_offset_calibration_value(&self) -> AdcCalOffset {
-                    AdcCalOffset(self.rb.calfact.read().calfact_s().bits())
-                }
-
-                /// Returns the linear calibration values stored in an array in the following order:
-                /// LINCALRDYW1 -> result[0]
-                /// ...
-                /// LINCALRDYW6 -> result[5]
-                //
-                // Refer to RM0433 Rev 6 - Chapter 24.4.8 (Page 920)
-                pub fn read_linear_calibration_values(&mut self) -> AdcCalLinear {
-                    self.check_linear_read_conditions();
-
-                    // Read 1st block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw1().clear_bit());
-                    while self.rb.cr.read().lincalrdyw1().bit_is_set() {}
-                    let res_1 = self.rb.calfact2.read().lincalfact().bits();
-
-                    // Read 2nd block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw2().clear_bit());
-                    while self.rb.cr.read().lincalrdyw2().bit_is_set() {}
-                    let res_2 = self.rb.calfact2.read().lincalfact().bits();
-
-                    // Read 3rd block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw3().clear_bit());
-                    while self.rb.cr.read().lincalrdyw3().bit_is_set() {}
-                    let res_3 = self.rb.calfact2.read().lincalfact().bits();
-
-                    // Read 4th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw4().clear_bit());
-                    while self.rb.cr.read().lincalrdyw4().bit_is_set() {}
-                    let res_4 = self.rb.calfact2.read().lincalfact().bits();
-
-                    // Read 5th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw5().clear_bit());
-                    while self.rb.cr.read().lincalrdyw5().bit_is_set() {}
-                    let res_5 = self.rb.calfact2.read().lincalfact().bits();
-
-                    // Read 6th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw6().clear_bit());
-                    while self.rb.cr.read().lincalrdyw6().bit_is_set() {}
-                    let res_6 = self.rb.calfact2.read().lincalfact().bits();
-
-                    AdcCalLinear([res_1, res_2, res_3, res_4, res_5, res_6])
-                }
-
-                fn check_linear_read_conditions(&self) {
-                    // Ensure the ADC is enabled and is not in deeppowerdown-mode
-                    if self.rb.cr.read().deeppwd().bit_is_set() {
-                        panic!("Cannot read linear calibration value when the ADC is in deeppowerdown-mode");
-                    }
-                    if self.rb.cr.read().advregen().bit_is_clear() {
-                        panic!("Cannot read linear calibration value when the voltage regulator is disabled");
-                    }
-                    if self.rb.cr.read().aden().bit_is_clear() {
-                        panic!("Cannot read linear calibration value when the ADC is disabled");
-                    }
-                }
-
-                fn reset(&mut self, ahb: &mut $AHB) {
-                    ahb.rstr().modify(|_, w| w.$adcxrst().set_bit());
-                    ahb.rstr().modify(|_, w| w.$adcxrst().clear_bit());
-                }
-
-                fn enable_clock(&mut self, ahb: &mut $AHB, d3ccipr: &mut D3CCIPR, per_ck: u32) {
-                    // Set per_ck as adc clock, TODO: we might want to change this so we can also
-                    // use other clocks as input for this
-                    assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
-                    d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
-                    ahb.enr().modify(|_, w| w.$adcxen().set_bit());
-                }
-
+                /// Configuration process prior to enabling the ADC
+                ///
+                /// Note: the ADC must be disabled
                 fn preconfigure(&mut self) {
                     self.configure_channels_dif_mode();
                 }
 
-                // Sets channels to single ended mode
+                /// Sets channels to single ended mode
                 fn configure_channels_dif_mode(&mut self) {
-                    self.rb.difsel.modify(|_, w|
-                        w.difsel0().clear_bit()
-                            .difsel1().clear_bit()
-                            .difsel2().clear_bit()
-                            .difsel3().clear_bit()
-                            .difsel4().clear_bit()
-                            .difsel5().clear_bit()
-                            .difsel6().clear_bit()
-                            .difsel7().clear_bit()
-                            .difsel8().clear_bit()
-                            .difsel9().clear_bit()
-                            .difsel10().clear_bit()
-                            .difsel11().clear_bit()
-                            .difsel12().clear_bit()
-                            .difsel13().clear_bit()
-                            .difsel14().clear_bit()
-                            .difsel15().clear_bit()
-                            .difsel16().clear_bit()
-                            .difsel17().clear_bit()
-                            .difsel18().clear_bit()
-                            .difsel19().clear_bit()
-                    );
+                    self.rb.difsel.reset();
                 }
 
+                /// Configuration process immediately after enabling the ADC
                 fn configure(&mut self) {
                     // Single conversion mode, Software trigger
                     // Refer to RM0433 Rev 6 - Chapters 24.4.15, 24.4.19
                     self.rb.cfgr.modify(|_, w|
                         w.cont().clear_bit()
-                            .exten().bits(0b00)
+                            .exten().disabled()
                             .discen().set_bit()
                     );
 
@@ -595,6 +466,27 @@ macro_rules! adc_hal {
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
                 }
 
+                /// Enable ADC
+                pub fn enable(mut self) -> Adc<$ADC, Enabled> {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
+                    self.rb.cr.modify(|_, w| w.aden().set_bit());
+                    while self.rb.isr.read().adrdy().bit_is_clear() {}
+                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
+
+                    self.configure();
+
+                    Adc {
+                        rb: self.rb,
+                        sample_time: self.sample_time,
+                        resolution: self.resolution,
+                        lshift: self.lshift,
+                        _enabled: PhantomData,
+                    }
+                }
+            }
+
+            impl Adc<$ADC, Enabled> {
                 fn stop_regular_conversion(&mut self) {
                     self.rb.cr.modify(|_, w| w.adstp().set_bit());
                     while self.rb.cr.read().adstp().bit_is_set() {}
@@ -680,9 +572,152 @@ macro_rules! adc_hal {
                         panic!("Cannot start conversion because there is a pending request to disable the ADC");
                     }
                 }
+
+                /// Disable ADC
+                pub fn disable(mut self) -> Adc<$ADC, Disabled> {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    if self.rb.cr.read().adstart().bit_is_set() {
+                        self.stop_regular_conversion();
+                    }
+                    if self.rb.cr.read().jadstart().bit_is_set() {
+                        self.stop_injected_conversion();
+                    }
+
+                    self.rb.cr.modify(|_, w| w.addis().set_bit());
+                    while self.rb.cr.read().aden().bit_is_set() {}
+
+                    Adc {
+                        rb: self.rb,
+                        sample_time: self.sample_time,
+                        resolution: self.resolution,
+                        lshift: self.lshift,
+                        _enabled: PhantomData,
+                    }
+                }
             }
 
-            impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC>
+            impl<ED> Adc<$ADC, ED> {
+                /// Save current ADC config
+                pub fn save_cfg(&mut self) -> StoredConfig {
+                    StoredConfig(self.get_sample_time(), self.get_resolution(), self.get_lshift())
+                }
+
+                /// Restore saved ADC config
+                pub fn restore_cfg(&mut self, cfg: StoredConfig) {
+                    self.set_sample_time(cfg.0);
+                    self.set_resolution(cfg.1);
+                    self.set_lshift(cfg.2);
+                }
+
+                /// Reset the ADC config to default, return existing config
+                pub fn default_cfg(&mut self) -> StoredConfig {
+                    let cfg = self.save_cfg();
+                    self.set_sample_time(AdcSampleTime::default());
+                    self.set_resolution(Resolution::SIXTEENBIT);
+                    self.set_lshift(AdcLshift::default());
+                    cfg
+                }
+
+                /// Get ADC samping time
+                pub fn get_sample_time(&self) -> AdcSampleTime {
+                    self.sample_time
+                }
+
+                /// Get ADC sampling resolution
+                pub fn get_resolution(&self) -> Resolution {
+                    self.resolution
+                }
+
+                /// Get ADC lshift value
+                pub fn get_lshift(&self) -> AdcLshift {
+                    self.lshift
+                }
+
+                /// Set ADC sampling time
+                ///
+                /// Options can be found in [AdcSampleTime](crate::adc::AdcSampleTime).
+                pub fn set_sample_time(&mut self, t_samp: AdcSampleTime) {
+                    self.sample_time = t_samp;
+                }
+
+                /// Set ADC sampling resolution
+                pub fn set_resolution(&mut self, res: Resolution) {
+                    self.resolution = res;
+                }
+
+                /// Set ADC lshift
+                ///
+                /// LSHIFT[3:0] must be in range of 0..=15
+                pub fn set_lshift(&mut self, lshift: AdcLshift) {
+                    self.lshift = lshift;
+                }
+
+                /// Returns the largest possible sample value for the current settings
+                pub fn max_sample(&self) -> u32 {
+                    ((1 << self.get_resolution().number_of_bits() as u32) - 1) << self.get_lshift().value() as u32
+                }
+
+                                /// Returns the offset calibration value for single ended channel
+                pub fn read_offset_calibration_value(&self) -> AdcCalOffset {
+                    AdcCalOffset(self.rb.calfact.read().calfact_s().bits())
+                }
+
+                /// Returns the linear calibration values stored in an array in the following order:
+                /// LINCALRDYW1 -> result[0]
+                /// ...
+                /// LINCALRDYW6 -> result[5]
+                pub fn read_linear_calibration_values(&mut self) -> AdcCalLinear {
+                    // Refer to RM0433 Rev 6 - Chapter 24.4.8 (Page 920)
+                    self.check_linear_read_conditions();
+
+                    // Read 1st block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw1().clear_bit());
+                    while self.rb.cr.read().lincalrdyw1().bit_is_set() {}
+                    let res_1 = self.rb.calfact2.read().lincalfact().bits();
+
+                    // Read 2nd block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw2().clear_bit());
+                    while self.rb.cr.read().lincalrdyw2().bit_is_set() {}
+                    let res_2 = self.rb.calfact2.read().lincalfact().bits();
+
+                    // Read 3rd block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw3().clear_bit());
+                    while self.rb.cr.read().lincalrdyw3().bit_is_set() {}
+                    let res_3 = self.rb.calfact2.read().lincalfact().bits();
+
+                    // Read 4th block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw4().clear_bit());
+                    while self.rb.cr.read().lincalrdyw4().bit_is_set() {}
+                    let res_4 = self.rb.calfact2.read().lincalfact().bits();
+
+                    // Read 5th block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw5().clear_bit());
+                    while self.rb.cr.read().lincalrdyw5().bit_is_set() {}
+                    let res_5 = self.rb.calfact2.read().lincalfact().bits();
+
+                    // Read 6th block of linear correction
+                    self.rb.cr.modify(|_, w| w.lincalrdyw6().clear_bit());
+                    while self.rb.cr.read().lincalrdyw6().bit_is_set() {}
+                    let res_6 = self.rb.calfact2.read().lincalfact().bits();
+
+                    AdcCalLinear([res_1, res_2, res_3, res_4, res_5, res_6])
+                }
+
+                fn check_linear_read_conditions(&self) {
+                    // Ensure the ADC is enabled and is not in deeppowerdown-mode
+                    if self.rb.cr.read().deeppwd().bit_is_set() {
+                        panic!("Cannot read linear calibration value when the ADC is in deeppowerdown-mode");
+                    }
+                    if self.rb.cr.read().advregen().bit_is_clear() {
+                        panic!("Cannot read linear calibration value when the voltage regulator is disabled");
+                    }
+                    if self.rb.cr.read().aden().bit_is_clear() {
+                        panic!("Cannot read linear calibration value when the ADC is disabled");
+                    }
+                }
+            }
+
+            impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC, Enabled>
             where
                 WORD: From<u32>,
                 PIN: Channel<$ADC, ID = u8>,
@@ -699,22 +734,7 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (
-        adc12en,
-        adc12rst,
-        AHB1,
-        ahb1
-    ),
-    ADC2: (
-        adc12en,
-        adc12rst,
-        AHB1,
-        ahb1
-    ),
-    ADC3: (
-        adc3en,
-        adc3rst,
-        AHB4,
-        ahb4
-    ),
+    ADC1: (adc1, adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
+    ADC2: (adc2, adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
+    ADC3: (adc3, adc3en, adc3rst, AHB4, ahb4, ADC3_COMMON),
 );

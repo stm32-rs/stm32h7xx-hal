@@ -59,6 +59,8 @@ pub mod rng;
 #[cfg(feature = "device-selected")]
 pub mod serial;
 #[cfg(feature = "device-selected")]
+pub mod signature;
+#[cfg(feature = "device-selected")]
 pub mod spi;
 #[cfg(feature = "device-selected")]
 pub mod time;
