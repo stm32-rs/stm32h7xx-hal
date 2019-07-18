@@ -47,7 +47,7 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     // Setup ADC
-    let mut adc3 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr);
+    let mut adc3 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr).enable();
     adc3.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup GPIOC

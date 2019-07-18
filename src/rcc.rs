@@ -3,6 +3,7 @@
 
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SWW;
+use crate::stm32::rcc::cfgr::TIMPREW;
 use crate::stm32::rcc::d1ccipr::CKPERSELW;
 use crate::stm32::rcc::d1cfgr::HPREW;
 use crate::stm32::rcc::pllckselr::PLLSRCW;
@@ -238,9 +239,12 @@ impl Rcc {
 }
 
 /// Divider calculator for pclk 1 - 4
+///
+/// Also calulate tim[xy]_ker_clk if there are timers on this bus
 macro_rules! ppre_calculate {
     ($(($ppre:ident, $bits:ident): ($self: ident, $hclk: ident,
-                                    $pclk: ident, $max: ident),)+) => {
+                                    $pclk: ident, $max: ident
+                                    $(,$rcc_tim_ker_clk:ident, $timpre:ident)*),)+) => {
         $(
             // Get intended rcc_pclkN frequency
             let $pclk: u32 = $self.config
@@ -263,6 +267,18 @@ macro_rules! ppre_calculate {
 
             // Check in range
             assert!($pclk <= $max);
+
+            $(
+                let $rcc_tim_ker_clk = match ($bits, &$timpre)
+                {
+                    (0b101, TIMPREW::DEFAULTX2) => $hclk / 2,
+                    (0b110, TIMPREW::DEFAULTX4) => $hclk / 2,
+                    (0b110, TIMPREW::DEFAULTX2) => $hclk / 4,
+                    (0b111, TIMPREW::DEFAULTX4) => $hclk / 4,
+                    (0b111, TIMPREW::DEFAULTX2) => $hclk / 8,
+                    _ => $hclk,
+                };
+            )*
         )+
     };
 }
@@ -447,6 +463,9 @@ impl Rcc {
         let d1cpre_div = 1;
         let sys_d1cpre_ck = sys_ck.0 / d1cpre_div;
 
+        // Timer prescaler selection
+        let timpre = TIMPREW::DEFAULTX2;
+
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
@@ -491,8 +510,10 @@ impl Rcc {
 
         // Calculate ppreN dividers and real rcc_pclkN frequencies
         ppre_calculate! {
-            (ppre1, ppre1_bits): (self, rcc_hclk, rcc_pclk1, pclk_max),
-            (ppre2, ppre2_bits): (self, rcc_hclk, rcc_pclk2, pclk_max),
+            (ppre1, ppre1_bits):
+                (self, rcc_hclk, rcc_pclk1, pclk_max, rcc_timx_ker_ck, timpre),
+            (ppre2, ppre2_bits):
+                (self, rcc_hclk, rcc_pclk2, pclk_max, rcc_timy_ker_ck, timpre),
             (ppre3, ppre3_bits): (self, rcc_hclk, rcc_pclk3, pclk_max),
             (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk_max),
         }
@@ -557,6 +578,9 @@ impl Rcc {
         // Peripheral Clock (per_ck)
         rcc.d1ccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
 
+        // Set timer clocks prescaler setting
+        rcc.cfgr.modify(|_, w| w.timpre().variant(timpre));
+
         // Select system clock source
         let swbits = match (pll1_p_ck.is_some(), self.config.hse.is_some()) {
             (true, _) => SWW::PLL1 as u8,
@@ -612,6 +636,8 @@ impl Rcc {
                 pll3_p_ck: None,
                 pll3_q_ck: None,
                 pll3_r_ck: None,
+                timx_ker_ck: Hertz(rcc_timx_ker_ck),
+                timy_ker_ck: Hertz(rcc_timy_ker_ck),
                 sys_ck,
                 c_ck: Hertz(sys_d1cpre_ck),
             },
@@ -650,6 +676,8 @@ pub struct CoreClocks {
     pll3_p_ck: Option<Hertz>,
     pll3_q_ck: Option<Hertz>,
     pll3_r_ck: Option<Hertz>,
+    timx_ker_ck: Hertz,
+    timy_ker_ck: Hertz,
     sys_ck: Hertz,
     c_ck: Hertz,
 }
@@ -740,6 +768,16 @@ impl CoreClocks {
     /// Returns the input frequency to the SCGU - ALIAS
     pub fn sysclk(&self) -> Hertz {
         self.sys_ck
+    }
+
+    /// Returns the CK_INT frequency for timers on APB1
+    pub fn timx_ker_ck(&self) -> Hertz {
+        self.timx_ker_ck
+    }
+
+    /// Returns the CK_INT frequency for timers on APB2
+    pub fn timy_ker_ck(&self) -> Hertz {
+        self.timy_ker_ck
     }
 
     /// Returns the core frequency
