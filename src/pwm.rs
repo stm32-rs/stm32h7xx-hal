@@ -463,7 +463,7 @@ macro_rules! pwm_ext_hal {
 
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $enr:ident, $rstr:ident,
+    ($($TIMX:ident: ($timX:ident, $apb:ident,
                      $timXen:ident, $timXrst:ident,
                      $typ:ty, $bits:expr $(,$bdtr:ident)*),)+) => {
         $(
@@ -479,9 +479,9 @@ macro_rules! tim_hal {
             where
                 PINS: Pins<$TIMX>,
             {
-                ccdr.$apb.$enr().modify(|_, w| w.$timXen().set_bit());
-                ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().set_bit());
-                ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().clear_bit());
+                ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
+                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                 let clk = $TIMX::get_clk(&ccdr)
                     .expect("Timer input clock not running!").0;
@@ -524,22 +524,22 @@ macro_rules! tim_hal {
     }
 }
 tim_hal! {
-    TIM1: (tim1, apb2, enr, rstr, tim1en, tim1rst, u16, 16, bdtr),
-    TIM2: (tim2, apb1, lenr, lrstr, tim2en, tim2rst, u32, 32),
-    TIM3: (tim3, apb1, lenr, lrstr, tim3en, tim3rst, u16, 16),
-    TIM4: (tim4, apb1, lenr, lrstr, tim4en, tim4rst, u16, 16),
-    TIM5: (tim5, apb1, lenr, lrstr, tim5en, tim5rst, u32, 32),
-    TIM8: (tim8, apb2, enr, rstr, tim8en, tim8rst, u16, 16, bdtr),
+    TIM1: (tim1, apb2, tim1en, tim1rst, u16, 16, bdtr),
+    TIM2: (tim2, apb1l, tim2en, tim2rst, u32, 32),
+    TIM3: (tim3, apb1l, tim3en, tim3rst, u16, 16),
+    TIM4: (tim4, apb1l, tim4en, tim4rst, u16, 16),
+    TIM5: (tim5, apb1l, tim5en, tim5rst, u32, 32),
+    TIM8: (tim8, apb2, tim8en, tim8rst, u16, 16, bdtr),
 }
 tim_hal! {
-    TIM12: (tim12, apb1, lenr, lrstr, tim12en, tim12rst, u16, 16),
-    TIM13: (tim13, apb1, lenr, lrstr, tim13en, tim13rst, u16, 16),
-    TIM14: (tim14, apb1, lenr, lrstr, tim14en, tim14rst, u16, 16),
+    TIM12: (tim12, apb1l, tim12en, tim12rst, u16, 16),
+    TIM13: (tim13, apb1l, tim13en, tim13rst, u16, 16),
+    TIM14: (tim14, apb1l, tim14en, tim14rst, u16, 16),
 }
 tim_hal! {
-    TIM15: (tim15, apb2, enr, rstr, tim15en, tim15rst, u16, 16),
-    TIM16: (tim16, apb2, enr, rstr, tim16en, tim16rst, u16, 16),
-    TIM17: (tim17, apb2, enr, rstr, tim17en, tim17rst, u16, 16),
+    TIM15: (tim15, apb2, tim15en, tim15rst, u16, 16),
+    TIM16: (tim16, apb2, tim16en, tim16rst, u16, 16),
+    TIM17: (tim17, apb2, tim17en, tim17rst, u16, 16),
 }
 
 // Implement PwmPin for timer
@@ -633,8 +633,7 @@ tim_pin_hal! {
 
 // Low-power timers
 macro_rules! lptim_hal {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $enr:ident, $rstr:ident,
-                     $timXen:ident, $timXrst:ident, $timXpac:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $timXen:ident, $timXrst:ident, $timXpac:ident),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX);
 
@@ -648,9 +647,9 @@ macro_rules! lptim_hal {
             where
                 PINS: Pins<$TIMX>,
             {
-                ccdr.$apb.$enr().modify(|_, w| w.$timXen().set_bit());
-                ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().set_bit());
-                ccdr.$apb.$rstr().modify(|_, w| w.$timXrst().clear_bit());
+                ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
+                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                 let clk = $TIMX::get_clk(&ccdr).unwrap().0;
                 let freq = freq.0;
@@ -737,9 +736,9 @@ macro_rules! lptim_hal {
 }
 
 lptim_hal! {
-    LPTIM1: (lptim1, apb1, lenr, lrstr, lptim1en, lptim1rst, lptim1),
-    LPTIM2: (lptim2, apb4, enr, rstr, lptim2en, lptim2rst, lptim1),
-    LPTIM3: (lptim3, apb4, enr, rstr, lptim3en, lptim3rst, lptim3),
-    LPTIM4: (lptim4, apb4, enr, rstr, lptim4en, lptim4rst, lptim3),
-    LPTIM5: (lptim5, apb4, enr, rstr, lptim5en, lptim5rst, lptim3),
+    LPTIM1: (lptim1, apb1l, lptim1en, lptim1rst, lptim1),
+    LPTIM2: (lptim2, apb4, lptim2en, lptim2rst, lptim1),
+    LPTIM3: (lptim3, apb4, lptim3en, lptim3rst, lptim3),
+    LPTIM4: (lptim4, apb4, lptim4en, lptim4rst, lptim3),
+    LPTIM5: (lptim5, apb4, lptim5en, lptim5rst, lptim3),
 }

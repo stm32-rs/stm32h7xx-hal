@@ -118,7 +118,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $APB:ident, $timXen:ident, $timXrst:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $APB:ident, $timXen:ident, $timXrst:ident),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
