@@ -2,12 +2,6 @@
 use crate::hal::{self, Direction};
 use crate::rcc::Ccdr;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA5, PA6, PA7, PA8, PA9};
 use crate::gpio::gpiob::{PB0, PB13, PB14, PB3, PB4, PB5, PB6, PB7};
 use crate::gpio::gpioc::{PC6, PC7};
@@ -20,30 +14,12 @@ use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::Alternate;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::gpio::AF1;
 use crate::gpio::AF2;
 use crate::gpio::AF3;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::stm32::{TIM1, TIM8};
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::stm32::{TIM2, TIM3, TIM4, TIM5};
 
 pub trait Pins<TIM> {}
@@ -70,12 +46,6 @@ macro_rules! pins {
     }
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750",
-))]
 pins! {
     TIM1:
         CH1: [
@@ -245,12 +215,6 @@ macro_rules! tim_hal {
     }
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 tim_hal! {
     TIM1: (tim1, apb2, enr, rstr, tim1en, tim1rst, u16),
     TIM8: (tim8, apb2, enr, rstr, tim8en, tim8rst, u16),

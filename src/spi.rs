@@ -9,20 +9,8 @@ use crate::stm32::spi1::cfg1::MBRW;
 use core::ptr;
 use nb;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750",
-))]
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::gpio::gpioa::{PA12, PA5, PA6, PA7, PA9};
 use crate::gpio::gpiob::{PB10, PB13, PB14, PB15, PB2, PB3, PB4, PB5};
 use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC2, PC3};
@@ -35,12 +23,6 @@ use crate::gpio::gpioi::{PI1, PI2, PI3};
 use crate::gpio::gpioj::{PJ10, PJ11};
 use crate::gpio::gpiok::PK0;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
 
 use crate::rcc::Ccdr;
@@ -95,12 +77,6 @@ macro_rules! pins {
     }
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 pins! {
     SPI1:
         SCK: [
@@ -541,12 +517,6 @@ macro_rules! spi6sel {
     }
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 spi! {
     SPI1: (spi1, apb2enr,  spi1en, pclk2),
     SPI2: (spi2, apb1lenr, spi2en, pclk1),
@@ -556,12 +526,6 @@ spi! {
     SPI6: (spi6, apb4enr,  spi6en, pclk2),
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 spi123sel! {
     SPI1, SPI2, SPI3,
 }

@@ -11,20 +11,7 @@ use nb::block;
 use crate::stm32::rcc::d2ccip2r;
 use crate::stm32::usart1::cr1::{M0W, PCEW, PSW};
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::stm32::{USART1, USART2, USART3, USART6};
-
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 use crate::stm32::{UART4, UART5, UART7, UART8};
 
 use crate::gpio::gpioa::{
@@ -206,12 +193,6 @@ macro_rules! uart_pins {
     }
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 usart_pins! {
     USART1:
         TX: [
@@ -282,12 +263,6 @@ usart_pins! {
             PG7<Alternate<AF7>>
         ]
 }
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 uart_pins! {
     UART4:
         TX: [
@@ -702,21 +677,9 @@ usart! {
     UART8: (uart8, apb1, uart8en, uart8rst, pclk1, lenr, lrstr),
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 usart16sel! {
     USART1, USART6,
 }
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 usart234578sel! {
     USART2, USART3, UART4, UART5, UART7, UART8,
 }

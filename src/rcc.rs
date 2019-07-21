@@ -582,12 +582,6 @@ impl Rcc {
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
-        #[cfg(any(
-            feature = "stm32h742",
-            feature = "stm32h743",
-            feature = "stm32h753",
-            feature = "stm32h750"
-        ))]
         let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match vos {
             Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
             Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),

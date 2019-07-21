@@ -38,12 +38,17 @@ cortex-m-log = { version = "~0.6", features = ["itm"] }
 default = ["unproven"]
 unproven = ["embedded-hal/unproven"]
 device-selected = []
+revision_v = []
 rt = ["stm32h7/rt"]
-stm32h742 = ["stm32h7/stm32h7x3", "device-selected"]
-stm32h743 = ["stm32h7/stm32h7x3", "device-selected"]
-stm32h753 = ["stm32h7/stm32h7x3", "device-selected"]
-stm32h750 = ["stm32h7/stm32h7x3", "device-selected"]
-rev_v = []
+stm32h742 = ["stm32h7/stm32h743", "device-selected"]
+stm32h743 = ["stm32h7/stm32h743", "device-selected"]
+stm32h753 = ["stm32h7/stm32h753", "device-selected"]
+stm32h750 = ["stm32h7/stm32h743", "device-selected"]
+stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v"]
+stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v"]
+stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v"]
+stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v"]
+
 
 [profile.dev]
 codegen-units = 1 # better optimizations
