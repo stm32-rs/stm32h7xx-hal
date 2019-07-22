@@ -389,12 +389,6 @@ pins! {
         ]
 }
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 i2c!(
     I2C1: (i2c1, i2c1en, i2c1rst, apb1lenr, apb1lrstr, pclk1),
     I2C2: (i2c2, i2c2en, i2c2rst, apb1lenr, apb1lrstr, pclk1),

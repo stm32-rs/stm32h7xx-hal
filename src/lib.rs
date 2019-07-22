@@ -11,6 +11,10 @@ compile_error!(
         stm32h743
         stm32h753
         stm32h750
+        stm32h742v
+        stm32h743v
+        stm32h753v
+        stm32h750v
 "
 );
 
@@ -22,10 +26,24 @@ pub use nb::block;
 #[cfg(any(
     feature = "stm32h742",
     feature = "stm32h743",
-    feature = "stm32h753",
     feature = "stm32h750",
 ))]
-pub use stm32h7::stm32h7x3 as stm32;
+pub use stm32h7::stm32h743 as stm32;
+#[cfg(any(
+    feature = "stm32h753",
+))]
+pub use stm32h7::stm32h753 as stm32;
+#[cfg(any(
+    feature = "stm32h742v",
+    feature = "stm32h743v",
+    feature = "stm32h750v",
+))]
+pub use stm32h7::stm32h743v as stm32;
+#[cfg(any(
+    feature = "stm32h753v",
+))]
+pub use stm32h7::stm32h753v as stm32;
+
 
 #[cfg(feature = "device-selected")]
 pub use crate::stm32 as pac;

@@ -22,6 +22,10 @@ env:
 - MCU=stm32h743
 - MCU=stm32h753
 - MCU=stm32h750
+- MCU=stm32h742v
+- MCU=stm32h743v
+- MCU=stm32h753v
+- MCU=stm32h750v
 
 matrix:
   allow_failures:

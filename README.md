@@ -10,14 +10,28 @@ are pull requests!**
 
 📂 *[Local dependancy required](#Hacking)*
 
-`stm32h7xx-hal` contains a hardware abstraction on top of the peripheral access
-API for the STMicro STM32H7 series microcontrollers. The selection of the MCU
-is done by feature gates, typically specified by board support crates.
-Currently supported configurations are:
+`stm32h7xx-hal` contains a hardware abstraction on top of the
+peripheral access API for the STMicro STM32H7 series
+microcontrollers. The selection of the MCU is done by feature gates,
+typically specified by board support crates.
 
-*   stm32h743 ✔️ YES!
+The currently supported parts are:
 
-While stm32h742, stm32h750, and stm32h753 remain unsupported.
+*   stm32h743 ✔️
+*   stm32h753 ✔️
+
+Feature gates for the stm32h742, stm32h750 also exist but may not be
+complete.
+
+In 2019 ST released hardware Revision V of the stm32h742, stm32h743,
+stm32h750 and stm32h753 ([eevblog][]). This hardware revision makes
+breaking hardware changes, documented in [AN5312][]. These parts are
+supported with the following feature gates:
+
+*   stm32h743v ✔️
+*   stm32h753v ✔️
+
+Again, feature gates stm32h742v, stm32h750v also exist.
 
 The idea behind this crate is to gloss over the slight differences in the
 various peripherals available on those MCUs so a HAL can be written for all
@@ -77,3 +91,5 @@ License
 [`stm32h7`]: https://crates.io/crates/stm32h7
 [`stm32f30x-hal`]: https://github.com/japaric/stm32f30x-hal
 [`embedded-hal`]: https://github.com/japaric/embedded-hal
+[AN5312]: https://www.st.com/resource/en/application_note/dm00609692.pdf
+[eevblog]: https://www.eevblog.com/forum/microcontrollers/stm32h7-series-revision-beware-of-the-changes!/

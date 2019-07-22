@@ -17,13 +17,11 @@ use crate::gpio::Analog;
 use crate::rcc::Ccdr;
 use crate::rcc::D3CCIPR;
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
+#[cfg(not(feature = "revision_v"))]
 const ADC_KER_CK_MAX: u32 = 36_000_000;
+
+#[cfg(feature = "revision_v")]
+const ADC_KER_CK_MAX: u32 = 100_000_000;
 
 pub type Resolution = crate::stm32::adc3::cfgr::RESR;
 trait NumberOfBits {
@@ -205,12 +203,6 @@ pub struct Temperature;
 // Just implmenting INPx pins (INNx defaulting to V_ref-)
 //
 // Refer to DS12110 Rev 7 - Chapter 5 (Table 9)
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 adc_pins!(ADC1,
           // 0, 1 are Pxy_C pins
           PF11<Analog> => 2,
@@ -233,12 +225,6 @@ adc_pins!(ADC1,
           PA5<Analog> => 19,
 );
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 adc_pins!(ADC2,
           // 0, 1 are Pxy_C pins
           PF13<Analog> => 2,
@@ -260,12 +246,6 @@ adc_pins!(ADC2,
           PA5<Analog> => 19,
 );
 
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 adc_pins!(ADC3,
           // 0, 1 are Pxy_C pins
           PF9<Analog> => 2,
@@ -284,12 +264,6 @@ adc_pins!(ADC3,
           PH4<Analog> => 15,
           PH5<Analog> => 16,
 );
-#[cfg(any(
-    feature = "stm32h742",
-    feature = "stm32h743",
-    feature = "stm32h753",
-    feature = "stm32h750"
-))]
 adc_internal!(
           Vbat => (17, vbaten),
           Temperature => (18, vsenseen),
@@ -460,10 +434,13 @@ macro_rules! adc_hal {
                             .discen().set_bit()
                     );
 
-                    // Enables boost mode since clock frequency > 20MHz
+                    // Enables boost mode for highest possible clock frequency
                     //
                     // Refer to RM0433 Rev 6 - Chapter 24.4.3
+                    #[cfg(not(feature = "revision_v"))]
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
+                    #[cfg(feature = "revision_v")]
+                    self.rb.cr.modify(|_, w| w.boost().lt50());
                 }
 
                 /// Enable ADC
