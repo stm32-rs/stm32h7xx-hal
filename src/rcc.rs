@@ -100,9 +100,9 @@ pub struct Ccdr {
 }
 
 macro_rules! ahb_apb_generation {
-    ($(($AXBn:ident, $AXBnENR:ident, $axbnenr:ident, $AXBnRSTR:ident, $axbnrstr:ident)),+) => {
+    ($(($AXBn:ident, $AXBnENR:ident, $axbnenr:ident, $AXBnRSTR:ident, $axbnrstr:ident, $doc:expr)),+) => {
         $(
-            #[allow(missing_docs)]
+            #[doc=$doc]
             pub struct $AXBn {
                 _0: (),
             }
@@ -125,15 +125,15 @@ macro_rules! ahb_apb_generation {
 }
 
 ahb_apb_generation!(
-    (AHB1, AHB1ENR, ahb1enr, AHB1RSTR, ahb1rstr),
-    (AHB2, AHB2ENR, ahb2enr, AHB2RSTR, ahb2rstr),
-    (AHB3, AHB3ENR, ahb3enr, AHB3RSTR, ahb3rstr),
-    (AHB4, AHB4ENR, ahb4enr, AHB4RSTR, ahb4rstr),
-    (APB1L, APB1LENR, apb1lenr, APB1LRSTR, apb1lrstr),
-    (APB1H, APB1HENR, apb1henr, APB1HRSTR, apb1hrstr),
-    (APB2, APB2ENR, apb2enr, APB2RSTR, apb2rstr),
-    (APB3, APB3ENR, apb3enr, APB3RSTR, apb3rstr),
-    (APB4, APB4ENR, apb4enr, APB4RSTR, apb4rstr)
+    (AHB1, AHB1ENR, ahb1enr, AHB1RSTR, ahb1rstr, "AMBA High-performance Bus (AHB1) registers"),
+    (AHB2, AHB2ENR, ahb2enr, AHB2RSTR, ahb2rstr, "AMBA High-performance Bus (AHB2) registers"),
+    (AHB3, AHB3ENR, ahb3enr, AHB3RSTR, ahb3rstr, "AMBA High-performance Bus (AHB3) registers"),
+    (AHB4, AHB4ENR, ahb4enr, AHB4RSTR, ahb4rstr, "AMBA High-performance Bus (AHB4) registers"),
+    (APB1L, APB1LENR, apb1lenr, APB1LRSTR, apb1lrstr, "Advanced Peripheral Bus 1L (APB1L) registers"),
+    (APB1H, APB1HENR, apb1henr, APB1HRSTR, apb1hrstr, "Advanced Peripheral Bus 1H (APB1H) registers"),
+    (APB2, APB2ENR, apb2enr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+    (APB3, APB3ENR, apb3enr, APB3RSTR, apb3rstr, "Advanced Peripheral Bus 3 (APB3) registers"),
+    (APB4, APB4ENR, apb4enr, APB4RSTR, apb4rstr, "Advanced Peripheral Bus 4 (APB4) registers")
 );
 
 /// RCC Domain 3 Kernel Clock Configuration Register
