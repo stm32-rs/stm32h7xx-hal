@@ -355,7 +355,7 @@ pub trait SerialExt<USART> {
 macro_rules! usart {
     ($(
         $USARTX:ident: ($usartX:ident, $apb:ident, $usartXen:ident, $usartXrst:ident,
-                        $pclkX:ident, $enr:ident, $rstr:ident),
+                        $pclkX:ident),
     )+) => {
         $(
             /// Configures a USART peripheral to provide serial
@@ -374,9 +374,9 @@ macro_rules! usart {
                     use self::config::*;
 
                     // Enable clock for USART and reset
-                    ccdr.$apb.$enr().modify(|_, w| w.$usartXen().enabled());
-                    ccdr.$apb.$rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    ccdr.$apb.$rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    ccdr.$apb.enr().modify(|_, w| w.$usartXen().enabled());
+                    ccdr.$apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
+                    ccdr.$apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
                     // Get kernel clock
 	                let usart_ker_ck = match Self::kernel_clk(ccdr) {
@@ -666,15 +666,15 @@ macro_rules! usart234578sel {
 }
 
 usart! {
-    USART1: (usart1, apb2, usart1en, usart1rst, pclk2, enr, rstr),
-    USART2: (usart2, apb1, usart2en, usart2rst, pclk1, lenr, lrstr),
-    USART3: (usart3, apb1, usart3en, usart3rst, pclk1, lenr, lrstr),
-    USART6: (usart6, apb2, usart6en, usart6rst, pclk2, enr, rstr),
+    USART1: (usart1, apb2, usart1en, usart1rst, pclk2),
+    USART2: (usart2, apb1l, usart2en, usart2rst, pclk1),
+    USART3: (usart3, apb1l, usart3en, usart3rst, pclk1),
+    USART6: (usart6, apb2, usart6en, usart6rst, pclk2),
 
-    UART4: (uart4, apb1, uart4en, uart4rst, pclk1, lenr, lrstr),
-    UART5: (uart5, apb1, uart5en, uart5rst, pclk1, lenr, lrstr),
-    UART7: (uart7, apb1, uart7en, uart7rst, pclk1, lenr, lrstr),
-    UART8: (uart8, apb1, uart8en, uart8rst, pclk1, lenr, lrstr),
+    UART4: (uart4, apb1l, uart4en, uart4rst, pclk1),
+    UART5: (uart5, apb1l, uart5en, uart5rst, pclk1),
+    UART7: (uart7, apb1l, uart7en, uart7rst, pclk1),
+    UART8: (uart8, apb1l, uart8en, uart8rst, pclk1),
 }
 
 usart16sel! {

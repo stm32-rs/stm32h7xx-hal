@@ -78,8 +78,10 @@ pub struct Ccdr {
     pub ahb3: AHB3,
     /// AMBA High-performance Bus (AHB4) registers
     pub ahb4: AHB4,
-    /// Advanced Peripheral Bus 1 (APB1) registers
-    pub apb1: APB1,
+    /// Advanced Peripheral Bus 1L (APB1L) registers
+    pub apb1l: APB1L,
+    /// Advanced Peripheral Bus 1H (APB1H) registers
+    pub apb1h: APB1H,
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     /// Advanced Peripheral Bus 3 (APB3) registers
@@ -97,157 +99,42 @@ pub struct Ccdr {
     pub(crate) rb: RCC,
 }
 
-/// AMBA High-performance Bus (AHB) peripheral registers
-pub struct AHB1 {
-    _0: (),
-}
+macro_rules! ahb_apb_generation {
+    ($(($AXBn:ident, $AXBnENR:ident, $axbnenr:ident, $AXBnRSTR:ident, $axbnrstr:ident, $doc:expr)),+) => {
+        $(
+            #[doc=$doc]
+            pub struct $AXBn {
+                _0: (),
+            }
 
-impl AHB1 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1enr }
-    }
+            impl $AXBn {
+                #[allow(unused)]
+                pub (crate) fn enr(&mut self) -> &rcc::$AXBnENR {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$axbnenr }
+                }
 
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1rstr }
-    }
-}
-
-/// AMBA High-performance Bus (AHB) peripheral registers
-pub struct AHB2 {
-    _0: (),
-}
-
-impl AHB2 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2rstr }
+                #[allow(unused)]
+                pub (crate) fn rstr(&mut self) -> &rcc::$AXBnRSTR {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$axbnrstr }
+                }
+            }
+        )+ 
     }
 }
 
-/// AMBA High-performance Bus (AHB) peripheral registers
-pub struct AHB3 {
-    _0: (),
-}
-
-impl AHB3 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3rstr }
-    }
-}
-
-/// AMBA High-performance Bus (AHB) peripheral registers
-pub struct AHB4 {
-    _0: (),
-}
-
-impl AHB4 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB4ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb4enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB4RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb4rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 1 (APB1) peripheral registers
-pub struct APB1 {
-    _0: (),
-}
-
-impl APB1 {
-    #[allow(unused)]
-    pub(crate) fn lenr(&mut self) -> &rcc::APB1LENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1lenr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn lrstr(&mut self) -> &rcc::APB1LRSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1lrstr }
-    }
-}
-
-/// Advanced Peripheral Bus 2 (APB2) peripheral registers
-pub struct APB2 {
-    _0: (),
-}
-
-impl APB2 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 3 (APB3) peripheral registers
-pub struct APB3 {
-    _0: (),
-}
-
-impl APB3 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::APB3ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb3enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::APB3RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb3rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 4 (APB4) peripheral registers
-pub struct APB4 {
-    _0: (),
-}
-
-impl APB4 {
-    #[allow(unused)]
-    pub(crate) fn enr(&mut self) -> &rcc::APB4ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb4enr }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn rstr(&mut self) -> &rcc::APB4RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb4rstr }
-    }
-}
+ahb_apb_generation!(
+    (AHB1, AHB1ENR, ahb1enr, AHB1RSTR, ahb1rstr, "AMBA High-performance Bus (AHB1) registers"),
+    (AHB2, AHB2ENR, ahb2enr, AHB2RSTR, ahb2rstr, "AMBA High-performance Bus (AHB2) registers"),
+    (AHB3, AHB3ENR, ahb3enr, AHB3RSTR, ahb3rstr, "AMBA High-performance Bus (AHB3) registers"),
+    (AHB4, AHB4ENR, ahb4enr, AHB4RSTR, ahb4rstr, "AMBA High-performance Bus (AHB4) registers"),
+    (APB1L, APB1LENR, apb1lenr, APB1LRSTR, apb1lrstr, "Advanced Peripheral Bus 1L (APB1L) registers"),
+    (APB1H, APB1HENR, apb1henr, APB1HRSTR, apb1hrstr, "Advanced Peripheral Bus 1H (APB1H) registers"),
+    (APB2, APB2ENR, apb2enr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+    (APB3, APB3ENR, apb3enr, APB3RSTR, apb3rstr, "Advanced Peripheral Bus 3 (APB3) registers"),
+    (APB4, APB4ENR, apb4enr, APB4RSTR, apb4rstr, "Advanced Peripheral Bus 4 (APB4) registers")
+);
 
 /// RCC Domain 3 Kernel Clock Configuration Register
 pub struct D3CCIPR {
@@ -714,7 +601,8 @@ impl Rcc {
             ahb2: AHB2 { _0: () },
             ahb3: AHB3 { _0: () },
             ahb4: AHB4 { _0: () },
-            apb1: APB1 { _0: () },
+            apb1l: APB1L { _0: () },
+            apb1h: APB1H { _0: () },
             apb2: APB2 { _0: () },
             apb3: APB3 { _0: () },
             apb4: APB4 { _0: () },

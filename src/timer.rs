@@ -14,8 +14,10 @@ use cast::{u16, u32};
 use nb;
 use void::Void;
 
+
+
 use crate::rcc::Ccdr;
-use crate::rcc::{APB1, APB2};
+use crate::rcc::{APB1L, APB2};
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
 
@@ -110,7 +112,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $APB:ident, $timXen:ident, $timXrst:ident, $enr:ident, $rstr:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $APB:ident, $timXen:ident, $timXrst:ident),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
@@ -153,9 +155,9 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean slate state
-                    apb.$enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.$rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.$rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    apb.enr().modify(|_, w| w.$timXen().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                     let clk = $TIMX::get_clk(&ccdr)
                         .expect("Timer input clock not running!").0;
@@ -244,8 +246,8 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM1: (tim1, APB2, tim1en, tim1rst, enr, rstr),
-    TIM2: (tim2, APB1, tim2en, tim2rst, lenr, lrstr),
+    TIM1: (tim1, APB2, tim1en, tim1rst),
+    TIM2: (tim2, APB1L, tim2en, tim2rst),
     // TIM3: (tim3, APB1, tim3en, tim3rst),
     // TIM4: (tim4, APB1, tim4en, tim4rst),
     // TIM5: (tim5, APB1, tim7en, tim7rst),
