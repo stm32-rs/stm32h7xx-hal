@@ -34,9 +34,31 @@ pub unsafe trait PinScl<I2C> {}
 /// A trait to represent the SDL Pin of an I2C Port
 pub unsafe trait PinSda<I2C> {}
 
+pub trait Pins<I2C> {}
+
+impl<I2C, SCL, SDA> Pins<I2C> for (SCL, SDA)
+where
+    SCL: PinScl<I2C>,
+    SDA: PinSda<I2C>,
+{
+}
+
+#[derive(Debug)]
 pub struct I2c<I2C, PINS> {
     i2c: I2C,
     pins: PINS,
+}
+
+pub trait I2cExt<I2C>: Sized {
+    fn i2c<PINS, F>(
+        self,
+        pins: PINS,
+        freq: F,
+        ccdr: &Ccdr
+    ) -> I2c<I2C, PINS>
+    where
+        PINS: Pins<I2C>,
+        F: Into<Hertz>;
 }
 
 macro_rules! busy_wait {
@@ -60,17 +82,16 @@ macro_rules! busy_wait {
 macro_rules! i2c {
     ($($I2CX:ident: ($i2cX:ident, $i2cXen:ident, $i2cXrst:ident, $apbXenr:ident, $apbXrstr:ident, $pclkX:ident),)+) => {
         $(
-            impl<SCL, SDA> I2c<$I2CX, (SCL, SDA)> {
+            impl<PINS> I2c<$I2CX, PINS> {
                 /// Basically a new function for an I2C peripheral
                 pub fn $i2cX<F> (
                     i2c: $I2CX,
-                    pins: (SCL, SDA),
+                    pins: PINS,
                     freq: F,
                     ccdr: &Ccdr
                 ) -> Self where
                     F: Into<Hertz>,
-                    SCL: PinScl<$I2CX>,
-                    SDA: PinSda<$I2CX>,
+                    PINS: Pins<$I2CX>,
                 {
                     ccdr.rb.$apbXenr.modify(|_, w| w.$i2cXen().set_bit());
                     ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().set_bit());
@@ -166,10 +187,24 @@ macro_rules! i2c {
                 }
 
                 /// Releases the I2C peripheral and associated pins
-                pub fn free(self) -> ($I2CX, (SCL, SDA)) {
+                pub fn free(self) -> ($I2CX, PINS) {
                     (self.i2c, self.pins)
                 }
             }
+
+            impl I2cExt<$I2CX> for $I2CX {
+                fn i2c<PINS, F>(self,
+                                pins:PINS,
+                                freq:F,
+                                ccdr: &Ccdr) -> I2c<$I2CX, PINS>
+                where
+                    PINS: Pins<$I2CX>,
+                    F: Into<Hertz>
+                {
+                    I2c::$i2cX(self, pins, freq, ccdr)
+                }
+            }
+            
             impl<PINS> Write for I2c<$I2CX, PINS> {
                 type Error = Error;
 

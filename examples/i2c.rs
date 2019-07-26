@@ -3,7 +3,7 @@
 
 extern crate panic_itm;
 
-use stm32h7xx_hal::{i2c::I2c, pac, prelude::*};
+use stm32h7xx_hal::{pac, prelude::*};
 
 use cortex_m_rt::entry;
 
@@ -33,13 +33,12 @@ fn main() -> ! {
     let scl = gpiob.pb8.into_alternate_af4().set_open_drain();
     let sda = gpiob.pb9.into_alternate_af4().set_open_drain();
 
-    let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100.khz(), &ccdr);
+    let mut i2c = dp.I2C1.i2c((scl, sda), 100.khz(), &ccdr);
 
-    // Echo what is received on the I2C at register 0x11 and addr 0x10
-    // It is expected to get 2 bytes as response here
-    let mut buf = [0x11, 0x0];
+    // Echo what is received on the I2C at register 0x60
+    let mut buf = [0x60];
     loop {
         buf[0] = 0x11;
-        i2c.write_read(0x10, &buf.clone(), &mut buf).ok();
+        i2c.write_read(0x76, &buf.clone(), &mut buf).unwrap();
     }
 }
