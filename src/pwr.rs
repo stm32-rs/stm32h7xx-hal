@@ -32,10 +32,17 @@ pub enum VoltageScale {
 
 impl Pwr {
     pub fn freeze(self) -> VoltageScale {
-        // go to VOS1 voltage scale for high perf
+        #[cfg(any(feature = "singlecore"))]
         self.rb.cr3.write(|w| {
             w.scuen().set_bit().ldoen().set_bit().bypass().clear_bit()
         });
+
+        #[cfg(any(feature = "dualcore"))]
+        self.rb.cr3.modify(|_, w| {
+            w.sden().set_bit().ldoen().clear_bit() // SMPS
+        });
+
+        // go to VOS1 voltage scale for high performance
         while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
         self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
         while self.rb.d3cr.read().vosrdy().bit_is_clear() {}

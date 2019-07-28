@@ -61,8 +61,19 @@ impl DelayUs<u32> for Delay {
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
         // With c_ck up to 480e6, we need u64 for delays > 8.9s
+        #[cfg(any(feature = "singlecore"))]
         let mut total_rvr =
             u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000);
+
+        // Dual core has an additional divide by 8
+        #[cfg(all(feature = "dualcore", feature = "cm7"))]
+        let mut total_rvr =
+            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000);
+
+        // CM4 dervived from HCLK
+        #[cfg(all(feature = "dualcore", feature = "cm4"))]
+        let mut total_rvr =
+            u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000);
 
         while total_rvr != 0 {
             let current_rvr = if total_rvr <= MAX_RVR.into() {

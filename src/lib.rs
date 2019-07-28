@@ -15,6 +15,7 @@ compile_error!(
         stm32h743v
         stm32h753v
         stm32h750v
+        stm32h747cm7
 "
 );
 
@@ -23,6 +24,7 @@ pub use embedded_hal as hal;
 pub use nb;
 pub use nb::block;
 
+// Single core
 #[cfg(any(
     feature = "stm32h742",
     feature = "stm32h743",
@@ -30,20 +32,24 @@ pub use nb::block;
 ))]
 pub use stm32h7::stm32h743 as stm32;
 #[cfg(any(
-    feature = "stm32h753",
-))]
-pub use stm32h7::stm32h753 as stm32;
-#[cfg(any(
     feature = "stm32h742v",
     feature = "stm32h743v",
     feature = "stm32h750v",
 ))]
 pub use stm32h7::stm32h743v as stm32;
-#[cfg(any(
-    feature = "stm32h753v",
-))]
+
+// Single core with crypto
+#[cfg(any(feature = "stm32h753",))]
+pub use stm32h7::stm32h753 as stm32;
+#[cfg(any(feature = "stm32h753v",))]
 pub use stm32h7::stm32h753v as stm32;
 
+// Dual core
+#[cfg(any(feature = "stm32h747cm7",))]
+pub use stm32h7::stm32h747cm7 as stm32;
+
+#[cfg(all(feature = "singlecore", feature = "dualcore"))]
+compile_error!("Cannot not select both singlecore and dualcore");
 
 #[cfg(feature = "device-selected")]
 pub use crate::stm32 as pac;
@@ -54,6 +60,8 @@ pub use crate::stm32 as device;
 #[cfg(feature = "rt")]
 pub use crate::stm32::interrupt;
 
+#[cfg(feature = "device-selected")]
+pub mod adc;
 #[cfg(feature = "device-selected")]
 pub mod delay;
 #[cfg(feature = "device-selected")]
@@ -86,5 +94,3 @@ pub mod time;
 pub mod timer;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
-#[cfg(feature = "device-selected")]
-pub mod adc;

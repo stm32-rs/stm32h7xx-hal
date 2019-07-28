@@ -11,8 +11,8 @@ use nb::block;
 use crate::stm32::rcc::d2ccip2r;
 use crate::stm32::usart1::cr1::{M0W, PCEW, PSW};
 
-use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::stm32::{UART4, UART5, UART7, UART8};
+use crate::stm32::{USART1, USART2, USART3, USART6};
 
 use crate::gpio::gpioa::{
     PA0, PA1, PA10, PA11, PA12, PA15, PA2, PA3, PA4, PA8, PA9,
@@ -671,17 +671,24 @@ usart! {
     USART3: (usart3, apb1l, usart3en, usart3rst, pclk1),
     USART6: (usart6, apb2, usart6en, usart6rst, pclk2),
 
-    UART4: (uart4, apb1l, uart4en, uart4rst, pclk1),
     UART5: (uart5, apb1l, uart5en, uart5rst, pclk1),
     UART7: (uart7, apb1l, uart7en, uart7rst, pclk1),
     UART8: (uart8, apb1l, uart8en, uart8rst, pclk1),
+}
+#[cfg(any(feature = "singlecore"))]
+usart! {
+    UART4: (uart4, apb1l, uart4en, uart4rst, pclk1),
 }
 
 usart16sel! {
     USART1, USART6,
 }
 usart234578sel! {
-    USART2, USART3, UART4, UART5, UART7, UART8,
+    USART2, USART3, UART5, UART7, UART8,
+}
+#[cfg(any(feature = "singlecore"))]
+usart234578sel! {
+    UART4,
 }
 
 impl<USART> fmt::Write for Tx<USART>

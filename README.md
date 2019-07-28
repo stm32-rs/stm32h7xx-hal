@@ -13,6 +13,21 @@ peripheral access API for the STMicro STM32H7 series
 microcontrollers. The selection of the MCU is done by feature gates,
 typically specified by board support crates.
 
+The idea behind this crate is to gloss over the slight differences in the
+various peripherals available on those MCUs so a HAL can be written for all
+chips in that same family without having to cut and paste crates for every
+single model.
+
+This crate relies on Adam Greigs fantastic [`stm32h7`][] crate to provide
+appropriate register definitions and implements a partial set of the
+[`embedded-hal`][] traits.
+
+Almost all of the implementation was shamelessly adapted from the
+[`stm32f30x-hal`][] crate by Jorge Aparicio.
+
+Single Core Parts
+--------
+
 The currently supported parts are:
 
 *   stm32h743 ✔️
@@ -31,17 +46,13 @@ supported with the following feature gates:
 
 Again, feature gates stm32h742v, stm32h750v also exist.
 
-The idea behind this crate is to gloss over the slight differences in the
-various peripherals available on those MCUs so a HAL can be written for all
-chips in that same family without having to cut and paste crates for every
-single model.
+Dual Core Parts
+--------
 
-This crate relies on Adam Greigs fantastic [`stm32h7`][] crate to provide
-appropriate register definitions and implements a partial set of the
-[`embedded-hal`][] traits.
+Currently only the Cortex-M7 core is supported.
 
-Almost all of the implementation was shamelessly adapted from the
-[`stm32f30x-hal`][] crate by Jorge Aparicio.
+*   stm32h747cm7 ✔️
+*   stm32h757cm7 ✔️
 
 Dependencies
 --------

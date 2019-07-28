@@ -270,17 +270,38 @@ macro_rules! gpio {
 
                 /// Enable external interrupts from this pin.
                 fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                    exti.cpuimr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                    #[cfg(any(feature = "singlecore"))]
+                    let imr1 = &exti.cpuimr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                    let imr1 = &exti.c1imr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                    let imr1 = &exti.c2imr1;
+
+                    imr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                 }
 
                 /// Disable external interrupts from this pin
                 fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                    exti.cpuimr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                    #[cfg(any(feature = "singlecore"))]
+                    let imr1 = &exti.cpuimr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                    let imr1 = &exti.c1imr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                    let imr1 = &exti.c2imr1;
+
+                    imr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                 }
 
                 /// Clear the interrupt pending bit for this pin
                 fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
-                    exti.cpupr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                    #[cfg(any(feature = "singlecore"))]
+                    let pr1 = &exti.cpupr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                    let pr1 = &exti.c1pr1;
+                    #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                    let pr1 = &exti.c2pr1;
+
+                    pr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                 }
             }
 
@@ -693,20 +714,40 @@ macro_rules! gpio {
 
                     /// Enable external interrupts from this pin.
                     fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                        exti.cpuimr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        #[cfg(any(feature = "singlecore"))]
+                        let imr1 = &exti.cpuimr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                        let imr1 = &exti.c1imr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                        let imr1 = &exti.c2imr1;
+
+                        imr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
 
                     /// Disable external interrupts from this pin
                     fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                        exti.cpuimr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                        #[cfg(any(feature = "singlecore"))]
+                        let imr1 = &exti.cpuimr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                        let imr1 = &exti.c1imr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                        let imr1 = &exti.c2imr1;
+
+                        imr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                     }
 
                     /// Clear the interrupt pending bit for this pin
                     fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
-                        exti.cpupr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        #[cfg(any(feature = "singlecore"))]
+                        let pr1 = &exti.cpupr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                        let pr1 = &exti.c1pr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                        let pr1 = &exti.c2pr1;
+
+                        pr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
                 }
-
             )+
         }
     }
