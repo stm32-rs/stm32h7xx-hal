@@ -15,7 +15,6 @@ branches:
 
 before_script:
   - rustup target add thumbv7em-none-eabihf
-  - ./.github/force-pac-master.sh
 
 env:
 - MCU=stm32h742

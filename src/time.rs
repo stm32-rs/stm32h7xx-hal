@@ -62,6 +62,7 @@ impl U32Ext for u32 {
     }
 }
 
+// Unit conversions
 impl Into<Hertz> for KiloHertz {
     fn into(self) -> Hertz {
         Hertz(self.0 * 1_000)
@@ -77,6 +78,22 @@ impl Into<Hertz> for MegaHertz {
 impl Into<KiloHertz> for MegaHertz {
     fn into(self) -> KiloHertz {
         KiloHertz(self.0 * 1_000)
+    }
+}
+
+// MilliSeconds <-> Hertz
+impl Into<MilliSeconds> for Hertz {
+    fn into(self) -> MilliSeconds {
+        let freq = self.0;
+        assert!(freq != 0 && freq <= 1_000);
+        MilliSeconds(1_000 / freq)
+    }
+}
+impl Into<Hertz> for MilliSeconds {
+    fn into(self) -> Hertz {
+        let period = self.0;
+        assert!(period != 0 && period <= 1_000);
+        Hertz(1_000 / period)
     }
 }
 

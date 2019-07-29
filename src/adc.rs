@@ -270,6 +270,10 @@ adc_internal!(
           Vrefint => (19, vrefen)
 );
 
+pub trait AdcExt<ADC>: Sized {
+    fn adc(self, delay: &mut Delay, ccdr: &mut Ccdr) -> Adc<ADC, Disabled>;
+}
+
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
@@ -308,6 +312,15 @@ macro_rules! adc_hal {
         )
     ),+ $(,)*) => {
         $(
+            impl AdcExt<$ADC> for $ADC {
+	            fn adc(self,
+                       delay: &mut Delay,
+                       ccdr: &mut Ccdr) -> Adc<$ADC, Disabled>
+	            {
+	                Adc::$adcX(self, delay, ccdr)
+	            }
+	        }
+
             impl Adc<$ADC, Disabled> {
                 /// Initialise ADC
                 ///

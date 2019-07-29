@@ -14,10 +14,7 @@ use cast::{u16, u32};
 use nb;
 use void::Void;
 
-
-
 use crate::rcc::Ccdr;
-use crate::rcc::{APB1L, APB2};
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
 
@@ -98,6 +95,13 @@ macro_rules! impl_clk_lptim345 {
 }
 impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
+/// External trait for hardware timers
+pub trait TimerExt<TIM> {
+    fn timer<T>(self, timeout: T, ccdr: &mut Ccdr) -> Timer<TIM>
+    where
+        T: Into<Hertz>;
+}
+
 /// Hardware timers
 pub struct Timer<TIM> {
     clk: u32,
@@ -112,7 +116,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $APB:ident, $timXen:ident, $timXrst:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $timXen:ident, $timXrst:ident),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
@@ -145,19 +149,25 @@ macro_rules! hal {
                 }
             }
 
+            impl TimerExt<$TIMX> for $TIMX {
+                fn timer<T>(self, timeout: T, ccdr: &mut Ccdr) -> Timer<$TIMX>
+                    where
+                        T: Into<Hertz>,
+                {
+                    Timer::$timX(self, timeout, ccdr)
+                }
+            }
+
             impl Timer<$TIMX> {
-                // XXX(why not name this `new`?) bummer: constructors need to have different names
-                // even if the `$TIMX` are non overlapping (compare to the `free` function below
-                // which just works)
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $timX<T>(tim: $TIMX, timeout: T, ccdr: &Ccdr, apb: &mut $APB) -> Self
+                pub fn $timX<T>(tim: $TIMX, timeout: T, ccdr: &mut Ccdr) -> Self
                 where
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean slate state
-                    apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
+                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                     let clk = $TIMX::get_clk(&ccdr)
                         .expect("Timer input clock not running!").0;
@@ -246,8 +256,8 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM1: (tim1, APB2, tim1en, tim1rst),
-    TIM2: (tim2, APB1L, tim2en, tim2rst),
+    TIM1: (tim1, apb2, tim1en, tim1rst),
+    TIM2: (tim2, apb1l, tim2en, tim2rst),
     // TIM3: (tim3, APB1, tim3en, tim3rst),
     // TIM4: (tim4, APB1, tim4en, tim4rst),
     // TIM5: (tim5, APB1, tim7en, tim7rst),
