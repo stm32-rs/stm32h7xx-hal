@@ -21,8 +21,8 @@ features = ["stm32h743", "rt"]
 [dependencies]
 embedded-hal = "0.2.3"
 cortex-m = "^0.6.0"
-cortex-m-rt = "0.6.8"
-stm32h7 = { path = "/your/path/here/stm32-rs/stm32h7" }
+cortex-m-rt = "0.6.10"
+stm32h7 = "0.8.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"

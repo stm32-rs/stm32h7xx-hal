@@ -6,9 +6,7 @@ are pull requests!**
 
 🚧 *Work in progress*
 
-❗ *Nightly required*
-
-📂 *[Local dependancy required](#Hacking)*
+❗ *Beta or nightly required*
 
 `stm32h7xx-hal` contains a hardware abstraction on top of the
 peripheral access API for the STMicro STM32H7 series
@@ -71,17 +69,6 @@ Run an Example
 `$ cargo run --release --features stm32h743,rt --example blinky`
 
 This will start `arm-none-eabi-gdb`.
-
-Hacking
---------
-
-TODO: Remove this section when it no longer applies!
-
-To build this crate you will need the HEAD of [`stm32h7`][] built
-locally. You will need to download
-[`stm32-rs/stm32-rs`](https://github.com/stm32-rs/stm32-rs) locally
-and follow the instructions in [the
-README](https://github.com/stm32-rs/stm32-rs#generating-device-crates--building-locally).
 
 License
 --------
