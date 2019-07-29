@@ -564,7 +564,7 @@ macro_rules! tim_pin_hal {
                 fn enable(&mut self) {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.$ccmrx_output.modify(|_, w|
+                    tim.$ccmrx_output().modify(|_, w|
                         w.$ocxpe()
                             .enabled() // Enable preload
                             .$ocxm()
