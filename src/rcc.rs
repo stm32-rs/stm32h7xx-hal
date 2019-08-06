@@ -378,7 +378,11 @@ macro_rules! vco_setup {
                  },
              )*
              // Specific to PLL2/3
-             _ => (vco_max / $output) - 1
+             _ => if $output > vco_max / 2 {
+                 1
+             } else {
+                 vco_max / $output
+             }
          };
 
          // Calcuate VCO output
@@ -615,10 +619,13 @@ impl Rcc {
     pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         let rcc = &self.rb;
 
+        // We do not reset RCC here. This routine must assert when
+        // the previous state of the RCC peripheral is unacceptable.
+
         // sys_ck from PLL if needed, else HSE or HSI
         let (sys_ck, pll1_p_ck, sys_use_pll1_p) = self.sys_ck_setup();
 
-        // traceclk from PLL if needed
+        // Configure traceclk from PLL if needed
         let pll1_r_ck = self.traceclk_setup(sys_use_pll1_p, pll1_p_ck);
 
         // Configure PLL1
@@ -709,6 +716,8 @@ impl Rcc {
             (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk_max),
         }
 
+        // Start switching clocks here! ----------------------------------------
+
         // Flash setup
         Self::flash_setup(sys_d1cpre_ck, vos);
 
@@ -745,6 +754,20 @@ impl Rcc {
             // Enable PLL and wait for it to stabilise
             rcc.cr.modify(|_, w| w.pll1on().on());
             while rcc.cr.read().pll1rdy().is_not_ready() {}
+        }
+
+        // PLL2
+        if pll2_p_ck.is_some() {
+            // Enable PLL and wait for it to stabilise
+            rcc.cr.modify(|_, w| w.pll2on().on());
+            while rcc.cr.read().pll2rdy().is_not_ready() {}
+        }
+
+        // PLL3
+        if pll3_p_ck.is_some() {
+            // Enable PLL and wait for it to stabilise
+            rcc.cr.modify(|_, w| w.pll3on().on());
+            while rcc.cr.read().pll3rdy().is_not_ready() {}
         }
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
