@@ -2,11 +2,11 @@
 #![deny(missing_docs)]
 
 use crate::pwr::VoltageScale as Voltage;
-use crate::stm32::rcc::cfgr::SWW;
-use crate::stm32::rcc::cfgr::TIMPREW;
-use crate::stm32::rcc::d1ccipr::CKPERSELW;
-use crate::stm32::rcc::d1cfgr::HPREW;
-use crate::stm32::rcc::pllckselr::PLLSRCW;
+use crate::stm32::rcc::cfgr::SW_A as SW;
+use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
+use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
+use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
+use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{rcc, RCC, SYSCFG};
 use crate::time::Hertz;
 
@@ -120,20 +120,83 @@ macro_rules! ahb_apb_generation {
                     unsafe { &(*RCC::ptr()).$axbnrstr }
                 }
             }
-        )+ 
+        )+
     }
 }
 
 ahb_apb_generation!(
-    (AHB1, AHB1ENR, ahb1enr, AHB1RSTR, ahb1rstr, "AMBA High-performance Bus (AHB1) registers"),
-    (AHB2, AHB2ENR, ahb2enr, AHB2RSTR, ahb2rstr, "AMBA High-performance Bus (AHB2) registers"),
-    (AHB3, AHB3ENR, ahb3enr, AHB3RSTR, ahb3rstr, "AMBA High-performance Bus (AHB3) registers"),
-    (AHB4, AHB4ENR, ahb4enr, AHB4RSTR, ahb4rstr, "AMBA High-performance Bus (AHB4) registers"),
-    (APB1L, APB1LENR, apb1lenr, APB1LRSTR, apb1lrstr, "Advanced Peripheral Bus 1L (APB1L) registers"),
-    (APB1H, APB1HENR, apb1henr, APB1HRSTR, apb1hrstr, "Advanced Peripheral Bus 1H (APB1H) registers"),
-    (APB2, APB2ENR, apb2enr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
-    (APB3, APB3ENR, apb3enr, APB3RSTR, apb3rstr, "Advanced Peripheral Bus 3 (APB3) registers"),
-    (APB4, APB4ENR, apb4enr, APB4RSTR, apb4rstr, "Advanced Peripheral Bus 4 (APB4) registers")
+    (
+        AHB1,
+        AHB1ENR,
+        ahb1enr,
+        AHB1RSTR,
+        ahb1rstr,
+        "AMBA High-performance Bus (AHB1) registers"
+    ),
+    (
+        AHB2,
+        AHB2ENR,
+        ahb2enr,
+        AHB2RSTR,
+        ahb2rstr,
+        "AMBA High-performance Bus (AHB2) registers"
+    ),
+    (
+        AHB3,
+        AHB3ENR,
+        ahb3enr,
+        AHB3RSTR,
+        ahb3rstr,
+        "AMBA High-performance Bus (AHB3) registers"
+    ),
+    (
+        AHB4,
+        AHB4ENR,
+        ahb4enr,
+        AHB4RSTR,
+        ahb4rstr,
+        "AMBA High-performance Bus (AHB4) registers"
+    ),
+    (
+        APB1L,
+        APB1LENR,
+        apb1lenr,
+        APB1LRSTR,
+        apb1lrstr,
+        "Advanced Peripheral Bus 1L (APB1L) registers"
+    ),
+    (
+        APB1H,
+        APB1HENR,
+        apb1henr,
+        APB1HRSTR,
+        apb1hrstr,
+        "Advanced Peripheral Bus 1H (APB1H) registers"
+    ),
+    (
+        APB2,
+        APB2ENR,
+        apb2enr,
+        APB2RSTR,
+        apb2rstr,
+        "Advanced Peripheral Bus 2 (APB2) registers"
+    ),
+    (
+        APB3,
+        APB3ENR,
+        apb3enr,
+        APB3RSTR,
+        apb3rstr,
+        "Advanced Peripheral Bus 3 (APB3) registers"
+    ),
+    (
+        APB4,
+        APB4ENR,
+        apb4enr,
+        APB4RSTR,
+        apb4rstr,
+        "Advanced Peripheral Bus 4 (APB4) registers"
+    )
 );
 
 /// RCC Domain 3 Kernel Clock Configuration Register
@@ -271,11 +334,11 @@ macro_rules! ppre_calculate {
             $(
                 let $rcc_tim_ker_clk = match ($bits, &$timpre)
                 {
-                    (0b101, TIMPREW::DEFAULTX2) => $hclk / 2,
-                    (0b110, TIMPREW::DEFAULTX4) => $hclk / 2,
-                    (0b110, TIMPREW::DEFAULTX2) => $hclk / 4,
-                    (0b111, TIMPREW::DEFAULTX4) => $hclk / 4,
-                    (0b111, TIMPREW::DEFAULTX2) => $hclk / 8,
+                    (0b101, TIMPRE::DEFAULTX2) => $hclk / 2,
+                    (0b110, TIMPRE::DEFAULTX4) => $hclk / 2,
+                    (0b110, TIMPRE::DEFAULTX2) => $hclk / 4,
+                    (0b111, TIMPRE::DEFAULTX4) => $hclk / 4,
+                    (0b111, TIMPRE::DEFAULTX2) => $hclk / 8,
                     _ => $hclk,
                 };
             )*
@@ -300,9 +363,9 @@ impl Rcc {
         // ignore those for now and use PLL1.
         if sys_ck != srcclk {
             let pllsrc = if self.config.hse.is_some() {
-                PLLSRCW::HSE
+                PLLSRC::HSE
             } else {
-                PLLSRCW::HSI
+                PLLSRC::HSI
             };
 
             assert!(srcclk > 0);
@@ -452,9 +515,9 @@ impl Rcc {
         // per_ck from HSI by default
         let (per_ck, ckpersel) =
             match (self.config.per_ck == self.config.hse, self.config.per_ck) {
-                (true, Some(hse)) => (hse, CKPERSELW::HSE), // HSE
-                (_, Some(CSI)) => (csi, CKPERSELW::CSI),    // CSI
-                _ => (hsi, CKPERSELW::HSI),                 // HSI
+                (true, Some(hse)) => (hse, CKPERSEL::HSE), // HSE
+                (_, Some(CSI)) => (csi, CKPERSEL::CSI),    // CSI
+                _ => (hsi, CKPERSEL::HSI),                 // HSI
             };
 
         // D1 Core Prescaler
@@ -464,7 +527,7 @@ impl Rcc {
         let sys_d1cpre_ck = sys_ck.0 / d1cpre_div;
 
         // Timer prescaler selection
-        let timpre = TIMPREW::DEFAULTX2;
+        let timpre = TIMPRE::DEFAULTX2;
 
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
@@ -487,15 +550,15 @@ impl Rcc {
         let (hpre_bits, hpre_div) =
             match (sys_d1cpre_ck + rcc_hclk - 1) / rcc_hclk {
                 0 => unreachable!(),
-                1 => (HPREW::DIV1, 1),
-                2 => (HPREW::DIV2, 2),
-                3..=5 => (HPREW::DIV4, 4),
-                6..=11 => (HPREW::DIV8, 8),
-                12..=39 => (HPREW::DIV16, 16),
-                40..=95 => (HPREW::DIV64, 64),
-                96..=191 => (HPREW::DIV128, 128),
-                192..=383 => (HPREW::DIV256, 256),
-                _ => (HPREW::DIV512, 512),
+                1 => (HPRE::DIV1, 1),
+                2 => (HPRE::DIV2, 2),
+                3..=5 => (HPRE::DIV4, 4),
+                6..=11 => (HPRE::DIV8, 8),
+                12..=39 => (HPRE::DIV16, 16),
+                40..=95 => (HPRE::DIV64, 64),
+                96..=191 => (HPRE::DIV128, 128),
+                192..=383 => (HPRE::DIV256, 256),
+                _ => (HPRE::DIV512, 512),
             };
 
         // Calculate real AXI and AHB clock
@@ -577,9 +640,9 @@ impl Rcc {
 
         // Select system clock source
         let swbits = match (pll1_p_ck.is_some(), self.config.hse.is_some()) {
-            (true, _) => SWW::PLL1 as u8,
-            (false, true) => SWW::HSE as u8,
-            _ => SWW::HSI as u8,
+            (true, _) => SW::PLL1 as u8,
+            (false, true) => SW::HSE as u8,
+            _ => SW::HSI as u8,
         };
         rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(swbits) });
         while rcc.cfgr.read().sws().bits() != swbits {}

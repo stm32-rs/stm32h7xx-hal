@@ -17,6 +17,7 @@ use void::Void;
 use crate::rcc::Ccdr;
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
+use stm32h7::Variant::Val;
 
 /// Associate clocks with timers
 pub trait GetClk {
@@ -46,13 +47,13 @@ impl_tim_ker_ck! {
 impl GetClk for LPTIM1 {
     /// Current kernel clock
     fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d2ccip2r.read().lptim1sel() {
-            d2ccip2r::LPTIM1SELR::RCC_PCLK1 => Some(ccdr.clocks.pclk1()),
-            d2ccip2r::LPTIM1SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
-            d2ccip2r::LPTIM1SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
-            d2ccip2r::LPTIM1SELR::LSE => unimplemented!(),
-            d2ccip2r::LPTIM1SELR::LSI => unimplemented!(),
-            d2ccip2r::LPTIM1SELR::PER => ccdr.clocks.per_ck(),
+        match ccdr.rb.d2ccip2r.read().lptim1sel().variant() {
+            Val(d2ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(ccdr.clocks.pclk1()),
+            Val(d2ccip2r::LPTIM1SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
+            Val(d2ccip2r::LPTIM1SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+            Val(d2ccip2r::LPTIM1SEL_A::LSE) => unimplemented!(),
+            Val(d2ccip2r::LPTIM1SEL_A::LSI) => unimplemented!(),
+            Val(d2ccip2r::LPTIM1SEL_A::PER) => ccdr.clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -61,13 +62,13 @@ impl GetClk for LPTIM1 {
 impl GetClk for LPTIM2 {
     /// Current kernel clock
     fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d3ccipr.read().lptim2sel() {
-            d3ccipr::LPTIM2SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),
-            d3ccipr::LPTIM2SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
-            d3ccipr::LPTIM2SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
-            d3ccipr::LPTIM2SELR::LSE => unimplemented!(),
-            d3ccipr::LPTIM2SELR::LSI => unimplemented!(),
-            d3ccipr::LPTIM2SELR::PER => ccdr.clocks.per_ck(),
+        match ccdr.rb.d3ccipr.read().lptim2sel().variant() {
+            Val(d3ccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(ccdr.clocks.pclk4()),
+            Val(d3ccipr::LPTIM2SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
+            Val(d3ccipr::LPTIM2SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+            Val(d3ccipr::LPTIM2SEL_A::LSE) => unimplemented!(),
+            Val(d3ccipr::LPTIM2SEL_A::LSI) => unimplemented!(),
+            Val(d3ccipr::LPTIM2SEL_A::PER) => ccdr.clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -79,13 +80,13 @@ macro_rules! impl_clk_lptim345 {
             impl GetClk for $TIMX {
                 /// Current kernel clock
                 fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d3ccipr.read().lptim345sel() {
-                        d3ccipr::LPTIM345SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),
-                        d3ccipr::LPTIM345SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
-                        d3ccipr::LPTIM345SELR::PLL3_R => ccdr.clocks.pll3_r_ck(),
-                        d3ccipr::LPTIM345SELR::LSE => unimplemented!(),
-                        d3ccipr::LPTIM345SELR::LSI => unimplemented!(),
-                        d3ccipr::LPTIM345SELR::PER => ccdr.clocks.per_ck(),
+                    match ccdr.rb.d3ccipr.read().lptim345sel().variant() {
+                        Val(d3ccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(ccdr.clocks.pclk4()),
+                        Val(d3ccipr::LPTIM345SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
+                        Val(d3ccipr::LPTIM345SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+                        Val(d3ccipr::LPTIM345SEL_A::LSE) => unimplemented!(),
+                        Val(d3ccipr::LPTIM345SEL_A::LSI) => unimplemented!(),
+                        Val(d3ccipr::LPTIM345SEL_A::PER) => ccdr.clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
