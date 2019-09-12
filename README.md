@@ -6,8 +6,6 @@ are pull requests!**
 
 🚧 *Work in progress*
 
-❗ *Beta or nightly required*
-
 `stm32h7xx-hal` contains a hardware abstraction on top of the
 peripheral access API for the STMicro STM32H7 series
 microcontrollers. The selection of the MCU is done by feature gates,
