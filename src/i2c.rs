@@ -20,6 +20,8 @@ pub enum Error {
     Bus,
     /// Arbitration loss
     Arbitration,
+    /// No ack received
+    NotAcknowledge,
     // Overrun, // slave mode only
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
@@ -50,12 +52,7 @@ pub struct I2c<I2C, PINS> {
 }
 
 pub trait I2cExt<I2C>: Sized {
-    fn i2c<PINS, F>(
-        self,
-        pins: PINS,
-        freq: F,
-        ccdr: &Ccdr
-    ) -> I2c<I2C, PINS>
+    fn i2c<PINS, F>(self, pins: PINS, freq: F, ccdr: &Ccdr) -> I2c<I2C, PINS>
     where
         PINS: Pins<I2C>,
         F: Into<Hertz>;
@@ -67,9 +64,14 @@ macro_rules! busy_wait {
             let isr = $i2c.isr.read();
 
             if isr.berr().bit_is_set() {
+                $i2c.icr.write(|w| w.berrcf().set_bit());
                 return Err(Error::Bus);
             } else if isr.arlo().bit_is_set() {
+                $i2c.icr.write(|w| w.arlocf().set_bit());
                 return Err(Error::Arbitration);
+            } else if isr.nackf().bit_is_set() {
+                $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+                return Err(Error::NotAcknowledge);
             } else if isr.$flag().bit_is_set() {
                 break;
             } else {
@@ -204,7 +206,7 @@ macro_rules! i2c {
                     I2c::$i2cX(self, pins, freq, ccdr)
                 }
             }
-            
+
             impl<PINS> Write for I2c<$I2CX, PINS> {
                 type Error = Error;
 
