@@ -5,9 +5,10 @@ pub use crate::hal::spi::{
     Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
 };
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
-use crate::stm32::spi1::cfg1::MBRW;
+use crate::stm32::spi1::cfg1::MBR_A as MBR;
 use core::ptr;
 use nb;
+use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
@@ -252,14 +253,14 @@ macro_rules! spi {
                     };
                     let mbr = match spi_ker_ck / spi_freq {
                         0 => unreachable!(),
-                        1..=2 => MBRW::DIV2,
-                        3..=5 => MBRW::DIV4,
-                        6..=11 => MBRW::DIV8,
-                        12..=23 => MBRW::DIV16,
-                        24..=47 => MBRW::DIV32,
-                        48..=95 => MBRW::DIV64,
-                        96..=191 => MBRW::DIV128,
-                        _ => MBRW::DIV256,
+                        1..=2 => MBR::DIV2,
+                        3..=5 => MBR::DIV4,
+                        6..=11 => MBR::DIV8,
+                        12..=23 => MBR::DIV16,
+                        24..=47 => MBR::DIV32,
+                        48..=95 => MBR::DIV64,
+                        96..=191 => MBR::DIV128,
+                        _ => MBR::DIV256,
                     };
                     spi.cfg1.modify(|_, w| {
                         w.mbr()
@@ -460,13 +461,13 @@ macro_rules! spi123sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip1r.read().spi123sel() {
-                        d2ccip1r::SPI123SELR::PLL1_Q => ccdr.clocks.pll1_q_ck(),
-                        d2ccip1r::SPI123SELR::PLL2_P => ccdr.clocks.pll2_p_ck(),
-                        d2ccip1r::SPI123SELR::PLL3_P => ccdr.clocks.pll3_p_ck(),
+                    match ccdr.rb.d2ccip1r.read().spi123sel().variant() {
+                        Val(d2ccip1r::SPI123SEL_A::PLL1_Q) => ccdr.clocks.pll1_q_ck(),
+                        Val(d2ccip1r::SPI123SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
+                        Val(d2ccip1r::SPI123SEL_A::PLL3_P) => ccdr.clocks.pll3_p_ck(),
                         // Need a method of specifying pin clock
-                        d2ccip1r::SPI123SELR::I2S_CKIN => unimplemented!(),
-                        d2ccip1r::SPI123SELR::PER => ccdr.clocks.per_ck(),
+                        Val(d2ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
+                        Val(d2ccip1r::SPI123SEL_A::PER) => ccdr.clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -481,13 +482,13 @@ macro_rules! spi45sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip1r.read().spi45sel() {
-                        d2ccip1r::SPI45SELR::APB => Some(ccdr.clocks.pclk2()),
-                        d2ccip1r::SPI45SELR::PLL2_Q => ccdr.clocks.pll2_q_ck(),
-                        d2ccip1r::SPI45SELR::PLL3_Q => ccdr.clocks.pll3_q_ck(),
-                        d2ccip1r::SPI45SELR::HSI_KER => ccdr.clocks.hsi_ck(),
-                        d2ccip1r::SPI45SELR::CSI_KER => ccdr.clocks.csi_ck(),
-                        d2ccip1r::SPI45SELR::HSE => ccdr.clocks.hse_ck(),
+                    match ccdr.rb.d2ccip1r.read().spi45sel().variant() {
+                        Val(d2ccip1r::SPI45SEL_A::APB) => Some(ccdr.clocks.pclk2()),
+                        Val(d2ccip1r::SPI45SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
+                        Val(d2ccip1r::SPI45SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
+                        Val(d2ccip1r::SPI45SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
+                        Val(d2ccip1r::SPI45SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                        Val(d2ccip1r::SPI45SEL_A::HSE) => ccdr.clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -502,13 +503,13 @@ macro_rules! spi6sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d3ccipr.read().spi6sel() {
-                        d3ccipr::SPI6SELR::RCC_PCLK4 => Some(ccdr.clocks.pclk4()),
-                        d3ccipr::SPI6SELR::PLL2_Q => ccdr.clocks.pll2_q_ck(),
-                        d3ccipr::SPI6SELR::PLL3_Q => ccdr.clocks.pll3_q_ck(),
-                        d3ccipr::SPI6SELR::HSI_KER => ccdr.clocks.hsi_ck(),
-                        d3ccipr::SPI6SELR::CSI_KER => ccdr.clocks.csi_ck(),
-                        d3ccipr::SPI6SELR::HSE => ccdr.clocks.hse_ck(),
+                    match ccdr.rb.d3ccipr.read().spi6sel().variant() {
+                        Val(d3ccipr::SPI6SEL_A::RCC_PCLK4) => Some(ccdr.clocks.pclk4()),
+                        Val(d3ccipr::SPI6SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
+                        Val(d3ccipr::SPI6SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
+                        Val(d3ccipr::SPI6SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
+                        Val(d3ccipr::SPI6SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                        Val(d3ccipr::SPI6SEL_A::HSE) => ccdr.clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }

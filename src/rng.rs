@@ -19,11 +19,11 @@ trait KerClk {
 
 impl KerClk for RNG {
     fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d2ccip2r.read().rngsel() {
-            d2ccip2r::RNGSELR::HSI48 => ccdr.clocks.hsi48_ck(),
-            d2ccip2r::RNGSELR::PLL1_Q => ccdr.clocks.pll1_q_ck(),
-            d2ccip2r::RNGSELR::LSE => unimplemented!(),
-            d2ccip2r::RNGSELR::LSI => unimplemented!(),
+        match ccdr.rb.d2ccip2r.read().rngsel().variant() {
+            d2ccip2r::RNGSEL_A::HSI48 => ccdr.clocks.hsi48_ck(),
+            d2ccip2r::RNGSEL_A::PLL1_Q => ccdr.clocks.pll1_q_ck(),
+            d2ccip2r::RNGSEL_A::LSE => unimplemented!(),
+            d2ccip2r::RNGSEL_A::LSI => unimplemented!(),
         }
     }
 }

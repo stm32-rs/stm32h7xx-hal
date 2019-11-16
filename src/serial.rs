@@ -9,7 +9,8 @@ use embedded_hal::serial;
 use nb::block;
 
 use crate::stm32::rcc::d2ccip2r;
-use crate::stm32::usart1::cr1::{M0W, PCEW, PSW};
+use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
+use stm32h7::Variant::Val;
 
 use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::stm32::{UART4, UART5, UART7, UART8};
@@ -370,7 +371,7 @@ macro_rules! usart {
                 where
                     PINS: Pins<$USARTX>,
                 {
-                    use crate::stm32::usart1::cr2::STOPW;
+                    use crate::stm32::usart1::cr2::STOP_A as STOP;
                     use self::config::*;
 
                     // Enable clock for USART and reset
@@ -407,10 +408,10 @@ macro_rules! usart {
                     // Set stop bits
                     usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
-                            StopBits::STOP0P5 => STOPW::STOP0P5,
-                            StopBits::STOP1 => STOPW::STOP1,
-                            StopBits::STOP1P5 => STOPW::STOP1P5,
-                            StopBits::STOP2 => STOPW::STOP2,
+                            StopBits::STOP0P5 => STOP::STOP0P5,
+                            StopBits::STOP1 => STOP::STOP1,
+                            StopBits::STOP1P5 => STOP::STOP1P5,
+                            StopBits::STOP2 => STOP::STOP2,
                         })
                     });
 
@@ -431,16 +432,16 @@ macro_rules! usart {
                             .clear_bit()
                             .m0()
                             .variant(match config.wordlength {
-                                WordLength::DataBits8 => M0W::BIT8,
-                                WordLength::DataBits9 => M0W::BIT9,
+                                WordLength::DataBits8 => M0::BIT8,
+                                WordLength::DataBits9 => M0::BIT9,
                             }).pce()
                             .variant(match config.parity {
-                                Parity::ParityNone => PCEW::DISABLED,
-                                _ => PCEW::ENABLED,
+                                Parity::ParityNone => PCE::DISABLED,
+                                _ => PCE::ENABLED,
                             }).ps()
                             .variant(match config.parity {
-                                Parity::ParityOdd => PSW::EVEN,
-                                _ => PSW::ODD,
+                                Parity::ParityOdd => PS::EVEN,
+                                _ => PS::ODD,
                             })
                     });
 
@@ -629,13 +630,13 @@ macro_rules! usart16sel {
                 /// Returns the frequency of the current kernel clock
                 /// for USART1 and 6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip2r.read().usart16sel() {
-                        d2ccip2r::USART16SELR::RCC_PCLK2 => Some(ccdr.clocks.pclk2()),
-                        d2ccip2r::USART16SELR::PLL2_Q => ccdr.clocks.pll2_q_ck(),
-                        d2ccip2r::USART16SELR::PLL3_Q => ccdr.clocks.pll3_q_ck(),
-                        d2ccip2r::USART16SELR::HSI_KER => ccdr.clocks.hsi_ck(),
-                        d2ccip2r::USART16SELR::CSI_KER => ccdr.clocks.csi_ck(),
-                        d2ccip2r::USART16SELR::LSE => unimplemented!(),
+                    match ccdr.rb.d2ccip2r.read().usart16sel().variant() {
+                        Val(d2ccip2r::USART16SEL_A::RCC_PCLK2) => Some(ccdr.clocks.pclk2()),
+                        Val(d2ccip2r::USART16SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
+                        Val(d2ccip2r::USART16SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
+                        Val(d2ccip2r::USART16SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
+                        Val(d2ccip2r::USART16SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                        Val(d2ccip2r::USART16SEL_A::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
@@ -650,13 +651,13 @@ macro_rules! usart234578sel {
                 /// Returns the frequency of the current kernel clock
                 /// for USART2/3, UART4/5/7/8
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip2r.read().usart234578sel() {
-                        d2ccip2r::USART234578SELR::RCC_PCLK1 => Some(ccdr.clocks.pclk1()),
-                        d2ccip2r::USART234578SELR::PLL2_Q => ccdr.clocks.pll2_q_ck(),
-                        d2ccip2r::USART234578SELR::PLL3_Q => ccdr.clocks.pll3_q_ck(),
-                        d2ccip2r::USART234578SELR::HSI_KER => ccdr.clocks.hsi_ck(),
-                        d2ccip2r::USART234578SELR::CSI_KER => ccdr.clocks.csi_ck(),
-                        d2ccip2r::USART234578SELR::LSE => unimplemented!(),
+                    match ccdr.rb.d2ccip2r.read().usart234578sel().variant() {
+                        Val(d2ccip2r::USART234578SEL_A::RCC_PCLK1) => Some(ccdr.clocks.pclk1()),
+                        Val(d2ccip2r::USART234578SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
