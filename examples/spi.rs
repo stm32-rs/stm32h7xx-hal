@@ -30,7 +30,10 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(96.mhz()).freeze(vos, &dp.SYSCFG);
+    let mut ccdr = rcc
+        .sys_ck(96.mhz())
+        .pll1_q_ck(48.mhz())
+        .freeze(vos, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.

@@ -3,7 +3,7 @@ language: rust
 rust:
   - nightly
   - beta
-#  - stable
+  - stable
 
 cache: cargo
 
