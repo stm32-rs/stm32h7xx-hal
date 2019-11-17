@@ -658,14 +658,14 @@ macro_rules! lptim_hal {
 
                 // Calculate prescaler
                 let (prescale, prescale_div) = match reload / (1 << 16) {
-                    0 => ($timXpac::cfgr::PRESCW::DIV1, 1),
-                    1 => ($timXpac::cfgr::PRESCW::DIV2, 2),
-                    2..=3 => ($timXpac::cfgr::PRESCW::DIV4, 4),
-                    4..=7 => ($timXpac::cfgr::PRESCW::DIV8, 8),
-                    8..=15 => ($timXpac::cfgr::PRESCW::DIV16, 16),
-                    16..=31 => ($timXpac::cfgr::PRESCW::DIV32, 32),
-                    32..=63 => ($timXpac::cfgr::PRESCW::DIV64, 64),
-                    _ => ($timXpac::cfgr::PRESCW::DIV128, 128),
+                    0 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
+                    1 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
+                    2..=3 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
+                    4..=7 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
+                    8..=15 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
+                    16..=31 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
+                    32..=63 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
+                    _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
                 };
 
                 // Calcuate reload

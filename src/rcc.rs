@@ -2,11 +2,11 @@
 #![deny(missing_docs)]
 
 use crate::pwr::VoltageScale as Voltage;
-use crate::stm32::rcc::cfgr::SWW;
-use crate::stm32::rcc::cfgr::TIMPREW;
-use crate::stm32::rcc::d1ccipr::CKPERSELW;
-use crate::stm32::rcc::d1cfgr::HPREW;
-use crate::stm32::rcc::pllckselr::PLLSRCW;
+use crate::stm32::rcc::cfgr::SW_A as SW;
+use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
+use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
+use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
+use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{rcc, RCC, SYSCFG};
 use crate::time::Hertz;
 
@@ -40,6 +40,21 @@ impl RccExt for RCC {
                 rcc_pclk2: None,
                 rcc_pclk3: None,
                 rcc_pclk4: None,
+                pll1: PllConfig {
+                    p_ck: None,
+                    q_ck: None,
+                    r_ck: None,
+                },
+                pll2: PllConfig {
+                    p_ck: None,
+                    q_ck: None,
+                    r_ck: None,
+                },
+                pll3: PllConfig {
+                    p_ck: None,
+                    q_ck: None,
+                    r_ck: None,
+                },
             },
             rb: self,
         }
@@ -120,20 +135,83 @@ macro_rules! ahb_apb_generation {
                     unsafe { &(*RCC::ptr()).$axbnrstr }
                 }
             }
-        )+ 
+        )+
     }
 }
 
 ahb_apb_generation!(
-    (AHB1, AHB1ENR, ahb1enr, AHB1RSTR, ahb1rstr, "AMBA High-performance Bus (AHB1) registers"),
-    (AHB2, AHB2ENR, ahb2enr, AHB2RSTR, ahb2rstr, "AMBA High-performance Bus (AHB2) registers"),
-    (AHB3, AHB3ENR, ahb3enr, AHB3RSTR, ahb3rstr, "AMBA High-performance Bus (AHB3) registers"),
-    (AHB4, AHB4ENR, ahb4enr, AHB4RSTR, ahb4rstr, "AMBA High-performance Bus (AHB4) registers"),
-    (APB1L, APB1LENR, apb1lenr, APB1LRSTR, apb1lrstr, "Advanced Peripheral Bus 1L (APB1L) registers"),
-    (APB1H, APB1HENR, apb1henr, APB1HRSTR, apb1hrstr, "Advanced Peripheral Bus 1H (APB1H) registers"),
-    (APB2, APB2ENR, apb2enr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
-    (APB3, APB3ENR, apb3enr, APB3RSTR, apb3rstr, "Advanced Peripheral Bus 3 (APB3) registers"),
-    (APB4, APB4ENR, apb4enr, APB4RSTR, apb4rstr, "Advanced Peripheral Bus 4 (APB4) registers")
+    (
+        AHB1,
+        AHB1ENR,
+        ahb1enr,
+        AHB1RSTR,
+        ahb1rstr,
+        "AMBA High-performance Bus (AHB1) registers"
+    ),
+    (
+        AHB2,
+        AHB2ENR,
+        ahb2enr,
+        AHB2RSTR,
+        ahb2rstr,
+        "AMBA High-performance Bus (AHB2) registers"
+    ),
+    (
+        AHB3,
+        AHB3ENR,
+        ahb3enr,
+        AHB3RSTR,
+        ahb3rstr,
+        "AMBA High-performance Bus (AHB3) registers"
+    ),
+    (
+        AHB4,
+        AHB4ENR,
+        ahb4enr,
+        AHB4RSTR,
+        ahb4rstr,
+        "AMBA High-performance Bus (AHB4) registers"
+    ),
+    (
+        APB1L,
+        APB1LENR,
+        apb1lenr,
+        APB1LRSTR,
+        apb1lrstr,
+        "Advanced Peripheral Bus 1L (APB1L) registers"
+    ),
+    (
+        APB1H,
+        APB1HENR,
+        apb1henr,
+        APB1HRSTR,
+        apb1hrstr,
+        "Advanced Peripheral Bus 1H (APB1H) registers"
+    ),
+    (
+        APB2,
+        APB2ENR,
+        apb2enr,
+        APB2RSTR,
+        apb2rstr,
+        "Advanced Peripheral Bus 2 (APB2) registers"
+    ),
+    (
+        APB3,
+        APB3ENR,
+        apb3enr,
+        APB3RSTR,
+        apb3rstr,
+        "Advanced Peripheral Bus 3 (APB3) registers"
+    ),
+    (
+        APB4,
+        APB4ENR,
+        apb4enr,
+        APB4RSTR,
+        apb4rstr,
+        "Advanced Peripheral Bus 4 (APB4) registers"
+    )
 );
 
 /// RCC Domain 3 Kernel Clock Configuration Register
@@ -151,6 +229,13 @@ const HSI: u32 = 64_000_000; // Hz
 const CSI: u32 = 4_000_000; // Hz
 const HSI48: u32 = 48_000_000; // Hz
 
+/// Configuration of a Phase Lock Loop (PLL)
+pub struct PllConfig {
+    p_ck: Option<u32>,
+    q_ck: Option<u32>,
+    r_ck: Option<u32>,
+}
+
 /// Configuration of the core clocks
 pub struct Config {
     hse: Option<u32>,
@@ -161,6 +246,9 @@ pub struct Config {
     rcc_pclk2: Option<u32>,
     rcc_pclk3: Option<u32>,
     rcc_pclk4: Option<u32>,
+    pll1: PllConfig,
+    pll2: PllConfig,
+    pll3: PllConfig,
 }
 
 /// Setter defintion for pclk 1 - 4
@@ -176,6 +264,24 @@ macro_rules! pclk_setter {
                 self.config.$pclk = Some(freq.into().0);
                 self
             }
+        )+
+    };
+}
+
+/// Setter definition for pll 1 - 3
+macro_rules! pll_setter {
+    ($($pll:ident: [ $($name:ident: $ck:ident,)+ ],)+) => {
+        $(
+            $(
+                /// Set the target clock frequency for PLL output
+                pub fn $name<F>(mut self, freq: F) -> Self
+                where
+                    F: Into<Hertz>,
+                {
+                    self.config.$pll.$ck = Some(freq.into().0);
+                    self
+                }
+            )+
         )+
     };
 }
@@ -236,6 +342,24 @@ impl Rcc {
         pclk3: rcc_pclk3,
         pclk4: rcc_pclk4,
     }
+
+    pll_setter! {
+        pll1: [
+            pll1_p_ck: p_ck,
+            pll1_q_ck: q_ck,
+            pll1_r_ck: r_ck,
+        ],
+        pll2: [
+            pll2_p_ck: p_ck,
+            pll2_q_ck: q_ck,
+            pll2_r_ck: r_ck,
+        ],
+        pll3: [
+            pll3_p_ck: p_ck,
+            pll3_q_ck: q_ck,
+            pll3_r_ck: r_ck,
+        ],
+    }
 }
 
 /// Divider calculator for pclk 1 - 4
@@ -271,11 +395,11 @@ macro_rules! ppre_calculate {
             $(
                 let $rcc_tim_ker_clk = match ($bits, &$timpre)
                 {
-                    (0b101, TIMPREW::DEFAULTX2) => $hclk / 2,
-                    (0b110, TIMPREW::DEFAULTX4) => $hclk / 2,
-                    (0b110, TIMPREW::DEFAULTX2) => $hclk / 4,
-                    (0b111, TIMPREW::DEFAULTX4) => $hclk / 4,
-                    (0b111, TIMPREW::DEFAULTX2) => $hclk / 8,
+                    (0b101, TIMPRE::DEFAULTX2) => $hclk / 2,
+                    (0b110, TIMPRE::DEFAULTX4) => $hclk / 2,
+                    (0b110, TIMPRE::DEFAULTX2) => $hclk / 4,
+                    (0b111, TIMPRE::DEFAULTX4) => $hclk / 4,
+                    (0b111, TIMPRE::DEFAULTX2) => $hclk / 8,
                     _ => $hclk,
                 };
             )*
@@ -283,104 +407,158 @@ macro_rules! ppre_calculate {
     };
 }
 
-impl Rcc {
-    /// PLL1 Setup
-    /// Returns (Option(pll1_p_ck), Option(pll1_q_ck), Option(pll1_r_ck))
-    fn pll_setup(
-        &self,
-        rcc: &RCC,
-    ) -> (Option<Hertz>, Option<Hertz>, Option<Hertz>) {
-        // Compare available with wanted clocks
-        let srcclk = self.config.hse.unwrap_or(HSI);
-        let sys_ck = self.config.sys_ck.unwrap_or(srcclk);
+/// Setup PFD input frequency and VCO output frequency
+///
+macro_rules! vco_setup {
+    // VCOL, highest PFD frequency, highest VCO frequency
+    (NORMAL: $pllsrc:ident, $output:ident,
+     $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
+         // Input divisor, resulting in a reference clock in the
+         // range 1 to 2 MHz. Choose the highest reference clock
+         let pll_x_m = ($pllsrc + 1_999_999) / 2_000_000;
 
-        // The requested system clock is not the immediately available
-        // HSE/HSI clock. Perhaps there are other ways of obtaining
-        // the requested system clock (such as `HSIDIV`) but we will
-        // ignore those for now and use PLL1.
-        if sys_ck != srcclk {
-            let pllsrc = if self.config.hse.is_some() {
-                PLLSRCW::HSE
-            } else {
-                PLLSRCW::HSI
-            };
+         assert!(pll_x_m < 64);
 
-            assert!(srcclk > 0);
+         // Calculate resulting reference clock
+         let ref_x_ck = $pllsrc / pll_x_m;
+         assert!(ref_x_ck >= 1_000_000 && ref_x_ck <= 2_000_000);
 
-            // Currently we use the Medium Range VCO with 1 - 2 MHz
-            // input
+         // VCO output frequency. Choose the highest VCO frequency
+         let vco_min = 150_000_000;
+         let vco_max = 420_000_000;
 
-            // Input divisor, resulting in a reference clock in the
-            // range 1 to 2 MHz. Choose the highest reference clock
-            let pll1_m = (srcclk + 1_999_999) / 2_000_000;
+         // Macro-based selection
+         let pll_x_p = match true {
+             $(
+                 // Specific to PLL1
+                 true => {
+                     let $pll1_p = if $output > vco_max / 2 {
+                         1
+                     } else {
+                         ((vco_max / $output) | 1) - 1 // Must be even or unity
+                     };
+                     $pll1_p
+                 },
+             )*
+             // Specific to PLL2/3
+             _ => (vco_max / $output) - 1
+         };
 
-            assert!(pll1_m < 64);
+         // Calcuate VCO output
+         let vco_ck = $output * pll_x_p;
 
-            // Calculate resulting reference clock
-            let ref1_ck = srcclk / pll1_m;
-            assert!(ref1_ck >= 1_000_000 && ref1_ck <= 2_000_000);
+         assert!(pll_x_p <= 128);
+         assert!(vco_ck >= vco_min);
+         assert!(vco_ck <= vco_max);
 
-            // VCO output frequency. Choose the highest VCO frequency
-            let pll1_vco_min = 150_000_000;
-            let pll1_vco_max = 420_000_000;
-            let pll1_p = if sys_ck > pll1_vco_max / 2 {
-                1
-            } else {
-                ((pll1_vco_max / sys_ck) | 1) - 1 // Must be even or unity
-            };
-            let vco1_ck = sys_ck * pll1_p;
+         // Configure VCO
+         $rcc.pllcfgr.modify(|_, w| {
+             w.$pllXvcosel()
+                 .medium_vco() // 150 - 420MHz Medium VCO
+                 .$pllXrge()
+                 .range1() // ref_x_ck is 1 - 2 MHz
+         });
 
-            assert!(pll1_p <= 128);
-            assert!(vco1_ck >= pll1_vco_min);
-            assert!(vco1_ck <= pll1_vco_max);
+         (ref_x_ck, pll_x_m, pll_x_p, vco_ck)
+     }};
+}
 
-            // Feedback divider. Integer only
-            let pll1_n = vco1_ck / ref1_ck;
+macro_rules! pll_setup {
+    ($pll_setup:ident: ($pllXvcosel:ident, $pllXrge:ident, $pllXfracen:ident,
+                   $pllXdivr:ident, $divnX:ident, $divmX:ident,
+                   OUTPUTS: [ $($CK:ident:
+                                ($div:ident, $diven:ident, $DD:tt $(,$unsafe:ident)*)),+ ]
+                   $(,$pll1_p:ident)*
+    )) => {
+        /// PLL Setup
+        /// Returns (Option(pllX_p_ck), Option(pllX_q_ck), Option(pllX_r_ck))
+        fn $pll_setup(
+            &self,
+            rcc: &RCC,
+            pll: PllConfig,
+        ) -> (Option<Hertz>, Option<Hertz>, Option<Hertz>) {
+            // PLL sourced from either HSE or HSI
+            let pllsrc = self.config.hse.unwrap_or(HSI);
+            assert!(pllsrc > 0);
 
-            assert!(pll1_n >= 4);
-            assert!(pll1_n <= 512);
+            // PLL output
+            match pll.p_ck {
+                Some(output) => {
+                    // Use the Medium Range VCO with 1 - 2 MHz input
+                    let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) = {
+                        vco_setup! { NORMAL: pllsrc, output, rcc,
+                                     $pllXvcosel, $pllXrge, $($pll1_p)* }
+                    };
 
-            // Calculate PLL P output clock
-            let pll1_p_ck = ref1_ck * pll1_n / pll1_p;
+                    // Feedback divider. Integer only
+                    let pll_x_n = vco_ck / ref_x_ck;
 
-            // Calculate PLL Q output clock - same as P
-            let pll1_q = pll1_p;
-            let pll1_q_ck = ref1_ck * pll1_n / pll1_q;
+                    // Write dividers
+                    rcc.pllckselr.modify(|_, w| {
+                        w.$divmX().bits(pll_x_m as u8) // ref prescaler
+                    });
+                    // unsafe as not all values are permitted: see RM0433
+                    assert!(pll_x_n >= 4);
+                    assert!(pll_x_n <= 512);
+                    rcc.$pllXdivr
+                        .modify(|_, w| unsafe { w.$divnX().bits((pll_x_n - 1) as u16) });
 
-            // Write dividers
-            rcc.pllckselr.modify(|_, w| {
-                w.pllsrc()
-                    .variant(pllsrc) // hse
-                    .divm1()
-                    .bits(pll1_m as u8) // ref prescaler
-            });
-            rcc.pll1divr.modify(|_, w| unsafe {
-                w.divq1()
-                    .bits((pll1_q - 1) as u8)
-                    .divp1()
-                    .bits((pll1_p - 1) as u8)
-                    .divn1()
-                    .bits((pll1_n - 1) as u16)
-            });
+                    // Configure PLL
+                    rcc.pllcfgr.modify(|_, w| {
+                        w.$pllXfracen().reset() // No FRACN
+                    });
 
-            // Configure PLL
-            rcc.pllcfgr.write(|w| {
-                w.pll1fracen()
-                    .reset() // No FRACN
-                    .pll1vcosel()
-                    .medium_vco() // 150 - 420MHz Medium VCO
-                    .pll1rge()
-                    .range1() // ref1_ck is 1 - 2 MHz
-                    .divp1en()
-                    .enabled()
-                    .divq1en()
-                    .enabled()
-            });
+                    // Calulate additional output dividers
+                    let pll_x_q = match pll.q_ck {
+                        Some(ck) => (vco_ck + ck - 1) / ck,
+                        None => 0
+                    };
+                    let pll_x_r = match pll.r_ck {
+                        Some(ck) => (vco_ck + ck - 1) / ck,
+                        None => 0
+                    };
+                    let dividers = (pll_x_p, pll_x_q, pll_x_r);
 
-            (Some(Hertz(pll1_p_ck)), Some(Hertz(pll1_q_ck)), None)
-        } else {
-            (None, None, None)
+                    // Setup and return output clocks
+                    ($(
+                        // Enable based on config
+                        match pll.$CK {
+                            Some(_) => {
+                                // Setup divider
+                                rcc.$pllXdivr
+                                    .modify(|_, w| $($unsafe)* {
+                                        w.$div().bits((dividers.$DD - 1) as u8)
+                                    });
+
+                                rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
+                                Some(Hertz(ref_x_ck * pll_x_n / dividers.$DD))
+                            }
+                            None => {
+                                rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
+                                None
+                            }
+                        },
+                    )+)
+                },
+                None => {
+                    assert!(pll.q_ck.is_none(), "Must set PLL P clock for Q clock to take effect!");
+                    assert!(pll.r_ck.is_none(), "Must set PLL P clock for R clock to take effect!");
+                    (None, None, None)
+                }
+            }
         }
+    };
+}
+
+impl Rcc {
+    pll_setup! {
+    pll1_setup: (pll1vcosel, pll1rge, pll1fracen, pll1divr, divn1, divm1,
+                 OUTPUTS: [
+                      // unsafe as not all values are permitted: see RM0433
+                     p_ck: (divp1, divp1en, 0, unsafe),
+                     q_ck: (divq1, divq1en, 1),
+                     r_ck: (divr1, divr1en, 2) ],
+                 pll1_p)
     }
 
     fn flash_setup(rcc_aclk: u32, vos: Voltage) {
@@ -427,6 +605,58 @@ impl Rcc {
         while flash.acr.read().latency().bits() != wait_states {}
     }
 
+    /// Setup sys_ck
+    /// Returns sys_ck frequency, and a pll1_p_ck
+    fn sys_ck_setup(&self) -> (Hertz, Option<u32>, bool) {
+        // Compare available with wanted clocks
+        let srcclk = self.config.hse.unwrap_or(HSI); // Available clocks
+        let sys_ck = self.config.sys_ck.unwrap_or(srcclk);
+
+        // The requested system clock is not the immediately available
+        // HSE/HSI clock. Perhaps there are other ways of obtaining
+        // the requested system clock (such as `HSIDIV`) but we will
+        // ignore those for now.
+        if sys_ck != srcclk {
+            // Therefore we must use pll1_p_ck
+            let pll1_p_ck = match self.config.pll1.p_ck {
+                Some(p_ck) => {
+                    assert!(p_ck == sys_ck,
+                            "Error: Cannot set pll1_p_ck independently as it must be used to generate sys_ck");
+                    Some(p_ck)
+                }
+                None => Some(sys_ck),
+            };
+
+            (Hertz(sys_ck), pll1_p_ck, true)
+        } else {
+            // sys_ck is derived directly from a source clock
+            // (HSE/HSI). pll1_p_ck can be as requested
+            (Hertz(sys_ck), self.config.pll1.p_ck, false)
+        }
+    }
+
+    /// Setup traceclk
+    /// Returns a pll1_r_ck
+    fn traceclk_setup(
+        &self,
+        sys_use_pll1_p: bool,
+        pll1_p_ck: Option<u32>,
+    ) -> Option<u32> {
+        let pll1_r_ck = match (sys_use_pll1_p, self.config.pll1.r_ck) {
+            // pll1_p_ck selected as system clock but pll1_r_ck not
+            // set. The traceclk mux is synchronous with the system
+            // clock mux, but has pll1_r_ck as an input. In order to
+            // keep traceclk running, we force a pll1_r_ck.
+            (true, None) => Some(pll1_p_ck.unwrap() / 2),
+            // Either pll1 not selected as system clock, free choice
+            // of pll1_r_ck. Or pll1 is selected, assume user has set
+            // a suitable pll1_r_ck frequency.
+            _ => self.config.pll1.r_ck,
+        };
+
+        pll1_r_ck
+    }
+
     /// Freeze the core clocks, returning a Core Clocks Distribution
     /// and Reset (CCDR) object.
     ///
@@ -435,15 +665,25 @@ impl Rcc {
         let rcc = &self.rb;
 
         // sys_ck from PLL if needed, else HSE or HSI
-        let srcclk = self.config.hse.unwrap_or(HSI);
-        let (pll1_p_ck, pll1_q_ck, pll1_r_ck) = self.pll_setup(rcc);
-        let sys_ck = pll1_p_ck.unwrap_or(Hertz(srcclk));
+        let (sys_ck, pll1_p_ck, sys_use_pll1_p) = self.sys_ck_setup();
+
+        // traceclk from PLL if needed
+        let pll1_r_ck = self.traceclk_setup(sys_use_pll1_p, pll1_p_ck);
+
+        // Configure PLL1
+        let pll1_config = PllConfig {
+            p_ck: pll1_p_ck,
+            q_ck: self.config.pll1.q_ck,
+            r_ck: pll1_r_ck,
+        };
+        let (pll1_p_ck, pll1_q_ck, pll1_r_ck) =
+            self.pll1_setup(rcc, pll1_config);
 
         // hsi_ck = HSI. This routine does not support HSIDIV != 1. To
         // do so it would need to ensure all PLLxON bits are clear
         // before changing the value of HSIDIV
         let hsi = HSI;
-        assert!(rcc.cr.read().hsion().is_on());
+        assert!(rcc.cr.read().hsion().is_on(), "HSI oscillator must be on!");
         assert!(rcc.cr.read().hsidiv().is_div1());
 
         let csi = CSI;
@@ -452,9 +692,9 @@ impl Rcc {
         // per_ck from HSI by default
         let (per_ck, ckpersel) =
             match (self.config.per_ck == self.config.hse, self.config.per_ck) {
-                (true, Some(hse)) => (hse, CKPERSELW::HSE), // HSE
-                (_, Some(CSI)) => (csi, CKPERSELW::CSI),    // CSI
-                _ => (hsi, CKPERSELW::HSI),                 // HSI
+                (true, Some(hse)) => (hse, CKPERSEL::HSE), // HSE
+                (_, Some(CSI)) => (csi, CKPERSEL::CSI),    // CSI
+                _ => (hsi, CKPERSEL::HSI),                 // HSI
             };
 
         // D1 Core Prescaler
@@ -464,7 +704,7 @@ impl Rcc {
         let sys_d1cpre_ck = sys_ck.0 / d1cpre_div;
 
         // Timer prescaler selection
-        let timpre = TIMPREW::DEFAULTX2;
+        let timpre = TIMPRE::DEFAULTX2;
 
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
@@ -487,15 +727,15 @@ impl Rcc {
         let (hpre_bits, hpre_div) =
             match (sys_d1cpre_ck + rcc_hclk - 1) / rcc_hclk {
                 0 => unreachable!(),
-                1 => (HPREW::DIV1, 1),
-                2 => (HPREW::DIV2, 2),
-                3..=5 => (HPREW::DIV4, 4),
-                6..=11 => (HPREW::DIV8, 8),
-                12..=39 => (HPREW::DIV16, 16),
-                40..=95 => (HPREW::DIV64, 64),
-                96..=191 => (HPREW::DIV128, 128),
-                192..=383 => (HPREW::DIV256, 256),
-                _ => (HPREW::DIV512, 512),
+                1 => (HPRE::DIV1, 1),
+                2 => (HPRE::DIV2, 2),
+                3..=5 => (HPRE::DIV4, 4),
+                6..=11 => (HPRE::DIV8, 8),
+                12..=39 => (HPRE::DIV16, 16),
+                40..=95 => (HPRE::DIV64, 64),
+                96..=191 => (HPRE::DIV128, 128),
+                192..=383 => (HPRE::DIV256, 256),
+                _ => (HPRE::DIV512, 512),
             };
 
         // Calculate real AXI and AHB clock
@@ -534,6 +774,14 @@ impl Rcc {
             }
             None => None,
         };
+
+        // PLL
+        let pllsrc = if self.config.hse.is_some() {
+            PLLSRC::HSE
+        } else {
+            PLLSRC::HSI
+        };
+        rcc.pllckselr.modify(|_, w| w.pllsrc().variant(pllsrc));
 
         // PLL1
         if pll1_p_ck.is_some() {
@@ -576,10 +824,10 @@ impl Rcc {
         rcc.cfgr.modify(|_, w| w.timpre().variant(timpre));
 
         // Select system clock source
-        let swbits = match (pll1_p_ck.is_some(), self.config.hse.is_some()) {
-            (true, _) => SWW::PLL1 as u8,
-            (false, true) => SWW::HSE as u8,
-            _ => SWW::HSI as u8,
+        let swbits = match (sys_use_pll1_p, self.config.hse.is_some()) {
+            (true, _) => SW::PLL1 as u8,
+            (false, true) => SW::HSE as u8,
+            _ => SW::HSI as u8,
         };
         rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(swbits) });
         while rcc.cfgr.read().sws().bits() != swbits {}

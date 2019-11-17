@@ -23,7 +23,7 @@ const ADC_KER_CK_MAX: u32 = 36_000_000;
 #[cfg(feature = "revision_v")]
 const ADC_KER_CK_MAX: u32 = 100_000_000;
 
-pub type Resolution = crate::stm32::adc3::cfgr::RESR;
+pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
 trait NumberOfBits {
     fn number_of_bits(&self) -> u32;
 }
@@ -519,7 +519,7 @@ macro_rules! adc_hal {
                     self.check_conversion_conditions();
 
                     // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().bits()) });
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
 
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));

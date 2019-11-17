@@ -97,7 +97,7 @@ pub trait ExtiPin {
     fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
     fn enable_interrupt(&mut self, exti: &mut EXTI);
     fn disable_interrupt(&mut self, exti: &mut EXTI);
-    fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI);
+    fn clear_interrupt_pending_bit(&mut self);
 }
 
 macro_rules! gpio {
@@ -293,15 +293,18 @@ macro_rules! gpio {
                 }
 
                 /// Clear the interrupt pending bit for this pin
-                fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
-                    #[cfg(any(feature = "singlecore"))]
-                    let pr1 = &exti.cpupr1;
-                    #[cfg(all(feature = "dualcore", feature = "cm7"))]
-                    let pr1 = &exti.c1pr1;
-                    #[cfg(all(feature = "dualcore", feature = "cm4"))]
-                    let pr1 = &exti.c2pr1;
+                fn clear_interrupt_pending_bit(&mut self) {
+                    unsafe {
+                        #[cfg(any(feature = "singlecore"))]
+                        let pr1 = &(*EXTI::ptr()).cpupr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                        let pr1 = &(*EXTI::ptr()).c1pr1;
+                        #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                        let pr1 = &(*EXTI::ptr()).c2pr1;
 
-                    pr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+
+                        pr1.write(|w| w.bits(1 << self.i) );
+                    }
                 }
             }
 
@@ -737,15 +740,17 @@ macro_rules! gpio {
                     }
 
                     /// Clear the interrupt pending bit for this pin
-                    fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
-                        #[cfg(any(feature = "singlecore"))]
-                        let pr1 = &exti.cpupr1;
-                        #[cfg(all(feature = "dualcore", feature = "cm7"))]
-                        let pr1 = &exti.c1pr1;
-                        #[cfg(all(feature = "dualcore", feature = "cm4"))]
-                        let pr1 = &exti.c2pr1;
+                    fn clear_interrupt_pending_bit(&mut self) {
+                        unsafe {
+                            #[cfg(any(feature = "singlecore"))]
+                            let pr1 = &(*(EXTI::ptr())).cpupr1;
+                            #[cfg(all(feature = "dualcore", feature = "cm7"))]
+                            let pr1 = &(*(EXTI::ptr())).c1pr1;
+                            #[cfg(all(feature = "dualcore", feature = "cm4"))]
+                            let pr1 = &(*(EXTI::ptr())).c2pr1;
 
-                        pr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                            pr1.write(|w| w.bits(1 << $i));
+                        };
                     }
                 }
             )+

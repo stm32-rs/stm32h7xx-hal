@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -22,7 +22,7 @@ features = ["stm32h743", "rt"]
 embedded-hal = "0.2.3"
 cortex-m = "^0.6.0"
 cortex-m-rt = "0.6.10"
-stm32h7 = "0.8.0"
+stm32h7 = "0.9.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"
