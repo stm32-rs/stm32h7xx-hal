@@ -441,7 +441,11 @@ macro_rules! vco_setup {
                  },
              )*
              // Specific to PLL2/3
-             _ => (vco_max / $output) - 1
+             _ => if $output > vco_max / 2 {
+                 1
+             } else {
+                 vco_max / $output
+             }
          };
 
          // Calcuate VCO output
@@ -475,7 +479,7 @@ macro_rules! pll_setup {
         fn $pll_setup(
             &self,
             rcc: &RCC,
-            pll: PllConfig,
+            pll: &PllConfig,
         ) -> (Option<Hertz>, Option<Hertz>, Option<Hertz>) {
             // PLL sourced from either HSE or HSI
             let pllsrc = self.config.hse.unwrap_or(HSI);
@@ -487,7 +491,7 @@ macro_rules! pll_setup {
                     // Use the Medium Range VCO with 1 - 2 MHz input
                     let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) = {
                         vco_setup! { NORMAL: pllsrc, output, rcc,
-                                     $pllXvcosel, $pllXrge, $($pll1_p)* }
+                                     $pllXvcosel, $pllXrge $(, $pll1_p)* }
                     };
 
                     // Feedback divider. Integer only
@@ -559,6 +563,20 @@ impl Rcc {
                      q_ck: (divq1, divq1en, 1),
                      r_ck: (divr1, divr1en, 2) ],
                  pll1_p)
+    }
+    pll_setup! {
+    pll2_setup: (pll2vcosel, pll2rge, pll2fracen, pll2divr, divn2, divm2,
+                 OUTPUTS: [
+                     p_ck: (divp2, divp2en, 0),
+                     q_ck: (divq2, divq2en, 1),
+                     r_ck: (divr2, divr2en, 2)])
+    }
+    pll_setup! {
+    pll3_setup: (pll3vcosel, pll3rge, pll3fracen, pll3divr, divn3, divm3,
+                 OUTPUTS: [
+                     p_ck: (divp3, divp3en, 0),
+                     q_ck: (divq3, divq3en, 1),
+                     r_ck: (divr3, divr3en, 2)])
     }
 
     fn flash_setup(rcc_aclk: u32, vos: Voltage) {
@@ -664,10 +682,13 @@ impl Rcc {
     pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         let rcc = &self.rb;
 
+        // We do not reset RCC here. This routine must assert when
+        // the previous state of the RCC peripheral is unacceptable.
+
         // sys_ck from PLL if needed, else HSE or HSI
         let (sys_ck, pll1_p_ck, sys_use_pll1_p) = self.sys_ck_setup();
 
-        // traceclk from PLL if needed
+        // Configure traceclk from PLL if needed
         let pll1_r_ck = self.traceclk_setup(sys_use_pll1_p, pll1_p_ck);
 
         // Configure PLL1
@@ -677,7 +698,13 @@ impl Rcc {
             r_ck: pll1_r_ck,
         };
         let (pll1_p_ck, pll1_q_ck, pll1_r_ck) =
-            self.pll1_setup(rcc, pll1_config);
+            self.pll1_setup(rcc, &pll1_config);
+        // Configure PLL2
+        let (pll2_p_ck, pll2_q_ck, pll2_r_ck) =
+            self.pll2_setup(rcc, &self.config.pll2);
+        // Configure PLL3
+        let (pll3_p_ck, pll3_q_ck, pll3_r_ck) =
+            self.pll3_setup(rcc, &self.config.pll3);
 
         // hsi_ck = HSI. This routine does not support HSIDIV != 1. To
         // do so it would need to ensure all PLLxON bits are clear
@@ -752,6 +779,8 @@ impl Rcc {
             (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk_max),
         }
 
+        // Start switching clocks here! ----------------------------------------
+
         // Flash setup
         Self::flash_setup(sys_d1cpre_ck, vos);
 
@@ -788,6 +817,20 @@ impl Rcc {
             // Enable PLL and wait for it to stabilise
             rcc.cr.modify(|_, w| w.pll1on().on());
             while rcc.cr.read().pll1rdy().is_not_ready() {}
+        }
+
+        // PLL2
+        if pll2_p_ck.is_some() {
+            // Enable PLL and wait for it to stabilise
+            rcc.cr.modify(|_, w| w.pll2on().on());
+            while rcc.cr.read().pll2rdy().is_not_ready() {}
+        }
+
+        // PLL3
+        if pll3_p_ck.is_some() {
+            // Enable PLL and wait for it to stabilise
+            rcc.cr.modify(|_, w| w.pll3on().on());
+            while rcc.cr.read().pll3rdy().is_not_ready() {}
         }
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
@@ -872,12 +915,12 @@ impl Rcc {
                 pll1_p_ck,
                 pll1_q_ck,
                 pll1_r_ck,
-                pll2_p_ck: None,
-                pll2_q_ck: None,
-                pll2_r_ck: None,
-                pll3_p_ck: None,
-                pll3_q_ck: None,
-                pll3_r_ck: None,
+                pll2_p_ck,
+                pll2_q_ck,
+                pll2_r_ck,
+                pll3_p_ck,
+                pll3_q_ck,
+                pll3_r_ck,
                 timx_ker_ck: Hertz(rcc_timx_ker_ck),
                 timy_ker_ck: Hertz(rcc_timy_ker_ck),
                 sys_ck,
