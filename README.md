@@ -33,6 +33,12 @@ supported with the following feature gates:
 
 Again, feature gates `stm32h742v`, `stm32h750v` also exist.
 
+There is also support for dual core parts. Currently only the
+Cortex-M7 core is supported.
+
+*   stm32h747cm7 ✔️
+*   stm32h757cm7 ✔️
+
 The idea behind this crate is to gloss over the slight differences in
 the various peripherals available on those MCUs so a HAL can be
 written for all chips in that same family without having to cut and

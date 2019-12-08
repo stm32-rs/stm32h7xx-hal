@@ -2,9 +2,16 @@
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
-use crate::stm32::WWDG;
 use crate::time::{Hertz, MilliSeconds};
 use cast::u8;
+
+/// Select Window Watchdog hardware based on core
+#[cfg(any(feature = "singlecore"))]
+use crate::stm32::WWDG;
+#[cfg(all(feature = "dualcore", feature = "cm7"))]
+use crate::stm32::WWDG1 as WWDG;
+#[cfg(all(feature = "dualcore", feature = "cm4"))]
+use crate::stm32::WWDG2 as WWDG;
 
 /// Implements the System Window Watchdog
 pub struct SystemWindowWatchdog {
@@ -49,7 +56,6 @@ impl WatchdogEnable for SystemWindowWatchdog {
         let maximum =
             (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.0 / 1000);
         assert!(period_ms <= maximum);
-
 
         // timeout = pclk * 4096 * 2^WDGTB[2:0] * (t[5:0] +1)
         let ratio = period_ms * (self.pclk3_frequency.0 / 1000) / 4096;

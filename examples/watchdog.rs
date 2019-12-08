@@ -28,7 +28,13 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc.sys_ck(96.mhz()).freeze(vos, &dp.SYSCFG);
 
+    #[cfg(any(feature = "singlecore"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG, &ccdr);
+
+    #[cfg(all(feature = "dualcore", feature = "cm7"))]
+    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
+    #[cfg(all(feature = "dualcore", feature = "cm4"))]
+    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG2, &ccdr);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - Watchdog");

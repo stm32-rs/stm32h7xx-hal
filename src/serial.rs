@@ -12,8 +12,8 @@ use crate::stm32::rcc::d2ccip2r;
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use stm32h7::Variant::Val;
 
-use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::stm32::{UART4, UART5, UART7, UART8};
+use crate::stm32::{USART1, USART2, USART3, USART6};
 
 use crate::gpio::gpioa::{
     PA0, PA1, PA10, PA11, PA12, PA15, PA2, PA3, PA4, PA8, PA9,
