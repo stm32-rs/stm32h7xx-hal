@@ -281,7 +281,7 @@ macro_rules! pclk_setter {
     };
 }
 
-/// Setter definition for pll 1 - 3
+/// Setter definition for pll 1 - 3 p, q, r
 macro_rules! pll_setter {
     ($($pll:ident: [ $($name:ident: $ck:ident,)+ ],)+) => {
         $(
@@ -297,6 +297,21 @@ macro_rules! pll_setter {
             )+
         )+
     };
+}
+
+/// Setter definition for pll 1 - 3 strategy
+macro_rules! pll_strategy_setter {
+    ($($pll:ident: $name:ident,)+) => {
+        $(
+            /// Set the PLL divider strategy to be used when the PLL
+            /// is configured
+            pub fn $name(mut self, strategy: PllConfigStrategy) -> Self
+            {
+                self.config.$pll.strategy = strategy;
+                self
+            }
+        )+
+    }
 }
 
 impl Rcc {
@@ -372,6 +387,12 @@ impl Rcc {
             pll3_q_ck: q_ck,
             pll3_r_ck: r_ck,
         ],
+    }
+
+    pll_strategy_setter! {
+        pll1: pll1_strategy,
+        pll2: pll2_strategy,
+        pll3: pll3_strategy,
     }
 }
 
@@ -576,11 +597,17 @@ macro_rules! pll_setup {
                     // Set VCO parameters based on VCO strategy
                     let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) =
                         match pll.strategy {
-                            _ => {
+                            PllConfigStrategy::Iterative => {
                                 vco_setup! { ITERATIVE: pllsrc, output,
                                              rcc, $pllXvcosel,
                                              $pllXrge $(, $pll1_p)* }
+                            },
+                            _ => {
+                                vco_setup! { NORMAL: pllsrc, output,
+                                             rcc, $pllXvcosel,
+                                             $pllXrge $(, $pll1_p)* }
                             }
+
                         };
 
                     // Feedback divider. Integer only
