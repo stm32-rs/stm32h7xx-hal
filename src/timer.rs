@@ -110,7 +110,9 @@ pub struct Timer<TIM> {
     timeout: Hertz,
 }
 
-/// Interrupt events
+/// Timer Events
+///
+/// Each event is a possible interrupt source, if enabled
 pub enum Event {
     /// Timer timed out / count down ended
     TimeOut,
@@ -231,7 +233,7 @@ macro_rules! hal {
                     self.tim.cnt.read().bits()
                 }
 
-                /// Starts listening for an `event`
+                /// Start listening for `event`
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
@@ -241,7 +243,7 @@ macro_rules! hal {
                     }
                 }
 
-                /// Stops listening for an `event`
+                /// Stop listening for `event`
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
@@ -249,6 +251,14 @@ macro_rules! hal {
                             self.tim.dier.write(|w| w.uie().clear_bit());
                         }
                     }
+                }
+
+                /// Clears interrupt flag
+                pub fn clear_irq(&mut self) {
+                    self.tim.sr.modify(|_, w| {
+                        // Clears timeout event
+                        w.uif().clear_bit()
+                    });
                 }
 
                 /// Releases the TIM peripheral
