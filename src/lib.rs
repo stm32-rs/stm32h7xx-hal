@@ -67,6 +67,8 @@ pub use crate::stm32::interrupt;
 pub mod adc;
 #[cfg(feature = "device-selected")]
 pub mod delay;
+#[cfg(feature = "stm32h743")]
+pub mod dma;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 #[cfg(feature = "device-selected")]
