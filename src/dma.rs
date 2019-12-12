@@ -11,10 +11,11 @@ use self::channel::ChannelId;
 use self::mux::request_ids::{
     ReqNone, RequestId as RequestIdTrait, RequestIdSome,
 };
+use self::mux::shared::MuxIsr;
 use self::mux::{
-    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, RequestId, SyncDisabled,
-    SyncED as SyncEDTrait, SyncEnabled, SyncId, SyncOverrunInterrupt,
-    SyncPolarity,
+    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, OverrunError, RequestId,
+    SyncDisabled, SyncED as SyncEDTrait, SyncEnabled, SyncId,
+    SyncOverrunInterrupt, SyncPolarity,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -990,6 +991,50 @@ where
         };
 
         (new_dma_mux, old_req_id)
+    }
+}
+
+impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub fn check_isr(&self, mux_isr: &MuxIsr) -> Result<(), OverrunError> {
+        if self.is_sync_overrun(mux_isr) {
+            Err(OverrunError)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
+        let mask: u16 = 1 << self.id() as u16;
+
+        mux_isr.csr.read().sof().bits() & mask != 0
+    }
+
+    pub fn clear_isr(&self, mux_isr: &mut MuxIsr) {
+        match self.id() {
+            0 => mux_isr.cfr.write(|w| w.csof0().set_bit()),
+            1 => mux_isr.cfr.write(|w| w.csof1().set_bit()),
+            2 => mux_isr.cfr.write(|w| w.csof2().set_bit()),
+            3 => mux_isr.cfr.write(|w| w.csof3().set_bit()),
+            4 => mux_isr.cfr.write(|w| w.csof4().set_bit()),
+            5 => mux_isr.cfr.write(|w| w.csof5().set_bit()),
+            6 => mux_isr.cfr.write(|w| w.csof6().set_bit()),
+            7 => mux_isr.cfr.write(|w| w.csof7().set_bit()),
+            8 => mux_isr.cfr.write(|w| w.csof8().set_bit()),
+            9 => mux_isr.cfr.write(|w| w.csof9().set_bit()),
+            10 => mux_isr.cfr.write(|w| w.csof10().set_bit()),
+            11 => mux_isr.cfr.write(|w| w.csof11().set_bit()),
+            12 => mux_isr.cfr.write(|w| w.csof12().set_bit()),
+            13 => mux_isr.cfr.write(|w| w.csof13().set_bit()),
+            14 => mux_isr.cfr.write(|w| w.csof14().set_bit()),
+            15 => mux_isr.cfr.write(|w| w.csof15().set_bit()),
+            _ => unreachable!(),
+        }
     }
 }
 

@@ -1,3 +1,7 @@
+pub mod shared;
+
+use self::shared::MuxIsr;
+
 type_state! {
     SyncED, SyncDisabled, SyncEnabled
 }
@@ -233,3 +237,9 @@ request_id! {
     Adc3Dma => (adc_3_dma, 115)
     // [116; 127] reserved
 }
+
+pub struct MuxShared {
+    pub mux_isr: MuxIsr,
+}
+
+pub struct OverrunError;
