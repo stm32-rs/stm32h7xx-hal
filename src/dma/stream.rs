@@ -14,6 +14,10 @@ type_state! {
     IsrState, IsrCleared, IsrUncleared
 }
 
+pub trait IntoNum {
+    fn into_num(self) -> usize;
+}
+
 bool_enum! {
     TransferCompleteInterrupt, "Transfer Complete Interrupt", Disabled, Enabled
 }
@@ -66,12 +70,32 @@ int_enum! {
     Word <=> 0b10
 }
 
+impl IntoNum for PSize {
+    fn into_num(self) -> usize {
+        match self {
+            PSize::Byte => 1,
+            PSize::HalfWord => 2,
+            PSize::Word => 4,
+        }
+    }
+}
+
 int_enum! {
     MSize <=> u8,
     "Memory Data Size",
     Byte <=> 0b00,
     HalfWord <=> 0b01,
     Word <=> 0b10
+}
+
+impl IntoNum for MSize {
+    fn into_num(self) -> usize {
+        match self {
+            MSize::Byte => 1,
+            MSize::HalfWord => 2,
+            MSize::Word => 4,
+        }
+    }
 }
 
 bool_enum! {
@@ -104,6 +128,17 @@ int_enum! {
     Incr16 <=> 0b11
 }
 
+impl IntoNum for PBurst {
+    fn into_num(self) -> usize {
+        match self {
+            PBurst::Single => 1,
+            PBurst::Incr4 => 4,
+            PBurst::Incr8 => 8,
+            PBurst::Incr16 => 16,
+        }
+    }
+}
+
 int_enum! {
     MBurst <=> u8,
     "Memory Burst",
@@ -111,6 +146,17 @@ int_enum! {
     Incr4 <=> 0b01,
     Incr8 <=> 0b10,
     Incr16 <=> 0b11
+}
+
+impl IntoNum for MBurst {
+    fn into_num(self) -> usize {
+        match self {
+            MBurst::Single => 1,
+            MBurst::Incr4 => 4,
+            MBurst::Incr8 => 8,
+            MBurst::Incr16 => 16,
+        }
+    }
 }
 
 int_struct! {
@@ -140,6 +186,18 @@ int_enum! {
     F1_2 <=> 0b01,
     F3_4 <=> 0b10,
     Full <=> 0b11
+}
+
+impl IntoNum for FifoThreshold {
+    /// Fifo threshold in words
+    fn into_num(self) -> usize {
+        match self {
+            FifoThreshold::F1_4 => 1,
+            FifoThreshold::F1_2 => 2,
+            FifoThreshold::F3_4 => 3,
+            FifoThreshold::Full => 4,
+        }
+    }
 }
 
 pub struct StreamIsr<DMA>

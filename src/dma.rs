@@ -10,7 +10,7 @@ use self::stm32::{DMA1, DMA2};
 use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
     Disabled, Disabling, Enabled, Error, Event, FifoErrorInterrupt,
-    FifoThreshold, FlowController, HalfTransferInterrupt, IsrCleared,
+    FifoThreshold, FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
     IsrState as IsrStateTrait, IsrUncleared, M0a, M1a, MBurst, MSize, Minc,
     Ndt, NotDisabled, PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel,
     StreamIsr, TransferCompleteInterrupt, TransferDirection,
@@ -340,9 +340,91 @@ where
     ///
     /// Aliasing rules aren't enforced
     pub unsafe fn enable(self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
+        self.check_config();
+
+        self.enable_unchecked()
+    }
+
+    /// # Safety
+    ///
+    /// - Aliasing rules aren't enforced
+    /// - Config is not checked for guaranteeing data integrity
+    pub unsafe fn enable_unchecked(
+        self,
+    ) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
         self.rb.cr.modify(|_, w| w.en().set_bit());
 
         self.transmute()
+    }
+
+    fn check_config(&self) {
+        if self.circular_mode() == CircularMode::Enabled {
+            self.check_config_circular();
+        }
+        if self.transfer_mode() == TransferMode::Fifo {
+            self.check_config_fifo();
+        }
+    }
+
+    fn check_config_circular(&self) {
+        if self.transfer_mode() == TransferMode::Fifo {
+            let ndt = self.ndt().value();
+            let m_burst = self.m_burst().into_num() as u16;
+            let p_burst = self.p_burst().into_num() as u16;
+            let m_size = self.m_size().into_num() as u16;
+            let p_size = self.p_size().into_num() as u16;
+
+            if ndt % (m_burst * (m_size / p_size)) != 0 {
+                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (m_burst * (m_size / p_size))`");
+            }
+
+            if ndt % (p_burst * p_size) != 0 {
+                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (p_burst * p_size)`");
+            }
+        } else {
+            let ndt = self.ndt().value();
+            let p_size = self.p_size().into_num() as u16;
+
+            if ndt % p_size != 0 {
+                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (p_size)`");
+            }
+        }
+    }
+
+    fn check_config_fifo(&self) {
+        let m_size = self.m_size().into_num();
+        let m_burst = self.m_burst().into_num();
+        // Fifo Size in bytes
+        let fifo_size = self.fifo_threshold().into_num() * 4;
+
+        if m_size * m_burst > fifo_size {
+            panic!("FIFO configuration invalid, because `msize * mburst > fifo_size`");
+        }
+
+        if fifo_size % (m_size * m_burst) != 0 {
+            panic!("FIFO configuration invalid, because `fifo_size % (msize * mburst) != 0`");
+        }
+
+        if self.transfer_direction() == TransferDirection::M2P {
+            self.check_config_fifo_m2p();
+        }
+    }
+
+    fn check_config_fifo_m2p(&self) {
+        let p_burst = self.p_burst().into_num();
+        let p_size = self.p_size().into_num();
+        // 4 Words = 16 Bytes
+        const FULL_FIFO_BYTES: usize = 16;
+
+        if p_burst * p_size == FULL_FIFO_BYTES {
+            if self.fifo_threshold() == FifoThreshold::F3_4 {
+                panic!(
+                    "FIFO configuration invalid, because \
+                     `pburst * psize == FULL_FIFO_SIZE` and \
+                     `fifo_threshhold = 3/4`"
+                );
+            }
+        }
     }
 }
 
