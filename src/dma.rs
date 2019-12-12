@@ -3,11 +3,21 @@
 #[macro_use]
 mod macros;
 pub mod channel;
+pub mod mux;
 pub mod stream;
 mod utils;
 
 use self::channel::ChannelId;
+use self::mux::request_ids::{
+    ReqNone, RequestId as RequestIdTrait, RequestIdSome,
+};
+use self::mux::{
+    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, RequestId, SyncDisabled,
+    SyncED as SyncEDTrait, SyncEnabled, SyncId, SyncOverrunInterrupt,
+    SyncPolarity,
+};
 use self::stm32::dma1::ST;
+use self::stm32::dmamux1::CCR;
 use self::stm32::{DMA1, DMA2};
 use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
@@ -771,5 +781,223 @@ where
     DMA: DMATrait,
     ED: EDTrait,
     IsrState: IsrStateTrait,
+{
+}
+
+pub struct DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    rb: &'static CCR,
+    req_id: ReqId,
+    _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
+}
+
+impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub fn id(&self) -> usize {
+        CXX::MUX_ID
+    }
+
+    pub fn request_id(&self) -> RequestId {
+        self.rb.read().dmareq_id().bits().try_into().unwrap()
+    }
+
+    pub fn sync_overrun_interrupt(&self) -> SyncOverrunInterrupt {
+        self.rb.read().soie().bit().into()
+    }
+
+    pub fn set_sync_overrun_interrupt(
+        &mut self,
+        sync_overrun_intrpt: SyncOverrunInterrupt,
+    ) {
+        self.rb
+            .modify(|_, w| w.soie().bit(sync_overrun_intrpt.into()));
+    }
+
+    pub fn sync_polarity(&self) -> SyncPolarity {
+        self.rb.read().spol().bits().try_into().unwrap()
+    }
+
+    pub fn set_sync_polarity(&mut self, sync_polarity: SyncPolarity) {
+        self.rb.modify(|_, w| w.spol().bits(sync_polarity.into()));
+    }
+
+    pub fn nbreq(&self) -> NbReq {
+        self.rb.read().nbreq().bits().try_into().unwrap()
+    }
+
+    pub fn sync_id(&self) -> SyncId {
+        self.rb.read().sync_id().bits().try_into().unwrap()
+    }
+
+    pub fn set_sync_id(&mut self, sync_id: SyncId) {
+        unsafe {
+            self.rb.modify(|_, w| w.sync_id().bits(sync_id.into()));
+        }
+    }
+
+    fn set_req_id_impl(&mut self, request_id: RequestId) {
+        unsafe {
+            self.rb.modify(|_, w| w.dmareq_id().bits(request_id.into()));
+        }
+    }
+
+    fn transmute<NewSyncED, NewEgED>(
+        self,
+    ) -> DmaMux<CXX, ReqId, NewSyncED, NewEgED>
+    where
+        NewSyncED: SyncEDTrait,
+        NewEgED: EgEDTrait,
+    {
+        DmaMux {
+            rb: self.rb,
+            req_id: self.req_id,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<CXX, ReqId> DmaMux<CXX, ReqId, SyncDisabled, EgDisabled>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+{
+    pub fn set_nbreq(&mut self, nbreq: NbReq) {
+        self.rb.modify(|_, w| w.nbreq().bits(nbreq.into()));
+    }
+}
+
+impl<CXX, ReqId, EgED> DmaMux<CXX, ReqId, SyncDisabled, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    EgED: EgEDTrait,
+{
+    pub fn enable_sync(self) -> DmaMux<CXX, ReqId, SyncEnabled, EgED> {
+        self.rb.modify(|_, w| w.se().set_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, EgED> DmaMux<CXX, ReqId, SyncEnabled, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    EgED: EgEDTrait,
+{
+    pub fn disable_sync(self) -> DmaMux<CXX, ReqId, SyncDisabled, EgED> {
+        self.rb.modify(|_, w| w.se().clear_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, SyncED> DmaMux<CXX, ReqId, SyncED, EgDisabled>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+{
+    pub fn enable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgEnabled> {
+        self.rb.modify(|_, w| w.ege().set_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, SyncED> DmaMux<CXX, ReqId, SyncED, EgEnabled>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+{
+    pub fn disable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgEnabled> {
+        self.rb.modify(|_, w| w.ege().clear_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, SyncED, EgED> DmaMux<CXX, ReqNone, SyncED, EgED>
+where
+    CXX: ChannelId,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub fn set_req_id<NewReqId>(
+        mut self,
+        req_id: NewReqId,
+    ) -> DmaMux<CXX, NewReqId, SyncED, EgED>
+    where
+        NewReqId: RequestIdSome,
+    {
+        self.set_req_id_impl(req_id.request_id());
+
+        DmaMux {
+            req_id,
+            rb: self.rb,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdSome,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub fn unset_req_id(
+        mut self,
+    ) -> (DmaMux<CXX, ReqNone, SyncED, EgED>, ReqId) {
+        self.set_req_id_impl(ReqNone::REQUEST_ID);
+
+        let old_req_id = self.req_id;
+        let new_dma_mux = DmaMux {
+            rb: self.rb,
+            req_id: ReqNone,
+            _phantom_data: PhantomData,
+        };
+
+        (new_dma_mux, old_req_id)
+    }
+
+    pub fn replace_req_id<NewReqId>(
+        mut self,
+        req_id: NewReqId,
+    ) -> (DmaMux<CXX, NewReqId, SyncED, EgED>, ReqId)
+    where
+        NewReqId: RequestIdSome,
+    {
+        self.set_req_id_impl(req_id.request_id());
+
+        let old_req_id = self.req_id;
+        let new_dma_mux = DmaMux {
+            req_id,
+            rb: self.rb,
+            _phantom_data: PhantomData,
+        };
+
+        (new_dma_mux, old_req_id)
+    }
+}
+
+unsafe impl<CXX, ReqId, SyncED, EgED> Sync for DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
 {
 }
