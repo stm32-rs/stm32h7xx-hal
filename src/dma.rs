@@ -17,7 +17,7 @@ use self::stream::{
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, Error as NbError};
-use core::convert::TryInto;
+use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
 use stm32h7::stm32h743 as stm32;
 
@@ -300,7 +300,7 @@ where
     ED: NotDisabled,
     IsrState: IsrStateTrait,
 {
-    pub fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), ()> {
+    pub fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), Infallible> {
         self.check_buffer_mode_addr_change();
 
         if self.current_target() == CurrentTarget::M0a && self.is_enabled() {
@@ -312,7 +312,7 @@ where
         Ok(())
     }
 
-    pub fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), ()> {
+    pub fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), Infallible> {
         self.check_buffer_mode_addr_change();
 
         if self.current_target() == CurrentTarget::M1a && self.is_enabled() {
