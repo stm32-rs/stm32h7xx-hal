@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 #[macro_use]
 mod macros;
 pub mod channel;
@@ -374,24 +376,45 @@ where
             let m_size = self.m_size().into_num() as u16;
             let p_size = self.p_size().into_num() as u16;
 
-            if ndt % (m_burst * (m_size / p_size)) != 0 {
-                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (m_burst * (m_size / p_size))`");
+            if self.m_burst() != MBurst::Single
+                && ndt % (m_burst * m_size / p_size) != 0
+            {
+                panic!(
+                    "Data integrity not guaranteed, because \
+                    `num_data_items != Multiple of (m_burst * (m_size / p_size))`"
+                );
             }
 
             if ndt % (p_burst * p_size) != 0 {
-                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (p_burst * p_size)`");
+                panic!(
+                    "Data integrity not guaranteed, because \
+                     `num_data_items != Multiple of (p_burst * p_size)`"
+                );
             }
         } else {
             let ndt = self.ndt().value();
             let p_size = self.p_size().into_num() as u16;
 
             if ndt % p_size != 0 {
-                panic!("Data integrity not guaranteed, because `num_data_items != Multiple of (p_size)`");
+                panic!(
+                    "Data integrity not guaranteed, because \
+                     `num_data_items != Multiple of (p_size)`"
+                );
             }
         }
     }
 
     fn check_config_fifo(&self) {
+        if self.m_burst() != MBurst::Single {
+            self.check_config_fifo_m_burst();
+        }
+
+        if self.p_burst() != PBurst::Single {
+            self.check_config_fifo_p_burst();
+        }
+    }
+
+    fn check_config_fifo_m_burst(&self) {
         let m_size = self.m_size().into_num();
         let m_burst = self.m_burst().into_num();
         // Fifo Size in bytes
@@ -404,26 +427,22 @@ where
         if fifo_size % (m_size * m_burst) != 0 {
             panic!("FIFO configuration invalid, because `fifo_size % (msize * mburst) != 0`");
         }
-
-        if self.transfer_direction() == TransferDirection::M2P {
-            self.check_config_fifo_m2p();
-        }
     }
 
-    fn check_config_fifo_m2p(&self) {
+    fn check_config_fifo_p_burst(&self) {
         let p_burst = self.p_burst().into_num();
         let p_size = self.p_size().into_num();
         // 4 Words = 16 Bytes
         const FULL_FIFO_BYTES: usize = 16;
 
-        if p_burst * p_size == FULL_FIFO_BYTES {
-            if self.fifo_threshold() == FifoThreshold::F3_4 {
-                panic!(
-                    "FIFO configuration invalid, because \
-                     `pburst * psize == FULL_FIFO_SIZE` and \
-                     `fifo_threshhold = 3/4`"
-                );
-            }
+        if p_burst * p_size == FULL_FIFO_BYTES
+            && self.fifo_threshold() == FifoThreshold::F3_4
+        {
+            panic!(
+                "FIFO configuration invalid, because \
+                 `pburst * psize == FULL_FIFO_SIZE` and \
+                 `fifo_threshhold == 3/4`"
+            );
         }
     }
 }

@@ -1,5 +1,6 @@
 #![no_std]
 #![allow(non_camel_case_types)]
+#![allow(clippy::all)]
 
 #[derive(Debug)]
 pub enum Never {}
