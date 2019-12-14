@@ -5,7 +5,7 @@ use self::request_gen::{
     Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId,
     OverrunInterrupt as GenOverrunInterrupt, SigId, ED as GenED,
 };
-use self::shared::MuxIsr;
+use self::shared::{MuxIsr, RequestGenIsr};
 use super::stm32::dmamux1::RGCR;
 use core::convert::TryInto;
 use core::marker::PhantomData;
@@ -241,6 +241,7 @@ request_id! {
 
 pub struct MuxShared {
     pub mux_isr: MuxIsr,
+    pub req_gen_isr: RequestGenIsr,
 }
 
 pub struct OverrunError;

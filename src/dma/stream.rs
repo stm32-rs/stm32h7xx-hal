@@ -204,10 +204,10 @@ pub struct StreamIsr<DMA>
 where
     DMA: DMATrait,
 {
-    pub(super) lisr: &'static LISR,
-    pub(super) hisr: &'static HISR,
-    pub(super) lifcr: &'static LIFCR,
-    pub(super) hifcr: &'static HIFCR,
+    pub(super) lisr: &'static mut LISR,
+    pub(super) hisr: &'static mut HISR,
+    pub(super) lifcr: &'static mut LIFCR,
+    pub(super) hifcr: &'static mut HIFCR,
     _phantom_data: PhantomData<DMA>,
 }
 

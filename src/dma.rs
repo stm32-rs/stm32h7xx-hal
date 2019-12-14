@@ -45,7 +45,7 @@ where
     ED: EDTrait,
     IsrState: IsrStateTrait,
 {
-    rb: &'static ST,
+    rb: &'static mut ST,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
 }
 
@@ -54,7 +54,7 @@ where
     CXX: ChannelId,
     DMA: DMATrait,
 {
-    fn new(rb: &'static ST) -> Self {
+    fn new(rb: &'static mut ST) -> Self {
         Stream {
             rb,
             _phantom_data: PhantomData,
@@ -792,7 +792,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
-    rb: &'static CCR,
+    rb: &'static mut CCR,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
 }
