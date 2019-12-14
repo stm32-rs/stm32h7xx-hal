@@ -922,7 +922,7 @@ where
     ReqId: RequestIdTrait,
     SyncED: SyncEDTrait,
 {
-    pub fn disable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgEnabled> {
+    pub fn disable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgDisabled> {
         self.rb.modify(|_, w| w.ege().clear_bit());
 
         self.transmute()
