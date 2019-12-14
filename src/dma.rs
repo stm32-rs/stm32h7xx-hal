@@ -45,6 +45,7 @@ where
     ED: EDTrait,
     IsrState: IsrStateTrait,
 {
+    /// This field *must not* be mutated by shared references
     rb: &'static mut ST,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
 }
@@ -314,7 +315,7 @@ where
     IsrState: IsrStateTrait,
 {
     pub fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), Infallible> {
-        self.check_buffer_mode_addr_change();
+        self.check_double_buffer();
 
         if self.current_target() == CurrentTarget::M0a && self.is_enabled() {
             return Err(NbError::WouldBlock);
@@ -326,7 +327,7 @@ where
     }
 
     pub fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), Infallible> {
-        self.check_buffer_mode_addr_change();
+        self.check_double_buffer();
 
         if self.current_target() == CurrentTarget::M1a && self.is_enabled() {
             return Err(NbError::WouldBlock);
@@ -337,7 +338,7 @@ where
         Ok(())
     }
 
-    fn check_buffer_mode_addr_change(&self) {
+    fn check_double_buffer(&self) {
         if self.buffer_mode() == BufferMode::Regular {
             panic!("The buffer must be in double buffer mode to be changed on the fly.");
         }
@@ -494,13 +495,13 @@ where
         &self,
         isr: &StreamIsr<DMA>,
     ) -> Result<Option<Event>, Error> {
-        let transfer_error = self.is_transfer_error(isr);
-        let direct_mode_error = self.is_direct_mode_error(isr);
-        let fifo_error = self.is_fifo_error(isr);
+        let transfer_error = self.transfer_error_flag(isr);
+        let direct_mode_error = self.direct_mode_error_flag(isr);
+        let fifo_error = self.fifo_error_flag(isr);
 
-        let event = if self.is_transfer_completed(isr) {
+        let event = if self.transfer_complete_flag(isr) {
             Some(Event::TransferComplete)
-        } else if self.is_half_transfer(isr) {
+        } else if self.half_transfer_flag(isr) {
             Some(Event::HalfTransfer)
         } else {
             None
@@ -521,7 +522,7 @@ where
         }
     }
 
-    pub fn is_transfer_completed(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn transfer_complete_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().tcif0().bit_is_set(),
             1 => isr.lisr.read().tcif1().bit_is_set(),
@@ -535,7 +536,7 @@ where
         }
     }
 
-    pub fn is_half_transfer(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn half_transfer_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().htif0().bit_is_set(),
             1 => isr.lisr.read().htif1().bit_is_set(),
@@ -549,7 +550,7 @@ where
         }
     }
 
-    pub fn is_transfer_error(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn transfer_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().teif0().bit_is_set(),
             1 => isr.lisr.read().teif1().bit_is_set(),
@@ -563,7 +564,7 @@ where
         }
     }
 
-    pub fn is_direct_mode_error(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn direct_mode_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().dmeif0().bit_is_set(),
             1 => isr.lisr.read().dmeif1().bit_is_set(),
@@ -577,7 +578,7 @@ where
         }
     }
 
-    pub fn is_fifo_error(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn fifo_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().feif0().bit_is_set(),
             1 => isr.lisr.read().feif1().bit_is_set(),
@@ -792,6 +793,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// This field *must not* be mutated by shared references
     rb: &'static mut CCR,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,

@@ -48,7 +48,7 @@ int_enum! {
 }
 
 bool_enum! {
-    OverrunInterrupt, "Overrun Interrupt", Disabled, Enabled
+    TriggerOverrunInterrupt, "Overrun Interrupt", Disabled, Enabled
 }
 
 int_enum! {
@@ -63,3 +63,6 @@ int_enum! {
 int_struct! {
     GNbReq, u8, 5, "Number of DMA Requests to be generated (minus 1)"
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct TriggerOverrunError;

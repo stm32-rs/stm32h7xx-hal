@@ -2,8 +2,8 @@ pub mod request_gen;
 pub mod shared;
 
 use self::request_gen::{
-    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId,
-    OverrunInterrupt as GenOverrunInterrupt, SigId, ED as GenED,
+    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId, SigId,
+    TriggerOverrunError, TriggerOverrunInterrupt, ED as GenED,
 };
 use self::shared::{MuxIsr, RequestGenIsr};
 use super::stm32::dmamux1::RGCR;
@@ -286,13 +286,13 @@ where
         }
     }
 
-    pub fn overrun_interrupt(&self) -> GenOverrunInterrupt {
+    pub fn overrun_interrupt(&self) -> TriggerOverrunInterrupt {
         self.rb.read().oie().bit().into()
     }
 
-    pub fn set_overrun_interrupt(
+    pub fn set_trigger_overrun_interrupt(
         &mut self,
-        overrun_intrpt: GenOverrunInterrupt,
+        overrun_intrpt: TriggerOverrunInterrupt,
     ) {
         self.rb.modify(|_, w| w.oie().bit(overrun_intrpt.into()));
     }
@@ -309,9 +309,9 @@ where
         self.rb.read().gnbreq().bits().try_into().unwrap()
     }
 
-    fn transmute<NewGenED>(self) -> RequestGenerator<GXX, NewGenED>
+    fn transmute<NewED>(self) -> RequestGenerator<GXX, NewED>
     where
-        NewGenED: GenED,
+        NewED: GenED,
     {
         RequestGenerator {
             rb: self.rb,
@@ -343,5 +343,49 @@ where
         self.rb.modify(|_, w| w.ge().clear_bit());
 
         self.transmute()
+    }
+}
+
+impl<GXX, ED> RequestGenerator<GXX, ED>
+where
+    GXX: GenId,
+    ED: GenED,
+{
+    pub fn check_isr(
+        &self,
+        isr: &RequestGenIsr,
+    ) -> Result<(), TriggerOverrunError> {
+        if self.trigger_overrun_flag(isr) {
+            Err(TriggerOverrunError)
+        } else {
+            Ok(())
+        }
+    }
+    pub fn trigger_overrun_flag(&self, isr: &RequestGenIsr) -> bool {
+        match self.id() {
+            0 => isr.rgsr.read().of0().bit_is_set(),
+            1 => isr.rgsr.read().of1().bit_is_set(),
+            2 => isr.rgsr.read().of2().bit_is_set(),
+            3 => isr.rgsr.read().of3().bit_is_set(),
+            4 => isr.rgsr.read().of4().bit_is_set(),
+            5 => isr.rgsr.read().of5().bit_is_set(),
+            6 => isr.rgsr.read().of6().bit_is_set(),
+            7 => isr.rgsr.read().of7().bit_is_set(),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn clear_isr(&self, isr: &mut RequestGenIsr) {
+        match self.id() {
+            0 => isr.rgcfr.write(|w| w.cof0().set_bit()),
+            1 => isr.rgcfr.write(|w| w.cof1().set_bit()),
+            2 => isr.rgcfr.write(|w| w.cof2().set_bit()),
+            3 => isr.rgcfr.write(|w| w.cof3().set_bit()),
+            4 => isr.rgcfr.write(|w| w.cof4().set_bit()),
+            5 => isr.rgcfr.write(|w| w.cof5().set_bit()),
+            6 => isr.rgcfr.write(|w| w.cof6().set_bit()),
+            7 => isr.rgcfr.write(|w| w.cof7().set_bit()),
+            _ => unreachable!(),
+        }
     }
 }
