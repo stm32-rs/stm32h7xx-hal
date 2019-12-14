@@ -4,7 +4,7 @@ version = "0.2.1"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
-           "Jan Adä <jan.adae@outlook.de>",
+           "Jan Adä <jan561.github@gmail.com>",
            "Robert Jördens <rj@quartiq.de>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
