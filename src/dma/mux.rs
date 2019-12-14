@@ -1,10 +1,14 @@
-pub mod shared;
 pub mod request_gen;
+pub mod shared;
 
+use self::request_gen::{
+    Disabled as GenDisabled, GNbReq, GPol, GenId,
+    OverrunInterrupt as GenOverrunInterrupt, SigId, ED as GenED,
+};
 use self::shared::MuxIsr;
 use super::stm32::dmamux1::RGCR;
+use core::convert::TryInto;
 use core::marker::PhantomData;
-use core::fmt::Display;
 
 type_state! {
     SyncED, SyncDisabled, SyncEnabled
@@ -241,11 +245,89 @@ pub struct MuxShared {
 
 pub struct OverrunError;
 
-pub struct RequestGenerator<GXX, ED> {
+pub struct RequestGenerator<GXX, ED>
+where
+    GXX: GenId,
+    ED: GenED,
+{
     rb: &'static RGCR,
     _phantom_data: PhantomData<(GXX, ED)>,
 }
 
-impl<GXX, ED> RequestGenerator<GXX, ED> {
+impl<GXX> RequestGenerator<GXX, GenDisabled>
+where
+    GXX: GenId,
+{
+    pub(super) fn after_reset(rb: &'static RGCR) -> Self {
+        RequestGenerator {
+            rb,
+            _phantom_data: PhantomData,
+        }
+    }
+}
 
+impl<GXX, ED> RequestGenerator<GXX, ED>
+where
+    GXX: GenId,
+    ED: GenED,
+{
+    pub fn id(&self) -> usize {
+        GXX::ID
+    }
+
+    pub fn sig_id(&self) -> SigId {
+        self.rb.read().sig_id().bits().try_into().unwrap()
+    }
+
+    pub fn set_sig_id(&mut self, sig_id: SigId) {
+        unsafe {
+            self.rb.modify(|_, w| w.sig_id().bits(sig_id.into()));
+        }
+    }
+
+    pub fn overrun_interrupt(&self) -> GenOverrunInterrupt {
+        self.rb.read().oie().bit().into()
+    }
+
+    pub fn set_overrun_interrupt(
+        &mut self,
+        overrun_intrpt: GenOverrunInterrupt,
+    ) {
+        self.rb.modify(|_, w| w.oie().bit(overrun_intrpt.into()));
+    }
+
+    pub fn gpol(&self) -> GPol {
+        self.rb.read().gpol().bits().try_into().unwrap()
+    }
+
+    pub fn set_gpol(&mut self, gpol: GPol) {
+        unsafe {
+            self.rb.modify(|_, w| w.gpol().bits(gpol.into()));
+        }
+    }
+
+    pub fn gnbreq(&self) -> GNbReq {
+        self.rb.read().gnbreq().bits().try_into().unwrap()
+    }
+
+    fn transmute<NewGenED>(self) -> RequestGenerator<GXX, NewGenED>
+    where
+        NewGenED: GenED,
+    {
+        RequestGenerator {
+            rb: self.rb,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<GXX> RequestGenerator<GXX, GenDisabled>
+where
+    GXX: GenId,
+{
+    pub fn set_gnbreq(&mut self, gnbreq: GNbReq) {
+        unsafe {
+            self.rb.modify(|_, w| w.gnbreq().bits(gnbreq.into()));
+        }
+    }
 }

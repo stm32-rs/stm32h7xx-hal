@@ -30,7 +30,7 @@ use self::stream::{
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, Error as NbError};
-use core::convert::{Infallible, TryInto, TryFrom};
+use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use stm32h7::stm32h743 as stm32;
 
