@@ -30,7 +30,7 @@ use self::stream::{
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, Error as NbError};
-use core::convert::{Infallible, TryInto};
+use core::convert::{Infallible, TryInto, TryFrom};
 use core::marker::PhantomData;
 use stm32h7::stm32h743 as stm32;
 
@@ -809,7 +809,16 @@ where
     }
 
     pub fn request_id(&self) -> RequestId {
-        self.rb.read().dmareq_id().bits().try_into().unwrap()
+        debug_assert_eq!(
+            ReqId::REQUEST_ID,
+            RequestId::try_from(self.rb.read().dmareq_id().bits()).unwrap(),
+            "DmaMux is in invalid state, because \
+            `ReqId::REQUEST_ID` ({:?}) != Volatile request id ({:?})",
+            ReqId::REQUEST_ID,
+            RequestId::try_from(self.rb.read().dmareq_id().bits()).unwrap(),
+        );
+
+        ReqId::REQUEST_ID
     }
 
     pub fn sync_overrun_interrupt(&self) -> SyncOverrunInterrupt {
@@ -942,7 +951,7 @@ where
     where
         NewReqId: RequestIdSome,
     {
-        self.set_req_id_impl(req_id.request_id());
+        self.set_req_id_impl(NewReqId::REQUEST_ID);
 
         DmaMux {
             req_id,
@@ -981,7 +990,7 @@ where
     where
         NewReqId: RequestIdSome,
     {
-        self.set_req_id_impl(req_id.request_id());
+        self.set_req_id_impl(NewReqId::REQUEST_ID);
 
         let old_req_id = self.req_id;
         let new_dma_mux = DmaMux {

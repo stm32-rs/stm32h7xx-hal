@@ -1,6 +1,10 @@
 pub mod shared;
+pub mod request_gen;
 
 use self::shared::MuxIsr;
+use super::stm32::dmamux1::RGCR;
+use core::marker::PhantomData;
+use core::fmt::Display;
 
 type_state! {
     SyncED, SyncDisabled, SyncEnabled
@@ -43,14 +47,12 @@ int_enum! {
 macro_rules! request_id {
     ($($request_id:ident => ($name:ident, $id:tt)),*) => {
         use request_ids::{
-            ReqNone,
             $(
                 $request_id,
             )*
         };
 
         pub struct RequestIds {
-            pub none: ReqNone,
             $(
                 pub $name: $request_id,
             )*
@@ -59,7 +61,6 @@ macro_rules! request_id {
         impl RequestIds {
             const fn new() -> Self {
                 RequestIds {
-                    none: ReqNone,
                     $(
                         $name: $request_id::new(),
                     )*
@@ -81,10 +82,6 @@ macro_rules! request_id {
 
             pub unsafe trait RequestId {
                 const REQUEST_ID: RequestIdEnum;
-
-                fn request_id(&self) -> RequestIdEnum {
-                    Self::REQUEST_ID
-                }
             }
 
             #[derive(Clone, Copy)]
@@ -243,3 +240,12 @@ pub struct MuxShared {
 }
 
 pub struct OverrunError;
+
+pub struct RequestGenerator<GXX, ED> {
+    rb: &'static RGCR,
+    _phantom_data: PhantomData<(GXX, ED)>,
+}
+
+impl<GXX, ED> RequestGenerator<GXX, ED> {
+
+}
