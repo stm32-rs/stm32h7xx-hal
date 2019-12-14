@@ -1,12 +1,12 @@
 macro_rules! type_state {
     ($trait:ident, $($type_state:ident),*) => {
-        pub unsafe trait $trait: crate::dma::utils::TypeState {}
+        pub unsafe trait $trait: crate::dma::utils::PhantomType {}
 
         $(
             #[derive(Debug, PartialEq, Eq, Clone, Copy)]
             pub struct $type_state;
 
-            impl crate::dma::utils::TypeState for $type_state {}
+            impl crate::dma::utils::PhantomType for $type_state {}
             unsafe impl $trait for $type_state {}
         )*
     };

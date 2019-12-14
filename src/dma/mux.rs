@@ -2,7 +2,7 @@ pub mod request_gen;
 pub mod shared;
 
 use self::request_gen::{
-    Disabled as GenDisabled, GNbReq, GPol, GenId,
+    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId,
     OverrunInterrupt as GenOverrunInterrupt, SigId, ED as GenED,
 };
 use self::shared::MuxIsr;
@@ -301,9 +301,7 @@ where
     }
 
     pub fn set_gpol(&mut self, gpol: GPol) {
-        unsafe {
-            self.rb.modify(|_, w| w.gpol().bits(gpol.into()));
-        }
+        self.rb.modify(|_, w| w.gpol().bits(gpol.into()));
     }
 
     pub fn gnbreq(&self) -> GNbReq {
@@ -326,8 +324,23 @@ where
     GXX: GenId,
 {
     pub fn set_gnbreq(&mut self, gnbreq: GNbReq) {
-        unsafe {
-            self.rb.modify(|_, w| w.gnbreq().bits(gnbreq.into()));
-        }
+        self.rb.modify(|_, w| w.gnbreq().bits(gnbreq.into()));
+    }
+
+    pub fn enable(self) -> RequestGenerator<GXX, GenEnabled> {
+        self.rb.modify(|_, w| w.ge().set_bit());
+
+        self.transmute()
+    }
+}
+
+impl<GXX> RequestGenerator<GXX, GenEnabled>
+where
+    GXX: GenId,
+{
+    pub fn disable(self) -> RequestGenerator<GXX, GenDisabled> {
+        self.rb.modify(|_, w| w.ge().clear_bit());
+
+        self.transmute()
     }
 }
