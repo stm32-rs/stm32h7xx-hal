@@ -46,6 +46,7 @@ where
 {
     /// This field *must not* be mutated by shared references
     rb: &'static mut ST,
+    ndt: Ndt,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
 }
 
@@ -57,6 +58,7 @@ where
     fn new(rb: &'static mut ST) -> Self {
         Stream {
             rb,
+            ndt: Ndt::default(),
             _phantom_data: PhantomData,
         }
     }
@@ -194,6 +196,7 @@ where
     {
         Stream {
             rb: self.rb,
+            ndt: self.ndt,
             _phantom_data: PhantomData,
         }
     }

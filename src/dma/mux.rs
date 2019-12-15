@@ -19,26 +19,26 @@ type_state! {
 }
 
 bool_enum! {
-    SyncOverrunInterrupt, "Synchronization overrun interrupt", Disabled, Enabled
+    SyncOverrunInterrupt, "Synchronization overrun interrupt", Disabled (D), Enabled
 }
 
 int_enum! {
     SyncPolarity <=> u8,
     "Synchronization Polarity",
-    NoEvent <=> 0b00,
+    NoEvent <=> 0b00 (D),
     RisingEdge <=> 0b01,
     FallingEdge <=> 0b10,
     RisingFallingEdge <=> 0b11
 }
 
 int_struct! {
-    NbReq, u8, 5, "Number of Requests"
+    NbReq, u8, 5, "Number of Requests", 0
 }
 
 int_enum! {
     SyncId <=> u8,
     "Synchronization Identification",
-    DmaMux1Evt0 <=> 0b000,
+    DmaMux1Evt0 <=> 0b000 (D),
     DmaMux1Evt1 <=> 0b001,
     DmaMux1Evt2 <=> 0b010,
     Lptim1Out <=> 0b011,
@@ -75,7 +75,7 @@ macro_rules! request_id {
         int_enum! {
             RequestId <=> u8,
             "Request Id",
-            None <=> 0,
+            None <=> 0 (D),
             $(
                 $request_id <=> $id
             ),*

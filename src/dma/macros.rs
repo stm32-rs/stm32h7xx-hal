@@ -11,8 +11,11 @@ macro_rules! type_state {
     };
 }
 
+/// Macro for generating enums that map one-to-one to bool values.
+///
+/// To set the default variant, write `(D)` after it.
 macro_rules! bool_enum {
-    ($name:ident, $doc:tt, $v_false:ident, $v_true:ident) => {
+    ($name:ident, $doc:tt, $v_false:ident $((D $($_syntax_false:ident)?))?, $v_true:ident $((D $($_syntax_true:ident)?))?) => {
         #[doc=$doc]
         #[derive(Debug, PartialEq, Eq, Clone, Copy)]
         pub enum $name {
@@ -35,11 +38,38 @@ macro_rules! bool_enum {
                 }
             }
         }
+
+        $(
+            impl Default for $name {
+                fn default() -> Self {
+                    $name::$v_false
+                }
+            }
+            // Needed because otherwise the macro would lack a syntax variable being matched to
+            $(
+                type $_syntax_false = __INVALID__;
+            )?
+        )?
+
+        $(
+            impl Default for $name {
+                fn default() -> Self {
+                    $name::$v_true
+                }
+            }
+            // Needed because otherwise the macro would lack a syntax variable being matched to
+            $(
+                type $_syntax_true = __INVALID__;
+            )?
+        )?
     };
 }
 
+/// Macro for generating enums that map one-to-one to int values of type `$ty`.
+///
+/// To set the default variant, write `(D)` after it.
 macro_rules! int_enum {
-    ($name:ident <=> $ty:ty, $doc:tt, $($variant:ident <=> $num:tt),*) => {
+    ($name:ident <=> $ty:ty, $doc:tt, $($variant:ident <=> $num:tt $((D $($_syntax:ident)?))?),*) => {
         #[doc=$doc]
         #[derive(Debug, PartialEq, Eq, Clone, Copy)]
         pub enum $name {
@@ -70,6 +100,20 @@ macro_rules! int_enum {
                 }
             }
         }
+
+        $(
+            $(
+                impl Default for $name {
+                    fn default() -> Self {
+                        $name::$variant
+                    }
+                }
+                // Needed because otherwise the macro would lack a syntax variable being matched to
+                $(
+                    type $_syntax = __INVALID__;
+                )?
+            )?
+        )*
     };
 }
 
@@ -78,10 +122,10 @@ macro_rules! int_enum {
 /// Attention: If you don't want to limit the length of the stored value,
 /// set `$len = 0`.
 macro_rules! int_struct {
-    ($name:ident, $int_type:ident, $len:tt, $doc:tt) => {
-        int_struct! { @INNER $name, $doc, $int_type, $len }
+    ($name:ident, $int_type:ident, $len:tt, $doc:tt $(, $default:tt)?) => {
+        int_struct! { @INNER $name, $doc, $int_type, $len $(, $default)? }
     };
-    (@INNER $name:ident, $doc:tt, $int_type:ident, 0) => {
+    (@INNER $name:ident, $doc:tt, $int_type:ident, 0 $(, $default:tt)?) => {
         #[doc=$doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub struct $name(pub $int_type);
@@ -111,8 +155,16 @@ macro_rules! int_struct {
                 val.value()
             }
         }
+
+        $(
+            impl Default for $name {
+                fn default() -> $name {
+                    $name($default)
+                }
+            }
+        )?
     };
-    (@INNER $name:ident, $doc:tt, $int_type:ident, $len:tt) => {
+    (@INNER $name:ident, $doc:tt, $int_type:ident, $len:tt $(, $default:tt)?) => {
         #[doc=$doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub struct $name($int_type);
@@ -162,5 +214,13 @@ macro_rules! int_struct {
                 }
             }
         }
+
+        $(
+            impl Default for $name {
+                fn default() -> $name {
+                    $name($default)
+                }
+            }
+        )?
     };
 }

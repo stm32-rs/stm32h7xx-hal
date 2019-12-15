@@ -35,7 +35,7 @@ gen_ids! {
 int_enum! {
     SigId <=> u8,
     "Signal Identification",
-    DmaMux1Evt0 <=> 0b000,
+    DmaMux1Evt0 <=> 0b000 (D),
     DmaMux1Evt1 <=> 0b001,
     DmaMux1Evt2 <=> 0b010,
     Lptim1Out <=> 0b011,
@@ -46,20 +46,20 @@ int_enum! {
 }
 
 bool_enum! {
-    TriggerOverrunInterrupt, "Overrun Interrupt", Disabled, Enabled
+    TriggerOverrunInterrupt, "Overrun Interrupt", Disabled (D), Enabled
 }
 
 int_enum! {
     GPol <=> u8,
     "Request Generator Trigger Polarity",
-    NoEvent <=> 0b00,
+    NoEvent <=> 0b00 (D),
     RisingEdge <=> 0b01,
     FallingEdge <=> 0b10,
     RisingFallingEdge <=> 0b11
 }
 
 int_struct! {
-    GNbReq, u8, 5, "Number of DMA Requests to be generated (minus 1)"
+    GNbReq, u8, 5, "Number of DMA Requests to be generated (minus 1)", 0
 }
 
 #[derive(Debug, Clone, Copy)]

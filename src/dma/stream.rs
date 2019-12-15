@@ -19,53 +19,53 @@ pub trait IntoNum {
 }
 
 bool_enum! {
-    TransferCompleteInterrupt, "Transfer Complete Interrupt", Disabled, Enabled
+    TransferCompleteInterrupt, "Transfer Complete Interrupt", Disabled (D), Enabled
 }
 
 bool_enum! {
-    HalfTransferInterrupt, "Half Transfer Interrupt", Disabled, Enabled
+    HalfTransferInterrupt, "Half Transfer Interrupt", Disabled (D), Enabled
 }
 
 bool_enum! {
-    TransferErrorInterrupt, "Transfer Error Interrupt", Disabled, Enabled
+    TransferErrorInterrupt, "Transfer Error Interrupt", Disabled (D), Enabled
 }
 
 bool_enum! {
-    DirectModeErrorInterrupt, "Direct Mode Error Interrupt", Disabled, Enabled
+    DirectModeErrorInterrupt, "Direct Mode Error Interrupt", Disabled (D), Enabled
 }
 
 bool_enum! {
-    FifoErrorInterrupt, "Fifo Error Interrupt", Disabled, Enabled
+    FifoErrorInterrupt, "Fifo Error Interrupt", Disabled (D), Enabled
 }
 
 bool_enum! {
-    FlowController, "Flow Controller", Dma, Peripheral
+    FlowController, "Flow Controller", Dma (D), Peripheral
 }
 
 int_enum! {
     TransferDirection <=> u8,
     "Transfer Direction",
-    P2M <=> 0b00,
+    P2M <=> 0b00 (D),
     M2P <=> 0b01,
     M2M <=> 0b10
 }
 
 bool_enum! {
-    CircularMode, "Circular Mode", Disabled, Enabled
+    CircularMode, "Circular Mode", Disabled (D), Enabled
 }
 
 bool_enum! {
-    Pinc, "Peripheral Increment Mode", Fixed, Incremented
+    Pinc, "Peripheral Increment Mode", Fixed (D), Incremented
 }
 
 bool_enum! {
-    Minc, "Memory Increment Mode", Fixed, Incremented
+    Minc, "Memory Increment Mode", Fixed (D), Incremented
 }
 
 int_enum! {
     PSize <=> u8,
     "Peripheral Data Size",
-    Byte <=> 0b00,
+    Byte <=> 0b00 (D),
     HalfWord <=> 0b01,
     Word <=> 0b10
 }
@@ -83,7 +83,7 @@ impl IntoNum for PSize {
 int_enum! {
     MSize <=> u8,
     "Memory Data Size",
-    Byte <=> 0b00,
+    Byte <=> 0b00 (D),
     HalfWord <=> 0b01,
     Word <=> 0b10
 }
@@ -99,30 +99,30 @@ impl IntoNum for MSize {
 }
 
 bool_enum! {
-    Pincos, "Peripheral Increment Offset Size", PSize, Word
+    Pincos, "Peripheral Increment Offset Size", PSize (D), Word
 }
 
 int_enum! {
     PriorityLevel <=> u8,
     "Priority Level",
-    Low <=> 0b00,
+    Low <=> 0b00 (D),
     Medium <=> 0b01,
     High <=> 0b10,
     VeryHigh <=> 0b11
 }
 
 bool_enum! {
-    BufferMode, "Buffer Mode", Regular, DoubleBuffer
+    BufferMode, "Buffer Mode", Regular (D), DoubleBuffer
 }
 
 bool_enum! {
-    CurrentTarget, "CurrentTarget", M0a, M1a
+    CurrentTarget, "CurrentTarget", M0a (D), M1a
 }
 
 int_enum! {
     PBurst <=> u8,
     "Peripheral Burst",
-    Single <=> 0b00,
+    Single <=> 0b00 (D),
     Incr4 <=> 0b01,
     Incr8 <=> 0b10,
     Incr16 <=> 0b11
@@ -142,7 +142,7 @@ impl IntoNum for PBurst {
 int_enum! {
     MBurst <=> u8,
     "Memory Burst",
-    Single <=> 0b00,
+    Single <=> 0b00 (D),
     Incr4 <=> 0b01,
     Incr8 <=> 0b10,
     Incr16 <=> 0b11
@@ -160,29 +160,29 @@ impl IntoNum for MBurst {
 }
 
 int_struct! {
-    Ndt, u16, 0, "Number of Data Items to transfer"
+    Ndt, u16, 0, "Number of Data Items to transfer", 0
 }
 
 int_struct! {
-    Pa, u32, 0, "Peripheral Address"
+    Pa, u32, 0, "Peripheral Address", 0
 }
 
 int_struct! {
-    M0a, u32, 0, "Memory 0 Address"
+    M0a, u32, 0, "Memory 0 Address", 0
 }
 
 int_struct! {
-    M1a, u32, 0, "Memory 1 Address"
+    M1a, u32, 0, "Memory 1 Address", 0
 }
 
 bool_enum! {
-    TransferMode, "Transfer Mode", Direct, Fifo
+    TransferMode, "Transfer Mode", Direct (D), Fifo
 }
 
 int_enum! {
     FifoThreshold <=> u8,
     "Fifo Threshold",
-    F1_4 <=> 0b00,
+    F1_4 <=> 0b00 (D),
     F1_2 <=> 0b01,
     F3_4 <=> 0b10,
     Full <=> 0b11
