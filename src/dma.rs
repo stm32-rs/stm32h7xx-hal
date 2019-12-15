@@ -46,7 +46,7 @@ where
 {
     /// This field *must not* be mutated by shared references
     rb: &'static mut ST,
-    ndt: Ndt,
+    config_ndt: Ndt,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
 }
 
@@ -58,7 +58,7 @@ where
     fn new(rb: &'static mut ST) -> Self {
         Stream {
             rb,
-            ndt: Ndt::default(),
+            config_ndt: Ndt::default(),
             _phantom_data: PhantomData,
         }
     }
@@ -155,6 +155,10 @@ where
         self.rb.ndtr.read().ndt().bits().into()
     }
 
+    pub fn configured_ndt(&self) -> Ndt {
+        self.config_ndt
+    }
+
     pub fn pa(&self) -> Pa {
         self.rb.par.read().pa().bits().into()
     }
@@ -196,7 +200,7 @@ where
     {
         Stream {
             rb: self.rb,
-            ndt: self.ndt,
+            config_ndt: self.config_ndt,
             _phantom_data: PhantomData,
         }
     }
@@ -275,6 +279,8 @@ where
     }
 
     pub fn set_ndt(&mut self, ndt: Ndt) {
+        self.config_ndt = ndt;
+
         unsafe {
             self.rb.ndtr.modify(|_, w| w.ndt().bits(ndt.into()));
         }
@@ -377,18 +383,21 @@ where
         if self.circular_mode() == CircularMode::Enabled {
             self.check_config_circular();
         }
+
         if self.transfer_mode() == TransferMode::Fifo {
             self.check_config_fifo();
         }
+
+        self.check_ndt();
     }
 
     fn check_config_circular(&self) {
         if self.transfer_mode() == TransferMode::Fifo {
-            let ndt = self.ndt().value();
-            let m_burst = self.m_burst().into_num() as u16;
-            let p_burst = self.p_burst().into_num() as u16;
-            let m_size = self.m_size().into_num() as u16;
-            let p_size = self.p_size().into_num() as u16;
+            let ndt = self.ndt().value() as usize;
+            let m_burst = self.m_burst().into_num();
+            let p_burst = self.p_burst().into_num();
+            let m_size = self.m_size().into_num();
+            let p_size = self.p_size().into_num();
 
             if self.m_burst() != MBurst::Single
                 && ndt % (m_burst * m_size / p_size) != 0
@@ -406,8 +415,8 @@ where
                 );
             }
         } else {
-            let ndt = self.ndt().value();
-            let p_size = self.p_size().into_num() as u16;
+            let ndt = self.ndt().value() as usize;
+            let p_size = self.p_size().into_num();
 
             if ndt % p_size != 0 {
                 panic!(
@@ -457,6 +466,16 @@ where
                  `pburst * psize == FULL_FIFO_SIZE` and \
                  `fifo_threshhold == 3/4`"
             );
+        }
+    }
+
+    fn check_ndt(&self) {
+        let m_size = self.m_size().into_num();
+        let p_size = self.p_size().into_num();
+        let ndt = self.config_ndt.value() as usize;
+
+        if m_size > p_size && ndt % (m_size / p_size) != 0 {
+            panic!("`NDT` must be a multiple of (`m_size / p_size`).");
         }
     }
 }
