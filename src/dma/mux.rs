@@ -251,7 +251,8 @@ where
     GXX: GenId,
     ED: GenED,
 {
-    rb: &'static RGCR,
+    /// This field *must not* be mutated using shared references
+    rb: &'static mut RGCR,
     _phantom_data: PhantomData<(GXX, ED)>,
 }
 
@@ -259,7 +260,7 @@ impl<GXX> RequestGenerator<GXX, GenDisabled>
 where
     GXX: GenId,
 {
-    pub(super) fn after_reset(rb: &'static RGCR) -> Self {
+    pub(super) fn after_reset(rb: &'static mut RGCR) -> Self {
         RequestGenerator {
             rb,
             _phantom_data: PhantomData,

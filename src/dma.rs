@@ -109,7 +109,7 @@ where
     ED: EDTrait,
     IsrState: IsrStateTrait,
 {
-    /// This field *must not* be mutated by shared references
+    /// This field *must not* be mutated using shared references
     rb: &'static mut ST,
     config_ndt: Ndt,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
@@ -879,7 +879,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
-    /// This field *must not* be mutated by shared references
+    /// This field *must not* be mutated using shared references
     rb: &'static mut CCR,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,

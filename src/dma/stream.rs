@@ -204,9 +204,11 @@ pub struct StreamIsr<DMA>
 where
     DMA: DMATrait,
 {
-    pub(super) lisr: &'static mut LISR,
-    pub(super) hisr: &'static mut HISR,
+    pub(super) lisr: &'static LISR,
+    pub(super) hisr: &'static HISR,
+    /// This field *must not* be mutated using shared references
     pub(super) lifcr: &'static mut LIFCR,
+    /// This field *must not* be mutated using shared references
     pub(super) hifcr: &'static mut HIFCR,
     _phantom_data: PhantomData<DMA>,
 }
