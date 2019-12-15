@@ -37,6 +37,71 @@ pub unsafe trait DMATrait {}
 unsafe impl DMATrait for DMA1 {}
 unsafe impl DMATrait for DMA2 {}
 
+pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    DMA: DMATrait,
+    StreamED: EDTrait,
+    IsrState: IsrStateTrait,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub stream: Stream<CXX, DMA, StreamED, IsrState>,
+    pub mux: DmaMux<CXX, ReqId, SyncED, EgED>,
+}
+
+impl<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
+    Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    DMA: DMATrait,
+    StreamED: EDTrait,
+    IsrState: IsrStateTrait,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+    pub fn stream_owned<F, NewStreamED, NewIsrState>(
+        self,
+        op: F,
+    ) -> Channel<CXX, DMA, NewStreamED, NewIsrState, ReqId, SyncED, EgED>
+    where
+        F: FnOnce(
+            Stream<CXX, DMA, StreamED, IsrState>,
+        ) -> Stream<CXX, DMA, NewStreamED, NewIsrState>,
+        NewStreamED: EDTrait,
+        NewIsrState: IsrStateTrait,
+    {
+        let new_stream = op(self.stream);
+
+        Channel {
+            stream: new_stream,
+            mux: self.mux,
+        }
+    }
+
+    pub fn mux_owned<F, NewReqId, NewSyncED, NewEgED>(
+        self,
+        op: F,
+    ) -> Channel<CXX, DMA, StreamED, IsrState, NewReqId, NewSyncED, NewEgED>
+    where
+        F: FnOnce(
+            DmaMux<CXX, ReqId, SyncED, EgED>,
+        ) -> DmaMux<CXX, NewReqId, NewSyncED, NewEgED>,
+        NewReqId: RequestIdTrait,
+        NewSyncED: SyncEDTrait,
+        NewEgED: EgEDTrait,
+    {
+        let new_mux = op(self.mux);
+
+        Channel {
+            stream: self.stream,
+            mux: new_mux,
+        }
+    }
+}
+
 pub struct Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId,
