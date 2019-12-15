@@ -5,7 +5,6 @@ mod macros;
 pub mod channel;
 pub mod mux;
 pub mod stream;
-mod utils;
 
 use self::channel::ChannelId;
 use self::mux::request_ids::{

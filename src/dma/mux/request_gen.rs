@@ -1,20 +1,18 @@
-use super::super::utils::PhantomType;
+use core::fmt::Debug;
 
 type_state! {
     ED, Disabled, Enabled
 }
 
-pub unsafe trait GenId: PhantomType {
+pub unsafe trait GenId: Debug {
     const ID: usize;
 }
 
 macro_rules! gen_ids {
     ($($name:ident => $id:tt),*) => {
         $(
-            #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+            #[derive(Debug)]
             pub struct $name;
-
-            impl PhantomType for $name {}
 
             unsafe impl GenId for $name {
                 const ID:usize = $id;

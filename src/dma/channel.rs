@@ -1,6 +1,6 @@
-use super::utils::PhantomType;
+use core::fmt::Debug;
 
-pub unsafe trait ChannelId: PhantomType {
+pub unsafe trait ChannelId: Debug {
     const STREAM_ID: usize;
     const MUX_ID: usize;
 }
@@ -8,10 +8,8 @@ pub unsafe trait ChannelId: PhantomType {
 macro_rules! channels {
     ($($channel:ident => [$stream:tt, $mux:tt]),*) => {
         $(
-            #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+            #[derive(Debug)]
             pub struct $channel;
-
-            impl PhantomType for $channel {}
 
             unsafe impl ChannelId for $channel {
                 const STREAM_ID: usize = $stream;
