@@ -4,6 +4,7 @@
 mod macros;
 pub mod channel;
 pub mod mux;
+pub mod safe_transfer;
 pub mod stream;
 
 use self::channel::ChannelId;
@@ -1143,3 +1144,5 @@ where
     EgED: EgEDTrait,
 {
 }
+
+pub struct SafeTransfer {}
