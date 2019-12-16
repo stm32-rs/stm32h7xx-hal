@@ -88,6 +88,70 @@ unsafe impl BufferType for i32 {}
 
 unsafe impl BufferType for f32 {}
 
+pub enum ImmutableBuffer<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    Memory(MemoryBuffer<BUF>),
+    Peripheral(PeripheralBuffer<'buf, BUF>),
+}
+
+pub enum MutableBuffer<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    Memory(MemoryBufferMut<BUF>),
+    Peripheral(PeripheralBufferMut<'buf, BUF>),
+}
+
+pub enum MemoryBuffer<BUF>
+where
+    BUF: BufferType,
+{
+    Fixed(FixedBuffer<BUF>),
+    Incremented(RegularOffsetBuffer<BUF>),
+}
+
+pub enum MemoryBufferMut<BUF>
+where
+    BUF: BufferType,
+{
+    Fixed(FixedBufferMut<BUF>),
+    Incremented(RegularOffsetBufferMut<BUF>),
+}
+
+pub enum PeripheralBuffer<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    Fixed(FixedBuffer<BUF>),
+    Incremented(IncrementedBuffer<'buf, BUF>),
+}
+
+pub enum PeripheralBufferMut<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    Fixed(FixedBufferMut<BUF>),
+    Incremented(IncrementedBufferMut<'buf, BUF>),
+}
+
+pub enum IncrementedBuffer<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    RegularOffset(RegularOffsetBuffer<BUF>),
+    WordOffset(WordOffsetBuffer<'buf, BUF>),
+}
+
+pub enum IncrementedBufferMut<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    RegularOffset(RegularOffsetBufferMut<BUF>),
+    WordOffset(WordOffsetBufferMut<'buf, BUF>),
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct FixedBuffer<BUF>(*const BUF)
 where
