@@ -1,8 +1,8 @@
 use super::stream::{MSize, PSize};
 use core::convert::TryInto;
 use core::fmt::Debug;
-use core::mem;
-use core::ops::{Deref, DerefMut};
+use core::{mem, ptr};
+use vcell::VolatileCell;
 
 /// # Safety
 ///
@@ -88,286 +88,160 @@ unsafe impl BufferType for i32 {}
 
 unsafe impl BufferType for f32 {}
 
-pub enum ImmutableBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    Peripheral(PeripheralBuffer<'buf, BUF>),
-    Memory(MemoryBuffer<BUF>),
-}
-
-impl<'buf, BUF> ImmutableBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    pub fn peripheral(self) -> PeripheralBuffer<'buf, BUF> {
-        if let ImmutableBuffer::Peripheral(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a memory buffer.");
-        }
-    }
-
-    pub fn memory(self) -> MemoryBuffer<BUF> {
-        if let ImmutableBuffer::Memory(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a peripheral buffer.");
-        }
-    }
-}
-
-pub enum MutableBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    Peripheral(PeripheralBufferMut<'buf, BUF>),
-    Memory(MemoryBufferMut<BUF>),
-}
-
-impl<'buf, BUF> MutableBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    pub fn peripheral(self) -> PeripheralBufferMut<'buf, BUF> {
-        if let MutableBuffer::Peripheral(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a memory buffer.");
-        }
-    }
-
-    pub fn memory(self) -> MemoryBufferMut<BUF> {
-        if let MutableBuffer::Memory(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a peripheral buffer.");
-        }
-    }
-
-    pub fn as_immutable(&self) -> ImmutableBuffer<BUF> {
-        match self {
-            MutableBuffer::Memory(buffer) => {
-                ImmutableBuffer::Memory(buffer.as_immutable())
-            }
-            MutableBuffer::Peripheral(buffer) => {
-                ImmutableBuffer::Peripheral(buffer.as_immutable())
-            }
-        }
-    }
-}
-
-pub enum PeripheralBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    Fixed(&'static BUF),
-    Incremented(IncrementedBuffer<'buf, BUF>),
-}
-
-impl<'buf, BUF> PeripheralBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    pub fn fixed(self) -> &'static BUF {
-        if let PeripheralBuffer::Fixed(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is incremented.");
-        }
-    }
-
-    pub fn incremented(self) -> IncrementedBuffer<'buf, BUF> {
-        if let PeripheralBuffer::Incremented(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is fixed.");
-        }
-    }
-}
-
-pub enum PeripheralBufferMut<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    Fixed(&'static mut BUF),
-    Incremented(IncrementedBufferMut<'buf, BUF>),
-}
-
-impl<'buf, BUF> PeripheralBufferMut<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    pub fn as_immutable(&self) -> PeripheralBuffer<BUF> {
-        match self {
-            PeripheralBufferMut::Fixed(buffer) => unsafe {
-                PeripheralBuffer::Fixed(&*(*buffer as *const _))
-            },
-            PeripheralBufferMut::Incremented(buffer) => {
-                PeripheralBuffer::Incremented(buffer.as_immutable())
-            }
-        }
-    }
-}
-
-pub enum MemoryBuffer<BUF>
-where
-    BUF: BufferType,
-{
-    Fixed(&'static BUF),
-    Incremented(&'static [BUF]),
-}
-
-pub enum MemoryBufferMut<BUF>
-where
-    BUF: BufferType,
-{
-    Fixed(&'static mut BUF),
-    Incremented(&'static mut [BUF]),
-}
-
-impl<BUF> MemoryBufferMut<BUF>
-where
-    BUF: BufferType,
-{
-    pub fn as_immutable(&self) -> MemoryBuffer<BUF> {
-        match self {
-            MemoryBufferMut::Fixed(buffer) => unsafe {
-                MemoryBuffer::Fixed(&*(*buffer as *const _))
-            },
-            MemoryBufferMut::Incremented(buffer) => unsafe {
-                MemoryBuffer::Incremented(&*(*buffer as *const _))
-            },
-        }
-    }
-}
-
-pub enum IncrementedBuffer<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    RegularOffset(&'static [BUF]),
-    WordOffset(WordOffsetBuffer<'buf, BUF>),
-}
-
-pub enum IncrementedBufferMut<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    RegularOffset(&'static mut [BUF]),
-    WordOffset(WordOffsetBufferMut<'buf, BUF>),
-}
-
-impl<'buf, BUF> IncrementedBufferMut<'buf, BUF>
-where
-    BUF: BufferType,
-{
-    pub fn as_immutable(&self) -> IncrementedBuffer<BUF> {
-        match self {
-            IncrementedBufferMut::RegularOffset(buffer) => unsafe {
-                IncrementedBuffer::RegularOffset(&*(*buffer as *const _))
-            },
-            IncrementedBufferMut::WordOffset(buffer) => {
-                IncrementedBuffer::WordOffset(buffer.as_immutable())
-            }
-        }
-    }
-}
-
-pub struct FixedBuffer<BUF>(pub &'static BUF)
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct FixedBuffer<BUF>(*const BUF)
 where
     BUF: BufferType;
 
-impl<BUF> Deref for FixedBuffer<BUF>
+impl<BUF> FixedBuffer<BUF>
 where
     BUF: BufferType,
 {
-    type Target = BUF;
+    pub fn get(self) -> BUF {
+        unsafe { self.0.read_volatile() }
+    }
 
-    fn deref(&self) -> &BUF {
-        &*self.0
+    pub fn as_ptr(self) -> *const BUF {
+        self.0
     }
 }
 
-pub struct FixedBufferMut<BUF>(pub &'static mut BUF)
+unsafe impl<BUF> Send for FixedBuffer<BUF> where BUF: BufferType {}
+
+unsafe impl<BUF> Sync for FixedBuffer<BUF> where BUF: BufferType {}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FixedBufferMut<BUF>(*mut BUF)
 where
     BUF: BufferType;
 
-impl<BUF> Deref for FixedBufferMut<BUF>
+impl<BUF> FixedBufferMut<BUF>
 where
     BUF: BufferType,
 {
-    type Target = BUF;
+    pub fn get(&self) -> BUF {
+        unsafe { ptr::read_volatile(self.0) }
+    }
 
-    fn deref(&self) -> &BUF {
-        &*self.0
+    pub fn set(&mut self, buf: BUF) {
+        unsafe {
+            ptr::write_volatile(self.0, buf);
+        }
+    }
+
+    pub fn as_ptr(&self) -> *const BUF {
+        self.0
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut BUF {
+        self.0
     }
 }
 
-impl<BUF> DerefMut for FixedBufferMut<BUF>
-where
-    BUF: BufferType,
-{
-    fn deref_mut(&mut self) -> &mut BUF {
-        &mut *self.0
-    }
-}
+unsafe impl<BUF> Send for FixedBufferMut<BUF> where BUF: BufferType {}
 
-pub struct RegularOffsetBuffer<BUF>(&'static [BUF])
+unsafe impl<BUF> Sync for FixedBufferMut<BUF> where BUF: BufferType {}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct RegularOffsetBuffer<BUF>(*const [BUF])
 where
     BUF: BufferType;
 
-impl<BUF> Deref for RegularOffsetBuffer<BUF>
+impl<BUF> RegularOffsetBuffer<BUF>
 where
     BUF: BufferType,
 {
-    type Target = [BUF];
+    pub fn get(self, index: usize) -> BUF {
+        unsafe { volatile_read_buffer_slice(self.0, index) }
+    }
 
-    fn deref(&self) -> &[BUF] {
-        &*self.0
+    pub fn as_ptr(self, index: usize) -> *const BUF {
+        unsafe {
+            let slice = &*self.0;
+            &slice[index] as *const _
+        }
     }
 }
 
-pub struct RegularOffsetBufferMut<BUF>(&'static mut [BUF])
+unsafe impl<BUF> Send for RegularOffsetBuffer<BUF> where BUF: BufferType {}
+
+unsafe impl<BUF> Sync for RegularOffsetBuffer<BUF> where BUF: BufferType {}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RegularOffsetBufferMut<BUF>(*mut [BUF])
 where
     BUF: BufferType;
 
-impl<BUF> Deref for RegularOffsetBufferMut<BUF>
+impl<BUF> RegularOffsetBufferMut<BUF>
 where
     BUF: BufferType,
 {
-    type Target = [BUF];
+    pub fn get(&self, index: usize) -> BUF {
+        unsafe { volatile_read_buffer_slice(self.0, index) }
+    }
 
-    fn deref(&self) -> &[BUF] {
-        &*self.0
+    pub fn set(&mut self, index: usize, item: BUF) {
+        unsafe {
+            let slice = &mut *self.0;
+            ptr::write_volatile(&mut slice[index] as *mut _, item);
+        }
+    }
+
+    pub fn as_ptr(&self, index: usize) -> *const BUF {
+        unsafe {
+            let slice = &*self.0;
+            &slice[index] as *const _
+        }
+    }
+
+    pub fn as_mut_ptr(&mut self, index: usize) -> *mut BUF {
+        unsafe {
+            let slice = &mut *self.0;
+            &mut slice[index] as *mut _
+        }
     }
 }
 
-impl<BUF> DerefMut for RegularOffsetBufferMut<BUF>
+unsafe impl<BUF> Send for RegularOffsetBufferMut<BUF> where BUF: BufferType {}
+
+unsafe impl<BUF> Sync for RegularOffsetBufferMut<BUF> where BUF: BufferType {}
+
+unsafe fn volatile_read_buffer_slice<BUF>(
+    slice_ptr: *const [BUF],
+    index: usize,
+) -> BUF
 where
     BUF: BufferType,
 {
-    fn deref_mut(&mut self) -> &mut [BUF] {
-        &mut *self.0
-    }
+    let slice = &*slice_ptr;
+    ptr::read_volatile(&slice[index] as *const _)
 }
 
-pub struct WordOffsetBuffer<'buf, BUF>(&'buf [&'static BUF])
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct WordOffsetBuffer<'buf, BUF>(&'buf [*const BUF])
 where
     BUF: BufferType;
 
-impl<'buf, BUF> Deref for WordOffsetBuffer<'buf, BUF>
+impl<'buf, BUF> WordOffsetBuffer<'buf, BUF>
 where
     BUF: BufferType,
 {
-    type Target = [&'static BUF];
+    pub fn get(self, index: usize) -> BUF {
+        unsafe { ptr::read_volatile(self.0[index]) }
+    }
 
-    fn deref(&self) -> &[&'static BUF] {
-        &*self.0
+    pub fn as_ptr(self, index: usize) -> *const BUF {
+        self.0[index]
     }
 }
 
-pub struct WordOffsetBufferMut<'buf, BUF>(&'buf [&'static mut BUF])
+unsafe impl<'buf, BUF> Send for WordOffsetBuffer<'buf, BUF> where BUF: BufferType
+{}
+
+unsafe impl<'buf, BUF> Sync for WordOffsetBuffer<'buf, BUF> where BUF: BufferType
+{}
+
+pub struct WordOffsetBufferMut<'buf, BUF>(&'buf [VolatileCell<BUF>])
 where
     BUF: BufferType;
 
@@ -375,20 +249,24 @@ impl<'buf, BUF> WordOffsetBufferMut<'buf, BUF>
 where
     BUF: BufferType,
 {
-    pub fn as_immutable(&self) -> WordOffsetBuffer<BUF> {
-        let buffer = unsafe { &*(self.0 as *const _ as *const _) };
+    pub fn get(&self, index: usize) -> BUF {
+        self.0[index].get()
+    }
 
-        WordOffsetBuffer(buffer)
+    pub fn set(&mut self, index: usize, item: BUF) {
+        self.0[index].set(item);
+    }
+
+    pub fn as_ptr(&self, index: usize) -> *const BUF {
+        self.0[index].as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self, index: usize) -> *mut BUF {
+        self.0[index].as_ptr()
     }
 }
 
-impl<'buf, BUF> Deref for WordOffsetBufferMut<'buf, BUF>
-where
-    BUF: BufferType,
+unsafe impl<'buf, BUF> Sync for WordOffsetBufferMut<'buf, BUF> where
+    BUF: BufferType
 {
-    type Target = [&'static mut BUF];
-
-    fn deref(&self) -> &[&'static mut BUF] {
-        &*self.0
-    }
 }
