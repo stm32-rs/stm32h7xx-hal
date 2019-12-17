@@ -1,6 +1,7 @@
 use super::stream::{MSize, PSize};
 use core::convert::TryInto;
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::{mem, ptr};
 use vcell::VolatileCell;
 
@@ -88,76 +89,76 @@ unsafe impl BufferType for i32 {}
 
 unsafe impl BufferType for f32 {}
 
-pub enum ImmutableBuffer<'buf, BUF>
+pub enum ImmutableBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    Memory(MemoryBuffer<BUF>),
-    Peripheral(PeripheralBuffer<'buf, BUF>),
+    Memory(MemoryBuffer<'buf, BUF>),
+    Peripheral(PeripheralBuffer<'buf, 'wo, BUF>),
 }
 
-pub enum MutableBuffer<'buf, BUF>
+pub enum MutableBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    Memory(MemoryBufferMut<BUF>),
-    Peripheral(PeripheralBufferMut<'buf, BUF>),
+    Memory(MemoryBufferMut<'buf, BUF>),
+    Peripheral(PeripheralBufferMut<'buf, 'wo, BUF>),
 }
 
-pub enum MemoryBuffer<BUF>
+pub enum MemoryBuffer<'buf, BUF>
 where
     BUF: BufferType,
 {
-    Fixed(FixedBuffer<BUF>),
-    Incremented(RegularOffsetBuffer<BUF>),
+    Fixed(FixedBuffer<'buf, BUF>),
+    Incremented(RegularOffsetBuffer<'buf, BUF>),
 }
 
-pub enum MemoryBufferMut<BUF>
+pub enum MemoryBufferMut<'buf, BUF>
 where
     BUF: BufferType,
 {
-    Fixed(FixedBufferMut<BUF>),
-    Incremented(RegularOffsetBufferMut<BUF>),
+    Fixed(FixedBufferMut<'buf, BUF>),
+    Incremented(RegularOffsetBufferMut<'buf, BUF>),
 }
 
-pub enum PeripheralBuffer<'buf, BUF>
+pub enum PeripheralBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    Fixed(FixedBuffer<BUF>),
-    Incremented(IncrementedBuffer<'buf, BUF>),
+    Fixed(FixedBuffer<'buf, BUF>),
+    Incremented(IncrementedBuffer<'buf, 'wo, BUF>),
 }
 
-pub enum PeripheralBufferMut<'buf, BUF>
+pub enum PeripheralBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    Fixed(FixedBufferMut<BUF>),
-    Incremented(IncrementedBufferMut<'buf, BUF>),
+    Fixed(FixedBufferMut<'buf, BUF>),
+    Incremented(IncrementedBufferMut<'buf, 'wo, BUF>),
 }
 
-pub enum IncrementedBuffer<'buf, BUF>
+pub enum IncrementedBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    RegularOffset(RegularOffsetBuffer<BUF>),
-    WordOffset(WordOffsetBuffer<'buf, BUF>),
+    RegularOffset(RegularOffsetBuffer<'buf, BUF>),
+    WordOffset(WordOffsetBuffer<'buf, 'wo, BUF>),
 }
 
-pub enum IncrementedBufferMut<'buf, BUF>
+pub enum IncrementedBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    RegularOffset(RegularOffsetBufferMut<BUF>),
-    WordOffset(WordOffsetBufferMut<'buf, BUF>),
+    RegularOffset(RegularOffsetBufferMut<'buf, BUF>),
+    WordOffset(WordOffsetBufferMut<'buf, 'wo, BUF>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct FixedBuffer<BUF>(*const BUF)
+pub struct FixedBuffer<'buf, BUF>(*const BUF, PhantomData<&'buf BUF>)
 where
     BUF: BufferType;
 
-impl<BUF> FixedBuffer<BUF>
+impl<'buf, BUF> FixedBuffer<'buf, BUF>
 where
     BUF: BufferType,
 {
@@ -170,27 +171,42 @@ where
     }
 }
 
-unsafe impl<BUF> Send for FixedBuffer<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Send for FixedBuffer<'buf, BUF> where BUF: BufferType {}
 
-unsafe impl<BUF> Sync for FixedBuffer<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Sync for FixedBuffer<'buf, BUF> where BUF: BufferType {}
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct FixedBufferMut<BUF>(*mut BUF)
-where
-    BUF: BufferType;
+pub type FixedBufferStatic<BUF> = FixedBuffer<'static, BUF>;
 
-impl<BUF> FixedBufferMut<BUF>
+impl<BUF> FixedBufferStatic<BUF>
 where
     BUF: BufferType,
 {
-    pub fn get(&self) -> BUF {
-        unsafe { ptr::read_volatile(self.0) }
+    pub fn new(buffer: &'static BUF) -> Self {
+        FixedBuffer(buffer, PhantomData)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FixedBufferMut<'buf, BUF>(*mut BUF, PhantomData<&'buf mut BUF>)
+where
+    BUF: BufferType;
+
+impl<BUF> FixedBufferMut<'_, BUF>
+where
+    BUF: BufferType,
+{
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not writing this address.
+    pub unsafe fn get(&self) -> BUF {
+        ptr::read_volatile(self.0)
     }
 
-    pub fn set(&mut self, buf: BUF) {
-        unsafe {
-            ptr::write_volatile(self.0, buf);
-        }
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not writing this address.
+    pub unsafe fn set(&mut self, buf: BUF) {
+        ptr::write_volatile(self.0, buf);
     }
 
     pub fn as_ptr(&self) -> *const BUF {
@@ -200,23 +216,38 @@ where
     pub fn as_mut_ptr(&mut self) -> *mut BUF {
         self.0
     }
+
+    pub fn as_immutable(&self) -> FixedBuffer<BUF> {
+        FixedBuffer(self.0, PhantomData)
+    }
 }
 
-unsafe impl<BUF> Send for FixedBufferMut<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Send for FixedBufferMut<'buf, BUF> where BUF: BufferType {}
 
-unsafe impl<BUF> Sync for FixedBufferMut<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Sync for FixedBufferMut<'buf, BUF> where BUF: BufferType {}
+
+pub type FixedBufferMutStatic<BUF> = FixedBufferMut<'static, BUF>;
+
+impl<BUF> FixedBufferMutStatic<BUF>
+where
+    BUF: BufferType,
+{
+    pub fn new(buffer: &'static mut BUF) -> Self {
+        FixedBufferMut(buffer, PhantomData)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct RegularOffsetBuffer<BUF>(*const [BUF])
+pub struct RegularOffsetBuffer<'buf, BUF>(*const [BUF], PhantomData<&'buf BUF>)
 where
     BUF: BufferType;
 
-impl<BUF> RegularOffsetBuffer<BUF>
+impl<'buf, BUF> RegularOffsetBuffer<'buf, BUF>
 where
     BUF: BufferType,
 {
     pub fn get(self, index: usize) -> BUF {
-        unsafe { volatile_read_buffer_slice(self.0, index) }
+        unsafe { read_volatile_slice_buffer(self.0, index) }
     }
 
     pub fn as_ptr(self, index: usize) -> *const BUF {
@@ -227,28 +258,52 @@ where
     }
 }
 
-unsafe impl<BUF> Send for RegularOffsetBuffer<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Send for RegularOffsetBuffer<'buf, BUF> where
+    BUF: BufferType
+{
+}
 
-unsafe impl<BUF> Sync for RegularOffsetBuffer<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Sync for RegularOffsetBuffer<'buf, BUF> where
+    BUF: BufferType
+{
+}
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct RegularOffsetBufferMut<BUF>(*mut [BUF])
-where
-    BUF: BufferType;
+pub type RegularOffsetBufferStatic<BUF> = RegularOffsetBuffer<'static, BUF>;
 
-impl<BUF> RegularOffsetBufferMut<BUF>
+impl<BUF> RegularOffsetBufferStatic<BUF>
 where
     BUF: BufferType,
 {
-    pub fn get(&self, index: usize) -> BUF {
-        unsafe { volatile_read_buffer_slice(self.0, index) }
+    pub fn new(buffer: &'static [BUF]) -> Self {
+        RegularOffsetBuffer(buffer, PhantomData)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RegularOffsetBufferMut<'buf, BUF>(
+    *mut [BUF],
+    PhantomData<&'buf mut BUF>,
+)
+where
+    BUF: BufferType;
+
+impl<'buf, BUF> RegularOffsetBufferMut<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn get(&self, index: usize) -> BUF {
+        read_volatile_slice_buffer(self.0, index)
     }
 
-    pub fn set(&mut self, index: usize, item: BUF) {
-        unsafe {
-            let slice = &mut *self.0;
-            ptr::write_volatile(&mut slice[index] as *mut _, item);
-        }
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set(&mut self, index: usize, item: BUF) {
+        let slice = &mut *self.0;
+        ptr::write_volatile(&mut slice[index] as *mut _, item);
     }
 
     pub fn as_ptr(&self, index: usize) -> *const BUF {
@@ -264,13 +319,35 @@ where
             &mut slice[index] as *mut _
         }
     }
+
+    pub fn as_immutable(&self) -> RegularOffsetBuffer<BUF> {
+        RegularOffsetBuffer(self.0, PhantomData)
+    }
 }
 
-unsafe impl<BUF> Send for RegularOffsetBufferMut<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Send for RegularOffsetBufferMut<'buf, BUF> where
+    BUF: BufferType
+{
+}
 
-unsafe impl<BUF> Sync for RegularOffsetBufferMut<BUF> where BUF: BufferType {}
+unsafe impl<'buf, BUF> Sync for RegularOffsetBufferMut<'buf, BUF> where
+    BUF: BufferType
+{
+}
 
-unsafe fn volatile_read_buffer_slice<BUF>(
+pub type RegularOffsetBufferMutStatic<BUF> =
+    RegularOffsetBufferMut<'static, BUF>;
+
+impl<BUF> RegularOffsetBufferMutStatic<BUF>
+where
+    BUF: BufferType,
+{
+    pub fn new(buffer: &'static mut [BUF]) -> Self {
+        RegularOffsetBufferMut(buffer, PhantomData)
+    }
+}
+
+unsafe fn read_volatile_slice_buffer<BUF>(
     slice_ptr: *const [BUF],
     index: usize,
 ) -> BUF
@@ -282,11 +359,14 @@ where
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct WordOffsetBuffer<'buf, BUF>(&'buf [*const BUF])
+pub struct WordOffsetBuffer<'buf, 'wo, BUF>(
+    &'wo [*const BUF],
+    PhantomData<&'buf BUF>,
+)
 where
     BUF: BufferType;
 
-impl<'buf, BUF> WordOffsetBuffer<'buf, BUF>
+impl<'buf, 'wo, BUF> WordOffsetBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
@@ -299,25 +379,53 @@ where
     }
 }
 
-unsafe impl<'buf, BUF> Send for WordOffsetBuffer<'buf, BUF> where BUF: BufferType
-{}
+unsafe impl<'buf, 'wo, BUF> Send for WordOffsetBuffer<'buf, 'wo, BUF> where
+    BUF: BufferType
+{
+}
 
-unsafe impl<'buf, BUF> Sync for WordOffsetBuffer<'buf, BUF> where BUF: BufferType
-{}
+unsafe impl<'buf, 'wo, BUF> Sync for WordOffsetBuffer<'buf, 'wo, BUF> where
+    BUF: BufferType
+{
+}
 
-pub struct WordOffsetBufferMut<'buf, BUF>(&'buf [VolatileCell<BUF>])
-where
-    BUF: BufferType;
+pub type WordOffsetBufferStatic<'wo, BUF> = WordOffsetBuffer<'static, 'wo, BUF>;
 
-impl<'buf, BUF> WordOffsetBufferMut<'buf, BUF>
+impl<'wo, BUF> WordOffsetBufferStatic<'wo, BUF>
 where
     BUF: BufferType,
 {
-    pub fn get(&self, index: usize) -> BUF {
+    pub fn new(buffer: &'wo [&'static BUF]) -> Self {
+        let buffer = unsafe { &*(buffer as *const _ as *const _) };
+
+        check_word_offset(buffer);
+
+        WordOffsetBuffer(buffer, PhantomData)
+    }
+}
+
+pub struct WordOffsetBufferMut<'buf, 'wo, BUF>(
+    &'wo [VolatileCell<BUF>],
+    PhantomData<&'buf mut BUF>,
+)
+where
+    BUF: BufferType;
+
+impl<'buf, 'wo, BUF> WordOffsetBufferMut<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn get(&self, index: usize) -> BUF {
         self.0[index].get()
     }
 
-    pub fn set(&mut self, index: usize, item: BUF) {
+    /// # Safety
+    ///
+    /// - The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set(&mut self, index: usize, item: BUF) {
         self.0[index].set(item);
     }
 
@@ -328,9 +436,51 @@ where
     pub fn as_mut_ptr(&mut self, index: usize) -> *mut BUF {
         self.0[index].as_ptr()
     }
+
+    pub fn as_immutable(&self) -> WordOffsetBuffer<'_, 'wo, BUF> {
+        unsafe {
+            WordOffsetBuffer(&*(self.0 as *const _ as *const _), PhantomData)
+        }
+    }
 }
 
-unsafe impl<'buf, BUF> Sync for WordOffsetBufferMut<'buf, BUF> where
+unsafe impl<'buf, 'wo, BUF> Sync for WordOffsetBufferMut<'buf, 'wo, BUF> where
     BUF: BufferType
 {
+}
+
+pub type WordOffsetBufferMutStatic<'wo, BUF> =
+    WordOffsetBufferMut<'static, 'wo, BUF>;
+
+impl<'wo, BUF> WordOffsetBufferMutStatic<'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn new(buffer: &'wo [&'static mut BUF]) -> Self {
+        unsafe {
+            check_word_offset::<BUF>(&*(buffer as *const _ as *const _));
+
+            WordOffsetBufferMut(&*(buffer as *const _ as *const _), PhantomData)
+        }
+    }
+}
+
+fn check_word_offset<BUF>(buffer: &[*const BUF])
+where
+    BUF: BufferType,
+{
+    if buffer.len() > 0 {
+        let mut last_pointer = buffer[0] as *const _ as *const u32;
+
+        for i in 1..buffer.len() {
+            let current_pointer = buffer[i] as *const _ as *const u32;
+            let current_address = current_pointer as usize;
+            let expected_address = unsafe { last_pointer.add(1) } as usize;
+            if current_address != expected_address {
+                panic!("The offset must be one word (4 bytes).");
+            }
+
+            last_pointer = current_pointer;
+        }
+    }
 }
