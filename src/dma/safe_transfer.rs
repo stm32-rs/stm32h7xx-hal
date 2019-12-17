@@ -178,6 +178,17 @@ where
             panic!("The buffer is a memory buffer.");
         }
     }
+
+    pub fn as_immutable(&self) -> ImmutableBuffer<BUF> {
+        match self {
+            MutableBuffer::Memory(buffer) => {
+                ImmutableBuffer::Memory(buffer.as_immutable())
+            }
+            MutableBuffer::Peripheral(buffer) => {
+                ImmutableBuffer::Peripheral(buffer.as_immutable())
+            }
+        }
+    }
 }
 
 pub type MutableBufferStatic<'wo, BUF> = MutableBuffer<'static, 'wo, BUF>;
@@ -274,6 +285,17 @@ where
             panic!("The buffer is fixed.");
         }
     }
+
+    pub fn as_immutable(&self) -> MemoryBuffer<BUF> {
+        match self {
+            MemoryBufferMut::Fixed(buffer) => {
+                MemoryBuffer::Fixed(buffer.as_immutable())
+            }
+            MemoryBufferMut::Incremented(buffer) => {
+                MemoryBuffer::Incremented(buffer.as_immutable())
+            }
+        }
+    }
 }
 
 pub type MemoryBufferMutStatic<BUF> = MemoryBufferMut<'static, BUF>;
@@ -368,6 +390,17 @@ where
             buffer
         } else {
             panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_immutable(&self) -> PeripheralBuffer<BUF> {
+        match self {
+            PeripheralBufferMut::Fixed(buffer) => {
+                PeripheralBuffer::Fixed(buffer.as_immutable())
+            }
+            PeripheralBufferMut::Incremented(buffer) => {
+                PeripheralBuffer::Incremented(buffer.as_immutable())
+            }
         }
     }
 }
@@ -468,6 +501,17 @@ where
             buffer
         } else {
             panic!("The buffer has regular offset.");
+        }
+    }
+
+    pub fn as_immutable(&self) -> IncrementedBuffer<BUF> {
+        match self {
+            IncrementedBufferMut::RegularOffset(buffer) => {
+                IncrementedBuffer::RegularOffset(buffer.as_immutable())
+            }
+            IncrementedBufferMut::WordOffset(buffer) => {
+                IncrementedBuffer::WordOffset(buffer.as_immutable())
+            }
         }
     }
 }
@@ -741,7 +785,7 @@ where
         self.0[index].as_ptr()
     }
 
-    pub fn as_immutable(&self) -> WordOffsetBuffer<'_, 'wo, BUF> {
+    pub fn as_immutable(&self) -> WordOffsetBuffer<BUF> {
         unsafe {
             WordOffsetBuffer(&*(self.0 as *const _ as *const _), PhantomData)
         }
