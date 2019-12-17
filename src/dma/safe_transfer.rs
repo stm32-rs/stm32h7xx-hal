@@ -8,10 +8,7 @@ use vcell::VolatileCell;
 /// # Safety
 ///
 /// * `Self` must be valid for any bit representation
-pub unsafe trait BufferType:
-    Sized + Clone + Copy + Sync + 'static
-{
-}
+pub unsafe trait BufferType: Sized + Clone + Copy + Sync {}
 
 // Maps BufferTypeSize to number of bytes
 int_enum! {
@@ -97,6 +94,29 @@ where
     Peripheral(PeripheralBuffer<'buf, 'wo, BUF>),
 }
 
+impl<'buf, 'wo, BUF> ImmutableBuffer<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn memory(self) -> MemoryBuffer<'buf, BUF> {
+        if let ImmutableBuffer::Memory(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a peripheral buffer.");
+        }
+    }
+
+    pub fn peripheral(self) -> PeripheralBuffer<'buf, 'wo, BUF> {
+        if let ImmutableBuffer::Peripheral(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a memory buffer.");
+        }
+    }
+}
+
+pub type ImmutableBufferStatic<'wo, BUF> = ImmutableBuffer<'static, 'wo, BUF>;
+
 pub enum MutableBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
@@ -104,6 +124,63 @@ where
     Memory(MemoryBufferMut<'buf, BUF>),
     Peripheral(PeripheralBufferMut<'buf, 'wo, BUF>),
 }
+
+impl<'buf, 'wo, BUF> MutableBuffer<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn into_memory(self) -> MemoryBufferMut<'buf, BUF> {
+        if let MutableBuffer::Memory(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a peripheral buffer.");
+        }
+    }
+
+    pub fn as_memory(&self) -> &MemoryBufferMut<'buf, BUF> {
+        if let MutableBuffer::Memory(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a peripheral buffer.");
+        }
+    }
+
+    pub fn as_mut_memory(&mut self) -> &mut MemoryBufferMut<'buf, BUF> {
+        if let MutableBuffer::Memory(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a peripheral buffer.");
+        }
+    }
+
+    pub fn into_peripheral(self) -> PeripheralBufferMut<'buf, 'wo, BUF> {
+        if let MutableBuffer::Peripheral(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a memory buffer.");
+        }
+    }
+
+    pub fn as_peripheral(&self) -> &PeripheralBufferMut<'buf, 'wo, BUF> {
+        if let MutableBuffer::Peripheral(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a memory buffer.");
+        }
+    }
+
+    pub fn as_mut_peripheral(
+        &mut self,
+    ) -> &mut PeripheralBufferMut<'buf, 'wo, BUF> {
+        if let MutableBuffer::Peripheral(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is a memory buffer.");
+        }
+    }
+}
+
+pub type MutableBufferStatic<'wo, BUF> = MutableBuffer<'static, 'wo, BUF>;
 
 pub enum MemoryBuffer<'buf, BUF>
 where
@@ -113,6 +190,29 @@ where
     Incremented(RegularOffsetBuffer<'buf, BUF>),
 }
 
+impl<'buf, BUF> MemoryBuffer<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn fixed(self) -> FixedBuffer<'buf, BUF> {
+        if let MemoryBuffer::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn incremented(self) -> RegularOffsetBuffer<'buf, BUF> {
+        if let MemoryBuffer::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+pub type MemoryBufferStatic<BUF> = MemoryBuffer<'static, BUF>;
+
 pub enum MemoryBufferMut<'buf, BUF>
 where
     BUF: BufferType,
@@ -120,6 +220,63 @@ where
     Fixed(FixedBufferMut<'buf, BUF>),
     Incremented(RegularOffsetBufferMut<'buf, BUF>),
 }
+
+impl<'buf, BUF> MemoryBufferMut<'buf, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn into_fixed(self) -> FixedBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_fixed(&self) -> &FixedBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn into_incremented(self) -> RegularOffsetBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_incremented(&self) -> &RegularOffsetBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_mut_incremented(
+        &mut self,
+    ) -> &mut RegularOffsetBufferMut<'buf, BUF> {
+        if let MemoryBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+pub type MemoryBufferMutStatic<BUF> = MemoryBufferMut<'static, BUF>;
 
 pub enum PeripheralBuffer<'buf, 'wo, BUF>
 where
@@ -129,6 +286,29 @@ where
     Incremented(IncrementedBuffer<'buf, 'wo, BUF>),
 }
 
+impl<'buf, 'wo, BUF> PeripheralBuffer<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn fixed(self) -> FixedBuffer<'buf, BUF> {
+        if let PeripheralBuffer::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn incremented(self) -> IncrementedBuffer<'buf, 'wo, BUF> {
+        if let PeripheralBuffer::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+pub type PeripheralBufferStatic<'wo, BUF> = PeripheralBuffer<'static, 'wo, BUF>;
+
 pub enum PeripheralBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
@@ -136,6 +316,64 @@ where
     Fixed(FixedBufferMut<'buf, BUF>),
     Incremented(IncrementedBufferMut<'buf, 'wo, BUF>),
 }
+
+impl<'buf, 'wo, BUF> PeripheralBufferMut<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn into_fixed(self) -> FixedBufferMut<'buf, BUF> {
+        if let PeripheralBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_fixed(&self) -> &FixedBufferMut<'buf, BUF> {
+        if let PeripheralBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferMut<'buf, BUF> {
+        if let PeripheralBufferMut::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn into_incremented(self) -> IncrementedBufferMut<'buf, 'wo, BUF> {
+        if let PeripheralBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_incremented(&self) -> &IncrementedBufferMut<'buf, 'wo, BUF> {
+        if let PeripheralBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_mut_incremented(
+        &mut self,
+    ) -> &mut IncrementedBufferMut<'buf, 'wo, BUF> {
+        if let PeripheralBufferMut::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+pub type PeripheralBufferMutStatic<'wo, BUF> =
+    PeripheralBufferMut<'static, 'wo, BUF>;
 
 pub enum IncrementedBuffer<'buf, 'wo, BUF>
 where
@@ -145,12 +383,93 @@ where
     WordOffset(WordOffsetBuffer<'buf, 'wo, BUF>),
 }
 
+impl<'buf, 'wo, BUF> IncrementedBuffer<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn regular_offset(self) -> RegularOffsetBuffer<'buf, BUF> {
+        if let IncrementedBuffer::RegularOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has word offset.");
+        }
+    }
+
+    pub fn word_offset(self) -> WordOffsetBuffer<'buf, 'wo, BUF> {
+        if let IncrementedBuffer::WordOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has regular offset.");
+        }
+    }
+}
+
+pub type IncrementedBufferStatic<'wo, BUF> =
+    IncrementedBuffer<'static, 'wo, BUF>;
+
 pub enum IncrementedBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
     RegularOffset(RegularOffsetBufferMut<'buf, BUF>),
     WordOffset(WordOffsetBufferMut<'buf, 'wo, BUF>),
+}
+
+impl<'buf, 'wo, BUF> IncrementedBufferMut<'buf, 'wo, BUF>
+where
+    BUF: BufferType,
+{
+    pub fn into_regular_offset(self) -> RegularOffsetBufferMut<'buf, BUF> {
+        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has word offset.");
+        }
+    }
+
+    pub fn as_regular_offset(&self) -> &RegularOffsetBufferMut<'buf, BUF> {
+        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has word offset.");
+        }
+    }
+
+    pub fn as_mut_regular_offset(
+        &mut self,
+    ) -> &mut RegularOffsetBufferMut<'buf, BUF> {
+        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has word offset.");
+        }
+    }
+
+    pub fn into_word_offset(self) -> WordOffsetBufferMut<'buf, 'wo, BUF> {
+        if let IncrementedBufferMut::WordOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has regular offset.");
+        }
+    }
+
+    pub fn as_word_offset(&self) -> &WordOffsetBufferMut<'buf, 'wo, BUF> {
+        if let IncrementedBufferMut::WordOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has regular offset.");
+        }
+    }
+
+    pub fn as_mut_word_offset(
+        &mut self,
+    ) -> &mut WordOffsetBufferMut<'buf, 'wo, BUF> {
+        if let IncrementedBufferMut::WordOffset(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer has regular offset.");
+        }
+    }
 }
 
 pub type IncrementedBufferMutStatic<'wo, BUF> =
