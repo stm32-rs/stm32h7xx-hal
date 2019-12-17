@@ -405,7 +405,7 @@ where
 }
 
 pub struct WordOffsetBufferMut<'buf, 'wo, BUF>(
-    &'wo [VolatileCell<BUF>],
+    &'wo [&'static mut VolatileCell<BUF>],
     PhantomData<&'buf mut BUF>,
 )
 where
@@ -469,18 +469,20 @@ fn check_word_offset<BUF>(buffer: &[*const BUF])
 where
     BUF: BufferType,
 {
-    if buffer.len() > 0 {
-        let mut last_pointer = buffer[0] as *const _ as *const u32;
+    if buffer.is_empty() {
+        return;
+    }
 
-        for i in 1..buffer.len() {
-            let current_pointer = buffer[i] as *const _ as *const u32;
-            let current_address = current_pointer as usize;
-            let expected_address = unsafe { last_pointer.add(1) } as usize;
-            if current_address != expected_address {
-                panic!("The offset must be one word (4 bytes).");
-            }
+    let mut last_pointer = buffer[0] as *const _ as *const u32;
 
-            last_pointer = current_pointer;
+    for &current_pointer in buffer.iter().skip(1) {
+        // Size of u32 is one word / 4 bytes
+        let current_pointer = current_pointer as *const u32;
+        let expected_pointer = unsafe { last_pointer.add(1) };
+        if current_pointer != expected_pointer {
+            panic!("The offset must be one word (4 bytes).");
         }
+
+        last_pointer = current_pointer;
     }
 }
