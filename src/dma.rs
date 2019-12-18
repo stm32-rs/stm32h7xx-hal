@@ -17,6 +17,10 @@ use self::mux::{
     SyncDisabled, SyncED as SyncEDTrait, SyncEnabled, SyncId,
     SyncOverrunInterrupt, SyncPolarity,
 };
+use self::safe_transfer::{
+    BufferType, ImmutableBufferStatic, MutableBufferStatic, Ongoing, Start,
+    TransferState,
+};
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
 use self::stm32::{DMA1, DMA2};
@@ -165,6 +169,10 @@ where
         self.rb.fcr.read().feie().bit().into()
     }
 
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `Dma`, if `transfer_direction` is `M2M`.
+    ///
+    /// This invariant is covered in `effective_flow_controller` (defined for disabled streams).
     pub fn flow_controller(&self) -> FlowController {
         self.rb.cr.read().pfctrl().bit().into()
     }
@@ -173,6 +181,10 @@ where
         self.rb.cr.read().dir().bits().try_into().unwrap()
     }
 
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `Circular`, if `buffer_mode` is `DoubleBuffer`.
+    ///
+    /// This invariant is covered in `effective_circular_mode`.
     pub fn circular_mode(&self) -> CircularMode {
         self.rb.cr.read().circ().bit().into()
     }
@@ -189,10 +201,20 @@ where
         self.rb.cr.read().psize().bits().try_into().unwrap()
     }
 
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `p_size`, if `transfer_mode` is `Direct`.
+    ///
+    /// This invariant is covered in `effective_m_size`.
     pub fn m_size(&self) -> MSize {
         self.rb.cr.read().msize().bits().try_into().unwrap()
     }
 
+    /// **Note** (for disabled and enabled streams):
+    ///
+    /// - This config value has no meaning, if `pinc` is `Fixed`.
+    /// - This config value gets forced to `PSize`, if `p_burst` is not `Single`.
+    ///
+    /// These invariants are covered in `effective_pincos` (defined for disabled and enabled streams).
     pub fn pincos(&self) -> Pincos {
         self.rb.cr.read().pincos().bit().into()
     }
@@ -205,14 +227,36 @@ where
         self.rb.cr.read().dbm().bit().into()
     }
 
+    /// **Note** (for disabled and enabled streams):
+    /// This config value has no meaning, if `BufferMode` is `Regular`.
+    ///
+    /// This invariant is covered in `effective_current_target`.
     pub fn current_target(&self) -> CurrentTarget {
         self.rb.cr.read().ct().bit().into()
     }
 
+    /// **Note**: If this config value has no meaning (because `BufferMode` is `Regular`),
+    /// the method returns `CurrentTarget::M0a` instead of `None`.
+    pub fn effective_current_target(&self) -> CurrentTarget {
+        if self.buffer_mode() == BufferMode::Regular {
+            CurrentTarget::M0a
+        } else {
+            self.current_target()
+        }
+    }
+
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
+    ///
+    /// This invariant is covered in `effective_p_burst` (defined for disabled streams).
     pub fn p_burst(&self) -> PBurst {
         self.rb.cr.read().pburst().bits().try_into().unwrap()
     }
 
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
+    ///
+    /// This invariant is covered in `effective_m_burst` (defined for disabled streams).
     pub fn m_burst(&self) -> MBurst {
         self.rb.cr.read().mburst().bits().try_into().unwrap()
     }
@@ -233,12 +277,36 @@ where
         self.rb.m0ar.read().m0a().bits().into()
     }
 
+    /// **Note** (for disabled and enabled streams):
+    /// This config value has no meaning, if `buffer_mode` is `Regular`.
+    ///
+    /// This invariant is covered in `effective_m1a` (defined for disabled and enabled streams).
     pub fn m1a(&self) -> M1a {
         self.rb.m1ar.read().m1a().bits().into()
     }
 
+    pub fn effective_m1a(&self) -> Option<M1a> {
+        if self.buffer_mode() == BufferMode::Regular {
+            None
+        } else {
+            Some(self.m1a())
+        }
+    }
+
+    /// **Note** (for disabled and enabled streams):
+    /// This config value has no meaning, if `transfer_mode` is `Direct`.
+    ///
+    /// This invariant is covered in `effective_fifo_threshold` (defined for disabled and enabled streams).
     pub fn fifo_threshold(&self) -> FifoThreshold {
         self.rb.fcr.read().fth().bits().try_into().unwrap()
+    }
+
+    pub fn effective_fifo_threshold(&self) -> Option<FifoThreshold> {
+        if self.transfer_mode() == TransferMode::Direct {
+            None
+        } else {
+            Some(self.fifo_threshold())
+        }
     }
 
     pub fn transfer_mode(&self) -> TransferMode {
@@ -378,6 +446,64 @@ where
         self.rb
             .fcr
             .modify(|_, w| w.dmdis().bit(transfer_mode.into()));
+    }
+
+    pub fn effective_flow_controller(&self) -> FlowController {
+        if self.transfer_direction() == TransferDirection::M2M {
+            FlowController::Dma
+        } else {
+            self.flow_controller()
+        }
+    }
+
+    pub fn effective_circular_mode(&self) -> CircularMode {
+        if self.buffer_mode() == BufferMode::DoubleBuffer {
+            CircularMode::Enabled
+        } else {
+            self.circular_mode()
+        }
+    }
+
+    pub fn effective_m_size(&self) -> MSize {
+        if self.transfer_mode() == TransferMode::Direct {
+            match self.p_size() {
+                PSize::Byte => MSize::Byte,
+                PSize::HalfWord => MSize::HalfWord,
+                PSize::Word => MSize::Word,
+            }
+        } else {
+            self.m_size()
+        }
+    }
+
+    pub fn effective_pincos(&self) -> Option<Pincos> {
+        if self.pinc() == Pinc::Fixed {
+            return None;
+        }
+
+        if self.transfer_mode() == TransferMode::Direct
+            || self.p_burst() != PBurst::Single
+        {
+            Some(Pincos::PSize)
+        } else {
+            Some(self.pincos())
+        }
+    }
+
+    pub fn effective_p_burst(&self) -> PBurst {
+        if self.transfer_mode() == TransferMode::Direct {
+            PBurst::Single
+        } else {
+            self.p_burst()
+        }
+    }
+
+    pub fn effective_m_burst(&self) -> MBurst {
+        if self.transfer_mode() == TransferMode::Direct {
+            MBurst::Single
+        } else {
+            self.m_burst()
+        }
     }
 }
 
@@ -556,6 +682,14 @@ where
         self.rb.cr.modify(|_, w| w.en().clear_bit());
 
         self.transmute()
+    }
+
+    pub fn effective_pincos(&self) -> Option<Pincos> {
+        if self.pinc() == Pinc::Fixed {
+            None
+        } else {
+            Some(self.pincos())
+        }
     }
 }
 
@@ -1145,4 +1279,61 @@ where
 {
 }
 
-pub struct SafeTransfer {}
+pub struct SafeTransfer<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    source: ImmutableBufferStatic<'wo, Source>,
+    dest: MutableBufferStatic<'wo, Dest>,
+    state: State,
+}
+
+impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn new(
+        source: ImmutableBufferStatic<'wo, Source>,
+        dest: MutableBufferStatic<'wo, Dest>,
+    ) -> Self {
+        SafeTransfer {
+            source,
+            dest,
+            state: Start,
+        }
+    }
+
+    pub fn start<CXX, DMA>(self, stream: Stream<CXX, DMA, Disabled, IsrCleared>)
+    where
+        CXX: ChannelId,
+        DMA: DMATrait,
+    {
+    }
+}
+
+/// Safe Transfer with Double Buffer as Source
+pub struct SafeTransferDoubleBufferR<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    sources: [ImmutableBufferStatic<'wo, Source>; 2],
+    dest: MutableBufferStatic<'wo, Dest>,
+    state: State,
+}
+
+/// Safe Transfer with Double Buffer as Destination
+pub struct SafeTransferDoubleBufferW<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    source: ImmutableBufferStatic<'wo, Source>,
+    dests: [MutableBufferStatic<'wo, Dest>; 2],
+    state: State,
+}
