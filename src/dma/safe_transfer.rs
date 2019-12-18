@@ -461,6 +461,7 @@ where
     WordOffset(WordOffsetBuffer<'buf, 'wo, BUF>),
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, 'wo, BUF> IncrementedBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
@@ -500,6 +501,7 @@ where
     WordOffset(WordOffsetBufferMut<'buf, 'wo, BUF>),
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, 'wo, BUF> IncrementedBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
@@ -664,11 +666,14 @@ pub struct RegularOffsetBuffer<'buf, BUF>(*const [BUF], PhantomData<&'buf BUF>)
 where
     BUF: BufferType;
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, BUF> RegularOffsetBuffer<'buf, BUF>
 where
     BUF: BufferType,
 {
     pub fn new(buffer: &'buf [BUF]) -> Self {
+        check_buffer_not_empty(buffer);
+
         RegularOffsetBuffer(buffer, PhantomData)
     }
 
@@ -710,11 +715,14 @@ pub struct RegularOffsetBufferMut<'buf, BUF>(
 where
     BUF: BufferType;
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, BUF> RegularOffsetBufferMut<'buf, BUF>
 where
     BUF: BufferType,
 {
     pub fn new(buffer: &'buf mut [BUF]) -> Self {
+        check_buffer_not_empty(buffer);
+
         RegularOffsetBufferMut(buffer, PhantomData)
     }
 
@@ -795,11 +803,14 @@ pub struct WordOffsetBuffer<'buf, 'wo, BUF>(
 where
     BUF: BufferType;
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, 'wo, BUF> WordOffsetBuffer<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
     pub fn new(buffer: &'wo [&'buf BUF]) -> Self {
+        check_buffer_not_empty(buffer);
+
         let buffer = unsafe { &*(buffer as *const _ as *const _) };
 
         check_word_offset(buffer);
@@ -838,11 +849,14 @@ pub struct WordOffsetBufferMut<'buf, 'wo, BUF>(
 where
     BUF: BufferType;
 
+#[allow(clippy::len_without_is_empty)]
 impl<'buf, 'wo, BUF> WordOffsetBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
     pub fn new(buffer: &'wo [&'buf mut BUF]) -> Self {
+        check_buffer_not_empty(buffer);
+
         unsafe {
             check_word_offset::<BUF>(&*(buffer as *const _ as *const _));
 
@@ -893,6 +907,12 @@ unsafe impl<'buf, 'wo, BUF> Sync for WordOffsetBufferMut<'buf, 'wo, BUF> where
 pub type WordOffsetBufferMutStatic<'wo, BUF> =
     WordOffsetBufferMut<'static, 'wo, BUF>;
 
+fn check_buffer_not_empty<T>(buffer: &[T]) {
+    if buffer.is_empty() {
+        panic!("The buffer must not be empty.");
+    }
+}
+
 //
 // Secure Transfer implementations
 //
@@ -922,6 +942,8 @@ where
 /// Configures the buffers of the transfer.
 ///
 /// **Note**: Configures the following values:
+///
+/// - `PSize`, `Msize`
 /// - `Pa`, `M0a`
 /// - `Pinc`, `Minc`
 /// - `Pincos`
@@ -961,6 +983,9 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     Peripheral: BufferType,
     Memory: BufferType,
 {
+    stream.set_p_size(BufferTypeSize::from_buffer_type::<Peripheral>().into());
+    stream.set_m_size(BufferTypeSize::from_buffer_type::<Memory>().into());
+
     match peripheral {
         PeripheralBuffer::Fixed(buffer) => {
             stream.set_pa(Pa(buffer.as_ptr() as u32));
