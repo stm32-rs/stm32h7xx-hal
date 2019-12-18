@@ -1,7 +1,7 @@
 use super::channel::ChannelId;
 use super::stream::{
     Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize, Minc, Ndt, PSize,
-    Pa, Pinc, Pincos, TransferDirection,
+    Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
 use super::{DMATrait, Stream};
 use core::convert::TryFrom;
@@ -9,7 +9,6 @@ use core::convert::TryInto;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::{mem, ptr};
-use vcell::VolatileCell;
 
 pub unsafe trait TransferState {}
 
@@ -844,7 +843,8 @@ unsafe impl<'buf, 'wo, BUF> Sync for WordOffsetBuffer<'buf, 'wo, BUF> where
 pub type WordOffsetBufferStatic<'wo, BUF> = WordOffsetBuffer<'static, 'wo, BUF>;
 
 pub struct WordOffsetBufferMut<'buf, 'wo, BUF>(
-    &'wo [&'buf mut VolatileCell<BUF>],
+    &'wo mut [*mut BUF],
+    PhantomData<&'buf mut BUF>,
 )
 where
     BUF: BufferType;
@@ -854,13 +854,13 @@ impl<'buf, 'wo, BUF> WordOffsetBufferMut<'buf, 'wo, BUF>
 where
     BUF: BufferType,
 {
-    pub fn new(buffer: &'wo [&'buf mut BUF]) -> Self {
+    pub fn new(buffer: &'wo mut [&'buf mut BUF]) -> Self {
         check_buffer_not_empty(buffer);
 
         unsafe {
             check_word_offset::<BUF>(&*(buffer as *const _ as *const _));
 
-            WordOffsetBufferMut(&*(buffer as *const _ as *const _))
+            WordOffsetBufferMut(&mut *(buffer as *mut _ as *mut _), PhantomData)
         }
     }
 
@@ -868,22 +868,22 @@ where
     ///
     /// - The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn get(&self, index: usize) -> BUF {
-        self.0[index].get()
+        ptr::read_volatile(self.0[index])
     }
 
     /// # Safety
     ///
     /// - The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn set(&mut self, index: usize, item: BUF) {
-        self.0[index].set(item);
+        ptr::write_volatile(self.0[index], item);
     }
 
     pub fn as_ptr(&self, index: usize) -> *const BUF {
-        self.0[index].as_ptr()
+        self.0[index]
     }
 
     pub fn as_mut_ptr(&mut self, index: usize) -> *mut BUF {
-        self.0[index].as_ptr()
+        self.0[index]
     }
 
     pub fn len(&self) -> usize {
@@ -951,7 +951,7 @@ where
 pub(super) fn configure_safe_transfer<CXX, DMA, Source, Dest>(
     stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
     source: ImmutableBuffer<Source>,
-    dest: MutableBuffer<Dest>,
+    dest: &MutableBuffer<Dest>,
 ) where
     CXX: ChannelId,
     DMA: DMATrait,
@@ -983,8 +983,15 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     Peripheral: BufferType,
     Memory: BufferType,
 {
-    stream.set_p_size(BufferTypeSize::from_buffer_type::<Peripheral>().into());
-    stream.set_m_size(BufferTypeSize::from_buffer_type::<Memory>().into());
+    let p_size = BufferTypeSize::from_buffer_type::<Peripheral>();
+    let m_size = BufferTypeSize::from_buffer_type::<Memory>();
+
+    if stream.transfer_mode() == TransferMode::Direct && p_size != m_size {
+        panic!("The buffer sizes must match if the stream is configured in direct mode.");
+    }
+
+    stream.set_p_size(p_size.into());
+    stream.set_m_size(m_size.into());
 
     match peripheral {
         PeripheralBuffer::Fixed(buffer) => {
@@ -1055,6 +1062,34 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
         PeripheralBuffer::Incremented(buffer) => {
             let ndt = u16::try_from(buffer.len()).unwrap();
             stream.set_ndt(Ndt(ndt));
+        }
+    }
+}
+
+pub(super) fn check_double_buffer<BUF>(double_buffer: [MemoryBuffer<BUF>; 2])
+where
+    BUF: BufferType,
+{
+    match double_buffer[0] {
+        MemoryBuffer::Fixed(_) => {
+            if let MemoryBuffer::Incremented(_) = double_buffer[1] {
+                panic!("Invalid double buffer config: First buffer `Fixed`, second buffer `Incremented`.");
+            }
+        }
+        MemoryBuffer::Incremented(buffer_0) => {
+            if let MemoryBuffer::Fixed(_) = double_buffer[1] {
+                panic!("Invalid double buffer config: First buffer `Incremented`, second buffer `Fixed`.");
+            }
+
+            let len_0 = buffer_0.len();
+            let len_1 = double_buffer[1].incremented().len();
+
+            if len_0 != len_1 {
+                panic!(
+                    "Invalid double buffer config: len_0 ({}) != len_1({})",
+                    len_0, len_1
+                );
+            }
         }
     }
 }

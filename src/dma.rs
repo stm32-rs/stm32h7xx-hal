@@ -18,8 +18,10 @@ use self::mux::{
     SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    BufferType, ImmutableBufferStatic, MutableBufferStatic, Ongoing, Start,
-    TransferState,
+    check_double_buffer, configure_safe_transfer, BufferType, ImmutableBuffer,
+    ImmutableBufferStatic, MemoryBufferMutStatic, MemoryBufferStatic,
+    MutableBuffer, MutableBufferStatic, Ongoing, PeripheralBufferMutStatic,
+    PeripheralBufferStatic, Start, TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -1305,12 +1307,66 @@ where
             state: Start,
         }
     }
+}
 
-    pub fn start<CXX, DMA>(self, stream: Stream<CXX, DMA, Disabled, IsrCleared>)
+impl<'wo, Source, Dest, State> SafeTransfer<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    pub fn source(&self) -> ImmutableBufferStatic<'wo, Source> {
+        self.source
+    }
+
+    pub fn dest(&self) -> &MutableBufferStatic<'wo, Dest> {
+        &self.dest
+    }
+
+    pub fn dest_mut(&mut self) -> &mut MutableBufferStatic<'wo, Dest> {
+        &mut self.dest
+    }
+}
+
+impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn start<CXX, DMA>(
+        self,
+        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
+    ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX, DMA>>
     where
         CXX: ChannelId,
         DMA: DMATrait,
     {
+        configure_safe_transfer(&mut stream, self.source, &self.dest);
+        stream.set_buffer_mode(BufferMode::Regular);
+
+        SafeTransfer {
+            source: self.source,
+            dest: self.dest,
+            state: Ongoing {
+                stream: unsafe { stream.enable() },
+            },
+        }
+    }
+}
+
+impl<Source, Dest, CXX, DMA> SafeTransfer<'_, Source, Dest, Ongoing<CXX, DMA>>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    CXX: ChannelId,
+    DMA: DMATrait,
+{
+    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
+        &self.state.stream
+    }
+
+    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
+        self.state.stream.disable().await_disabled()
     }
 }
 
@@ -1321,9 +1377,99 @@ where
     Dest: BufferType,
     State: TransferState,
 {
-    sources: [ImmutableBufferStatic<'wo, Source>; 2],
-    dest: MutableBufferStatic<'wo, Dest>,
+    sources: [MemoryBufferStatic<Source>; 2],
+    dest: PeripheralBufferMutStatic<'wo, Dest>,
     state: State,
+}
+
+impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn new(
+        sources: [MemoryBufferStatic<Source>; 2],
+        dest: PeripheralBufferMutStatic<'wo, Dest>,
+    ) -> Self {
+        check_double_buffer(sources);
+
+        SafeTransferDoubleBufferR {
+            sources,
+            dest,
+            state: Start,
+        }
+    }
+}
+
+impl<'wo, Source, Dest, State>
+    SafeTransferDoubleBufferR<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    pub fn sources(&self) -> [MemoryBufferStatic<Source>; 2] {
+        self.sources
+    }
+
+    pub fn dest(&self) -> &PeripheralBufferMutStatic<'wo, Dest> {
+        &self.dest
+    }
+
+    pub fn dest_mut(&mut self) -> &mut PeripheralBufferMutStatic<'wo, Dest> {
+        &mut self.dest
+    }
+}
+
+impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn start<CXX, DMA>(
+        self,
+        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
+    ) -> SafeTransferDoubleBufferR<'wo, Source, Dest, Ongoing<CXX, DMA>>
+    where
+        CXX: ChannelId,
+        DMA: DMATrait,
+    {
+        let dest_buffer = MutableBuffer::Peripheral(self.dest);
+
+        configure_safe_transfer(
+            &mut stream,
+            ImmutableBuffer::Memory(self.sources[0]),
+            &dest_buffer,
+        );
+        stream.set_buffer_mode(BufferMode::DoubleBuffer);
+
+        let dest_buffer = dest_buffer.into_peripheral();
+
+        SafeTransferDoubleBufferR {
+            sources: self.sources,
+            dest: dest_buffer,
+            state: Ongoing {
+                stream: unsafe { stream.enable() },
+            },
+        }
+    }
+}
+
+impl<Source, Dest, CXX, DMA>
+    SafeTransferDoubleBufferR<'_, Source, Dest, Ongoing<CXX, DMA>>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    CXX: ChannelId,
+    DMA: DMATrait,
+{
+    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
+        &self.state.stream
+    }
+
+    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
+        self.state.stream.disable().await_disabled()
+    }
 }
 
 /// Safe Transfer with Double Buffer as Destination
@@ -1333,7 +1479,102 @@ where
     Dest: BufferType,
     State: TransferState,
 {
-    source: ImmutableBufferStatic<'wo, Source>,
-    dests: [MutableBufferStatic<'wo, Dest>; 2],
+    source: PeripheralBufferStatic<'wo, Source>,
+    dests: [MemoryBufferMutStatic<Dest>; 2],
     state: State,
+}
+
+impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn new(
+        source: PeripheralBufferStatic<'wo, Source>,
+        dests: [MemoryBufferMutStatic<Dest>; 2],
+    ) -> Self {
+        let [ref buffer_0, ref buffer_1] = dests;
+        let double_buffer_immutable =
+            unsafe { [buffer_0.as_immutable(), buffer_1.as_immutable()] };
+
+        check_double_buffer(double_buffer_immutable);
+
+        SafeTransferDoubleBufferW {
+            source,
+            dests,
+            state: Start,
+        }
+    }
+}
+
+impl<'wo, Source, Dest, State>
+    SafeTransferDoubleBufferW<'wo, Source, Dest, State>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    State: TransferState,
+{
+    pub fn source(&self) -> PeripheralBufferStatic<'wo, Source> {
+        self.source
+    }
+
+    pub fn dest(&self) -> &[MemoryBufferMutStatic<Dest>; 2] {
+        &self.dests
+    }
+
+    pub fn dest_mut(&mut self) -> &mut [MemoryBufferMutStatic<Dest>; 2] {
+        &mut self.dests
+    }
+}
+
+impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
+where
+    Source: BufferType,
+    Dest: BufferType,
+{
+    pub fn start<CXX, DMA>(
+        self,
+        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
+    ) -> SafeTransferDoubleBufferW<'wo, Source, Dest, Ongoing<CXX, DMA>>
+    where
+        CXX: ChannelId,
+        DMA: DMATrait,
+    {
+        let [dest_buffer_0, dest_buffer_1] = self.dests;
+        let dest_buffer_0 = MutableBuffer::Memory(dest_buffer_0);
+
+        configure_safe_transfer(
+            &mut stream,
+            ImmutableBuffer::Peripheral(self.source),
+            &dest_buffer_0,
+        );
+        stream.set_buffer_mode(BufferMode::DoubleBuffer);
+
+        let dest_buffer_0 = dest_buffer_0.into_memory();
+
+        SafeTransferDoubleBufferW {
+            source: self.source,
+            dests: [dest_buffer_0, dest_buffer_1],
+            state: Ongoing {
+                stream: unsafe { stream.enable() },
+            },
+        }
+    }
+}
+
+impl<Source, Dest, CXX, DMA>
+    SafeTransferDoubleBufferW<'_, Source, Dest, Ongoing<CXX, DMA>>
+where
+    Source: BufferType,
+    Dest: BufferType,
+    CXX: ChannelId,
+    DMA: DMATrait,
+{
+    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
+        &self.state.stream
+    }
+
+    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
+        self.state.stream.disable().await_disabled()
+    }
 }
