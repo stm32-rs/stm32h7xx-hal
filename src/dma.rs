@@ -18,10 +18,11 @@ use self::mux::{
     SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    check_double_buffer, configure_safe_transfer, BufferType, ImmutableBuffer,
-    ImmutableBufferStatic, MemoryBufferMutStatic, MemoryBufferStatic,
-    MutableBuffer, MutableBufferStatic, Ongoing, PeripheralBufferMutStatic,
-    PeripheralBufferStatic, Start, TransferState,
+    check_double_buffer, check_double_buffer_mut, configure_safe_transfer,
+    double_buffer_idx, DoubleBuffer, ImmutableBuffer, ImmutableBufferStatic,
+    MemoryBuffer, MemoryBufferMut, MemoryBufferMutStatic, MemoryBufferStatic,
+    MutableBuffer, MutableBufferStatic, Ongoing, Payload,
+    PeripheralBufferMutStatic, PeripheralBufferStatic, Start, TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -35,9 +36,10 @@ use self::stream::{
     StreamIsr, TransferCompleteInterrupt, TransferDirection,
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
-use crate::nb::{self, Error as NbError};
+use crate::nb::{self, block, Error as NbError};
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
+use core::mem;
 use stm32h7::stm32h743 as stm32;
 
 pub unsafe trait DMATrait {}
@@ -1283,8 +1285,8 @@ where
 
 pub struct SafeTransfer<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     source: ImmutableBufferStatic<'wo, Source>,
@@ -1294,8 +1296,8 @@ where
 
 impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn new(
         source: ImmutableBufferStatic<'wo, Source>,
@@ -1311,8 +1313,8 @@ where
 
 impl<'wo, Source, Dest, State> SafeTransfer<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     pub fn source(&self) -> ImmutableBufferStatic<'wo, Source> {
@@ -1323,15 +1325,59 @@ where
         &self.dest
     }
 
-    pub fn dest_mut(&mut self) -> &mut MutableBufferStatic<'wo, Dest> {
-        &mut self.dest
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_fixed(&mut self, payload: Dest) {
+        match &mut self.dest {
+            MutableBuffer::Peripheral(buffer) => {
+                buffer.as_mut_fixed().set(payload);
+            }
+            MutableBuffer::Memory(buffer) => {
+                buffer.as_mut_fixed().set(payload);
+            }
+        }
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_incremented(&mut self, index: usize, payload: Dest) {
+        match &mut self.dest {
+            MutableBuffer::Peripheral(buffer) => {
+                buffer.as_mut_incremented().set(index, payload);
+            }
+            MutableBuffer::Memory(buffer) => {
+                buffer.as_mut_incremented().set(index, payload);
+            }
+        }
+    }
+
+    pub fn dest_ptr_fixed(&mut self) -> *mut Dest {
+        match &mut self.dest {
+            MutableBuffer::Peripheral(buffer) => {
+                buffer.as_mut_fixed().as_mut_ptr()
+            }
+            MutableBuffer::Memory(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
+        }
+    }
+
+    pub fn dest_ptr_incremented(&mut self, index: usize) -> *mut Dest {
+        match &mut self.dest {
+            MutableBuffer::Peripheral(buffer) => {
+                buffer.as_mut_incremented().as_mut_ptr(index)
+            }
+            MutableBuffer::Memory(buffer) => {
+                buffer.as_mut_incremented().as_mut_ptr(index)
+            }
+        }
     }
 }
 
 impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn start<CXX, DMA>(
         self,
@@ -1356,8 +1402,8 @@ where
 
 impl<Source, Dest, CXX, DMA> SafeTransfer<'_, Source, Dest, Ongoing<CXX, DMA>>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     CXX: ChannelId,
     DMA: DMATrait,
 {
@@ -1373,8 +1419,8 @@ where
 /// Safe Transfer with Double Buffer as Source
 pub struct SafeTransferDoubleBufferR<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     sources: [MemoryBufferStatic<Source>; 2],
@@ -1384,8 +1430,8 @@ where
 
 impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn new(
         sources: [MemoryBufferStatic<Source>; 2],
@@ -1404,8 +1450,8 @@ where
 impl<'wo, Source, Dest, State>
     SafeTransferDoubleBufferR<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     pub fn sources(&self) -> [MemoryBufferStatic<Source>; 2] {
@@ -1416,15 +1462,33 @@ where
         &self.dest
     }
 
-    pub fn dest_mut(&mut self) -> &mut PeripheralBufferMutStatic<'wo, Dest> {
-        &mut self.dest
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_fixed(&mut self, payload: Dest) {
+        self.dest.as_mut_fixed().set(payload);
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_incremented(&mut self, index: usize, payload: Dest) {
+        self.dest.as_mut_incremented().set(index, payload);
+    }
+
+    pub fn dest_ptr_fixed(&mut self) -> *mut Dest {
+        self.dest.as_mut_fixed().as_mut_ptr()
+    }
+
+    pub fn dest_ptr_incremented(&mut self, index: usize) -> *mut Dest {
+        self.dest.as_mut_incremented().as_mut_ptr(index)
     }
 }
 
 impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn start<CXX, DMA>(
         self,
@@ -1458,13 +1522,53 @@ where
 impl<Source, Dest, CXX, DMA>
     SafeTransferDoubleBufferR<'_, Source, Dest, Ongoing<CXX, DMA>>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     CXX: ChannelId,
     DMA: DMATrait,
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
+    }
+
+    pub fn set_double_buffer(
+        &mut self,
+        buffer: MemoryBufferStatic<Source>,
+        double_buffer: DoubleBuffer,
+    ) {
+        let address = match buffer {
+            MemoryBuffer::Fixed(buffer) => {
+                // `self.sources[0]` and `self.sources[1]` have the same increment mode
+                if let MemoryBuffer::Incremented(_) = self.sources[0] {
+                    panic!("The new buffer is fixed, but the old one is incremented.");
+                }
+
+                buffer.as_ptr() as u32
+            }
+            MemoryBuffer::Incremented(buffer) => {
+                // `self.sources[0]` and `self.sources[1]` have the same len
+                if buffer.len() != self.sources[0].incremented().len() {
+                    panic!("The new buffer must have the same size as the old buffer.");
+                }
+
+                buffer.as_ptr(0) as u32
+            }
+        };
+
+        match double_buffer {
+            DoubleBuffer::First => {
+                let m0a = M0a(address);
+                block!(self.state.stream.set_m0a(m0a)).unwrap();
+
+                mem::replace(&mut self.sources[0], buffer);
+            }
+            DoubleBuffer::Second => {
+                let m1a = M1a(address);
+                block!(self.state.stream.set_m1a(m1a)).unwrap();
+
+                mem::replace(&mut self.sources[1], buffer);
+            }
+        }
     }
 
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
@@ -1475,8 +1579,8 @@ where
 /// Safe Transfer with Double Buffer as Destination
 pub struct SafeTransferDoubleBufferW<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     source: PeripheralBufferStatic<'wo, Source>,
@@ -1486,18 +1590,14 @@ where
 
 impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn new(
         source: PeripheralBufferStatic<'wo, Source>,
         dests: [MemoryBufferMutStatic<Dest>; 2],
     ) -> Self {
-        let [ref buffer_0, ref buffer_1] = dests;
-        let double_buffer_immutable =
-            unsafe { [buffer_0.as_immutable(), buffer_1.as_immutable()] };
-
-        check_double_buffer(double_buffer_immutable);
+        check_double_buffer_mut(&dests);
 
         SafeTransferDoubleBufferW {
             source,
@@ -1510,8 +1610,8 @@ where
 impl<'wo, Source, Dest, State>
     SafeTransferDoubleBufferW<'wo, Source, Dest, State>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     State: TransferState,
 {
     pub fn source(&self) -> PeripheralBufferStatic<'wo, Source> {
@@ -1522,15 +1622,54 @@ where
         &self.dests
     }
 
-    pub fn dest_mut(&mut self) -> &mut [MemoryBufferMutStatic<Dest>; 2] {
-        &mut self.dests
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_fixed(
+        &mut self,
+        payload: Dest,
+        buffer: DoubleBuffer,
+    ) {
+        let idx = double_buffer_idx(buffer);
+
+        self.dests[idx].as_mut_fixed().set(payload);
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_incremented(
+        &mut self,
+        index: usize,
+        payload: Dest,
+        buffer: DoubleBuffer,
+    ) {
+        let idx = double_buffer_idx(buffer);
+
+        self.dests[idx].as_mut_incremented().set(index, payload);
+    }
+
+    pub fn dest_ptr_fixed(&mut self, buffer: DoubleBuffer) -> *mut Dest {
+        let idx = double_buffer_idx(buffer);
+
+        self.dests[idx].as_mut_fixed().as_mut_ptr()
+    }
+
+    pub fn dest_ptr_incremented(
+        &mut self,
+        index: usize,
+        buffer: DoubleBuffer,
+    ) -> *mut Dest {
+        let idx = double_buffer_idx(buffer);
+
+        self.dests[idx].as_mut_incremented().as_mut_ptr(index)
     }
 }
 
 impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
 {
     pub fn start<CXX, DMA>(
         self,
@@ -1565,13 +1704,53 @@ where
 impl<Source, Dest, CXX, DMA>
     SafeTransferDoubleBufferW<'_, Source, Dest, Ongoing<CXX, DMA>>
 where
-    Source: BufferType,
-    Dest: BufferType,
+    Source: Payload,
+    Dest: Payload,
     CXX: ChannelId,
     DMA: DMATrait,
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
+    }
+
+    pub fn set_double_buffer(
+        &mut self,
+        buffer: MemoryBufferMutStatic<Dest>,
+        double_buffer: DoubleBuffer,
+    ) {
+        let address = match &buffer {
+            MemoryBufferMut::Fixed(buffer) => {
+                // `self.dests[0]` and `self.dests[1]` have the same increment mode
+                if let MemoryBufferMut::Incremented(_) = &self.dests[0] {
+                    panic!("The new buffer is fixed, but the old one is incremented.");
+                }
+
+                buffer.as_ptr() as u32
+            }
+            MemoryBufferMut::Incremented(buffer) => {
+                // `self.sources[0]` and `self.sources[1]` have the same len
+                if buffer.len() != self.dests[0].as_incremented().len() {
+                    panic!("The new buffer must have the same size as the old buffer.");
+                }
+
+                buffer.as_ptr(0) as u32
+            }
+        };
+
+        match double_buffer {
+            DoubleBuffer::First => {
+                let m0a = M0a(address);
+                block!(self.state.stream.set_m0a(m0a)).unwrap();
+
+                mem::replace(&mut self.dests[0], buffer);
+            }
+            DoubleBuffer::Second => {
+                let m1a = M1a(address);
+                block!(self.state.stream.set_m1a(m1a)).unwrap();
+
+                mem::replace(&mut self.dests[1], buffer);
+            }
+        }
     }
 
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
