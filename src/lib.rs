@@ -1,5 +1,6 @@
 #![no_std]
 #![allow(non_camel_case_types)]
+// TODO: Remove when merging.
 #![allow(clippy::all)]
 
 #[derive(Debug)]

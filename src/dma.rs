@@ -1,3 +1,4 @@
+// TODO: Remove when merging.
 #![warn(clippy::all)]
 
 #[macro_use]
@@ -40,6 +41,7 @@ use crate::nb::{self, block, Error as NbError};
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::mem;
+// TODO: Remove when merging. Necessary for me as I'm using CLion with rust plugin, which doesn't support conditionally imported items yet.
 use stm32h7::stm32h743 as stm32;
 
 pub unsafe trait DMATrait {}
