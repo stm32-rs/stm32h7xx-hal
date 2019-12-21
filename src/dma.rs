@@ -159,20 +159,40 @@ where
         self.rb.cr.read().tcie().bit().into()
     }
 
+    pub fn set_transfer_complete_interrupt(&mut self, tc_intrpt: TransferCompleteInterrupt) {
+        self.rb.cr.modify(|_, w| w.tcie().bit(tc_intrpt.into()));
+    }
+
     pub fn half_transfer_interrupt(&self) -> HalfTransferInterrupt {
         self.rb.cr.read().htie().bit().into()
+    }
+
+    pub fn set_half_transfer_interrupt(&mut self, ht_intrpt: HalfTransferInterrupt) {
+        self.rb.cr.modify(|_, w| w.htie().bit(ht_intrpt.into()));
     }
 
     pub fn transfer_error_interrupt(&self) -> TransferErrorInterrupt {
         self.rb.cr.read().teie().bit().into()
     }
 
+    pub fn set_transfer_error_interrupt(&mut self, te_intrpt: TransferErrorInterrupt) {
+        self.rb.cr.modify(|_, w| w.teie().bit(te_intrpt.into()));
+    }
+
     pub fn direct_mode_error_interrupt(&self) -> DirectModeErrorInterrupt {
         self.rb.cr.read().dmeie().bit().into()
     }
 
+    pub fn set_direct_mode_error_interrupt(&mut self, dme_intrpt: DirectModeErrorInterrupt) {
+        self.rb.cr.modify(|_, w| w.dmeie().bit(dme_intrpt.into()));
+    }
+
     pub fn fifo_error_interrupt(&self) -> FifoErrorInterrupt {
         self.rb.fcr.read().feie().bit().into()
+    }
+
+    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+        self.rb.fcr.modify(|_, w| w.feie().bit(fe_intrpt.into()));
     }
 
     /// **Note** (for disabled streams):

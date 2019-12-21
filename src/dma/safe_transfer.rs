@@ -38,10 +38,10 @@ pub unsafe trait Payload:
 {
 }
 
-// Maps Payload to number of bytes
+// Maps Payload size to number of bytes
 int_enum! {
     PayloadSize <=> usize,
-    "Buffer Size",
+    "Payload Size",
     Byte <=> 1,
     HalfWord <=> 2,
     Word <=> 4
