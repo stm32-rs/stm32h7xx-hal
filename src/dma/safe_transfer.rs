@@ -10,7 +10,7 @@ use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::{mem, ptr};
 
-pub unsafe trait TransferState {}
+pub unsafe trait TransferState: Send + Sync {}
 
 pub struct Start;
 unsafe impl TransferState for Start {}
@@ -33,7 +33,10 @@ where
 /// # Safety
 ///
 /// * `Self` must be valid for any bit representation
-pub unsafe trait Payload: Sized + Clone + Copy + Sync + 'static {}
+pub unsafe trait Payload:
+    Sized + Clone + Copy + Send + Sync + 'static
+{
+}
 
 // Maps Payload to number of bytes
 int_enum! {
@@ -658,9 +661,9 @@ where
     }
 }
 
-unsafe impl<'buf, BUF> Send for FixedBuffer<'buf, BUF> where BUF: Payload {}
+unsafe impl<BUF> Send for FixedBuffer<'_, BUF> where BUF: Payload {}
 
-unsafe impl<'buf, BUF> Sync for FixedBuffer<'buf, BUF> where BUF: Payload {}
+unsafe impl<BUF> Sync for FixedBuffer<'_, BUF> where BUF: Payload {}
 
 pub type FixedBufferStatic<BUF> = FixedBuffer<'static, BUF>;
 
@@ -707,9 +710,9 @@ where
     }
 }
 
-unsafe impl<'buf, BUF> Send for FixedBufferMut<'buf, BUF> where BUF: Payload {}
+unsafe impl<BUF> Send for FixedBufferMut<'_, BUF> where BUF: Payload {}
 
-unsafe impl<'buf, BUF> Sync for FixedBufferMut<'buf, BUF> where BUF: Payload {}
+unsafe impl<BUF> Sync for FixedBufferMut<'_, BUF> where BUF: Payload {}
 
 pub type FixedBufferMutStatic<BUF> = FixedBufferMut<'static, BUF>;
 
@@ -748,11 +751,9 @@ where
     }
 }
 
-unsafe impl<'buf, BUF> Send for RegularOffsetBuffer<'buf, BUF> where BUF: Payload
-{}
+unsafe impl<BUF> Send for RegularOffsetBuffer<'_, BUF> where BUF: Payload {}
 
-unsafe impl<'buf, BUF> Sync for RegularOffsetBuffer<'buf, BUF> where BUF: Payload
-{}
+unsafe impl<BUF> Sync for RegularOffsetBuffer<'_, BUF> where BUF: Payload {}
 
 pub type RegularOffsetBufferStatic<BUF> = RegularOffsetBuffer<'static, BUF>;
 
@@ -819,15 +820,9 @@ where
     }
 }
 
-unsafe impl<'buf, BUF> Send for RegularOffsetBufferMut<'buf, BUF> where
-    BUF: Payload
-{
-}
+unsafe impl<BUF> Send for RegularOffsetBufferMut<'_, BUF> where BUF: Payload {}
 
-unsafe impl<'buf, BUF> Sync for RegularOffsetBufferMut<'buf, BUF> where
-    BUF: Payload
-{
-}
+unsafe impl<BUF> Sync for RegularOffsetBufferMut<'_, BUF> where BUF: Payload {}
 
 pub type RegularOffsetBufferMutStatic<BUF> =
     RegularOffsetBufferMut<'static, BUF>;
@@ -948,10 +943,9 @@ where
     }
 }
 
-unsafe impl<'buf, 'wo, BUF> Sync for WordOffsetBufferMut<'buf, 'wo, BUF> where
-    BUF: Payload
-{
-}
+unsafe impl<BUF> Send for WordOffsetBufferMut<'_, '_, BUF> where BUF: Payload {}
+
+unsafe impl<BUF> Sync for WordOffsetBufferMut<'_, '_, BUF> where BUF: Payload {}
 
 pub type WordOffsetBufferMutStatic<'wo, BUF> =
     WordOffsetBufferMut<'static, 'wo, BUF>;

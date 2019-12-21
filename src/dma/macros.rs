@@ -1,6 +1,6 @@
 macro_rules! type_state {
     ($trait:ident, $($type_state:ident),*) => {
-        pub unsafe trait $trait: core::fmt::Debug + PartialEq + Eq + Clone + Copy {}
+        pub unsafe trait $trait: core::fmt::Debug + PartialEq + Eq + Clone + Copy + Send + Sync {}
 
         $(
             #[derive(Debug, PartialEq, Eq, Clone, Copy)]

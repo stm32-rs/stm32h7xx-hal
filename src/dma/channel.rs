@@ -1,6 +1,4 @@
-use core::fmt::Debug;
-
-pub unsafe trait ChannelId: Debug {
+pub unsafe trait ChannelId: Send {
     const STREAM_ID: usize;
     const MUX_ID: usize;
 }
@@ -8,7 +6,6 @@ pub unsafe trait ChannelId: Debug {
 macro_rules! channels {
     ($($channel:ident => [$stream:tt, $mux:tt]),*) => {
         $(
-            #[derive(Debug)]
             pub struct $channel;
 
             unsafe impl ChannelId for $channel {

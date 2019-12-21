@@ -44,7 +44,7 @@ use core::mem;
 // TODO: Remove when merging. Necessary for me as I'm using CLion with rust plugin, which doesn't support conditionally imported items yet.
 use stm32h7::stm32h743 as stm32;
 
-pub unsafe trait DMATrait {}
+pub unsafe trait DMATrait: Send {}
 unsafe impl DMATrait for DMA1 {}
 unsafe impl DMATrait for DMA2 {}
 

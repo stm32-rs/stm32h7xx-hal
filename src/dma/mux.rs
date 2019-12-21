@@ -84,7 +84,7 @@ macro_rules! request_id {
         pub mod request_ids {
             use super::RequestId as RequestIdEnum;
 
-            pub unsafe trait RequestId {
+            pub unsafe trait RequestId: Send {
                 const REQUEST_ID: RequestIdEnum;
             }
 
@@ -389,4 +389,11 @@ where
             _ => unreachable!(),
         }
     }
+}
+
+unsafe impl<GXX, ED> Sync for RequestGenerator<GXX, ED>
+where
+    GXX: GenId,
+    ED: GenED,
+{
 }

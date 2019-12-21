@@ -6,6 +6,7 @@ pub struct MuxIsr {
     pub(in super::super) cfr: &'static mut CFR,
 }
 
+unsafe impl Send for MuxIsr {}
 unsafe impl Sync for MuxIsr {}
 
 pub struct RequestGenIsr {
@@ -14,4 +15,5 @@ pub struct RequestGenIsr {
     pub(super) rgcfr: &'static mut RGCFR,
 }
 
+unsafe impl Send for RequestGenIsr {}
 unsafe impl Sync for RequestGenIsr {}

@@ -1,17 +1,14 @@
-use core::fmt::Debug;
-
 type_state! {
     ED, Disabled, Enabled
 }
 
-pub unsafe trait GenId: Debug {
+pub unsafe trait GenId: Send {
     const ID: usize;
 }
 
 macro_rules! gen_ids {
     ($($name:ident => $id:tt),*) => {
         $(
-            #[derive(Debug)]
             pub struct $name;
 
             unsafe impl GenId for $name {

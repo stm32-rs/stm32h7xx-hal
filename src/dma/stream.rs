@@ -213,6 +213,7 @@ where
     _phantom_data: PhantomData<DMA>,
 }
 
+unsafe impl<DMA> Send for StreamIsr<DMA> where DMA: DMATrait {}
 unsafe impl<DMA> Sync for StreamIsr<DMA> where DMA: DMATrait {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
