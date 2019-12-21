@@ -159,7 +159,10 @@ where
         self.rb.cr.read().tcie().bit().into()
     }
 
-    pub fn set_transfer_complete_interrupt(&mut self, tc_intrpt: TransferCompleteInterrupt) {
+    pub fn set_transfer_complete_interrupt(
+        &mut self,
+        tc_intrpt: TransferCompleteInterrupt,
+    ) {
         self.rb.cr.modify(|_, w| w.tcie().bit(tc_intrpt.into()));
     }
 
@@ -167,7 +170,10 @@ where
         self.rb.cr.read().htie().bit().into()
     }
 
-    pub fn set_half_transfer_interrupt(&mut self, ht_intrpt: HalfTransferInterrupt) {
+    pub fn set_half_transfer_interrupt(
+        &mut self,
+        ht_intrpt: HalfTransferInterrupt,
+    ) {
         self.rb.cr.modify(|_, w| w.htie().bit(ht_intrpt.into()));
     }
 
@@ -175,7 +181,10 @@ where
         self.rb.cr.read().teie().bit().into()
     }
 
-    pub fn set_transfer_error_interrupt(&mut self, te_intrpt: TransferErrorInterrupt) {
+    pub fn set_transfer_error_interrupt(
+        &mut self,
+        te_intrpt: TransferErrorInterrupt,
+    ) {
         self.rb.cr.modify(|_, w| w.teie().bit(te_intrpt.into()));
     }
 
@@ -183,7 +192,10 @@ where
         self.rb.cr.read().dmeie().bit().into()
     }
 
-    pub fn set_direct_mode_error_interrupt(&mut self, dme_intrpt: DirectModeErrorInterrupt) {
+    pub fn set_direct_mode_error_interrupt(
+        &mut self,
+        dme_intrpt: DirectModeErrorInterrupt,
+    ) {
         self.rb.cr.modify(|_, w| w.dmeie().bit(dme_intrpt.into()));
     }
 
@@ -1433,6 +1445,40 @@ where
         &self.state.stream
     }
 
+    pub fn set_transfer_complete_interrupt(
+        &mut self,
+        tc_intrpt: TransferCompleteInterrupt,
+    ) {
+        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
+    }
+
+    pub fn set_half_transfer_interrupt(
+        &mut self,
+        ht_intrpt: HalfTransferInterrupt,
+    ) {
+        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
+    }
+
+    pub fn set_transfer_error_interrupt(
+        &mut self,
+        te_intrpt: TransferErrorInterrupt,
+    ) {
+        self.state.stream.set_transfer_error_interrupt(te_intrpt);
+    }
+
+    pub fn set_direct_mode_error_interrupt(
+        &mut self,
+        dme_intrpt: DirectModeErrorInterrupt,
+    ) {
+        self.state
+            .stream
+            .set_direct_mode_error_interrupt(dme_intrpt);
+    }
+
+    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
+    }
+
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
         self.state.stream.disable().await_disabled()
     }
@@ -1551,6 +1597,40 @@ where
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
+    }
+
+    pub fn set_transfer_complete_interrupt(
+        &mut self,
+        tc_intrpt: TransferCompleteInterrupt,
+    ) {
+        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
+    }
+
+    pub fn set_half_transfer_interrupt(
+        &mut self,
+        ht_intrpt: HalfTransferInterrupt,
+    ) {
+        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
+    }
+
+    pub fn set_transfer_error_interrupt(
+        &mut self,
+        te_intrpt: TransferErrorInterrupt,
+    ) {
+        self.state.stream.set_transfer_error_interrupt(te_intrpt);
+    }
+
+    pub fn set_direct_mode_error_interrupt(
+        &mut self,
+        dme_intrpt: DirectModeErrorInterrupt,
+    ) {
+        self.state
+            .stream
+            .set_direct_mode_error_interrupt(dme_intrpt);
+    }
+
+    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
     pub fn set_double_buffer(
@@ -1733,6 +1813,40 @@ where
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
+    }
+
+    pub fn set_transfer_complete_interrupt(
+        &mut self,
+        tc_intrpt: TransferCompleteInterrupt,
+    ) {
+        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
+    }
+
+    pub fn set_half_transfer_interrupt(
+        &mut self,
+        ht_intrpt: HalfTransferInterrupt,
+    ) {
+        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
+    }
+
+    pub fn set_transfer_error_interrupt(
+        &mut self,
+        te_intrpt: TransferErrorInterrupt,
+    ) {
+        self.state.stream.set_transfer_error_interrupt(te_intrpt);
+    }
+
+    pub fn set_direct_mode_error_interrupt(
+        &mut self,
+        dme_intrpt: DirectModeErrorInterrupt,
+    ) {
+        self.state
+            .stream
+            .set_direct_mode_error_interrupt(dme_intrpt);
+    }
+
+    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
     pub fn set_double_buffer(
