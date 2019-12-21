@@ -1,7 +1,7 @@
 use super::channel::ChannelId;
 use super::stream::{
-    Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize, Minc, Ndt, PSize,
-    Pa, Pinc, Pincos, TransferDirection, TransferMode,
+    Disabled, Enabled, FlowController, IsrCleared, IsrUncleared, M0a, MSize,
+    Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
 use super::{DMATrait, Stream};
 use core::convert::TryFrom;
@@ -1106,6 +1106,21 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
             let ndt = u16::try_from(buffer.len()).unwrap();
             stream.set_ndt(Ndt(ndt));
         }
+    }
+}
+
+pub(super) fn check_double_buffer_stream_config<CXX, DMA>(
+    stream: &Stream<CXX, DMA, Disabled, IsrCleared>,
+) where
+    CXX: ChannelId,
+    DMA: DMATrait,
+{
+    if stream.transfer_direction() == TransferDirection::M2M {
+        panic!("The stream direction must not be `M2M` when configuring double buffer streams.");
+    }
+
+    if stream.effective_flow_controller() == FlowController::Peripheral {
+        panic!("The flow controller must not be `Peripheral` when configuring double buffer streams.");
     }
 }
 

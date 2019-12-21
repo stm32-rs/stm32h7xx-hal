@@ -19,7 +19,8 @@ use self::mux::{
     SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    check_double_buffer, check_double_buffer_mut, configure_safe_transfer,
+    check_double_buffer, check_double_buffer_mut,
+    check_double_buffer_stream_config, configure_safe_transfer,
     double_buffer_idx, DoubleBuffer, ImmutableBuffer, ImmutableBufferStatic,
     MemoryBuffer, MemoryBufferMut, MemoryBufferMutStatic, MemoryBufferStatic,
     MutableBuffer, MutableBufferStatic, Ongoing, Payload,
@@ -1566,6 +1567,8 @@ where
         CXX: ChannelId,
         DMA: DMATrait,
     {
+        check_double_buffer_stream_config(&stream);
+
         let dest_buffer = MutableBuffer::Peripheral(self.dest);
 
         configure_safe_transfer(
@@ -1781,6 +1784,8 @@ where
         CXX: ChannelId,
         DMA: DMATrait,
     {
+        check_double_buffer_stream_config(&stream);
+
         let [dest_buffer_0, dest_buffer_1] = self.dests;
         let dest_buffer_0 = MutableBuffer::Memory(dest_buffer_0);
 
