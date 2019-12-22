@@ -17,7 +17,7 @@ unsafe impl TransferState for Start {}
 
 pub struct Ongoing<CXX, DMA>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     pub(super) stream: Stream<CXX, DMA, Enabled, IsrUncleared>,
@@ -25,7 +25,7 @@ where
 
 unsafe impl<CXX, DMA> TransferState for Ongoing<CXX, DMA>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
 }
@@ -996,7 +996,7 @@ pub(super) fn configure_safe_transfer<CXX, DMA, Source, Dest>(
     source: ImmutableBuffer<Source>,
     dest: &MutableBuffer<Dest>,
 ) where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     Source: Payload,
     Dest: Payload,
@@ -1021,7 +1021,7 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     peripheral: PeripheralBuffer<Peripheral>,
     memory: MemoryBuffer<Memory>,
 ) where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     Peripheral: Payload,
     Memory: Payload,
@@ -1074,7 +1074,7 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
     peripheral: PeripheralBuffer<Peripheral>,
     memory: MemoryBuffer<Memory>,
 ) where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     Peripheral: Payload,
     Memory: Payload,
@@ -1112,7 +1112,7 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
 pub(super) fn check_double_buffer_stream_config<CXX, DMA>(
     stream: &Stream<CXX, DMA, Disabled, IsrCleared>,
 ) where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     if stream.transfer_direction() == TransferDirection::M2M {

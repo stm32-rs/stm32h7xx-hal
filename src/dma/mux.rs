@@ -242,6 +242,17 @@ request_id! {
 pub struct MuxShared {
     pub mux_isr: MuxIsr,
     pub req_gen_isr: RequestGenIsr,
+    pub request_ids: RequestIds,
+}
+
+impl MuxShared {
+    pub(super) fn new(mux_isr: MuxIsr, req_gen_isr: RequestGenIsr) -> Self {
+        MuxShared {
+            mux_isr,
+            req_gen_isr,
+            request_ids: RequestIds::new(),
+        }
+    }
 }
 
 pub struct OverrunError;
@@ -252,7 +263,7 @@ where
     ED: GenED,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut RGCR,
+    rb: &'static RGCR,
     _phantom_data: PhantomData<(GXX, ED)>,
 }
 
@@ -260,7 +271,7 @@ impl<GXX> RequestGenerator<GXX, GenDisabled>
 where
     GXX: GenId,
 {
-    pub(super) fn after_reset(rb: &'static mut RGCR) -> Self {
+    pub(super) fn after_reset(rb: &'static RGCR) -> Self {
         RequestGenerator {
             rb,
             _phantom_data: PhantomData,

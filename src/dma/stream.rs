@@ -207,10 +207,30 @@ where
     pub(super) lisr: &'static LISR,
     pub(super) hisr: &'static HISR,
     /// This field *must not* be mutated using shared references
-    pub(super) lifcr: &'static mut LIFCR,
+    pub(super) lifcr: &'static LIFCR,
     /// This field *must not* be mutated using shared references
-    pub(super) hifcr: &'static mut HIFCR,
+    pub(super) hifcr: &'static HIFCR,
     _phantom_data: PhantomData<DMA>,
+}
+
+impl<DMA> StreamIsr<DMA>
+where
+    DMA: DMATrait,
+{
+    pub(super) fn new(
+        lisr: &'static LISR,
+        hisr: &'static HISR,
+        lifcr: &'static LIFCR,
+        hifcr: &'static HIFCR,
+    ) -> Self {
+        StreamIsr {
+            lisr,
+            hisr,
+            lifcr,
+            hifcr,
+            _phantom_data: PhantomData,
+        }
+    }
 }
 
 unsafe impl<DMA> Send for StreamIsr<DMA> where DMA: DMATrait {}

@@ -8,15 +8,21 @@ pub mod mux;
 pub mod safe_transfer;
 pub mod stream;
 
-use self::channel::ChannelId;
+use self::channel::{
+    ChannelId, C0, C1, C10, C11, C12, C13, C14, C15, C2, C3, C4, C5, C6, C7,
+    C8, C9,
+};
+use self::mux::request_gen::{
+    Disabled as GenDisabled, G0, G1, G2, G3, G4, G5, G6, G7,
+};
 use self::mux::request_ids::{
     ReqNone, RequestId as RequestIdTrait, RequestIdSome,
 };
-use self::mux::shared::MuxIsr;
+use self::mux::shared::{MuxIsr, RequestGenIsr};
 use self::mux::{
-    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, OverrunError, RequestId,
-    SyncDisabled, SyncED as SyncEDTrait, SyncEnabled, SyncId,
-    SyncOverrunInterrupt, SyncPolarity,
+    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, OverrunError,
+    RequestGenerator, RequestId, SyncDisabled, SyncED as SyncEDTrait,
+    SyncEnabled, SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
     check_double_buffer, check_double_buffer_mut,
@@ -28,7 +34,7 @@ use self::safe_transfer::{
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
-use self::stm32::{DMA1, DMA2};
+use self::stm32::{DMA1, DMA2, RCC};
 use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
     Disabled, Disabling, Enabled, Error, Event, FifoErrorInterrupt,
@@ -43,7 +49,9 @@ use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::mem;
 // TODO: Remove when merging. Necessary for me as I'm using CLion with rust plugin, which doesn't support conditionally imported items yet.
+use crate::dma::mux::MuxShared;
 use stm32h7::stm32h743 as stm32;
+use stm32h7::stm32h743::DMAMUX1;
 
 pub unsafe trait DMATrait: Send {}
 unsafe impl DMATrait for DMA1 {}
@@ -51,7 +59,7 @@ unsafe impl DMATrait for DMA2 {}
 
 pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     StreamED: EDTrait,
     IsrState: IsrStateTrait,
@@ -66,7 +74,7 @@ where
 impl<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
     Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     StreamED: EDTrait,
     IsrState: IsrStateTrait,
@@ -116,23 +124,23 @@ where
 
 pub struct Stream<CXX, DMA, ED, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: EDTrait,
     IsrState: IsrStateTrait,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut ST,
+    rb: &'static ST,
     config_ndt: Ndt,
     _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
 }
 
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
-    fn new(rb: &'static mut ST) -> Self {
+    fn after_reset(rb: &'static ST) -> Self {
         Stream {
             rb,
             config_ndt: Ndt::default(),
@@ -143,7 +151,7 @@ where
 
 impl<CXX, DMA, ED, IsrState> Stream<CXX, DMA, ED, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: EDTrait,
     IsrState: IsrStateTrait,
@@ -381,7 +389,7 @@ where
 
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Disabled, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
@@ -548,7 +556,7 @@ where
 
 impl<CXX, DMA, ED, IsrState> Stream<CXX, DMA, ED, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: NotDisabled,
     IsrState: IsrStateTrait,
@@ -586,7 +594,7 @@ where
 
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     /// # Safety
@@ -713,7 +721,7 @@ where
 
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
@@ -734,7 +742,7 @@ where
 
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Disabling, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
@@ -747,7 +755,7 @@ where
 
 impl<CXX, DMA, ED> Stream<CXX, DMA, ED, IsrUncleared>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: EDTrait,
 {
@@ -1013,7 +1021,7 @@ where
 
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrUncleared>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     pub fn clear_isr(
@@ -1028,7 +1036,7 @@ where
 
 impl<CXX, DMA, ED> Stream<CXX, DMA, ED, IsrUncleared>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: NotDisabled,
 {
@@ -1037,9 +1045,18 @@ where
     }
 }
 
+unsafe impl<CXX, DMA, ED, IsrState> Send for Stream<CXX, DMA, ED, IsrState>
+where
+    CXX: ChannelId<DMA = DMA>,
+    DMA: DMATrait,
+    ED: EDTrait,
+    IsrState: IsrStateTrait,
+{
+}
+
 unsafe impl<CXX, DMA, ED, IsrState> Sync for Stream<CXX, DMA, ED, IsrState>
 where
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
     ED: EDTrait,
     IsrState: IsrStateTrait,
@@ -1054,9 +1071,22 @@ where
     EgED: EgEDTrait,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut CCR,
+    rb: &'static CCR,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
+}
+
+impl<CXX> DmaMux<CXX, ReqNone, SyncDisabled, EgDisabled>
+where
+    CXX: ChannelId,
+{
+    fn after_reset(rb: &'static CCR) -> Self {
+        DmaMux {
+            rb,
+            req_id: ReqNone,
+            _phantom_data: PhantomData,
+        }
+    }
 }
 
 impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
@@ -1309,6 +1339,15 @@ where
     }
 }
 
+unsafe impl<CXX, ReqId, SyncED, EgED> Send for DmaMux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdTrait,
+    SyncED: SyncEDTrait,
+    EgED: EgEDTrait,
+{
+}
+
 unsafe impl<CXX, ReqId, SyncED, EgED> Sync for DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
@@ -1419,7 +1458,7 @@ where
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
     ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX, DMA>>
     where
-        CXX: ChannelId,
+        CXX: ChannelId<DMA = DMA>,
         DMA: DMATrait,
     {
         configure_safe_transfer(&mut stream, self.source, &self.dest);
@@ -1439,7 +1478,7 @@ impl<Source, Dest, CXX, DMA> SafeTransfer<'_, Source, Dest, Ongoing<CXX, DMA>>
 where
     Source: Payload,
     Dest: Payload,
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
@@ -1564,7 +1603,7 @@ where
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
     ) -> SafeTransferDoubleBufferR<'wo, Source, Dest, Ongoing<CXX, DMA>>
     where
-        CXX: ChannelId,
+        CXX: ChannelId<DMA = DMA>,
         DMA: DMATrait,
     {
         check_double_buffer_stream_config(&stream);
@@ -1595,7 +1634,7 @@ impl<Source, Dest, CXX, DMA>
 where
     Source: Payload,
     Dest: Payload,
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
@@ -1781,7 +1820,7 @@ where
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
     ) -> SafeTransferDoubleBufferW<'wo, Source, Dest, Ongoing<CXX, DMA>>
     where
-        CXX: ChannelId,
+        CXX: ChannelId<DMA = DMA>,
         DMA: DMATrait,
     {
         check_double_buffer_stream_config(&stream);
@@ -1813,7 +1852,7 @@ impl<Source, Dest, CXX, DMA>
 where
     Source: Payload,
     Dest: Payload,
-    CXX: ChannelId,
+    CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
@@ -1896,5 +1935,296 @@ where
 
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
         self.state.stream.disable().await_disabled()
+    }
+}
+
+pub type ChannelsDma1 = (
+    Channel<C0, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C1, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C2, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C3, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C4, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C5, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C6, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C7, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+);
+
+pub type ChannelsDma2 = (
+    Channel<C8, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C9, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C10, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C11, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C12, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C13, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C14, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C15, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+);
+
+pub type RequestGenerators = (
+    RequestGenerator<G0, GenDisabled>,
+    RequestGenerator<G1, GenDisabled>,
+    RequestGenerator<G2, GenDisabled>,
+    RequestGenerator<G3, GenDisabled>,
+    RequestGenerator<G4, GenDisabled>,
+    RequestGenerator<G5, GenDisabled>,
+    RequestGenerator<G6, GenDisabled>,
+    RequestGenerator<G7, GenDisabled>,
+);
+
+pub struct DmaShared {
+    pub stream_isr_dma_1: StreamIsr<DMA1>,
+    pub stream_isr_dma_2: StreamIsr<DMA2>,
+    pub mux_shared: MuxShared,
+}
+
+pub struct Dma {
+    pub channels_dma_1: ChannelsDma1,
+    pub channels_dma_2: ChannelsDma2,
+    pub dma_shared: DmaShared,
+    pub request_generators: RequestGenerators,
+    /// Do not access this field. This is stored in case the user want's the peripheral back.
+    _dma_1: DMA1,
+    /// Do not access this field. This is stored in case the user want's the peripheral back.
+    _dma_2: DMA2,
+    /// Do not access this field. This is stored in case the user want's the peripheral back.
+    _dma_mux: DMAMUX1,
+}
+
+impl Dma {
+    pub fn new(
+        dma_1: DMA1,
+        dma_2: DMA2,
+        mut dma_mux: DMAMUX1,
+        rcc: &mut RCC,
+    ) -> Self {
+        Dma::reset_dma(rcc);
+        Dma::enable_dma(rcc);
+
+        Dma::reset_mux(&mut dma_mux);
+
+        let dma1_rb = unsafe { &*DMA1::ptr() };
+        let dma2_rb = unsafe { &*DMA2::ptr() };
+        let dma_mux_rb = unsafe { &*DMAMUX1::ptr() };
+
+        let stream_isr_dma_1 = StreamIsr::new(
+            &dma1_rb.lisr,
+            &dma1_rb.hisr,
+            &dma1_rb.lifcr,
+            &dma1_rb.hifcr,
+        );
+        let stream_isr_dma_2 = StreamIsr::new(
+            &dma2_rb.lisr,
+            &dma2_rb.hisr,
+            &dma2_rb.lifcr,
+            &dma2_rb.hifcr,
+        );
+
+        let mux_isr = MuxIsr {
+            csr: &dma_mux_rb.csr,
+            cfr: &dma_mux_rb.cfr,
+        };
+        let req_gen_isr =
+            RequestGenIsr::new(&dma_mux_rb.rgsr, &dma_mux_rb.rgcfr);
+        let mux_shared = MuxShared::new(mux_isr, req_gen_isr);
+
+        let dma_shared = DmaShared {
+            stream_isr_dma_1,
+            stream_isr_dma_2,
+            mux_shared,
+        };
+
+        let channels_dma_1 = (
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[0]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[0]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[1]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[1]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[2]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[2]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[3]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[3]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[4]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[4]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[5]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[5]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[6]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[6]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[7]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[7]),
+            },
+        );
+
+        let channels_dma_2 = (
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[0]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[8]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[1]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[9]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[2]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[10]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[3]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[11]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[4]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[12]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[5]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[13]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[6]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[14]),
+            },
+            Channel {
+                stream: Stream::after_reset(&dma1_rb.st[7]),
+                mux: DmaMux::after_reset(&dma_mux_rb.ccr[15]),
+            },
+        );
+
+        let request_generators = (
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[0]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[1]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[2]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[3]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[4]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[5]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[6]),
+            RequestGenerator::after_reset(&dma_mux_rb.rgcr[7]),
+        );
+
+        Dma {
+            channels_dma_1,
+            channels_dma_2,
+            dma_shared,
+            request_generators,
+            _dma_1: dma_1,
+            _dma_2: dma_2,
+            _dma_mux: dma_mux,
+        }
+    }
+
+    fn reset_dma(rcc: &mut RCC) {
+        rcc.ahb1rstr.modify(|_, w| w.dma1rst().set_bit());
+        rcc.ahb1rstr.modify(|_, w| w.dma1rst().clear_bit());
+        rcc.ahb1rstr.modify(|_, w| w.dma2rst().set_bit());
+        rcc.ahb1rstr.modify(|_, w| w.dma2rst().clear_bit());
+    }
+
+    fn enable_dma(rcc: &mut RCC) {
+        rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+        rcc.ahb1enr.modify(|_, w| w.dma2en().set_bit());
+    }
+
+    fn reset_mux(mux: &mut DMAMUX1) {
+        for ccr in mux.ccr.iter() {
+            ccr.reset();
+        }
+
+        mux.cfr.write(|w| {
+            w.csof0()
+                .set_bit()
+                .csof1()
+                .set_bit()
+                .csof2()
+                .set_bit()
+                .csof3()
+                .set_bit()
+                .csof4()
+                .set_bit()
+                .csof5()
+                .set_bit()
+                .csof6()
+                .set_bit()
+                .csof7()
+                .set_bit()
+                .csof8()
+                .set_bit()
+                .csof9()
+                .set_bit()
+                .csof10()
+                .set_bit()
+                .csof11()
+                .set_bit()
+                .csof12()
+                .set_bit()
+                .csof13()
+                .set_bit()
+                .csof14()
+                .set_bit()
+                .csof15()
+                .set_bit()
+        });
+
+        for rgcr in mux.rgcr.iter() {
+            rgcr.reset();
+        }
+
+        mux.rgcfr.write(|w| {
+            w.cof0()
+                .set_bit()
+                .cof1()
+                .set_bit()
+                .cof2()
+                .set_bit()
+                .cof3()
+                .set_bit()
+                .cof4()
+                .set_bit()
+                .cof5()
+                .set_bit()
+                .cof6()
+                .set_bit()
+                .cof7()
+                .set_bit()
+        });
+    }
+}
+
+pub trait DmaExt: DMATrait {
+    type Other: DMATrait;
+
+    fn dma(
+        self,
+        other_dma: Self::Other,
+        dma_mux: DMAMUX1,
+        rcc: &mut RCC,
+    ) -> Dma;
+}
+
+impl DmaExt for DMA1 {
+    type Other = DMA2;
+
+    fn dma(self, dma_2: DMA2, dma_mux: DMAMUX1, rcc: &mut RCC) -> Dma {
+        Dma::new(self, dma_2, dma_mux, rcc)
+    }
+}
+
+impl DmaExt for DMA2 {
+    type Other = DMA1;
+
+    fn dma(self, dma_1: DMA1, dma_mux: DMAMUX1, rcc: &mut RCC) -> Dma {
+        Dma::new(dma_1, self, dma_mux, rcc)
     }
 }
