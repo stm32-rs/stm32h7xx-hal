@@ -45,6 +45,7 @@ use self::stream::{
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, block, Error as NbError};
+use crate::rcc::Ccdr;
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::mem;
@@ -1995,10 +1996,10 @@ impl Dma {
         dma_1: DMA1,
         dma_2: DMA2,
         mut dma_mux: DMAMUX1,
-        rcc: &mut RCC,
+        ccdr: &mut Ccdr,
     ) -> Self {
-        Dma::reset_dma(rcc);
-        Dma::enable_dma(rcc);
+        Dma::reset_dma(&mut ccdr.rb);
+        Dma::enable_dma(&mut ccdr.rb);
 
         Dma::reset_mux(&mut dma_mux);
 
@@ -2209,22 +2210,22 @@ pub trait DmaExt: DMATrait {
         self,
         other_dma: Self::Other,
         dma_mux: DMAMUX1,
-        rcc: &mut RCC,
+        ccdr: &mut Ccdr,
     ) -> Dma;
 }
 
 impl DmaExt for DMA1 {
     type Other = DMA2;
 
-    fn dma(self, dma_2: DMA2, dma_mux: DMAMUX1, rcc: &mut RCC) -> Dma {
-        Dma::new(self, dma_2, dma_mux, rcc)
+    fn dma(self, dma_2: DMA2, dma_mux: DMAMUX1, ccdr: &mut Ccdr) -> Dma {
+        Dma::new(self, dma_2, dma_mux, ccdr)
     }
 }
 
 impl DmaExt for DMA2 {
     type Other = DMA1;
 
-    fn dma(self, dma_1: DMA1, dma_mux: DMAMUX1, rcc: &mut RCC) -> Dma {
-        Dma::new(dma_1, self, dma_mux, rcc)
+    fn dma(self, dma_1: DMA1, dma_mux: DMAMUX1, ccdr: &mut Ccdr) -> Dma {
+        Dma::new(dma_1, self, dma_mux, ccdr)
     }
 }
