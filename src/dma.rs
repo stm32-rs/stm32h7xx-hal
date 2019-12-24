@@ -2071,35 +2071,35 @@ impl Dma {
 
         let channels_dma_2 = (
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[0]),
+                stream: Stream::after_reset(&dma2_rb.st[0]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[8]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[1]),
+                stream: Stream::after_reset(&dma2_rb.st[1]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[9]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[2]),
+                stream: Stream::after_reset(&dma2_rb.st[2]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[10]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[3]),
+                stream: Stream::after_reset(&dma2_rb.st[3]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[11]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[4]),
+                stream: Stream::after_reset(&dma2_rb.st[4]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[12]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[5]),
+                stream: Stream::after_reset(&dma2_rb.st[5]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[13]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[6]),
+                stream: Stream::after_reset(&dma2_rb.st[6]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[14]),
             },
             Channel {
-                stream: Stream::after_reset(&dma1_rb.st[7]),
+                stream: Stream::after_reset(&dma2_rb.st[7]),
                 mux: DmaMux::after_reset(&dma_mux_rb.ccr[15]),
             },
         );
