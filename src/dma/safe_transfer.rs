@@ -115,6 +115,17 @@ unsafe impl Payload for i32 {}
 
 unsafe impl Payload for f32 {}
 
+pub trait AsImmutable<'s> {
+    type Target: 's;
+
+    /// # Safety
+    ///
+    /// All unsafe methods of `Self` remain unsafe.
+    ///
+    /// If `Self` was already immutable, this is safe.
+    unsafe fn as_immutable(&'s self) -> Self::Target;
+}
+
 #[derive(Clone, Copy)]
 pub enum ImmutableBuffer<'buf, 'wo, BUF>
 where
@@ -142,6 +153,17 @@ where
         } else {
             panic!("The buffer is a memory buffer.");
         }
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for ImmutableBuffer<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = ImmutableBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> ImmutableBuffer<BUF> {
+        *self
     }
 }
 
@@ -208,12 +230,15 @@ where
             panic!("The buffer is a memory buffer.");
         }
     }
+}
 
-    /// # Safety
-    ///
-    /// `ImmutableBuffer` assumes that the DMA is only reading the buffer.
-    /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> ImmutableBuffer<BUF> {
+impl<'s, BUF> AsImmutable<'s> for MutableBuffer<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = ImmutableBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&'s self) -> ImmutableBuffer<BUF> {
         match self {
             MutableBuffer::Memory(buffer) => {
                 ImmutableBuffer::Memory(buffer.as_immutable())
@@ -254,6 +279,17 @@ where
         } else {
             panic!("The buffer is fixed.");
         }
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for MemoryBuffer<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = MemoryBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> MemoryBuffer<BUF> {
+        *self
     }
 }
 
@@ -320,12 +356,15 @@ where
             panic!("The buffer is fixed.");
         }
     }
+}
 
-    /// # Safety
-    ///
-    /// `MemoryBuffer` assumes that the DMA is only reading the buffer.
-    /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> MemoryBuffer<BUF> {
+impl<'s, BUF> AsImmutable<'s> for MemoryBufferMut<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = MemoryBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> MemoryBuffer<BUF> {
         match self {
             MemoryBufferMut::Fixed(buffer) => {
                 MemoryBuffer::Fixed(buffer.as_immutable())
@@ -366,6 +405,17 @@ where
         } else {
             panic!("The buffer is fixed.");
         }
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for PeripheralBuffer<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = PeripheralBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> PeripheralBuffer<BUF> {
+        *self
     }
 }
 
@@ -449,6 +499,24 @@ where
     }
 }
 
+impl<'s, BUF> AsImmutable<'s> for PeripheralBufferMut<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = PeripheralBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> PeripheralBuffer<BUF> {
+        match self {
+            PeripheralBufferMut::Fixed(buffer) => {
+                PeripheralBuffer::Fixed(buffer.as_immutable())
+            }
+            PeripheralBufferMut::Incremented(buffer) => {
+                PeripheralBuffer::Incremented(buffer.as_immutable())
+            }
+        }
+    }
+}
+
 pub type PeripheralBufferMutStatic<'wo, BUF> =
     PeripheralBufferMut<'static, 'wo, BUF>;
 
@@ -501,6 +569,17 @@ where
             IncrementedBuffer::RegularOffset(buffer) => buffer.as_ptr(index),
             IncrementedBuffer::WordOffset(buffer) => buffer.as_ptr(index),
         }
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for IncrementedBuffer<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = IncrementedBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> IncrementedBuffer<BUF> {
+        *self
     }
 }
 
@@ -620,12 +699,19 @@ where
             }
         }
     }
+}
+
+impl<'s, BUF> AsImmutable<'s> for IncrementedBufferMut<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = IncrementedBuffer<'s, 's, BUF>;
 
     /// # Safety
     ///
     /// `IncrementedBuffer` assumes that the DMA is only reading the buffer.
     /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> IncrementedBuffer<BUF> {
+    unsafe fn as_immutable(&self) -> IncrementedBuffer<BUF> {
         match self {
             IncrementedBufferMut::RegularOffset(buffer) => {
                 IncrementedBuffer::RegularOffset(buffer.as_immutable())
@@ -659,6 +745,17 @@ where
 
     pub fn as_ptr(self) -> *const BUF {
         self.0
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for FixedBuffer<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = FixedBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> FixedBuffer<BUF> {
+        *self
     }
 }
 
@@ -701,12 +798,15 @@ where
     pub fn as_mut_ptr(&mut self) -> *mut BUF {
         self.0
     }
+}
 
-    /// # Safety
-    ///
-    /// `FixedBuffer` assumes that the DMA is only reading the buffer.
-    /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> FixedBuffer<BUF> {
+impl<'s, BUF> AsImmutable<'s> for FixedBufferMut<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = FixedBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> FixedBuffer<BUF> {
         FixedBuffer(self.0, PhantomData)
     }
 }
@@ -749,6 +849,17 @@ where
             let slice = &*self.0;
             slice.len()
         }
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for RegularOffsetBuffer<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = RegularOffsetBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> RegularOffsetBuffer<BUF> {
+        *self
     }
 }
 
@@ -811,12 +922,15 @@ where
             slice.len()
         }
     }
+}
 
-    /// # Safety
-    ///
-    /// `RegularOffsetBuffer` assumes that the DMA is only reading the buffer.
-    /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> RegularOffsetBuffer<BUF> {
+impl<'s, BUF> AsImmutable<'s> for RegularOffsetBufferMut<'_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = RegularOffsetBuffer<'s, BUF>;
+
+    unsafe fn as_immutable(&self) -> RegularOffsetBuffer<BUF> {
         RegularOffsetBuffer(self.0, PhantomData)
     }
 }
@@ -872,6 +986,17 @@ where
 
     pub fn len(self) -> usize {
         self.0.len()
+    }
+}
+
+impl<'s, BUF> AsImmutable<'s> for WordOffsetBuffer<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = WordOffsetBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> WordOffsetBuffer<BUF> {
+        *self
     }
 }
 
@@ -934,12 +1059,15 @@ where
     pub fn len(&self) -> usize {
         self.0.len()
     }
+}
 
-    /// # Safety
-    ///
-    /// `WordOffsetBuffer` assumes that the DMA is only reading the buffer.
-    /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    pub unsafe fn as_immutable(&self) -> WordOffsetBuffer<BUF> {
+impl<'s, BUF> AsImmutable<'s> for WordOffsetBufferMut<'_, '_, BUF>
+where
+    BUF: Payload,
+{
+    type Target = WordOffsetBuffer<'s, 's, BUF>;
+
+    unsafe fn as_immutable(&self) -> WordOffsetBuffer<BUF> {
         WordOffsetBuffer(&*(self.0 as *const _ as *const _), PhantomData)
     }
 }
