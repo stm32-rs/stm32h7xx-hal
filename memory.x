@@ -3,10 +3,9 @@ MEMORY
   /* FLASH and RAM are mandatory memory regions */
   FLASH  : ORIGIN = 0x08000000, LENGTH = 1024K
   FLASH1 : ORIGIN = 0x08100000, LENGTH = 1024K
-  RAM    : ORIGIN = 0x20000000, LENGTH = 128K
 
-  /* AXISRAM */
-  AXISRAM : ORIGIN = 0x24000000, LENGTH = 512K
+  /* AXISRAM = RAM */
+  RAM : ORIGIN = 0x24000000, LENGTH = 512K
 
   /* SRAM */
   SRAM1 : ORIGIN = 0x30000000, LENGTH = 128K
@@ -19,6 +18,9 @@ MEMORY
 
   /* Instruction TCM */
   ITCM  : ORIGIN = 0x00000000, LENGTH = 64K
+
+  /* Data TCM */
+  DTCM    : ORIGIN = 0x20000000, LENGTH = 128K
 }
 
 /* The location of the stack can be overridden using the
