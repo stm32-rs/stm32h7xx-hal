@@ -230,9 +230,12 @@ where
     }
 
     /// **Note** (for disabled streams):
-    /// This config value gets forced to `Circular`, if `buffer_mode` is `DoubleBuffer`.
+    /// This config value gets forced
     ///
-    /// This invariant is covered in `effective_circular_mode`.
+    /// - **by hardware** to `Enabled`, if `buffer_mode` is `DoubleBuffer`.
+    /// - **by software** to `Disabled` if `transfer_direction` is `M2M`.
+    ///
+    /// These invariants is covered in `effective_circular_mode`.
     pub fn circular_mode(&self) -> CircularMode {
         self.rb.cr.read().circ().bit().into()
     }
@@ -271,6 +274,13 @@ where
         self.rb.cr.read().pl().bits().try_into().unwrap()
     }
 
+    /// **Note** (for disabled streams):
+    /// This config value gets forced to `Regular` **by software** (to avoid TransferError-Flag), if
+    ///
+    /// - `TransferDirection` is `M2M` or
+    /// - `FlowController` is `Peripheral`
+    ///
+    /// These invariants are covered in `effective_buffer_mode` (defined for disabled streams).
     pub fn buffer_mode(&self) -> BufferMode {
         self.rb.cr.read().dbm().bit().into()
     }
@@ -505,11 +515,20 @@ where
     }
 
     pub fn effective_circular_mode(&self) -> CircularMode {
-        if self.buffer_mode() == BufferMode::DoubleBuffer {
+        if !self.circular_mode_possible() {
+            CircularMode::Disabled
+        } else if self.buffer_mode() == BufferMode::DoubleBuffer {
             CircularMode::Enabled
         } else {
             self.circular_mode()
         }
+    }
+
+    fn circular_mode_possible(&self) -> bool {
+        // `effective_flow_controller` not needed because `flow_controller` gets only forced to
+        // `DMA`, if `transfer_dir` is `M2M`, which is already covered in first case.
+        self.transfer_direction() != TransferDirection::M2M
+            && self.flow_controller() == FlowController::Dma
     }
 
     pub fn effective_m_size(&self) -> MSize {
@@ -521,6 +540,14 @@ where
             }
         } else {
             self.m_size()
+        }
+    }
+
+    pub fn effective_buffer_mode(&self) -> BufferMode {
+        if !self.circular_mode_possible() {
+            BufferMode::Regular
+        } else {
+            self.buffer_mode()
         }
     }
 
@@ -601,8 +628,15 @@ where
     /// # Safety
     ///
     /// Aliasing rules aren't enforced
-    pub unsafe fn enable(self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub unsafe fn enable(mut self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
         self.check_config();
+
+        // To avoid TransferErrorInterrupt because of invalid configuration
+        self.set_buffer_mode(self.effective_buffer_mode());
+        // Only in this case we need to force this value **by software**
+        if self.transfer_direction() == TransferDirection::M2M {
+            self.set_circular_mode(CircularMode::Disabled);
+        }
 
         self.enable_unchecked()
     }

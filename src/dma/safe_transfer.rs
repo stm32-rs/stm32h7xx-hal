@@ -1,7 +1,8 @@
 use super::channel::ChannelId;
 use super::stream::{
-    Disabled, Enabled, FlowController, IsrCleared, IsrUncleared, M0a, MSize,
-    Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
+    BufferMode, Disabled, Enabled, FlowController, IsrCleared, IsrUncleared,
+    M0a, MSize, Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection,
+    TransferMode,
 };
 use super::{DMATrait, Stream};
 use core::convert::TryFrom;
@@ -1122,6 +1123,8 @@ pub(super) fn check_double_buffer_stream_config<CXX, DMA>(
     if stream.effective_flow_controller() == FlowController::Peripheral {
         panic!("The flow controller must not be `Peripheral` when configuring double buffer streams.");
     }
+
+    debug_assert_eq!(stream.effective_buffer_mode(), BufferMode::DoubleBuffer);
 }
 
 pub(super) fn check_double_buffer_mut<BUF>(
