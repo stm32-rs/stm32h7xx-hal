@@ -26,11 +26,10 @@ use self::mux::{
 };
 use self::safe_transfer::{
     check_double_buffer, check_double_buffer_stream_config,
-    configure_safe_transfer, double_buffer_idx, DoubleBuffer, ImmutableBuffer,
-    ImmutableBufferStatic, MemoryBuffer, MemoryBufferMut,
-    MemoryBufferMutStatic, MemoryBufferStatic, MutableBuffer,
-    MutableBufferStatic, Ongoing, Payload, PeripheralBufferMutStatic,
-    PeripheralBufferStatic, Start, TransferState,
+    configure_safe_transfer, first_ptr_from_buffer, ImmutableBuffer,
+    ImmutableBufferStatic, MemoryBufferMutStatic, MemoryBufferStatic,
+    MutableBuffer, MutableBufferStatic, Ongoing, Payload,
+    PeripheralBufferMutStatic, PeripheralBufferStatic, Start, TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -1710,44 +1709,24 @@ where
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
-    pub fn set_double_buffer(
-        &mut self,
-        buffer: MemoryBufferStatic<Source>,
-        double_buffer: DoubleBuffer,
-    ) {
-        let address = match buffer {
-            MemoryBuffer::Fixed(buffer) => {
-                // `self.sources[0]` and `self.sources[1]` have the same increment mode
-                if let MemoryBuffer::Incremented(_) = self.sources[0] {
-                    panic!("The new buffer is fixed, but the old one is incremented.");
-                }
+    pub fn set_m0a(&mut self, m0a: MemoryBufferStatic<Source>) {
+        let ptr = first_ptr_from_buffer(&ImmutableBuffer::Memory(m0a));
 
-                buffer.as_ptr() as u32
-            }
-            MemoryBuffer::Incremented(buffer) => {
-                // `self.sources[0]` and `self.sources[1]` have the same len
-                if buffer.len() != self.sources[0].incremented().len() {
-                    panic!("The new buffer must have the same size as the old buffer.");
-                }
+        mem::replace(&mut self.sources[0], m0a);
 
-                buffer.as_ptr(0) as u32
-            }
-        };
+        check_double_buffer(&self.sources);
 
-        match double_buffer {
-            DoubleBuffer::First => {
-                let m0a = M0a(address);
-                block!(self.state.stream.set_m0a(m0a)).unwrap();
+        block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
+    }
 
-                mem::replace(&mut self.sources[0], buffer);
-            }
-            DoubleBuffer::Second => {
-                let m1a = M1a(address);
-                block!(self.state.stream.set_m1a(m1a)).unwrap();
+    pub fn set_m1a(&mut self, m1a: MemoryBufferStatic<Source>) {
+        let ptr = first_ptr_from_buffer(&ImmutableBuffer::Memory(m1a));
 
-                mem::replace(&mut self.sources[1], buffer);
-            }
-        }
+        mem::replace(&mut self.sources[1], m1a);
+
+        check_double_buffer(&self.sources);
+
+        block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
     }
 
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
@@ -1804,44 +1783,53 @@ where
     /// # Safety
     ///
     /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_fixed(
-        &mut self,
-        payload: Dest,
-        buffer: DoubleBuffer,
-    ) {
-        let idx = double_buffer_idx(buffer);
-
-        self.dests[idx].as_mut_fixed().set(payload);
+    pub unsafe fn set_dest_fixed_m0a(&mut self, payload: Dest) {
+        self.dests[0].as_mut_fixed().set(payload);
     }
 
     /// # Safety
     ///
     /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_incremented(
+    pub unsafe fn set_dest_fixed_m1a(&mut self, payload: Dest) {
+        self.dests[1].as_mut_fixed().set(payload);
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_incremented_m0a(
         &mut self,
         index: usize,
         payload: Dest,
-        buffer: DoubleBuffer,
     ) {
-        let idx = double_buffer_idx(buffer);
-
-        self.dests[idx].as_mut_incremented().set(index, payload);
+        self.dests[0].as_mut_incremented().set(index, payload);
     }
 
-    pub fn dest_ptr_fixed(&mut self, buffer: DoubleBuffer) -> *mut Dest {
-        let idx = double_buffer_idx(buffer);
-
-        self.dests[idx].as_mut_fixed().as_mut_ptr()
-    }
-
-    pub fn dest_ptr_incremented(
+    /// # Safety
+    ///
+    /// The caller must ensure, that the DMA is currently not modifying this address.
+    pub unsafe fn set_dest_incremented_m1a(
         &mut self,
         index: usize,
-        buffer: DoubleBuffer,
-    ) -> *mut Dest {
-        let idx = double_buffer_idx(buffer);
+        payload: Dest,
+    ) {
+        self.dests[1].as_mut_incremented().set(index, payload);
+    }
 
-        self.dests[idx].as_mut_incremented().as_mut_ptr(index)
+    pub fn dest_ptr_fixed_m0a(&mut self) -> *mut Dest {
+        self.dests[0].as_mut_fixed().as_mut_ptr()
+    }
+
+    pub fn dest_ptr_fixed_m1a(&mut self) -> *mut Dest {
+        self.dests[1].as_mut_fixed().as_mut_ptr()
+    }
+
+    pub fn dest_ptr_incremented_m0a(&mut self, index: usize) -> *mut Dest {
+        self.dests[0].as_mut_incremented().as_mut_ptr(index)
+    }
+
+    pub fn dest_ptr_incremented_m1a(&mut self, index: usize) -> *mut Dest {
+        self.dests[1].as_mut_incremented().as_mut_ptr(index)
     }
 }
 
@@ -1928,44 +1916,28 @@ where
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
-    pub fn set_double_buffer(
-        &mut self,
-        buffer: MemoryBufferMutStatic<Dest>,
-        double_buffer: DoubleBuffer,
-    ) {
-        let address = match &buffer {
-            MemoryBufferMut::Fixed(buffer) => {
-                // `self.dests[0]` and `self.dests[1]` have the same increment mode
-                if let MemoryBufferMut::Incremented(_) = &self.dests[0] {
-                    panic!("The new buffer is fixed, but the old one is incremented.");
-                }
+    pub fn set_m0a(&mut self, m0a: MemoryBufferMutStatic<Dest>) {
+        let m0a = MutableBuffer::Memory(m0a);
+        let ptr = first_ptr_from_buffer(&m0a);
+        let m0a = m0a.into_memory();
 
-                buffer.as_ptr() as u32
-            }
-            MemoryBufferMut::Incremented(buffer) => {
-                // `self.sources[0]` and `self.sources[1]` have the same len
-                if buffer.len() != self.dests[0].as_incremented().len() {
-                    panic!("The new buffer must have the same size as the old buffer.");
-                }
+        mem::replace(&mut self.dests[0], m0a);
 
-                buffer.as_ptr(0) as u32
-            }
-        };
+        check_double_buffer(&self.dests);
 
-        match double_buffer {
-            DoubleBuffer::First => {
-                let m0a = M0a(address);
-                block!(self.state.stream.set_m0a(m0a)).unwrap();
+        block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
+    }
 
-                mem::replace(&mut self.dests[0], buffer);
-            }
-            DoubleBuffer::Second => {
-                let m1a = M1a(address);
-                block!(self.state.stream.set_m1a(m1a)).unwrap();
+    pub fn set_m1a(&mut self, m1a: MemoryBufferMutStatic<Dest>) {
+        let m1a = MutableBuffer::Memory(m1a);
+        let ptr = first_ptr_from_buffer(&m1a);
+        let m1a = m1a.into_memory();
 
-                mem::replace(&mut self.dests[1], buffer);
-            }
-        }
+        mem::replace(&mut self.dests[1], m1a);
+
+        check_double_buffer(&self.dests);
+
+        block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
     }
 
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {

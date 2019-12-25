@@ -1291,15 +1291,23 @@ pub(super) fn check_double_buffer<'s, MemBuf, BUF>(
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DoubleBuffer {
-    First,
-    Second,
-}
+pub(super) fn first_ptr_from_buffer<'s, ImmutBuf, BUF>(
+    buffer: &'s ImmutBuf,
+) -> *const BUF
+where
+    ImmutBuf: AsImmutable<'s, Target = ImmutableBuffer<'s, 's, BUF>>,
+    BUF: Payload,
+{
+    let buffer = unsafe { buffer.as_immutable() };
 
-pub(super) fn double_buffer_idx(buffer: DoubleBuffer) -> usize {
     match buffer {
-        DoubleBuffer::First => 0,
-        DoubleBuffer::Second => 1,
+        ImmutableBuffer::Peripheral(buffer) => match buffer {
+            PeripheralBuffer::Fixed(buffer) => buffer.as_ptr(),
+            PeripheralBuffer::Incremented(buffer) => buffer.as_ptr(0),
+        },
+        ImmutableBuffer::Memory(buffer) => match buffer {
+            MemoryBuffer::Fixed(buffer) => buffer.as_ptr(),
+            MemoryBuffer::Incremented(buffer) => buffer.as_ptr(0),
+        },
     }
 }
