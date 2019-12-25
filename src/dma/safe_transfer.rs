@@ -1255,24 +1255,18 @@ pub(super) fn check_double_buffer_stream_config<CXX, DMA>(
     debug_assert_eq!(stream.effective_buffer_mode(), BufferMode::DoubleBuffer);
 }
 
-pub(super) fn check_double_buffer_mut<BUF>(
-    double_buffer: &[MemoryBufferMut<BUF>; 2],
+pub(super) fn check_double_buffer<'s, MemBuf, BUF>(
+    double_buffer: &'s [MemBuf; 2],
 ) where
+    MemBuf: AsImmutable<'s, Target = MemoryBuffer<'s, BUF>>,
     BUF: Payload,
 {
-    unsafe {
-        let [buffer_0, buffer_1] = double_buffer;
-        let double_buffer_immutable =
-            [buffer_0.as_immutable(), buffer_1.as_immutable()];
-
-        check_double_buffer(double_buffer_immutable);
-    }
-}
-
-pub(super) fn check_double_buffer<BUF>(double_buffer: [MemoryBuffer<BUF>; 2])
-where
-    BUF: Payload,
-{
+    let double_buffer = unsafe {
+        [
+            double_buffer[0].as_immutable(),
+            double_buffer[1].as_immutable(),
+        ]
+    };
     match double_buffer[0] {
         MemoryBuffer::Fixed(_) => {
             if let MemoryBuffer::Incremented(_) = double_buffer[1] {

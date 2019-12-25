@@ -25,12 +25,12 @@ use self::mux::{
     SyncEnabled, SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    check_double_buffer, check_double_buffer_mut,
-    check_double_buffer_stream_config, configure_safe_transfer,
-    double_buffer_idx, DoubleBuffer, ImmutableBuffer, ImmutableBufferStatic,
-    MemoryBuffer, MemoryBufferMut, MemoryBufferMutStatic, MemoryBufferStatic,
-    MutableBuffer, MutableBufferStatic, Ongoing, Payload,
-    PeripheralBufferMutStatic, PeripheralBufferStatic, Start, TransferState,
+    check_double_buffer, check_double_buffer_stream_config,
+    configure_safe_transfer, double_buffer_idx, DoubleBuffer, ImmutableBuffer,
+    ImmutableBufferStatic, MemoryBuffer, MemoryBufferMut,
+    MemoryBufferMutStatic, MemoryBufferStatic, MutableBuffer,
+    MutableBufferStatic, Ongoing, Payload, PeripheralBufferMutStatic,
+    PeripheralBufferStatic, Start, TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -1580,7 +1580,7 @@ where
         sources: [MemoryBufferStatic<Source>; 2],
         dest: PeripheralBufferMutStatic<'wo, Dest>,
     ) -> Self {
-        check_double_buffer(sources);
+        check_double_buffer(&sources);
 
         SafeTransferDoubleBufferR {
             sources,
@@ -1776,7 +1776,7 @@ where
         source: PeripheralBufferStatic<'wo, Source>,
         dests: [MemoryBufferMutStatic<Dest>; 2],
     ) -> Self {
-        check_double_buffer_mut(&dests);
+        check_double_buffer(&dests);
 
         SafeTransferDoubleBufferW {
             source,
