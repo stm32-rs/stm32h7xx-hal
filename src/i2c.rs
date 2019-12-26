@@ -58,6 +58,23 @@ pub trait I2cExt<I2C>: Sized {
         F: Into<Hertz>;
 }
 
+// Sequence to flush the TXDR register. This resets the TXIS and TXE
+// flags
+macro_rules! flush_txdr {
+    ($i2c:expr) => {
+        // If a pending TXIS flag is set, write dummy data to TXDR
+        if $i2c.isr.read().txis().bit_is_set() {
+            $i2c.txdr.write(|w| w.txdata().bits(0));
+        }
+
+        // If TXDR is not flagged as empty, write 1 to flush it
+        if $i2c.isr.read().txe().bit_is_clear() {
+            $i2c.isr.write(|w| w.txe().set_bit());
+        }
+    };
+}
+
+// Wait until specified flag is raised, or an error condition occours
 macro_rules! busy_wait {
     ($i2c:expr, $flag:ident) => {
         loop {
@@ -71,6 +88,7 @@ macro_rules! busy_wait {
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
                 $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+                flush_txdr!($i2c);
                 return Err(Error::NotAcknowledge);
             } else if isr.$flag().bit_is_set() {
                 break;
@@ -230,11 +248,11 @@ macro_rules! i2c {
                     });
 
                     for byte in bytes {
-                        // Wait until we are allowed to send data (START has been ACKed or last byte
-                        // when through)
+                        // Wait until we are allowed to send data
+                        // (START has been ACKed or last byte when
+                        // through)
                         busy_wait!(self.i2c, txis);
-
-                        // put byte on the wire
+                        // Put byte on the wire
                         self.i2c.txdr.write(|w| w.txdata().bits(*byte));
                     }
                     // automatic STOP
@@ -274,14 +292,14 @@ macro_rules! i2c {
                             .clear_bit()
 
                     });
-                    //busy_wait!(self.i2c, addr);
-                    for byte in bytes {
-                        // Wait until we are allowed to send data (START has been ACKed or last byte
-                        // when through)
-                        // put byte on the wire
-                        busy_wait!(self.i2c, txis);
-                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
 
+                    for byte in bytes {
+                        // Wait until we are allowed to send data
+                        // (START has been ACKed or last byte when
+                        // through)
+                        busy_wait!(self.i2c, txis);
+                        // Put byte on the wire
+                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
                     }
 
                     // Wait until the last transmission is finished
