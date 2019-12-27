@@ -19,6 +19,7 @@ exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
 features = ["stm32h743", "rt"]
+default-target = "thumbv7em-none-eabihf"
 
 [dependencies]
 embedded-hal = "0.2.3"
