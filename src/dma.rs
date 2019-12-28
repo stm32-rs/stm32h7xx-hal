@@ -20,7 +20,7 @@ use self::mux::request_ids::{
 };
 use self::mux::shared::{MuxIsr, RequestGenIsr};
 use self::mux::{
-    EgDisabled, EgED as EgEDTrait, EgEnabled, NbReq, OverrunError,
+    EgDisabled, EgED as EgEDTrait, EgEnabled, MuxShared, NbReq, OverrunError,
     RequestGenerator, RequestId, SyncDisabled, SyncED as SyncEDTrait,
     SyncEnabled, SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
@@ -49,7 +49,6 @@ use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::mem;
 // TODO: Remove when merging. Necessary for me as I'm using CLion with rust plugin, which doesn't support conditionally imported items yet.
-use crate::dma::mux::MuxShared;
 use stm32h7::stm32h743 as stm32;
 use stm32h7::stm32h743::DMAMUX1;
 
