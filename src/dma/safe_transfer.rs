@@ -126,28 +126,28 @@ pub trait AsImmutable<'s> {
 }
 
 #[derive(Clone, Copy)]
-pub enum ImmutableBuffer<'buf, 'wo, P>
+pub enum BufferR<'buf, 'wo, P>
 where
     P: Payload,
 {
-    Memory(MemoryBuffer<'buf, P>),
-    Peripheral(PeripheralBuffer<'buf, 'wo, P>),
+    Memory(MemoryBufferR<'buf, P>),
+    Peripheral(PeripheralBufferR<'buf, 'wo, P>),
 }
 
-impl<'buf, 'wo, P> ImmutableBuffer<'buf, 'wo, P>
+impl<'buf, 'wo, P> BufferR<'buf, 'wo, P>
 where
     P: Payload,
 {
-    pub fn memory(self) -> MemoryBuffer<'buf, P> {
-        if let ImmutableBuffer::Memory(buffer) = self {
+    pub fn memory(self) -> MemoryBufferR<'buf, P> {
+        if let BufferR::Memory(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a peripheral buffer.");
         }
     }
 
-    pub fn peripheral(self) -> PeripheralBuffer<'buf, 'wo, P> {
-        if let ImmutableBuffer::Peripheral(buffer) = self {
+    pub fn peripheral(self) -> PeripheralBufferR<'buf, 'wo, P> {
+        if let BufferR::Peripheral(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a memory buffer.");
@@ -155,65 +155,65 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for ImmutableBuffer<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for BufferR<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = ImmutableBuffer<'s, 's, P>;
+    type Target = BufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&self) -> ImmutableBuffer<P> {
+    unsafe fn as_immutable(&self) -> BufferR<P> {
         *self
     }
 }
 
-pub type ImmutableBufferStatic<'wo, P> = ImmutableBuffer<'static, 'wo, P>;
+pub type BufferRStatic<'wo, P> = BufferR<'static, 'wo, P>;
 
-pub enum MutableBuffer<'buf, 'wo, P>
+pub enum BufferW<'buf, 'wo, P>
 where
     P: Payload,
 {
-    Memory(MemoryBufferMut<'buf, P>),
-    Peripheral(PeripheralBufferMut<'buf, 'wo, P>),
+    Memory(MemoryBufferW<'buf, P>),
+    Peripheral(PeripheralBufferW<'buf, 'wo, P>),
 }
 
-impl<'buf, 'wo, P> MutableBuffer<'buf, 'wo, P>
+impl<'buf, 'wo, P> BufferW<'buf, 'wo, P>
 where
     P: Payload,
 {
-    pub fn into_memory(self) -> MemoryBufferMut<'buf, P> {
-        if let MutableBuffer::Memory(buffer) = self {
+    pub fn into_memory(self) -> MemoryBufferW<'buf, P> {
+        if let BufferW::Memory(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a peripheral buffer.");
         }
     }
 
-    pub fn as_memory(&self) -> &MemoryBufferMut<'buf, P> {
-        if let MutableBuffer::Memory(buffer) = self {
+    pub fn as_memory(&self) -> &MemoryBufferW<'buf, P> {
+        if let BufferW::Memory(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a peripheral buffer.");
         }
     }
 
-    pub fn as_mut_memory(&mut self) -> &mut MemoryBufferMut<'buf, P> {
-        if let MutableBuffer::Memory(buffer) = self {
+    pub fn as_mut_memory(&mut self) -> &mut MemoryBufferW<'buf, P> {
+        if let BufferW::Memory(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a peripheral buffer.");
         }
     }
 
-    pub fn into_peripheral(self) -> PeripheralBufferMut<'buf, 'wo, P> {
-        if let MutableBuffer::Peripheral(buffer) = self {
+    pub fn into_peripheral(self) -> PeripheralBufferW<'buf, 'wo, P> {
+        if let BufferW::Peripheral(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a memory buffer.");
         }
     }
 
-    pub fn as_peripheral(&self) -> &PeripheralBufferMut<'buf, 'wo, P> {
-        if let MutableBuffer::Peripheral(buffer) = self {
+    pub fn as_peripheral(&self) -> &PeripheralBufferW<'buf, 'wo, P> {
+        if let BufferW::Peripheral(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a memory buffer.");
@@ -222,8 +222,8 @@ where
 
     pub fn as_mut_peripheral(
         &mut self,
-    ) -> &mut PeripheralBufferMut<'buf, 'wo, P> {
-        if let MutableBuffer::Peripheral(buffer) = self {
+    ) -> &mut PeripheralBufferW<'buf, 'wo, P> {
+        if let BufferW::Peripheral(buffer) = self {
             buffer
         } else {
             panic!("The buffer is a memory buffer.");
@@ -231,49 +231,47 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for MutableBuffer<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for BufferW<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = ImmutableBuffer<'s, 's, P>;
+    type Target = BufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&'s self) -> ImmutableBuffer<P> {
+    unsafe fn as_immutable(&'s self) -> BufferR<P> {
         match self {
-            MutableBuffer::Memory(buffer) => {
-                ImmutableBuffer::Memory(buffer.as_immutable())
-            }
-            MutableBuffer::Peripheral(buffer) => {
-                ImmutableBuffer::Peripheral(buffer.as_immutable())
+            BufferW::Memory(buffer) => BufferR::Memory(buffer.as_immutable()),
+            BufferW::Peripheral(buffer) => {
+                BufferR::Peripheral(buffer.as_immutable())
             }
         }
     }
 }
 
-pub type MutableBufferStatic<'wo, P> = MutableBuffer<'static, 'wo, P>;
+pub type BufferWStatic<'wo, P> = BufferW<'static, 'wo, P>;
 
 #[derive(Clone, Copy)]
-pub enum MemoryBuffer<'buf, P>
+pub enum MemoryBufferR<'buf, P>
 where
     P: Payload,
 {
-    Fixed(FixedBuffer<'buf, P>),
-    Incremented(RegularOffsetBuffer<'buf, P>),
+    Fixed(FixedBufferR<'buf, P>),
+    Incremented(RegularOffsetBufferR<'buf, P>),
 }
 
-impl<'buf, P> MemoryBuffer<'buf, P>
+impl<'buf, P> MemoryBufferR<'buf, P>
 where
     P: Payload,
 {
-    pub fn fixed(self) -> FixedBuffer<'buf, P> {
-        if let MemoryBuffer::Fixed(buffer) = self {
+    pub fn fixed(self) -> FixedBufferR<'buf, P> {
+        if let MemoryBufferR::Fixed(buffer) = self {
             buffer
         } else {
             panic!("The buffer is incremented.");
         }
     }
 
-    pub fn incremented(self) -> RegularOffsetBuffer<'buf, P> {
-        if let MemoryBuffer::Incremented(buffer) = self {
+    pub fn incremented(self) -> RegularOffsetBufferR<'buf, P> {
+        if let MemoryBufferR::Incremented(buffer) = self {
             buffer
         } else {
             panic!("The buffer is fixed.");
@@ -281,65 +279,189 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for MemoryBuffer<'_, P>
+impl<'s, P> AsImmutable<'s> for MemoryBufferR<'_, P>
 where
     P: Payload,
 {
-    type Target = MemoryBuffer<'s, P>;
+    type Target = MemoryBufferR<'s, P>;
 
-    unsafe fn as_immutable(&self) -> MemoryBuffer<P> {
+    unsafe fn as_immutable(&self) -> MemoryBufferR<P> {
         *self
     }
 }
 
-pub type MemoryBufferStatic<P> = MemoryBuffer<'static, P>;
+pub type MemoryBufferRStatic<P> = MemoryBufferR<'static, P>;
 
-pub enum MemoryBufferMut<'buf, P>
+pub enum MemoryBufferW<'buf, P>
 where
     P: Payload,
 {
-    Fixed(FixedBufferMut<'buf, P>),
-    Incremented(RegularOffsetBufferMut<'buf, P>),
+    Fixed(FixedBufferW<'buf, P>),
+    Incremented(RegularOffsetBufferW<'buf, P>),
 }
 
-impl<'buf, P> MemoryBufferMut<'buf, P>
+impl<'buf, P> MemoryBufferW<'buf, P>
 where
     P: Payload,
 {
-    pub fn into_fixed(self) -> FixedBufferMut<'buf, P> {
-        if let MemoryBufferMut::Fixed(buffer) = self {
+    pub fn into_fixed(self) -> FixedBufferW<'buf, P> {
+        if let MemoryBufferW::Fixed(buffer) = self {
             buffer
         } else {
             panic!("The buffer is incremented.");
         }
     }
 
-    pub fn as_fixed(&self) -> &FixedBufferMut<'buf, P> {
-        if let MemoryBufferMut::Fixed(buffer) = self {
+    pub fn as_fixed(&self) -> &FixedBufferW<'buf, P> {
+        if let MemoryBufferW::Fixed(buffer) = self {
             buffer
         } else {
             panic!("The buffer is incremented.");
         }
     }
 
-    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferMut<'buf, P> {
-        if let MemoryBufferMut::Fixed(buffer) = self {
+    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferW<'buf, P> {
+        if let MemoryBufferW::Fixed(buffer) = self {
             buffer
         } else {
             panic!("The buffer is incremented.");
         }
     }
 
-    pub fn into_incremented(self) -> RegularOffsetBufferMut<'buf, P> {
-        if let MemoryBufferMut::Incremented(buffer) = self {
+    pub fn into_incremented(self) -> RegularOffsetBufferW<'buf, P> {
+        if let MemoryBufferW::Incremented(buffer) = self {
             buffer
         } else {
             panic!("The buffer is fixed.");
         }
     }
 
-    pub fn as_incremented(&self) -> &RegularOffsetBufferMut<'buf, P> {
-        if let MemoryBufferMut::Incremented(buffer) = self {
+    pub fn as_incremented(&self) -> &RegularOffsetBufferW<'buf, P> {
+        if let MemoryBufferW::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_mut_incremented(&mut self) -> &mut RegularOffsetBufferW<'buf, P> {
+        if let MemoryBufferW::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+impl<'s, P> AsImmutable<'s> for MemoryBufferW<'_, P>
+where
+    P: Payload,
+{
+    type Target = MemoryBufferR<'s, P>;
+
+    unsafe fn as_immutable(&self) -> MemoryBufferR<P> {
+        match self {
+            MemoryBufferW::Fixed(buffer) => {
+                MemoryBufferR::Fixed(buffer.as_immutable())
+            }
+            MemoryBufferW::Incremented(buffer) => {
+                MemoryBufferR::Incremented(buffer.as_immutable())
+            }
+        }
+    }
+}
+
+pub type MemoryBufferWStatic<P> = MemoryBufferW<'static, P>;
+
+#[derive(Clone, Copy)]
+pub enum PeripheralBufferR<'buf, 'wo, P>
+where
+    P: Payload,
+{
+    Fixed(FixedBufferR<'buf, P>),
+    Incremented(IncrementedBufferR<'buf, 'wo, P>),
+}
+
+impl<'buf, 'wo, P> PeripheralBufferR<'buf, 'wo, P>
+where
+    P: Payload,
+{
+    pub fn fixed(self) -> FixedBufferR<'buf, P> {
+        if let PeripheralBufferR::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn incremented(self) -> IncrementedBufferR<'buf, 'wo, P> {
+        if let PeripheralBufferR::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+}
+
+impl<'s, P> AsImmutable<'s> for PeripheralBufferR<'_, '_, P>
+where
+    P: Payload,
+{
+    type Target = PeripheralBufferR<'s, 's, P>;
+
+    unsafe fn as_immutable(&self) -> PeripheralBufferR<P> {
+        *self
+    }
+}
+
+pub type PeripheralBufferRStatic<'wo, P> = PeripheralBufferR<'static, 'wo, P>;
+
+pub enum PeripheralBufferW<'buf, 'wo, P>
+where
+    P: Payload,
+{
+    Fixed(FixedBufferW<'buf, P>),
+    Incremented(IncrementedBufferW<'buf, 'wo, P>),
+}
+
+impl<'buf, 'wo, P> PeripheralBufferW<'buf, 'wo, P>
+where
+    P: Payload,
+{
+    pub fn into_fixed(self) -> FixedBufferW<'buf, P> {
+        if let PeripheralBufferW::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_fixed(&self) -> &FixedBufferW<'buf, P> {
+        if let PeripheralBufferW::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferW<'buf, P> {
+        if let PeripheralBufferW::Fixed(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is incremented.");
+        }
+    }
+
+    pub fn into_incremented(self) -> IncrementedBufferW<'buf, 'wo, P> {
+        if let PeripheralBufferW::Incremented(buffer) = self {
+            buffer
+        } else {
+            panic!("The buffer is fixed.");
+        }
+    }
+
+    pub fn as_incremented(&self) -> &IncrementedBufferW<'buf, 'wo, P> {
+        if let PeripheralBufferW::Incremented(buffer) = self {
             buffer
         } else {
             panic!("The buffer is fixed.");
@@ -348,8 +470,8 @@ where
 
     pub fn as_mut_incremented(
         &mut self,
-    ) -> &mut RegularOffsetBufferMut<'buf, P> {
-        if let MemoryBufferMut::Incremented(buffer) = self {
+    ) -> &mut IncrementedBufferW<'buf, 'wo, P> {
+        if let PeripheralBufferW::Incremented(buffer) = self {
             buffer
         } else {
             panic!("The buffer is fixed.");
@@ -357,177 +479,50 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for MemoryBufferMut<'_, P>
+impl<'s, P> AsImmutable<'s> for PeripheralBufferW<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = MemoryBuffer<'s, P>;
+    type Target = PeripheralBufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&self) -> MemoryBuffer<P> {
+    unsafe fn as_immutable(&self) -> PeripheralBufferR<P> {
         match self {
-            MemoryBufferMut::Fixed(buffer) => {
-                MemoryBuffer::Fixed(buffer.as_immutable())
+            PeripheralBufferW::Fixed(buffer) => {
+                PeripheralBufferR::Fixed(buffer.as_immutable())
             }
-            MemoryBufferMut::Incremented(buffer) => {
-                MemoryBuffer::Incremented(buffer.as_immutable())
+            PeripheralBufferW::Incremented(buffer) => {
+                PeripheralBufferR::Incremented(buffer.as_immutable())
             }
         }
     }
 }
 
-pub type MemoryBufferMutStatic<P> = MemoryBufferMut<'static, P>;
+pub type PeripheralBufferWStatic<'wo, P> = PeripheralBufferW<'static, 'wo, P>;
 
 #[derive(Clone, Copy)]
-pub enum PeripheralBuffer<'buf, 'wo, P>
+pub enum IncrementedBufferR<'buf, 'wo, P>
 where
     P: Payload,
 {
-    Fixed(FixedBuffer<'buf, P>),
-    Incremented(IncrementedBuffer<'buf, 'wo, P>),
-}
-
-impl<'buf, 'wo, P> PeripheralBuffer<'buf, 'wo, P>
-where
-    P: Payload,
-{
-    pub fn fixed(self) -> FixedBuffer<'buf, P> {
-        if let PeripheralBuffer::Fixed(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is incremented.");
-        }
-    }
-
-    pub fn incremented(self) -> IncrementedBuffer<'buf, 'wo, P> {
-        if let PeripheralBuffer::Incremented(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is fixed.");
-        }
-    }
-}
-
-impl<'s, P> AsImmutable<'s> for PeripheralBuffer<'_, '_, P>
-where
-    P: Payload,
-{
-    type Target = PeripheralBuffer<'s, 's, P>;
-
-    unsafe fn as_immutable(&self) -> PeripheralBuffer<P> {
-        *self
-    }
-}
-
-pub type PeripheralBufferStatic<'wo, P> = PeripheralBuffer<'static, 'wo, P>;
-
-pub enum PeripheralBufferMut<'buf, 'wo, P>
-where
-    P: Payload,
-{
-    Fixed(FixedBufferMut<'buf, P>),
-    Incremented(IncrementedBufferMut<'buf, 'wo, P>),
-}
-
-impl<'buf, 'wo, P> PeripheralBufferMut<'buf, 'wo, P>
-where
-    P: Payload,
-{
-    pub fn into_fixed(self) -> FixedBufferMut<'buf, P> {
-        if let PeripheralBufferMut::Fixed(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is incremented.");
-        }
-    }
-
-    pub fn as_fixed(&self) -> &FixedBufferMut<'buf, P> {
-        if let PeripheralBufferMut::Fixed(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is incremented.");
-        }
-    }
-
-    pub fn as_mut_fixed(&mut self) -> &mut FixedBufferMut<'buf, P> {
-        if let PeripheralBufferMut::Fixed(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is incremented.");
-        }
-    }
-
-    pub fn into_incremented(self) -> IncrementedBufferMut<'buf, 'wo, P> {
-        if let PeripheralBufferMut::Incremented(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is fixed.");
-        }
-    }
-
-    pub fn as_incremented(&self) -> &IncrementedBufferMut<'buf, 'wo, P> {
-        if let PeripheralBufferMut::Incremented(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is fixed.");
-        }
-    }
-
-    pub fn as_mut_incremented(
-        &mut self,
-    ) -> &mut IncrementedBufferMut<'buf, 'wo, P> {
-        if let PeripheralBufferMut::Incremented(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is fixed.");
-        }
-    }
-}
-
-impl<'s, P> AsImmutable<'s> for PeripheralBufferMut<'_, '_, P>
-where
-    P: Payload,
-{
-    type Target = PeripheralBuffer<'s, 's, P>;
-
-    unsafe fn as_immutable(&self) -> PeripheralBuffer<P> {
-        match self {
-            PeripheralBufferMut::Fixed(buffer) => {
-                PeripheralBuffer::Fixed(buffer.as_immutable())
-            }
-            PeripheralBufferMut::Incremented(buffer) => {
-                PeripheralBuffer::Incremented(buffer.as_immutable())
-            }
-        }
-    }
-}
-
-pub type PeripheralBufferMutStatic<'wo, P> =
-    PeripheralBufferMut<'static, 'wo, P>;
-
-#[derive(Clone, Copy)]
-pub enum IncrementedBuffer<'buf, 'wo, P>
-where
-    P: Payload,
-{
-    RegularOffset(RegularOffsetBuffer<'buf, P>),
-    WordOffset(WordOffsetBuffer<'buf, 'wo, P>),
+    RegularOffset(RegularOffsetBufferR<'buf, P>),
+    WordOffset(WordOffsetBufferR<'buf, 'wo, P>),
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, 'wo, P> IncrementedBuffer<'buf, 'wo, P>
+impl<'buf, 'wo, P> IncrementedBufferR<'buf, 'wo, P>
 where
     P: Payload,
 {
-    pub fn regular_offset(self) -> RegularOffsetBuffer<'buf, P> {
-        if let IncrementedBuffer::RegularOffset(buffer) = self {
+    pub fn regular_offset(self) -> RegularOffsetBufferR<'buf, P> {
+        if let IncrementedBufferR::RegularOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has word offset.");
         }
     }
 
-    pub fn word_offset(self) -> WordOffsetBuffer<'buf, 'wo, P> {
-        if let IncrementedBuffer::WordOffset(buffer) = self {
+    pub fn word_offset(self) -> WordOffsetBufferR<'buf, 'wo, P> {
+        if let IncrementedBufferR::WordOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has regular offset.");
@@ -536,62 +531,62 @@ where
 
     pub fn len(self) -> usize {
         match self {
-            IncrementedBuffer::RegularOffset(buffer) => buffer.len(),
-            IncrementedBuffer::WordOffset(buffer) => buffer.len(),
+            IncrementedBufferR::RegularOffset(buffer) => buffer.len(),
+            IncrementedBufferR::WordOffset(buffer) => buffer.len(),
         }
     }
 
     pub fn get(self, index: usize) -> P {
         match self {
-            IncrementedBuffer::RegularOffset(buffer) => buffer.get(index),
-            IncrementedBuffer::WordOffset(buffer) => buffer.get(index),
+            IncrementedBufferR::RegularOffset(buffer) => buffer.get(index),
+            IncrementedBufferR::WordOffset(buffer) => buffer.get(index),
         }
     }
 
     pub fn as_ptr(&self, index: usize) -> *const P {
         match self {
-            IncrementedBuffer::RegularOffset(buffer) => buffer.as_ptr(index),
-            IncrementedBuffer::WordOffset(buffer) => buffer.as_ptr(index),
+            IncrementedBufferR::RegularOffset(buffer) => buffer.as_ptr(index),
+            IncrementedBufferR::WordOffset(buffer) => buffer.as_ptr(index),
         }
     }
 }
 
-impl<'s, P> AsImmutable<'s> for IncrementedBuffer<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for IncrementedBufferR<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = IncrementedBuffer<'s, 's, P>;
+    type Target = IncrementedBufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&self) -> IncrementedBuffer<P> {
+    unsafe fn as_immutable(&self) -> IncrementedBufferR<P> {
         *self
     }
 }
 
-pub type IncrementedBufferStatic<'wo, P> = IncrementedBuffer<'static, 'wo, P>;
+pub type IncrementedBufferRStatic<'wo, P> = IncrementedBufferR<'static, 'wo, P>;
 
-pub enum IncrementedBufferMut<'buf, 'wo, P>
+pub enum IncrementedBufferW<'buf, 'wo, P>
 where
     P: Payload,
 {
-    RegularOffset(RegularOffsetBufferMut<'buf, P>),
-    WordOffset(WordOffsetBufferMut<'buf, 'wo, P>),
+    RegularOffset(RegularOffsetBufferW<'buf, P>),
+    WordOffset(WordOffsetBufferW<'buf, 'wo, P>),
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, 'wo, P> IncrementedBufferMut<'buf, 'wo, P>
+impl<'buf, 'wo, P> IncrementedBufferW<'buf, 'wo, P>
 where
     P: Payload,
 {
-    pub fn into_regular_offset(self) -> RegularOffsetBufferMut<'buf, P> {
-        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+    pub fn into_regular_offset(self) -> RegularOffsetBufferW<'buf, P> {
+        if let IncrementedBufferW::RegularOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has word offset.");
         }
     }
 
-    pub fn as_regular_offset(&self) -> &RegularOffsetBufferMut<'buf, P> {
-        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+    pub fn as_regular_offset(&self) -> &RegularOffsetBufferW<'buf, P> {
+        if let IncrementedBufferW::RegularOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has word offset.");
@@ -600,24 +595,24 @@ where
 
     pub fn as_mut_regular_offset(
         &mut self,
-    ) -> &mut RegularOffsetBufferMut<'buf, P> {
-        if let IncrementedBufferMut::RegularOffset(buffer) = self {
+    ) -> &mut RegularOffsetBufferW<'buf, P> {
+        if let IncrementedBufferW::RegularOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has word offset.");
         }
     }
 
-    pub fn into_word_offset(self) -> WordOffsetBufferMut<'buf, 'wo, P> {
-        if let IncrementedBufferMut::WordOffset(buffer) = self {
+    pub fn into_word_offset(self) -> WordOffsetBufferW<'buf, 'wo, P> {
+        if let IncrementedBufferW::WordOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has regular offset.");
         }
     }
 
-    pub fn as_word_offset(&self) -> &WordOffsetBufferMut<'buf, 'wo, P> {
-        if let IncrementedBufferMut::WordOffset(buffer) = self {
+    pub fn as_word_offset(&self) -> &WordOffsetBufferW<'buf, 'wo, P> {
+        if let IncrementedBufferW::WordOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has regular offset.");
@@ -626,8 +621,8 @@ where
 
     pub fn as_mut_word_offset(
         &mut self,
-    ) -> &mut WordOffsetBufferMut<'buf, 'wo, P> {
-        if let IncrementedBufferMut::WordOffset(buffer) = self {
+    ) -> &mut WordOffsetBufferW<'buf, 'wo, P> {
+        if let IncrementedBufferW::WordOffset(buffer) = self {
             buffer
         } else {
             panic!("The buffer has regular offset.");
@@ -636,8 +631,8 @@ where
 
     pub fn len(&self) -> usize {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => buffer.len(),
-            IncrementedBufferMut::WordOffset(buffer) => buffer.len(),
+            IncrementedBufferW::RegularOffset(buffer) => buffer.len(),
+            IncrementedBufferW::WordOffset(buffer) => buffer.len(),
         }
     }
 
@@ -646,8 +641,8 @@ where
     /// The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn get(&self, index: usize) -> P {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => buffer.get(index),
-            IncrementedBufferMut::WordOffset(buffer) => buffer.get(index),
+            IncrementedBufferW::RegularOffset(buffer) => buffer.get(index),
+            IncrementedBufferW::WordOffset(buffer) => buffer.get(index),
         }
     }
 
@@ -656,10 +651,10 @@ where
     /// The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn set(&mut self, index: usize, payload: P) {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => {
+            IncrementedBufferW::RegularOffset(buffer) => {
                 buffer.set(index, payload)
             }
-            IncrementedBufferMut::WordOffset(buffer) => {
+            IncrementedBufferW::WordOffset(buffer) => {
                 buffer.set(index, payload)
             }
         }
@@ -667,59 +662,56 @@ where
 
     pub fn as_ptr(&self, index: usize) -> *const P {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => buffer.as_ptr(index),
-            IncrementedBufferMut::WordOffset(buffer) => buffer.as_ptr(index),
+            IncrementedBufferW::RegularOffset(buffer) => buffer.as_ptr(index),
+            IncrementedBufferW::WordOffset(buffer) => buffer.as_ptr(index),
         }
     }
 
     pub fn as_mut_ptr(&mut self, index: usize) -> *mut P {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => {
+            IncrementedBufferW::RegularOffset(buffer) => {
                 buffer.as_mut_ptr(index)
             }
-            IncrementedBufferMut::WordOffset(buffer) => {
-                buffer.as_mut_ptr(index)
-            }
+            IncrementedBufferW::WordOffset(buffer) => buffer.as_mut_ptr(index),
         }
     }
 }
 
-impl<'s, P> AsImmutable<'s> for IncrementedBufferMut<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for IncrementedBufferW<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = IncrementedBuffer<'s, 's, P>;
+    type Target = IncrementedBufferR<'s, 's, P>;
 
     /// # Safety
     ///
     /// `IncrementedBuffer` assumes that the DMA is only reading the buffer.
     /// Therefore the getters of the immutable version are as unsafe as the getters of this struct.
-    unsafe fn as_immutable(&self) -> IncrementedBuffer<P> {
+    unsafe fn as_immutable(&self) -> IncrementedBufferR<P> {
         match self {
-            IncrementedBufferMut::RegularOffset(buffer) => {
-                IncrementedBuffer::RegularOffset(buffer.as_immutable())
+            IncrementedBufferW::RegularOffset(buffer) => {
+                IncrementedBufferR::RegularOffset(buffer.as_immutable())
             }
-            IncrementedBufferMut::WordOffset(buffer) => {
-                IncrementedBuffer::WordOffset(buffer.as_immutable())
+            IncrementedBufferW::WordOffset(buffer) => {
+                IncrementedBufferR::WordOffset(buffer.as_immutable())
             }
         }
     }
 }
 
-pub type IncrementedBufferMutStatic<'wo, P> =
-    IncrementedBufferMut<'static, 'wo, P>;
+pub type IncrementedBufferWStatic<'wo, P> = IncrementedBufferW<'static, 'wo, P>;
 
 #[derive(Clone, Copy)]
-pub struct FixedBuffer<'buf, P>(*const P, PhantomData<&'buf P>)
+pub struct FixedBufferR<'buf, P>(*const P, PhantomData<&'buf P>)
 where
     P: Payload;
 
-impl<'buf, P> FixedBuffer<'buf, P>
+impl<'buf, P> FixedBufferR<'buf, P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'buf P) -> Self {
-        FixedBuffer(buffer, PhantomData)
+        FixedBufferR(buffer, PhantomData)
     }
 
     pub fn get(self) -> P {
@@ -731,33 +723,33 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for FixedBuffer<'_, P>
+impl<'s, P> AsImmutable<'s> for FixedBufferR<'_, P>
 where
     P: Payload,
 {
-    type Target = FixedBuffer<'s, P>;
+    type Target = FixedBufferR<'s, P>;
 
-    unsafe fn as_immutable(&self) -> FixedBuffer<P> {
+    unsafe fn as_immutable(&self) -> FixedBufferR<P> {
         *self
     }
 }
 
-unsafe impl<P> Send for FixedBuffer<'_, P> where P: Payload {}
+unsafe impl<P> Send for FixedBufferR<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for FixedBuffer<'_, P> where P: Payload {}
+unsafe impl<P> Sync for FixedBufferR<'_, P> where P: Payload {}
 
-pub type FixedBufferStatic<P> = FixedBuffer<'static, P>;
+pub type FixedBufferRStatic<P> = FixedBufferR<'static, P>;
 
-pub struct FixedBufferMut<'buf, P>(*mut P, PhantomData<&'buf mut P>)
+pub struct FixedBufferW<'buf, P>(*mut P, PhantomData<&'buf mut P>)
 where
     P: Payload;
 
-impl<'buf, P> FixedBufferMut<'buf, P>
+impl<'buf, P> FixedBufferW<'buf, P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'buf mut P) -> Self {
-        FixedBufferMut(buffer, PhantomData)
+        FixedBufferW(buffer, PhantomData)
     }
 
     /// # Safety
@@ -783,37 +775,37 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for FixedBufferMut<'_, P>
+impl<'s, P> AsImmutable<'s> for FixedBufferW<'_, P>
 where
     P: Payload,
 {
-    type Target = FixedBuffer<'s, P>;
+    type Target = FixedBufferR<'s, P>;
 
-    unsafe fn as_immutable(&self) -> FixedBuffer<P> {
-        FixedBuffer(self.0, PhantomData)
+    unsafe fn as_immutable(&self) -> FixedBufferR<P> {
+        FixedBufferR(self.0, PhantomData)
     }
 }
 
-unsafe impl<P> Send for FixedBufferMut<'_, P> where P: Payload {}
+unsafe impl<P> Send for FixedBufferW<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for FixedBufferMut<'_, P> where P: Payload {}
+unsafe impl<P> Sync for FixedBufferW<'_, P> where P: Payload {}
 
-pub type FixedBufferMutStatic<P> = FixedBufferMut<'static, P>;
+pub type FixedBufferWStatic<P> = FixedBufferW<'static, P>;
 
 #[derive(Clone, Copy)]
-pub struct RegularOffsetBuffer<'buf, P>(*const [P], PhantomData<&'buf P>)
+pub struct RegularOffsetBufferR<'buf, P>(*const [P], PhantomData<&'buf P>)
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, P> RegularOffsetBuffer<'buf, P>
+impl<'buf, P> RegularOffsetBufferR<'buf, P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'buf [P]) -> Self {
         check_buffer_not_empty(buffer);
 
-        RegularOffsetBuffer(buffer, PhantomData)
+        RegularOffsetBufferR(buffer, PhantomData)
     }
 
     pub fn get(self, index: usize) -> P {
@@ -835,36 +827,36 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for RegularOffsetBuffer<'_, P>
+impl<'s, P> AsImmutable<'s> for RegularOffsetBufferR<'_, P>
 where
     P: Payload,
 {
-    type Target = RegularOffsetBuffer<'s, P>;
+    type Target = RegularOffsetBufferR<'s, P>;
 
-    unsafe fn as_immutable(&self) -> RegularOffsetBuffer<P> {
+    unsafe fn as_immutable(&self) -> RegularOffsetBufferR<P> {
         *self
     }
 }
 
-unsafe impl<P> Send for RegularOffsetBuffer<'_, P> where P: Payload {}
+unsafe impl<P> Send for RegularOffsetBufferR<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for RegularOffsetBuffer<'_, P> where P: Payload {}
+unsafe impl<P> Sync for RegularOffsetBufferR<'_, P> where P: Payload {}
 
-pub type RegularOffsetBufferStatic<P> = RegularOffsetBuffer<'static, P>;
+pub type RegularOffsetBufferRStatic<P> = RegularOffsetBufferR<'static, P>;
 
-pub struct RegularOffsetBufferMut<'buf, P>(*mut [P], PhantomData<&'buf mut P>)
+pub struct RegularOffsetBufferW<'buf, P>(*mut [P], PhantomData<&'buf mut P>)
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, P> RegularOffsetBufferMut<'buf, P>
+impl<'buf, P> RegularOffsetBufferW<'buf, P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'buf mut [P]) -> Self {
         check_buffer_not_empty(buffer);
 
-        RegularOffsetBufferMut(buffer, PhantomData)
+        RegularOffsetBufferW(buffer, PhantomData)
     }
 
     /// # Safety
@@ -904,22 +896,22 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for RegularOffsetBufferMut<'_, P>
+impl<'s, P> AsImmutable<'s> for RegularOffsetBufferW<'_, P>
 where
     P: Payload,
 {
-    type Target = RegularOffsetBuffer<'s, P>;
+    type Target = RegularOffsetBufferR<'s, P>;
 
-    unsafe fn as_immutable(&self) -> RegularOffsetBuffer<P> {
-        RegularOffsetBuffer(self.0, PhantomData)
+    unsafe fn as_immutable(&self) -> RegularOffsetBufferR<P> {
+        RegularOffsetBufferR(self.0, PhantomData)
     }
 }
 
-unsafe impl<P> Send for RegularOffsetBufferMut<'_, P> where P: Payload {}
+unsafe impl<P> Send for RegularOffsetBufferW<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for RegularOffsetBufferMut<'_, P> where P: Payload {}
+unsafe impl<P> Sync for RegularOffsetBufferW<'_, P> where P: Payload {}
 
-pub type RegularOffsetBufferMutStatic<P> = RegularOffsetBufferMut<'static, P>;
+pub type RegularOffsetBufferWStatic<P> = RegularOffsetBufferW<'static, P>;
 
 unsafe fn read_volatile_slice_buffer<P>(
     slice_ptr: *const [P],
@@ -933,7 +925,7 @@ where
 }
 
 #[derive(Clone, Copy)]
-pub struct WordOffsetBuffer<'buf, 'wo, P>(
+pub struct WordOffsetBufferR<'buf, 'wo, P>(
     &'wo [*const P],
     PhantomData<&'buf P>,
 )
@@ -941,7 +933,7 @@ where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, 'wo, P> WordOffsetBuffer<'buf, 'wo, P>
+impl<'buf, 'wo, P> WordOffsetBufferR<'buf, 'wo, P>
 where
     P: Payload,
 {
@@ -952,7 +944,7 @@ where
 
         check_word_offset(buffer);
 
-        WordOffsetBuffer(buffer, PhantomData)
+        WordOffsetBufferR(buffer, PhantomData)
     }
 
     pub fn get(self, index: usize) -> P {
@@ -968,30 +960,30 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for WordOffsetBuffer<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for WordOffsetBufferR<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = WordOffsetBuffer<'s, 's, P>;
+    type Target = WordOffsetBufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&self) -> WordOffsetBuffer<P> {
+    unsafe fn as_immutable(&self) -> WordOffsetBufferR<P> {
         *self
     }
 }
 
-unsafe impl<'buf, 'wo, P> Send for WordOffsetBuffer<'buf, 'wo, P> where
+unsafe impl<'buf, 'wo, P> Send for WordOffsetBufferR<'buf, 'wo, P> where
     P: Payload
 {
 }
 
-unsafe impl<'buf, 'wo, P> Sync for WordOffsetBuffer<'buf, 'wo, P> where
+unsafe impl<'buf, 'wo, P> Sync for WordOffsetBufferR<'buf, 'wo, P> where
     P: Payload
 {
 }
 
-pub type WordOffsetBufferStatic<'wo, P> = WordOffsetBuffer<'static, 'wo, P>;
+pub type WordOffsetBufferRStatic<'wo, P> = WordOffsetBufferR<'static, 'wo, P>;
 
-pub struct WordOffsetBufferMut<'buf, 'wo, P>(
+pub struct WordOffsetBufferW<'buf, 'wo, P>(
     &'wo mut [*mut P],
     PhantomData<&'buf mut P>,
 )
@@ -999,7 +991,7 @@ where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'buf, 'wo, P> WordOffsetBufferMut<'buf, 'wo, P>
+impl<'buf, 'wo, P> WordOffsetBufferW<'buf, 'wo, P>
 where
     P: Payload,
 {
@@ -1009,7 +1001,7 @@ where
         unsafe {
             check_word_offset::<P>(&*(buffer as *const _ as *const _));
 
-            WordOffsetBufferMut(&mut *(buffer as *mut _ as *mut _), PhantomData)
+            WordOffsetBufferW(&mut *(buffer as *mut _ as *mut _), PhantomData)
         }
     }
 
@@ -1040,23 +1032,22 @@ where
     }
 }
 
-impl<'s, P> AsImmutable<'s> for WordOffsetBufferMut<'_, '_, P>
+impl<'s, P> AsImmutable<'s> for WordOffsetBufferW<'_, '_, P>
 where
     P: Payload,
 {
-    type Target = WordOffsetBuffer<'s, 's, P>;
+    type Target = WordOffsetBufferR<'s, 's, P>;
 
-    unsafe fn as_immutable(&self) -> WordOffsetBuffer<P> {
-        WordOffsetBuffer(&*(self.0 as *const _ as *const _), PhantomData)
+    unsafe fn as_immutable(&self) -> WordOffsetBufferR<P> {
+        WordOffsetBufferR(&*(self.0 as *const _ as *const _), PhantomData)
     }
 }
 
-unsafe impl<P> Send for WordOffsetBufferMut<'_, '_, P> where P: Payload {}
+unsafe impl<P> Send for WordOffsetBufferW<'_, '_, P> where P: Payload {}
 
-unsafe impl<P> Sync for WordOffsetBufferMut<'_, '_, P> where P: Payload {}
+unsafe impl<P> Sync for WordOffsetBufferW<'_, '_, P> where P: Payload {}
 
-pub type WordOffsetBufferMutStatic<'wo, P> =
-    WordOffsetBufferMut<'static, 'wo, P>;
+pub type WordOffsetBufferWStatic<'wo, P> = WordOffsetBufferW<'static, 'wo, P>;
 
 fn check_buffer_not_empty<P>(buffer: &[P]) {
     if buffer.is_empty() {
@@ -1101,8 +1092,8 @@ where
 /// - `Ndt`
 pub(super) fn configure_safe_transfer<CXX, DMA, Source, Dest>(
     stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
-    source: ImmutableBuffer<Source>,
-    dest: &MutableBuffer<Dest>,
+    source: BufferR<Source>,
+    dest: &BufferW<Dest>,
 ) where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
@@ -1126,8 +1117,8 @@ pub(super) fn configure_safe_transfer<CXX, DMA, Source, Dest>(
 
 fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
-    peripheral: PeripheralBuffer<Peripheral>,
-    memory: MemoryBuffer<Memory>,
+    peripheral: PeripheralBufferR<Peripheral>,
+    memory: MemoryBufferR<Memory>,
 ) where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
@@ -1145,17 +1136,17 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     stream.set_m_size(m_size.into());
 
     match peripheral {
-        PeripheralBuffer::Fixed(buffer) => {
+        PeripheralBufferR::Fixed(buffer) => {
             stream.set_pa(Pa(buffer.as_ptr() as u32));
             stream.set_pinc(Pinc::Fixed);
         }
-        PeripheralBuffer::Incremented(buffer) => match buffer {
-            IncrementedBuffer::RegularOffset(buffer) => {
+        PeripheralBufferR::Incremented(buffer) => match buffer {
+            IncrementedBufferR::RegularOffset(buffer) => {
                 stream.set_pa(Pa(buffer.as_ptr(0) as u32));
                 stream.set_pinc(Pinc::Incremented);
                 stream.set_pincos(Pincos::PSize);
             }
-            IncrementedBuffer::WordOffset(buffer) => {
+            IncrementedBufferR::WordOffset(buffer) => {
                 stream.set_pa(Pa(buffer.as_ptr(0) as u32));
                 stream.set_pinc(Pinc::Incremented);
                 stream.set_pincos(Pincos::Word);
@@ -1164,11 +1155,11 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
     }
 
     match memory {
-        MemoryBuffer::Fixed(buffer) => {
+        MemoryBufferR::Fixed(buffer) => {
             stream.set_m0a(M0a(buffer.as_ptr() as u32));
             stream.set_minc(Minc::Fixed);
         }
-        MemoryBuffer::Incremented(buffer) => {
+        MemoryBufferR::Incremented(buffer) => {
             stream.set_m0a(M0a(buffer.as_ptr(0) as u32));
             stream.set_minc(Minc::Incremented);
         }
@@ -1179,8 +1170,8 @@ fn configure_buffers<CXX, DMA, Peripheral, Memory>(
 
 fn configure_ndt<CXX, DMA, Peripheral, Memory>(
     stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
-    peripheral: PeripheralBuffer<Peripheral>,
-    memory: MemoryBuffer<Memory>,
+    peripheral: PeripheralBufferR<Peripheral>,
+    memory: MemoryBufferR<Memory>,
 ) where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
@@ -1188,12 +1179,12 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
     Memory: Payload,
 {
     match peripheral {
-        PeripheralBuffer::Fixed(_) => {
+        PeripheralBufferR::Fixed(_) => {
             match memory {
-                MemoryBuffer::Fixed(_) => {
+                MemoryBufferR::Fixed(_) => {
                     // NDT must be configured in advance
                 }
-                MemoryBuffer::Incremented(buffer) => {
+                MemoryBufferR::Incremented(buffer) => {
                     let p_size: usize =
                         PayloadSize::from_payload::<Peripheral>().into();
                     let m_size: usize =
@@ -1210,7 +1201,7 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
                 }
             }
         }
-        PeripheralBuffer::Incremented(buffer) => {
+        PeripheralBufferR::Incremented(buffer) => {
             let ndt = u16::try_from(buffer.len()).unwrap();
             stream.set_ndt(Ndt(ndt));
         }
@@ -1236,7 +1227,7 @@ pub(super) fn check_double_buffer_stream_config<CXX, DMA>(
 
 pub(super) fn check_double_buffer<'s, MemBuf, P>(double_buffer: &'s [MemBuf; 2])
 where
-    MemBuf: AsImmutable<'s, Target = MemoryBuffer<'s, P>>,
+    MemBuf: AsImmutable<'s, Target = MemoryBufferR<'s, P>>,
     P: Payload,
 {
     let double_buffer = unsafe {
@@ -1246,13 +1237,13 @@ where
         ]
     };
     match double_buffer[0] {
-        MemoryBuffer::Fixed(_) => {
-            if let MemoryBuffer::Incremented(_) = double_buffer[1] {
+        MemoryBufferR::Fixed(_) => {
+            if let MemoryBufferR::Incremented(_) = double_buffer[1] {
                 panic!("Invalid double buffer config: First buffer `Fixed`, second buffer `Incremented`.");
             }
         }
-        MemoryBuffer::Incremented(buffer_0) => {
-            if let MemoryBuffer::Fixed(_) = double_buffer[1] {
+        MemoryBufferR::Incremented(buffer_0) => {
+            if let MemoryBufferR::Fixed(_) = double_buffer[1] {
                 panic!("Invalid double buffer config: First buffer `Incremented`, second buffer `Fixed`.");
             }
 
@@ -1273,19 +1264,19 @@ pub(super) fn first_ptr_from_buffer<'s, ImmutBuf, P>(
     buffer: &'s ImmutBuf,
 ) -> *const P
 where
-    ImmutBuf: AsImmutable<'s, Target = ImmutableBuffer<'s, 's, P>>,
+    ImmutBuf: AsImmutable<'s, Target = BufferR<'s, 's, P>>,
     P: Payload,
 {
     let buffer = unsafe { buffer.as_immutable() };
 
     match buffer {
-        ImmutableBuffer::Peripheral(buffer) => match buffer {
-            PeripheralBuffer::Fixed(buffer) => buffer.as_ptr(),
-            PeripheralBuffer::Incremented(buffer) => buffer.as_ptr(0),
+        BufferR::Peripheral(buffer) => match buffer {
+            PeripheralBufferR::Fixed(buffer) => buffer.as_ptr(),
+            PeripheralBufferR::Incremented(buffer) => buffer.as_ptr(0),
         },
-        ImmutableBuffer::Memory(buffer) => match buffer {
-            MemoryBuffer::Fixed(buffer) => buffer.as_ptr(),
-            MemoryBuffer::Incremented(buffer) => buffer.as_ptr(0),
+        BufferR::Memory(buffer) => match buffer {
+            MemoryBufferR::Fixed(buffer) => buffer.as_ptr(),
+            MemoryBufferR::Incremented(buffer) => buffer.as_ptr(0),
         },
     }
 }

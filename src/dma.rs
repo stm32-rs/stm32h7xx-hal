@@ -26,10 +26,10 @@ use self::mux::{
 };
 use self::safe_transfer::{
     check_double_buffer, check_double_buffer_stream_config,
-    configure_safe_transfer, first_ptr_from_buffer, ImmutableBuffer,
-    ImmutableBufferStatic, MemoryBufferMutStatic, MemoryBufferStatic,
-    MutableBuffer, MutableBufferStatic, Ongoing, Payload,
-    PeripheralBufferMutStatic, PeripheralBufferStatic, Start, TransferState,
+    configure_safe_transfer, first_ptr_from_buffer, BufferR, BufferRStatic,
+    BufferW, BufferWStatic, MemoryBufferRStatic, MemoryBufferWStatic, Ongoing,
+    Payload, PeripheralBufferRStatic, PeripheralBufferWStatic, Start,
+    TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -1396,8 +1396,8 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    source: ImmutableBufferStatic<'wo, Source>,
-    dest: MutableBufferStatic<'wo, Dest>,
+    source: BufferRStatic<'wo, Source>,
+    dest: BufferWStatic<'wo, Dest>,
     state: State,
 }
 
@@ -1407,8 +1407,8 @@ where
     Dest: Payload,
 {
     pub fn new(
-        source: ImmutableBufferStatic<'wo, Source>,
-        dest: MutableBufferStatic<'wo, Dest>,
+        source: BufferRStatic<'wo, Source>,
+        dest: BufferWStatic<'wo, Dest>,
     ) -> Self {
         SafeTransfer {
             source,
@@ -1424,11 +1424,11 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    pub fn source(&self) -> ImmutableBufferStatic<'wo, Source> {
+    pub fn source(&self) -> BufferRStatic<'wo, Source> {
         self.source
     }
 
-    pub fn dest(&self) -> &MutableBufferStatic<'wo, Dest> {
+    pub fn dest(&self) -> &BufferWStatic<'wo, Dest> {
         &self.dest
     }
 
@@ -1437,10 +1437,10 @@ where
     /// The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn set_dest_fixed(&mut self, payload: Dest) {
         match &mut self.dest {
-            MutableBuffer::Peripheral(buffer) => {
+            BufferW::Peripheral(buffer) => {
                 buffer.as_mut_fixed().set(payload);
             }
-            MutableBuffer::Memory(buffer) => {
+            BufferW::Memory(buffer) => {
                 buffer.as_mut_fixed().set(payload);
             }
         }
@@ -1451,10 +1451,10 @@ where
     /// The caller must ensure, that the DMA is currently not modifying this address.
     pub unsafe fn set_dest_incremented(&mut self, index: usize, payload: Dest) {
         match &mut self.dest {
-            MutableBuffer::Peripheral(buffer) => {
+            BufferW::Peripheral(buffer) => {
                 buffer.as_mut_incremented().set(index, payload);
             }
-            MutableBuffer::Memory(buffer) => {
+            BufferW::Memory(buffer) => {
                 buffer.as_mut_incremented().set(index, payload);
             }
         }
@@ -1462,19 +1462,17 @@ where
 
     pub fn dest_ptr_fixed(&mut self) -> *mut Dest {
         match &mut self.dest {
-            MutableBuffer::Peripheral(buffer) => {
-                buffer.as_mut_fixed().as_mut_ptr()
-            }
-            MutableBuffer::Memory(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
+            BufferW::Peripheral(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
+            BufferW::Memory(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
         }
     }
 
     pub fn dest_ptr_incremented(&mut self, index: usize) -> *mut Dest {
         match &mut self.dest {
-            MutableBuffer::Peripheral(buffer) => {
+            BufferW::Peripheral(buffer) => {
                 buffer.as_mut_incremented().as_mut_ptr(index)
             }
-            MutableBuffer::Memory(buffer) => {
+            BufferW::Memory(buffer) => {
                 buffer.as_mut_incremented().as_mut_ptr(index)
             }
         }
@@ -1564,8 +1562,8 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    sources: [MemoryBufferStatic<Source>; 2],
-    dest: PeripheralBufferMutStatic<'wo, Dest>,
+    sources: [MemoryBufferRStatic<Source>; 2],
+    dest: PeripheralBufferWStatic<'wo, Dest>,
     state: State,
 }
 
@@ -1575,8 +1573,8 @@ where
     Dest: Payload,
 {
     pub fn new(
-        sources: [MemoryBufferStatic<Source>; 2],
-        dest: PeripheralBufferMutStatic<'wo, Dest>,
+        sources: [MemoryBufferRStatic<Source>; 2],
+        dest: PeripheralBufferWStatic<'wo, Dest>,
     ) -> Self {
         check_double_buffer(&sources);
 
@@ -1595,11 +1593,11 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    pub fn sources(&self) -> [MemoryBufferStatic<Source>; 2] {
+    pub fn sources(&self) -> [MemoryBufferRStatic<Source>; 2] {
         self.sources
     }
 
-    pub fn dest(&self) -> &PeripheralBufferMutStatic<'wo, Dest> {
+    pub fn dest(&self) -> &PeripheralBufferWStatic<'wo, Dest> {
         &self.dest
     }
 
@@ -1641,11 +1639,11 @@ where
     {
         check_double_buffer_stream_config(&stream);
 
-        let dest_buffer = MutableBuffer::Peripheral(self.dest);
+        let dest_buffer = BufferW::Peripheral(self.dest);
 
         configure_safe_transfer(
             &mut stream,
-            ImmutableBuffer::Memory(self.sources[0]),
+            BufferR::Memory(self.sources[0]),
             &dest_buffer,
         );
         stream.set_buffer_mode(BufferMode::DoubleBuffer);
@@ -1708,8 +1706,8 @@ where
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
-    pub fn set_m0a(&mut self, m0a: MemoryBufferStatic<Source>) {
-        let ptr = first_ptr_from_buffer(&ImmutableBuffer::Memory(m0a));
+    pub fn set_m0a(&mut self, m0a: MemoryBufferRStatic<Source>) {
+        let ptr = first_ptr_from_buffer(&BufferR::Memory(m0a));
 
         mem::replace(&mut self.sources[0], m0a);
 
@@ -1718,8 +1716,8 @@ where
         block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
     }
 
-    pub fn set_m1a(&mut self, m1a: MemoryBufferStatic<Source>) {
-        let ptr = first_ptr_from_buffer(&ImmutableBuffer::Memory(m1a));
+    pub fn set_m1a(&mut self, m1a: MemoryBufferRStatic<Source>) {
+        let ptr = first_ptr_from_buffer(&BufferR::Memory(m1a));
 
         mem::replace(&mut self.sources[1], m1a);
 
@@ -1740,8 +1738,8 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    source: PeripheralBufferStatic<'wo, Source>,
-    dests: [MemoryBufferMutStatic<Dest>; 2],
+    source: PeripheralBufferRStatic<'wo, Source>,
+    dests: [MemoryBufferWStatic<Dest>; 2],
     state: State,
 }
 
@@ -1751,8 +1749,8 @@ where
     Dest: Payload,
 {
     pub fn new(
-        source: PeripheralBufferStatic<'wo, Source>,
-        dests: [MemoryBufferMutStatic<Dest>; 2],
+        source: PeripheralBufferRStatic<'wo, Source>,
+        dests: [MemoryBufferWStatic<Dest>; 2],
     ) -> Self {
         check_double_buffer(&dests);
 
@@ -1771,11 +1769,11 @@ where
     Dest: Payload,
     State: TransferState,
 {
-    pub fn source(&self) -> PeripheralBufferStatic<'wo, Source> {
+    pub fn source(&self) -> PeripheralBufferRStatic<'wo, Source> {
         self.source
     }
 
-    pub fn dest(&self) -> &[MemoryBufferMutStatic<Dest>; 2] {
+    pub fn dest(&self) -> &[MemoryBufferWStatic<Dest>; 2] {
         &self.dests
     }
 
@@ -1848,11 +1846,11 @@ where
         check_double_buffer_stream_config(&stream);
 
         let [dest_buffer_0, dest_buffer_1] = self.dests;
-        let dest_buffer_0 = MutableBuffer::Memory(dest_buffer_0);
+        let dest_buffer_0 = BufferW::Memory(dest_buffer_0);
 
         configure_safe_transfer(
             &mut stream,
-            ImmutableBuffer::Peripheral(self.source),
+            BufferR::Peripheral(self.source),
             &dest_buffer_0,
         );
         stream.set_buffer_mode(BufferMode::DoubleBuffer);
@@ -1915,8 +1913,8 @@ where
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
-    pub fn set_m0a(&mut self, m0a: MemoryBufferMutStatic<Dest>) {
-        let m0a = MutableBuffer::Memory(m0a);
+    pub fn set_m0a(&mut self, m0a: MemoryBufferWStatic<Dest>) {
+        let m0a = BufferW::Memory(m0a);
         let ptr = first_ptr_from_buffer(&m0a);
         let m0a = m0a.into_memory();
 
@@ -1927,8 +1925,8 @@ where
         block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
     }
 
-    pub fn set_m1a(&mut self, m1a: MemoryBufferMutStatic<Dest>) {
-        let m1a = MutableBuffer::Memory(m1a);
+    pub fn set_m1a(&mut self, m1a: MemoryBufferWStatic<Dest>) {
+        let m1a = BufferW::Memory(m1a);
         let ptr = first_ptr_from_buffer(&m1a);
         let m1a = m1a.into_memory();
 
