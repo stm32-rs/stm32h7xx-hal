@@ -25,11 +25,10 @@ use self::mux::{
     SyncEnabled, SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    check_double_buffer, check_double_buffer_stream_config,
-    configure_safe_transfer, first_ptr_from_buffer, BufferR, BufferRStatic,
-    BufferW, BufferWStatic, MemoryBufferRStatic, MemoryBufferWStatic, Ongoing,
-    Payload, PeripheralBufferRStatic, PeripheralBufferWStatic, Start,
-    TransferState,
+    check_buffer, check_double_buffer, configure_safe_transfer, mut_ptr_memory,
+    mut_ptr_peripheral, set_memory_impl, set_peripheral_impl, DoubleBuffer,
+    MemoryBufferStatic, Ongoing, Payload, PayloadPort, PeripheralBufferStatic,
+    PointerPort, Start, TransferState,
 };
 use self::stm32::dma1::ST;
 use self::stm32::dmamux1::CCR;
@@ -513,20 +512,11 @@ where
     }
 
     pub fn effective_circular_mode(&self) -> CircularMode {
-        if !self.circular_mode_possible() {
-            CircularMode::Disabled
-        } else if self.buffer_mode() == BufferMode::DoubleBuffer {
+        if self.buffer_mode() == BufferMode::DoubleBuffer {
             CircularMode::Enabled
         } else {
             self.circular_mode()
         }
-    }
-
-    fn circular_mode_possible(&self) -> bool {
-        // `effective_flow_controller` not needed because `flow_controller` gets only forced to
-        // `DMA`, if `transfer_dir` is `M2M`, which is already covered in first case.
-        self.transfer_direction() != TransferDirection::M2M
-            && self.flow_controller() == FlowController::Dma
     }
 
     pub fn effective_m_size(&self) -> MSize {
@@ -538,14 +528,6 @@ where
             }
         } else {
             self.m_size()
-        }
-    }
-
-    pub fn effective_buffer_mode(&self) -> BufferMode {
-        if !self.circular_mode_possible() {
-            BufferMode::Regular
-        } else {
-            self.buffer_mode()
         }
     }
 
@@ -626,15 +608,8 @@ where
     /// # Safety
     ///
     /// Aliasing rules aren't enforced
-    pub unsafe fn enable(mut self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub unsafe fn enable(self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
         self.check_config();
-
-        // To avoid TransferErrorInterrupt because of invalid configuration
-        self.set_buffer_mode(self.effective_buffer_mode());
-        // Only in this case we need to force this value **by software**
-        if self.transfer_direction() == TransferDirection::M2M {
-            self.set_circular_mode(CircularMode::Disabled);
-        }
 
         self.enable_unchecked()
     }
@@ -652,7 +627,7 @@ where
     }
 
     fn check_config(&self) {
-        if self.circular_mode() == CircularMode::Enabled {
+        if self.effective_circular_mode() == CircularMode::Enabled {
             self.check_config_circular();
         }
 
@@ -664,6 +639,14 @@ where
     }
 
     fn check_config_circular(&self) {
+        // Check for clashing config values
+        if self.transfer_direction() == TransferDirection::M2M
+            || self.flow_controller() == FlowController::Peripheral
+        {
+            panic!("For circular streams, the transfer direction must not be `M2M` and the FlowController must not be `Peripheral`.");
+        }
+
+        // Check invariants
         if self.transfer_mode() == TransferMode::Fifo {
             let ndt = self.ndt().value() as usize;
             let m_burst = self.m_burst().into_num();
@@ -1390,91 +1373,82 @@ where
 {
 }
 
-pub struct SafeTransfer<'wo, Source, Dest, State>
+pub struct SafeTransfer<'wo, Peripheral, Memory, State>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
     State: TransferState,
 {
-    source: BufferRStatic<'wo, Source>,
-    dest: BufferWStatic<'wo, Dest>,
+    peripheral: PeripheralBufferStatic<'wo, Peripheral>,
+    memory: MemoryBufferStatic<Memory>,
     state: State,
 }
 
-impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
+impl<'wo, Peripheral, Memory> SafeTransfer<'wo, Peripheral, Memory, Start>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
 {
     pub fn new(
-        source: BufferRStatic<'wo, Source>,
-        dest: BufferWStatic<'wo, Dest>,
+        peripheral: PeripheralBufferStatic<'wo, Peripheral>,
+        memory: MemoryBufferStatic<Memory>,
     ) -> Self {
+        check_buffer(&peripheral, &memory);
+
         SafeTransfer {
-            source,
-            dest,
+            peripheral,
+            memory,
             state: Start,
         }
     }
 }
 
-impl<'wo, Source, Dest, State> SafeTransfer<'wo, Source, Dest, State>
+impl<'wo, Peripheral, Memory, State>
+    SafeTransfer<'wo, Peripheral, Memory, State>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
     State: TransferState,
 {
-    pub fn source(&self) -> BufferRStatic<'wo, Source> {
-        self.source
+    pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
+        &self.peripheral
     }
 
-    pub fn dest(&self) -> &BufferWStatic<'wo, Dest> {
-        &self.dest
-    }
-
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_fixed(&mut self, payload: Dest) {
-        match &mut self.dest {
-            BufferW::Peripheral(buffer) => {
-                buffer.as_mut_fixed().set(payload);
-            }
-            BufferW::Memory(buffer) => {
-                buffer.as_mut_fixed().set(payload);
-            }
-        }
+    pub fn memory(&self) -> &MemoryBufferStatic<Memory> {
+        &self.memory
     }
 
     /// # Safety
     ///
     /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_incremented(&mut self, index: usize, payload: Dest) {
-        match &mut self.dest {
-            BufferW::Peripheral(buffer) => {
-                buffer.as_mut_incremented().set(index, payload);
-            }
-            BufferW::Memory(buffer) => {
-                buffer.as_mut_incremented().set(index, payload);
-            }
+    pub unsafe fn set_dest(
+        &mut self,
+        index: Option<usize>,
+        payload: PayloadPort<Peripheral, Memory>,
+    ) {
+        if self.peripheral.is_write() {
+            set_peripheral_impl(
+                &mut self.peripheral,
+                index,
+                payload.peripheral(),
+            );
+        } else {
+            set_memory_impl(&mut self.memory, index, payload.memory());
         }
     }
 
-    pub fn dest_ptr_fixed(&mut self) -> *mut Dest {
-        match &mut self.dest {
-            BufferW::Peripheral(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
-            BufferW::Memory(buffer) => buffer.as_mut_fixed().as_mut_ptr(),
-        }
-    }
+    pub fn dest_ptr(
+        &mut self,
+        index: Option<usize>,
+    ) -> PointerPort<Peripheral, Memory> {
+        if self.peripheral.is_write() {
+            let ptr = mut_ptr_peripheral(&mut self.peripheral, index);
 
-    pub fn dest_ptr_incremented(&mut self, index: usize) -> *mut Dest {
-        match &mut self.dest {
-            BufferW::Peripheral(buffer) => {
-                buffer.as_mut_incremented().as_mut_ptr(index)
-            }
-            BufferW::Memory(buffer) => {
-                buffer.as_mut_incremented().as_mut_ptr(index)
-            }
+            PointerPort::Peripheral(ptr)
+        } else {
+            let ptr = mut_ptr_memory(&mut self.memory, index);
+
+            PointerPort::Memory(ptr)
         }
     }
 }
@@ -1492,12 +1466,12 @@ where
         CXX: ChannelId<DMA = DMA>,
         DMA: DMATrait,
     {
-        configure_safe_transfer(&mut stream, self.source, &self.dest);
+        configure_safe_transfer(&mut stream, &self.peripheral, &self.memory);
         stream.set_buffer_mode(BufferMode::Regular);
 
         SafeTransfer {
-            source: self.source,
-            dest: self.dest,
+            peripheral: self.peripheral,
+            memory: self.memory,
             state: Ongoing {
                 stream: unsafe { stream.enable() },
             },
@@ -1556,103 +1530,120 @@ where
 }
 
 /// Safe Transfer with Double Buffer as Source
-pub struct SafeTransferDoubleBufferR<'wo, Source, Dest, State>
+pub struct SafeTransferDoubleBuffer<'wo, Peripheral, Memory, State>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
     State: TransferState,
 {
-    sources: [MemoryBufferRStatic<Source>; 2],
-    dest: PeripheralBufferWStatic<'wo, Dest>,
+    peripheral: PeripheralBufferStatic<'wo, Peripheral>,
+    memories: [MemoryBufferStatic<Memory>; 2],
     state: State,
 }
 
-impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
+impl<'wo, Peripheral, Memory>
+    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Start>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
 {
     pub fn new(
-        sources: [MemoryBufferRStatic<Source>; 2],
-        dest: PeripheralBufferWStatic<'wo, Dest>,
+        peripheral: PeripheralBufferStatic<'wo, Peripheral>,
+        memories: [MemoryBufferStatic<Memory>; 2],
     ) -> Self {
-        check_double_buffer(&sources);
+        check_buffer(&peripheral, &memories[0]);
+        check_double_buffer(&memories);
 
-        SafeTransferDoubleBufferR {
-            sources,
-            dest,
+        SafeTransferDoubleBuffer {
+            peripheral,
+            memories,
             state: Start,
         }
     }
 }
 
-impl<'wo, Source, Dest, State>
-    SafeTransferDoubleBufferR<'wo, Source, Dest, State>
+impl<'wo, Peripheral, Memory, State>
+    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, State>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
     State: TransferState,
 {
-    pub fn sources(&self) -> [MemoryBufferRStatic<Source>; 2] {
-        self.sources
+    pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
+        &self.peripheral
     }
 
-    pub fn dest(&self) -> &PeripheralBufferWStatic<'wo, Dest> {
-        &self.dest
+    pub fn memories(&self) -> &[MemoryBufferStatic<Memory>; 2] {
+        &self.memories
     }
 
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_fixed(&mut self, payload: Dest) {
-        self.dest.as_mut_fixed().set(payload);
+    pub unsafe fn set_dest(
+        &mut self,
+        index: Option<usize>,
+        double_buffer: Option<DoubleBuffer>,
+        payload: PayloadPort<Peripheral, Memory>,
+    ) {
+        if self.peripheral.is_write() {
+            set_peripheral_impl(
+                &mut self.peripheral,
+                index,
+                payload.peripheral(),
+            );
+        } else {
+            set_memory_impl(
+                &mut self.memories[double_buffer.unwrap().index()],
+                index,
+                payload.memory(),
+            );
+        }
     }
 
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_incremented(&mut self, index: usize, payload: Dest) {
-        self.dest.as_mut_incremented().set(index, payload);
-    }
+    pub fn dest_ptr(
+        &mut self,
+        index: Option<usize>,
+        double_buffer: Option<DoubleBuffer>,
+    ) -> PointerPort<Peripheral, Memory> {
+        if self.peripheral.is_write() {
+            let ptr = mut_ptr_peripheral(&mut self.peripheral, index);
 
-    pub fn dest_ptr_fixed(&mut self) -> *mut Dest {
-        self.dest.as_mut_fixed().as_mut_ptr()
-    }
+            PointerPort::Peripheral(ptr)
+        } else {
+            let ptr = mut_ptr_memory(
+                &mut self.memories[double_buffer.unwrap().index()],
+                index,
+            );
 
-    pub fn dest_ptr_incremented(&mut self, index: usize) -> *mut Dest {
-        self.dest.as_mut_incremented().as_mut_ptr(index)
+            PointerPort::Memory(ptr)
+        }
     }
 }
 
-impl<'wo, Source, Dest> SafeTransferDoubleBufferR<'wo, Source, Dest, Start>
+impl<'wo, Peripheral, Memory>
+    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Start>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
 {
     pub fn start<CXX, DMA>(
         self,
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
-    ) -> SafeTransferDoubleBufferR<'wo, Source, Dest, Ongoing<CXX, DMA>>
+    ) -> SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Ongoing<CXX, DMA>>
     where
         CXX: ChannelId<DMA = DMA>,
         DMA: DMATrait,
     {
-        check_double_buffer_stream_config(&stream);
-
-        let dest_buffer = BufferW::Peripheral(self.dest);
+        stream.set_buffer_mode(BufferMode::DoubleBuffer);
+        stream.set_m1a(M1a(self.memories[1].as_ptr(Some(0)) as u32));
 
         configure_safe_transfer(
             &mut stream,
-            BufferR::Memory(self.sources[0]),
-            &dest_buffer,
+            &self.peripheral,
+            &self.memories[0],
         );
-        stream.set_buffer_mode(BufferMode::DoubleBuffer);
 
-        let dest_buffer = dest_buffer.into_peripheral();
-
-        SafeTransferDoubleBufferR {
-            sources: self.sources,
-            dest: dest_buffer,
+        SafeTransferDoubleBuffer {
+            peripheral: self.peripheral,
+            memories: self.memories,
             state: Ongoing {
                 stream: unsafe { stream.enable() },
             },
@@ -1660,11 +1651,11 @@ where
     }
 }
 
-impl<Source, Dest, CXX, DMA>
-    SafeTransferDoubleBufferR<'_, Source, Dest, Ongoing<CXX, DMA>>
+impl<Peripheral, Memory, CXX, DMA>
+    SafeTransferDoubleBuffer<'_, Peripheral, Memory, Ongoing<CXX, DMA>>
 where
-    Source: Payload,
-    Dest: Payload,
+    Peripheral: Payload,
+    Memory: Payload,
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
@@ -1706,233 +1697,22 @@ where
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
-    pub fn set_m0a(&mut self, m0a: MemoryBufferRStatic<Source>) {
-        let ptr = first_ptr_from_buffer(&BufferR::Memory(m0a));
+    pub fn set_m0a(&mut self, m0a: MemoryBufferStatic<Memory>) {
+        let ptr = m0a.as_ptr(Some(0));
 
-        mem::replace(&mut self.sources[0], m0a);
+        mem::replace(&mut self.memories[0], m0a);
 
-        check_double_buffer(&self.sources);
-
-        block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
-    }
-
-    pub fn set_m1a(&mut self, m1a: MemoryBufferRStatic<Source>) {
-        let ptr = first_ptr_from_buffer(&BufferR::Memory(m1a));
-
-        mem::replace(&mut self.sources[1], m1a);
-
-        check_double_buffer(&self.sources);
-
-        block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
-    }
-
-    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
-        self.state.stream.disable().await_disabled()
-    }
-}
-
-/// Safe Transfer with Double Buffer as Destination
-pub struct SafeTransferDoubleBufferW<'wo, Source, Dest, State>
-where
-    Source: Payload,
-    Dest: Payload,
-    State: TransferState,
-{
-    source: PeripheralBufferRStatic<'wo, Source>,
-    dests: [MemoryBufferWStatic<Dest>; 2],
-    state: State,
-}
-
-impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
-where
-    Source: Payload,
-    Dest: Payload,
-{
-    pub fn new(
-        source: PeripheralBufferRStatic<'wo, Source>,
-        dests: [MemoryBufferWStatic<Dest>; 2],
-    ) -> Self {
-        check_double_buffer(&dests);
-
-        SafeTransferDoubleBufferW {
-            source,
-            dests,
-            state: Start,
-        }
-    }
-}
-
-impl<'wo, Source, Dest, State>
-    SafeTransferDoubleBufferW<'wo, Source, Dest, State>
-where
-    Source: Payload,
-    Dest: Payload,
-    State: TransferState,
-{
-    pub fn source(&self) -> PeripheralBufferRStatic<'wo, Source> {
-        self.source
-    }
-
-    pub fn dest(&self) -> &[MemoryBufferWStatic<Dest>; 2] {
-        &self.dests
-    }
-
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_fixed_m0a(&mut self, payload: Dest) {
-        self.dests[0].as_mut_fixed().set(payload);
-    }
-
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_fixed_m1a(&mut self, payload: Dest) {
-        self.dests[1].as_mut_fixed().set(payload);
-    }
-
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_incremented_m0a(
-        &mut self,
-        index: usize,
-        payload: Dest,
-    ) {
-        self.dests[0].as_mut_incremented().set(index, payload);
-    }
-
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest_incremented_m1a(
-        &mut self,
-        index: usize,
-        payload: Dest,
-    ) {
-        self.dests[1].as_mut_incremented().set(index, payload);
-    }
-
-    pub fn dest_ptr_fixed_m0a(&mut self) -> *mut Dest {
-        self.dests[0].as_mut_fixed().as_mut_ptr()
-    }
-
-    pub fn dest_ptr_fixed_m1a(&mut self) -> *mut Dest {
-        self.dests[1].as_mut_fixed().as_mut_ptr()
-    }
-
-    pub fn dest_ptr_incremented_m0a(&mut self, index: usize) -> *mut Dest {
-        self.dests[0].as_mut_incremented().as_mut_ptr(index)
-    }
-
-    pub fn dest_ptr_incremented_m1a(&mut self, index: usize) -> *mut Dest {
-        self.dests[1].as_mut_incremented().as_mut_ptr(index)
-    }
-}
-
-impl<'wo, Source, Dest> SafeTransferDoubleBufferW<'wo, Source, Dest, Start>
-where
-    Source: Payload,
-    Dest: Payload,
-{
-    pub fn start<CXX, DMA>(
-        self,
-        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
-    ) -> SafeTransferDoubleBufferW<'wo, Source, Dest, Ongoing<CXX, DMA>>
-    where
-        CXX: ChannelId<DMA = DMA>,
-        DMA: DMATrait,
-    {
-        check_double_buffer_stream_config(&stream);
-
-        let [dest_buffer_0, dest_buffer_1] = self.dests;
-        let dest_buffer_0 = BufferW::Memory(dest_buffer_0);
-
-        configure_safe_transfer(
-            &mut stream,
-            BufferR::Peripheral(self.source),
-            &dest_buffer_0,
-        );
-        stream.set_buffer_mode(BufferMode::DoubleBuffer);
-
-        let dest_buffer_0 = dest_buffer_0.into_memory();
-
-        SafeTransferDoubleBufferW {
-            source: self.source,
-            dests: [dest_buffer_0, dest_buffer_1],
-            state: Ongoing {
-                stream: unsafe { stream.enable() },
-            },
-        }
-    }
-}
-
-impl<Source, Dest, CXX, DMA>
-    SafeTransferDoubleBufferW<'_, Source, Dest, Ongoing<CXX, DMA>>
-where
-    Source: Payload,
-    Dest: Payload,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-{
-    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
-        &self.state.stream
-    }
-
-    pub fn set_transfer_complete_interrupt(
-        &mut self,
-        tc_intrpt: TransferCompleteInterrupt,
-    ) {
-        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
-    }
-
-    pub fn set_half_transfer_interrupt(
-        &mut self,
-        ht_intrpt: HalfTransferInterrupt,
-    ) {
-        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
-    }
-
-    pub fn set_transfer_error_interrupt(
-        &mut self,
-        te_intrpt: TransferErrorInterrupt,
-    ) {
-        self.state.stream.set_transfer_error_interrupt(te_intrpt);
-    }
-
-    pub fn set_direct_mode_error_interrupt(
-        &mut self,
-        dme_intrpt: DirectModeErrorInterrupt,
-    ) {
-        self.state
-            .stream
-            .set_direct_mode_error_interrupt(dme_intrpt);
-    }
-
-    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
-        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
-    }
-
-    pub fn set_m0a(&mut self, m0a: MemoryBufferWStatic<Dest>) {
-        let m0a = BufferW::Memory(m0a);
-        let ptr = first_ptr_from_buffer(&m0a);
-        let m0a = m0a.into_memory();
-
-        mem::replace(&mut self.dests[0], m0a);
-
-        check_double_buffer(&self.dests);
+        check_double_buffer(&self.memories);
 
         block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
     }
 
-    pub fn set_m1a(&mut self, m1a: MemoryBufferWStatic<Dest>) {
-        let m1a = BufferW::Memory(m1a);
-        let ptr = first_ptr_from_buffer(&m1a);
-        let m1a = m1a.into_memory();
+    pub fn set_m1a(&mut self, m1a: MemoryBufferStatic<Memory>) {
+        let ptr = m1a.as_ptr(Some(0));
 
-        mem::replace(&mut self.dests[1], m1a);
+        mem::replace(&mut self.memories[1], m1a);
 
-        check_double_buffer(&self.dests);
+        check_double_buffer(&self.memories);
 
         block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
     }
