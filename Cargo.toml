@@ -1,11 +1,12 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
            "Jan Adä <jan561.github@gmail.com>",
-           "Robert Jördens <rj@quartiq.de>"]
+           "Robert Jördens <rj@quartiq.de>",
+           "Florian Jung <flo@windfisch.org>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Hardware Abstraction Layer implementation for STM32H7 series microcontrollers"
@@ -14,9 +15,11 @@ license = "0BSD"
 repository = "https://github.com/stm32-rs/stm32h7xx-hal"
 documentation = "https://docs.rs/stm32h7xx-hal"
 readme = "README.md"
+exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
 features = ["stm32h743", "rt"]
+default-target = "thumbv7em-none-eabihf"
 
 [dependencies]
 embedded-hal = "0.2.3"
