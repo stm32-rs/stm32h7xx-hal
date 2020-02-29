@@ -232,7 +232,14 @@ macro_rules! i2c {
                     // TODO support transfers of more than 255 bytes
                     assert!(bytes.len() < 256 && bytes.len() > 0);
 
-                    // START and prepare to send `bytes`
+                    // Wait for any previous address sequence to end
+                    // automatically. This could be up to 50% of a bus
+                    // cycle (ie. up to 0.5/freq)
+                    while self.i2c.cr2.read().start().bit_is_set() {};
+
+                    // Set START and prepare to send `bytes`. The
+                    // START bit can be set even if the bus is BUSY or
+                    // I2C is in slave mode.
                     self.i2c.cr2.write(|w| {
                         w.start()
                             .set_bit()
@@ -274,10 +281,14 @@ macro_rules! i2c {
                     assert!(bytes.len() < 256 && bytes.len() > 0);
                     assert!(buffer.len() < 256 && buffer.len() > 0);
 
-                    // TODO do we have to explicitly wait here if the bus is busy (e.g. another
-                    // master is communicating)?
+                    // Wait for any previous address sequence to end
+                    // automatically. This could be up to 50% of a bus
+                    // cycle (ie. up to 0.5/freq)
+                    while self.i2c.cr2.read().start().bit_is_set() {};
 
-                    // START and prepare to send `bytes`
+                    // Set START and prepare to send `bytes`. The
+                    // START bit can be set even if the bus is BUSY or
+                    // I2C is in slave mode.
                     self.i2c.cr2.write(|w| {
                         w.start()
                             .set_bit()
@@ -290,7 +301,6 @@ macro_rules! i2c {
                             .bits(bytes.len() as u8)
                             .autoend()
                             .clear_bit()
-
                     });
 
                     for byte in bytes {
@@ -344,10 +354,14 @@ macro_rules! i2c {
                 // TODO support transfers of more than 255 bytes
                 assert!(buffer.len() < 256 && buffer.len() > 0);
 
-                // TODO do we have to explicitly wait here if the bus is busy (e.g. another
-                // master is communicating)?
+                // Wait for any previous address sequence to end
+                // automatically. This could be up to 50% of a bus
+                // cycle (ie. up to 0.5/freq)
+                while self.i2c.cr2.read().start().bit_is_set() {};
 
-                // reSTART and prepare to receive bytes into `buffer`
+                // Set START and prepare to receive bytes into
+                // `buffer`. The START bit can be set even if the bus
+                // is BUSY or I2C is in slave mode.
                 self.i2c.cr2.write(|w| {
                     w.sadd()
                         .bits((addr << 1 | 0) as u16)
