@@ -41,16 +41,19 @@ impl RccExt for RCC {
                 rcc_pclk3: None,
                 rcc_pclk4: None,
                 pll1: PllConfig {
+                    strategy: PllConfigStrategy::Normal,
                     p_ck: None,
                     q_ck: None,
                     r_ck: None,
                 },
                 pll2: PllConfig {
+                    strategy: PllConfigStrategy::Normal,
                     p_ck: None,
                     q_ck: None,
                     r_ck: None,
                 },
                 pll3: PllConfig {
+                    strategy: PllConfigStrategy::Normal,
                     p_ck: None,
                     q_ck: None,
                     r_ck: None,
@@ -229,8 +232,18 @@ const HSI: u32 = 64_000_000; // Hz
 const CSI: u32 = 4_000_000; // Hz
 const HSI48: u32 = 48_000_000; // Hz
 
-/// Configuration of a Phase Lock Loop (PLL)
+/// Strategies for configuring a Phase Locked Loop (PLL)
+#[derive(Copy, Clone)]
+pub enum PllConfigStrategy {
+    /// VCOL, highest PFD frequency, highest VCO frequency
+    Normal,
+    /// VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    Iterative,
+}
+
+/// Configuration of a Phase Locked Loop (PLL)
 pub struct PllConfig {
+    strategy: PllConfigStrategy,
     p_ck: Option<u32>,
     q_ck: Option<u32>,
     r_ck: Option<u32>,
@@ -268,7 +281,7 @@ macro_rules! pclk_setter {
     };
 }
 
-/// Setter definition for pll 1 - 3
+/// Setter definition for pll 1 - 3 p, q, r
 macro_rules! pll_setter {
     ($($pll:ident: [ $($name:ident: $ck:ident,)+ ],)+) => {
         $(
@@ -284,6 +297,21 @@ macro_rules! pll_setter {
             )+
         )+
     };
+}
+
+/// Setter definition for pll 1 - 3 strategy
+macro_rules! pll_strategy_setter {
+    ($($pll:ident: $name:ident,)+) => {
+        $(
+            /// Set the PLL divider strategy to be used when the PLL
+            /// is configured
+            pub fn $name(mut self, strategy: PllConfigStrategy) -> Self
+            {
+                self.config.$pll.strategy = strategy;
+                self
+            }
+        )+
+    }
 }
 
 impl Rcc {
@@ -360,6 +388,12 @@ impl Rcc {
             pll3_r_ck: r_ck,
         ],
     }
+
+    pll_strategy_setter! {
+        pll1: pll1_strategy,
+        pll2: pll2_strategy,
+        pll3: pll3_strategy,
+    }
 }
 
 /// Divider calculator for pclk 1 - 4
@@ -407,14 +441,60 @@ macro_rules! ppre_calculate {
     };
 }
 
+/// Calculate VCO output divider (p-divider). Choose the highest VCO
+/// frequency to give specified output.
+///
+/// Returns *target* VCO frequency
+///
+macro_rules! vco_output_divider_setup {
+    ($output: ident, $vco_min: ident, $vco_max: ident $(,$pll1_p:ident)*) => {{
+        // Macro-based selection
+        let pll_x_p = match true {
+            $(
+                // Specific to PLL1
+                true => {
+                    let $pll1_p = if $output > $vco_max / 2 {
+                        1
+                    } else {
+                        (($vco_max / $output) | 1) - 1 // Must be even or unity
+                    };
+                    $pll1_p
+                },
+            )*
+                // Specific to PLL2/3
+                _ => if $output > $vco_max / 2 {
+                    1
+                } else {
+                    $vco_max / $output
+                }
+        };
+
+        // Calcuate VCO output
+        let vco_ck = $output * pll_x_p;
+
+        assert!(pll_x_p <= 128);
+        assert!(vco_ck >= $vco_min);
+        assert!(vco_ck <= $vco_max);
+
+        (vco_ck, pll_x_p)
+    }};
+}
+
 /// Setup PFD input frequency and VCO output frequency
 ///
 macro_rules! vco_setup {
-    // VCOL, highest PFD frequency, highest VCO frequency
+    // Normal: VCOL, highest PFD frequency, highest VCO frequency
     (NORMAL: $pllsrc:ident, $output:ident,
      $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
-         // Input divisor, resulting in a reference clock in the
-         // range 1 to 2 MHz. Choose the highest reference clock
+         // VCO output frequency. Choose the highest VCO frequency
+         let vco_min = 150_000_000;
+         let vco_max = 420_000_000;
+         let (vco_ck_target, pll_x_p) = {
+             vco_output_divider_setup! { $output, vco_min, vco_max $(, $pll1_p)* }
+         };
+
+         // Input divisor, resulting in a reference clock in the range
+         // 1 to 2 MHz. Choose the highest reference clock (lowest m)
          let pll_x_m = ($pllsrc + 1_999_999) / 2_000_000;
 
          assert!(pll_x_m < 64);
@@ -422,38 +502,6 @@ macro_rules! vco_setup {
          // Calculate resulting reference clock
          let ref_x_ck = $pllsrc / pll_x_m;
          assert!(ref_x_ck >= 1_000_000 && ref_x_ck <= 2_000_000);
-
-         // VCO output frequency. Choose the highest VCO frequency
-         let vco_min = 150_000_000;
-         let vco_max = 420_000_000;
-
-         // Macro-based selection
-         let pll_x_p = match true {
-             $(
-                 // Specific to PLL1
-                 true => {
-                     let $pll1_p = if $output > vco_max / 2 {
-                         1
-                     } else {
-                         ((vco_max / $output) | 1) - 1 // Must be even or unity
-                     };
-                     $pll1_p
-                 },
-             )*
-             // Specific to PLL2/3
-             _ => if $output > vco_max / 2 {
-                 1
-             } else {
-                 vco_max / $output
-             }
-         };
-
-         // Calcuate VCO output
-         let vco_ck = $output * pll_x_p;
-
-         assert!(pll_x_p <= 128);
-         assert!(vco_ck >= vco_min);
-         assert!(vco_ck <= vco_max);
 
          // Configure VCO
          $rcc.pllcfgr.modify(|_, w| {
@@ -463,7 +511,65 @@ macro_rules! vco_setup {
                  .range1() // ref_x_ck is 1 - 2 MHz
          });
 
-         (ref_x_ck, pll_x_m, pll_x_p, vco_ck)
+         (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target)
+     }};
+    // Iterative: VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    (ITERATIVE: $pllsrc:ident, $output:ident,
+     $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
+         // VCO output frequency limits
+         let vco_min = 192_000_000;
+         #[cfg(not(feature = "revision_v"))]
+         let vco_max = 836_000_000;
+         #[cfg(feature = "revision_v")]
+         let vco_max = 960_000_000;
+
+         // VCO output frequency. Choose the highest VCO frequency
+         let (vco_ck_target, pll_x_p) = {
+             vco_output_divider_setup! { $output, vco_min, vco_max $(, $pll1_p)* }
+         };
+
+         // Input divisor, resulting in a reference clock in the
+         // range 2 to 16 MHz.
+         let pll_x_m_min = ($pllsrc + 15_999_999) / 16_000_000;
+         let pll_x_m_max = match $pllsrc {
+             0 ..= 127_999_999 => $pllsrc / 2_000_000,
+             _ => 63            // pllm < 64
+         };
+
+         // Iterative search for the lowest m value that minimizes
+         // the difference between requested and actual VCO frequency
+         let pll_x_m = (pll_x_m_min..=pll_x_m_max).min_by_key(|pll_x_m| {
+             let ref_x_ck = $pllsrc / pll_x_m;
+
+             // Feedback divider. Integer only
+             let pll_x_n = vco_ck_target / ref_x_ck;
+
+             vco_ck_target as i32 - (ref_x_ck * pll_x_n) as i32
+         }).unwrap();
+
+         assert!(pll_x_m < 64);
+
+         // Calculate resulting reference clock
+         let ref_x_ck = $pllsrc / pll_x_m;
+         assert!(ref_x_ck >= 2_000_000 && ref_x_ck <= 16_000_000);
+
+         // Configure VCO
+         $rcc.pllcfgr.modify(|_, w| {
+             w.$pllXvcosel()
+                 .wide_vco() // 192 - 836MHz Medium VCO
+         });
+         $rcc.pllcfgr.modify(|_, w| {
+             match ref_x_ck {
+                 2_000_000 ..= 3_999_999 => // ref_x_ck is 2 - 4 MHz
+                     w.$pllXrge().range2(),
+                 4_000_000 ..= 7_999_999 => // ref_x_ck is 4 - 8 MHz
+                     w.$pllXrge().range4(),
+                 _ =>           // ref_x_ck is 8 - 16 MHz
+                     w.$pllXrge().range8(),
+             }
+         });
+
+         (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target)
      }};
 }
 
@@ -488,11 +594,21 @@ macro_rules! pll_setup {
             // PLL output
             match pll.p_ck {
                 Some(output) => {
-                    // Use the Medium Range VCO with 1 - 2 MHz input
-                    let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) = {
-                        vco_setup! { NORMAL: pllsrc, output, rcc,
-                                     $pllXvcosel, $pllXrge $(, $pll1_p)* }
-                    };
+                    // Set VCO parameters based on VCO strategy
+                    let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) =
+                        match pll.strategy {
+                            PllConfigStrategy::Iterative => {
+                                vco_setup! { ITERATIVE: pllsrc, output,
+                                             rcc, $pllXvcosel,
+                                             $pllXrge $(, $pll1_p)* }
+                            },
+                            _ => {
+                                vco_setup! { NORMAL: pllsrc, output,
+                                             rcc, $pllXvcosel,
+                                             $pllXrge $(, $pll1_p)* }
+                            }
+
+                        };
 
                     // Feedback divider. Integer only
                     let pll_x_n = vco_ck / ref_x_ck;
@@ -693,6 +809,7 @@ impl Rcc {
 
         // Configure PLL1
         let pll1_config = PllConfig {
+            strategy: self.config.pll1.strategy,
             p_ck: pll1_p_ck,
             q_ck: self.config.pll1.q_ck,
             r_ck: pll1_r_ck,
