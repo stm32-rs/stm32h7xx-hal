@@ -861,7 +861,7 @@ gpio!(GPIOF, gpiof, gpiofen, gpiofrst, PF, 5, [
     PF4: (pf4, 4, Analog, exticr2),
     PF5: (pf5, 5, Analog, exticr2),
     PF6: (pf6, 6, Analog, exticr2),
-    PF7: (ph7, 7, Analog, exticr2),
+    PF7: (pf7, 7, Analog, exticr2),
     PF8: (pf8, 8, Analog, exticr3),
     PF9: (pf9, 9, Analog, exticr3),
     PF10: (pf10, 10, Analog, exticr3),
