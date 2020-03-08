@@ -258,9 +258,9 @@ impl MuxShared {
 pub struct OverrunError;
 
 pub struct RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
+    where
+        GXX: GenId,
+        ED: GenED,
 {
     /// This field *must not* be mutated using shared references
     rb: &'static RGCR,
@@ -268,8 +268,8 @@ where
 }
 
 impl<GXX> RequestGenerator<GXX, GenDisabled>
-where
-    GXX: GenId,
+    where
+        GXX: GenId,
 {
     pub(super) fn after_reset(rb: &'static RGCR) -> Self {
         RequestGenerator {
@@ -280,9 +280,9 @@ where
 }
 
 impl<GXX, ED> RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
+    where
+        GXX: GenId,
+        ED: GenED,
 {
     pub fn id(&self) -> usize {
         GXX::ID
@@ -322,8 +322,8 @@ where
     }
 
     fn transmute<NewED>(self) -> RequestGenerator<GXX, NewED>
-    where
-        NewED: GenED,
+        where
+            NewED: GenED,
     {
         RequestGenerator {
             rb: self.rb,
@@ -333,8 +333,8 @@ where
 }
 
 impl<GXX> RequestGenerator<GXX, GenDisabled>
-where
-    GXX: GenId,
+    where
+        GXX: GenId,
 {
     pub fn set_gnbreq(&mut self, gnbreq: GNbReq) {
         self.rb.modify(|_, w| w.gnbreq().bits(gnbreq.into()));
@@ -348,8 +348,8 @@ where
 }
 
 impl<GXX> RequestGenerator<GXX, GenEnabled>
-where
-    GXX: GenId,
+    where
+        GXX: GenId,
 {
     pub fn disable(self) -> RequestGenerator<GXX, GenDisabled> {
         self.rb.modify(|_, w| w.ge().clear_bit());
@@ -359,9 +359,9 @@ where
 }
 
 impl<GXX, ED> RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
+    where
+        GXX: GenId,
+        ED: GenED,
 {
     pub fn check_isr(
         &self,
@@ -403,8 +403,8 @@ where
 }
 
 unsafe impl<GXX, ED> Sync for RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
+    where
+        GXX: GenId,
+        ED: GenED,
 {
 }
