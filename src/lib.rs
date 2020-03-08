@@ -22,6 +22,9 @@ compile_error!(
 "
 );
 
+#[cfg(all(feature = "dma", not(feature = "stm32h743")))]
+compile_error!("The DMA module is currently only available for stm32h743");
+
 pub use embedded_hal as hal;
 
 pub use nb;
@@ -69,7 +72,7 @@ pub use crate::stm32::interrupt;
 pub mod adc;
 #[cfg(feature = "device-selected")]
 pub mod delay;
-#[cfg(feature = "stm32h743")]
+#[cfg(all(feature = "device-selected", feature = "dma"))]
 pub mod dma;
 #[cfg(feature = "device-selected")]
 pub mod flash;
