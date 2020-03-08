@@ -1,3 +1,5 @@
+//! DMA Channels
+
 use super::stm32::{DMA1, DMA2};
 use super::DMATrait;
 

@@ -1,3 +1,5 @@
+//! Safe DMA Transfers
+
 use super::channel::ChannelId;
 use super::stream::{
     CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize,

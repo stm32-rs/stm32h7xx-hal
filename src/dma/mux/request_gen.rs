@@ -1,3 +1,5 @@
+//! DMA Request Generator
+
 type_state! {
     ED, Disabled, Enabled
 }

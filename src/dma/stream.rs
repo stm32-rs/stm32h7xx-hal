@@ -1,3 +1,5 @@
+//! DMA Stream
+
 use super::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
 use super::DMATrait;
 use core::marker::PhantomData;

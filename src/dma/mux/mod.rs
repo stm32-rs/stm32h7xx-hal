@@ -1,3 +1,5 @@
+//! DMA Mux
+
 pub mod request_gen;
 pub mod shared;
 

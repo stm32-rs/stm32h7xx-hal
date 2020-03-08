@@ -1,3 +1,5 @@
+//! DMA
+
 // TODO: Remove when merging.
 #![warn(clippy::all)]
 
@@ -51,10 +53,12 @@ use core::mem;
 use stm32h7::stm32h743 as stm32;
 use stm32h7::stm32h743::DMAMUX1;
 
+/// Marker Trait for DMA peripherals
 pub unsafe trait DMATrait: Send {}
 unsafe impl DMATrait for DMA1 {}
 unsafe impl DMATrait for DMA2 {}
 
+/// DMA Channel
 pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
 where
     CXX: ChannelId<DMA = DMA>,
@@ -80,6 +84,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// Exposes the stream as owned value in a closure
     pub fn stream_owned<F, NewStreamED, NewIsrState>(
         self,
         op: F,
@@ -99,6 +104,7 @@ where
         }
     }
 
+    /// Exposes the mux as owned value in a closure
     pub fn mux_owned<F, NewReqId, NewSyncED, NewEgED>(
         self,
         op: F,
@@ -120,6 +126,7 @@ where
     }
 }
 
+/// DMA Stream
 pub struct Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
@@ -138,6 +145,9 @@ where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
+    /// Creates an instance of a Stream in initial state.
+    ///
+    /// Should only be called after RCC-Reset of the DMA.
     fn after_reset(rb: &'static ST) -> Self {
         Stream {
             rb,
@@ -154,18 +164,22 @@ where
     ED: EDTrait,
     IsrState: IsrStateTrait,
 {
+    /// Returns the id of the Stream
     pub fn id(&self) -> usize {
         CXX::STREAM_ID
     }
 
+    /// Performs a *volatile* read of the stream enable bit
     pub fn is_enabled(&self) -> bool {
         self.rb.cr.read().en().bit_is_set()
     }
 
+    /// Returns the Transfer Complete Interrupt config flag
     pub fn transfer_complete_interrupt(&self) -> TransferCompleteInterrupt {
         self.rb.cr.read().tcie().bit().into()
     }
 
+    /// Sets the Transfer Complete Interrupt config flag
     pub fn set_transfer_complete_interrupt(
         &mut self,
         tc_intrpt: TransferCompleteInterrupt,
@@ -173,10 +187,12 @@ where
         self.rb.cr.modify(|_, w| w.tcie().bit(tc_intrpt.into()));
     }
 
+    /// Returns the Half Transfer Interrupt config flag
     pub fn half_transfer_interrupt(&self) -> HalfTransferInterrupt {
         self.rb.cr.read().htie().bit().into()
     }
 
+    /// Sets the Half Transfer Interrupt config flag
     pub fn set_half_transfer_interrupt(
         &mut self,
         ht_intrpt: HalfTransferInterrupt,
@@ -184,10 +200,12 @@ where
         self.rb.cr.modify(|_, w| w.htie().bit(ht_intrpt.into()));
     }
 
+    /// Returns the Transfer Error Interrupt config flag
     pub fn transfer_error_interrupt(&self) -> TransferErrorInterrupt {
         self.rb.cr.read().teie().bit().into()
     }
 
+    /// Sets the Transfer Error Interrupt config flag
     pub fn set_transfer_error_interrupt(
         &mut self,
         te_intrpt: TransferErrorInterrupt,
@@ -195,10 +213,12 @@ where
         self.rb.cr.modify(|_, w| w.teie().bit(te_intrpt.into()));
     }
 
+    /// Returns the Direct Mode Error Interrupt config flag
     pub fn direct_mode_error_interrupt(&self) -> DirectModeErrorInterrupt {
         self.rb.cr.read().dmeie().bit().into()
     }
 
+    /// Sets the Direct Mode Error Interrupt config flag
     pub fn set_direct_mode_error_interrupt(
         &mut self,
         dme_intrpt: DirectModeErrorInterrupt,
@@ -206,26 +226,33 @@ where
         self.rb.cr.modify(|_, w| w.dmeie().bit(dme_intrpt.into()));
     }
 
+    /// Returns the Fifo Error Interrupt config flag
     pub fn fifo_error_interrupt(&self) -> FifoErrorInterrupt {
         self.rb.fcr.read().feie().bit().into()
     }
 
+    /// Sets the Fifo Error Interrupt config flag
     pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
         self.rb.fcr.modify(|_, w| w.feie().bit(fe_intrpt.into()));
     }
 
+    /// Returns the Flow Controller
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced to `Dma`, if `transfer_direction` is `M2M`.
     ///
-    /// This invariant is covered in `effective_flow_controller` (defined for disabled streams).
+    /// This invariant are covered in `effective_flow_controller` (defined for disabled streams).
     pub fn flow_controller(&self) -> FlowController {
         self.rb.cr.read().pfctrl().bit().into()
     }
 
+    /// Returns the Transfer Direction
     pub fn transfer_direction(&self) -> TransferDirection {
         self.rb.cr.read().dir().bits().try_into().unwrap()
     }
 
+    /// Returns the Circular Mode
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced
     ///
@@ -237,18 +264,23 @@ where
         self.rb.cr.read().circ().bit().into()
     }
 
+    /// Returns the Peripheral Increment config flag
     pub fn pinc(&self) -> Pinc {
         self.rb.cr.read().pinc().bit().into()
     }
 
+    /// Returns the Memory Increment config flag
     pub fn minc(&self) -> Minc {
         self.rb.cr.read().minc().bit().into()
     }
 
+    /// Returns the Peripheral Size
     pub fn p_size(&self) -> PSize {
         self.rb.cr.read().psize().bits().try_into().unwrap()
     }
 
+    /// Returns the Memory Size
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced to `p_size`, if `transfer_mode` is `Direct`.
     ///
@@ -257,6 +289,8 @@ where
         self.rb.cr.read().msize().bits().try_into().unwrap()
     }
 
+    /// Returns the Peripheral Increment Offset
+    ///
     /// **Note** (for disabled and enabled streams):
     ///
     /// - This config value has no meaning, if `pinc` is `Fixed`.
@@ -267,10 +301,13 @@ where
         self.rb.cr.read().pincos().bit().into()
     }
 
+    /// Returns the Priority Level
     pub fn priority_level(&self) -> PriorityLevel {
         self.rb.cr.read().pl().bits().try_into().unwrap()
     }
 
+    /// Returns the Buffer Mode
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced to `Regular` **by software** (to avoid TransferError-Flag), if
     ///
@@ -282,6 +319,8 @@ where
         self.rb.cr.read().dbm().bit().into()
     }
 
+    /// Returns the Current Target
+    ///
     /// **Note** (for disabled and enabled streams):
     /// This config value has no meaning, if `BufferMode` is `Regular`.
     ///
@@ -290,8 +329,12 @@ where
         self.rb.cr.read().ct().bit().into()
     }
 
+    /// Returns the effective Current Target
+    ///
+    /// Read the documentation of `current_target` for more details.
+    ///
     /// **Note**: If this config value has no meaning (because `BufferMode` is `Regular`),
-    /// the method returns `CurrentTarget::M0a` instead of `None`.
+    /// the method returns `CurrentTarget::M0a`.
     pub fn effective_current_target(&self) -> CurrentTarget {
         if self.buffer_mode() == BufferMode::Regular {
             CurrentTarget::M0a
@@ -300,6 +343,8 @@ where
         }
     }
 
+    /// Returns the Peripheral Burst config flag
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
     ///
@@ -308,6 +353,8 @@ where
         self.rb.cr.read().pburst().bits().try_into().unwrap()
     }
 
+    /// Returns the Memory Burst config flag
+    ///
     /// **Note** (for disabled streams):
     /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
     ///
@@ -316,22 +363,28 @@ where
         self.rb.cr.read().mburst().bits().try_into().unwrap()
     }
 
+    /// Returns the content of the NDT register
     pub fn ndt(&self) -> Ndt {
         self.rb.ndtr.read().ndt().bits().into()
     }
 
+    /// Sets the content of the NDT register
     pub fn configured_ndt(&self) -> Ndt {
         self.config_ndt
     }
 
+    /// Returns the Peripheral Address
     pub fn pa(&self) -> Pa {
         self.rb.par.read().pa().bits().into()
     }
 
+    /// Returns the Memory-0 Address
     pub fn m0a(&self) -> M0a {
         self.rb.m0ar.read().m0a().bits().into()
     }
 
+    /// Returns the Memory-1 Address
+    ///
     /// **Note** (for disabled and enabled streams):
     /// This config value has no meaning, if `buffer_mode` is `Regular`.
     ///
@@ -340,6 +393,9 @@ where
         self.rb.m1ar.read().m1a().bits().into()
     }
 
+    /// Returns the effective Memory-1 Address
+    ///
+    /// Read the documentation of `m1a` for more details.
     pub fn effective_m1a(&self) -> Option<M1a> {
         if self.buffer_mode() == BufferMode::Regular {
             None
@@ -348,6 +404,8 @@ where
         }
     }
 
+    /// Returns the Fifo Threshold
+    ///
     /// **Note** (for disabled and enabled streams):
     /// This config value has no meaning, if `transfer_mode` is `Direct`.
     ///
@@ -356,6 +414,11 @@ where
         self.rb.fcr.read().fth().bits().try_into().unwrap()
     }
 
+    /// Returns the effective Fifo Threshold.
+    ///
+    /// If the Fifo Threshold has no meaning, `None` is being returned.
+    ///
+    /// Read the documentation of `fifo_threshold` for more details.
     pub fn effective_fifo_threshold(&self) -> Option<FifoThreshold> {
         if self.transfer_mode() == TransferMode::Direct {
             None
@@ -364,22 +427,26 @@ where
         }
     }
 
+    /// Returns the Transfer Mode (`Direct` or `Fifo` Mode)
     pub fn transfer_mode(&self) -> TransferMode {
         self.rb.fcr.read().dmdis().bit().into()
     }
 
+    /// Performs the volatile write to the `M0a` register
     fn impl_set_m0a(&mut self, m0a: M0a) {
         unsafe {
             self.rb.m0ar.modify(|_, w| w.m0a().bits(m0a.into()));
         }
     }
 
+    /// Performs the volatile write to the `M1a` register
     fn impl_set_m1a(&mut self, m1a: M1a) {
         unsafe {
             self.rb.m0ar.modify(|_, w| w.m0a().bits(m1a.into()));
         }
     }
 
+    /// Transmutes the state of `self`
     fn transmute<NewED, NewIsrState>(
         self,
     ) -> Stream<CXX, DMA, NewED, NewIsrState>
@@ -401,72 +468,86 @@ where
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
+    /// Sets the Flow Controller
     pub fn set_flow_controller(&mut self, flow_controller: FlowController) {
         self.rb
             .cr
             .modify(|_, w| w.pfctrl().bit(flow_controller.into()));
     }
 
+    /// Sets the Transfer Direction
     pub fn set_transfer_direction(&mut self, transfer_dir: TransferDirection) {
         unsafe {
             self.rb.cr.modify(|_, w| w.dir().bits(transfer_dir.into()));
         }
     }
 
+    /// Sets the Circular Mode
     pub fn set_circular_mode(&mut self, circ_mode: CircularMode) {
         self.rb.cr.modify(|_, w| w.circ().bit(circ_mode.into()));
     }
 
+    /// Sets the Peripheral Increment config flag
     pub fn set_pinc(&mut self, pinc: Pinc) {
         self.rb.cr.modify(|_, w| w.pinc().bit(pinc.into()));
     }
 
+    /// Sets the Memory Increment config flag
     pub fn set_minc(&mut self, minc: Minc) {
         self.rb.cr.modify(|_, w| w.minc().bit(minc.into()));
     }
 
+    /// Sets the Peripheral Size
     pub fn set_p_size(&mut self, p_size: PSize) {
         unsafe {
             self.rb.cr.modify(|_, w| w.psize().bits(p_size.into()));
         }
     }
 
+    /// Sets the Memory Size
     pub fn set_m_size(&mut self, m_size: MSize) {
         unsafe {
             self.rb.cr.modify(|_, w| w.msize().bits(m_size.into()));
         }
     }
 
+    /// Sets the Peripheral Increment Offset
     pub fn set_pincos(&mut self, pincos: Pincos) {
         self.rb.cr.modify(|_, w| w.pincos().bit(pincos.into()));
     }
 
+    /// Sets the Priority Level
     pub fn set_priority_level(&mut self, priority_level: PriorityLevel) {
         unsafe {
             self.rb.cr.modify(|_, w| w.pl().bits(priority_level.into()));
         }
     }
 
+    /// Sets the Buffer Mode (`Direct` or `Fifo` mode)
     pub fn set_buffer_mode(&mut self, buffer_mode: BufferMode) {
         self.rb.cr.modify(|_, w| w.dbm().bit(buffer_mode.into()));
     }
 
+    /// Sets the Current Target
     pub fn set_current_target(&mut self, current_target: CurrentTarget) {
         self.rb.cr.modify(|_, w| w.ct().bit(current_target.into()));
     }
 
+    /// Sets the Peripheral Burst
     pub fn set_p_burst(&mut self, p_burst: PBurst) {
         unsafe {
             self.rb.cr.modify(|_, w| w.pburst().bits(p_burst.into()));
         }
     }
 
+    /// Sets the Memory Burst
     pub fn set_m_burst(&mut self, m_burst: MBurst) {
         unsafe {
             self.rb.cr.modify(|_, w| w.mburst().bits(m_burst.into()));
         }
     }
 
+    /// Sets the NDT register
     pub fn set_ndt(&mut self, ndt: Ndt) {
         self.config_ndt = ndt;
 
@@ -475,20 +556,24 @@ where
         }
     }
 
+    /// Sets the Peripheral Address
     pub fn set_pa(&mut self, pa: Pa) {
         unsafe {
             self.rb.par.modify(|_, w| w.pa().bits(pa.into()));
         }
     }
 
+    /// Sets the Memory-0 Address
     pub fn set_m0a(&mut self, m0a: M0a) {
         self.impl_set_m0a(m0a);
     }
 
+    /// Sets the Memory-1 Address
     pub fn set_m1a(&mut self, m1a: M1a) {
         self.impl_set_m1a(m1a);
     }
 
+    /// Sets the Fifo Threshold
     pub fn set_fifo_threshold(&mut self, fifo_threshold: FifoThreshold) {
         unsafe {
             self.rb
@@ -497,12 +582,16 @@ where
         }
     }
 
+    /// Sets the Transfer Mode
     pub fn set_transfer_mode(&mut self, transfer_mode: TransferMode) {
         self.rb
             .fcr
             .modify(|_, w| w.dmdis().bit(transfer_mode.into()));
     }
 
+    /// Returns the effective Flow Controller
+    ///
+    /// Read the documentation of `flow_controller` for more details.
     pub fn effective_flow_controller(&self) -> FlowController {
         if self.transfer_direction() == TransferDirection::M2M {
             FlowController::Dma
@@ -511,6 +600,9 @@ where
         }
     }
 
+    /// Returns the effective Circular Mode
+    ///
+    /// Read the documentation of `circular_mode` for more details.
     pub fn effective_circular_mode(&self) -> CircularMode {
         if self.buffer_mode() == BufferMode::DoubleBuffer {
             CircularMode::Enabled
@@ -519,6 +611,9 @@ where
         }
     }
 
+    /// Returns the effective Memory Size
+    ///
+    /// Read the documentation of `m_size` for more details.
     pub fn effective_m_size(&self) -> MSize {
         if self.transfer_mode() == TransferMode::Direct {
             match self.p_size() {
@@ -531,6 +626,9 @@ where
         }
     }
 
+    /// Returns the effective Peripheral Increment Offset
+    ///
+    /// Read the documentation of `pincos` for more details.
     pub fn effective_pincos(&self) -> Option<Pincos> {
         if self.pinc() == Pinc::Fixed {
             return None;
@@ -545,6 +643,9 @@ where
         }
     }
 
+    /// Returns the effective Peripheral Burst
+    ///
+    /// Read the documentation of `p_burst` for more details.
     pub fn effective_p_burst(&self) -> PBurst {
         if self.transfer_mode() == TransferMode::Direct {
             PBurst::Single
@@ -553,6 +654,9 @@ where
         }
     }
 
+    /// Returns the effective Memory Burst
+    ///
+    /// Read the documentation of `m_burst` for more details.
     pub fn effective_m_burst(&self) -> MBurst {
         if self.transfer_mode() == TransferMode::Direct {
             MBurst::Single
@@ -569,6 +673,11 @@ where
     ED: NotDisabled,
     IsrState: IsrStateTrait,
 {
+    /// Sets the Memory-0 Address on the fly
+    ///
+    /// # Panic
+    ///
+    /// This panics if the stream is not in Double Buffer Mode.
     pub fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), Infallible> {
         self.check_double_buffer();
 
@@ -581,6 +690,11 @@ where
         Ok(())
     }
 
+    /// Sets the Memory-1 Address on the fly
+    ///
+    /// # Panic
+    ///
+    /// This panics if the stream is not in Double Buffer Mode.
     pub fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), Infallible> {
         self.check_double_buffer();
 
@@ -593,6 +707,7 @@ where
         Ok(())
     }
 
+    /// Checks if the stream is in Double Buffer Mode
     fn check_double_buffer(&self) {
         if self.buffer_mode() == BufferMode::Regular {
             panic!("The buffer must be in double buffer mode to be changed on the fly.");
@@ -605,15 +720,21 @@ where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
+    /// Checks the config for data integrity and enables the stream
+    ///
     /// # Safety
     ///
-    /// Aliasing rules aren't enforced
+    /// Aliasing rules aren't enforced.
     pub unsafe fn enable(self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
         self.check_config();
 
         self.enable_unchecked()
     }
 
+    /// Enables the stream without checking the config
+    ///
+    /// Consider using the checked version instead (`enable`).
+    ///
     /// # Safety
     ///
     /// - Aliasing rules aren't enforced
@@ -626,6 +747,7 @@ where
         self.transmute()
     }
 
+    /// Checks the config for data integrity
     fn check_config(&self) {
         if self.effective_circular_mode() == CircularMode::Enabled {
             self.check_config_circular();
@@ -638,6 +760,9 @@ where
         self.check_ndt();
     }
 
+    /// Checks the circular config.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.10
     fn check_config_circular(&self) {
         // Check for clashing config values
         if self.transfer_direction() == TransferDirection::M2M
@@ -682,6 +807,7 @@ where
         }
     }
 
+    /// Checks the fifo config.
     fn check_config_fifo(&self) {
         if self.m_burst() != MBurst::Single {
             self.check_config_fifo_m_burst();
@@ -692,6 +818,9 @@ where
         }
     }
 
+    /// Checks the memory config of fifo stream.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.14
     fn check_config_fifo_m_burst(&self) {
         let m_size = self.m_size().into_num();
         let m_burst = self.m_burst().into_num();
@@ -707,6 +836,9 @@ where
         }
     }
 
+    /// Checks the peripheral config of fifio stream.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.14
     fn check_config_fifo_p_burst(&self) {
         let p_burst = self.p_burst().into_num();
         let p_size = self.p_size().into_num();
@@ -724,6 +856,9 @@ where
         }
     }
 
+    /// Checks the NDT register
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.12
     fn check_ndt(&self) {
         let m_size = self.m_size().into_num();
         let p_size = self.p_size().into_num();
@@ -741,12 +876,16 @@ where
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
+    /// Disables the stream
     pub fn disable(self) -> Stream<CXX, DMA, Disabling, IsrState> {
         self.rb.cr.modify(|_, w| w.en().clear_bit());
 
         self.transmute()
     }
 
+    /// Returns the effective Peripheral Increment Offset
+    ///
+    /// Read the documentation of `pincos` for more details.
     pub fn effective_pincos(&self) -> Option<Pincos> {
         if self.pinc() == Pinc::Fixed {
             None
@@ -762,6 +901,7 @@ where
     DMA: DMATrait,
     IsrState: IsrStateTrait,
 {
+    /// Block current thread until stream has been disabled.
     pub fn await_disabled(self) -> Stream<CXX, DMA, Disabled, IsrState> {
         while self.rb.cr.read().en().bit_is_set() {}
 
@@ -775,6 +915,10 @@ where
     DMA: DMATrait,
     ED: EDTrait,
 {
+    /// Returns the contents of the isr.
+    ///
+    /// * If there is no error, an optional event is returned as `Ok`
+    /// * If there are errors, the errors are being wrapped into `Error` and returned as `Err`
     pub fn check_isr(
         &self,
         isr: &StreamIsr<DMA>,
@@ -806,6 +950,7 @@ where
         }
     }
 
+    /// Returns the Transfer Complete flag
     pub fn transfer_complete_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().tcif0().bit_is_set(),
@@ -820,6 +965,7 @@ where
         }
     }
 
+    /// Returns the Half Transfer flag
     pub fn half_transfer_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().htif0().bit_is_set(),
@@ -834,6 +980,7 @@ where
         }
     }
 
+    /// Returns the Transfer Error flag
     pub fn transfer_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().teif0().bit_is_set(),
@@ -848,6 +995,7 @@ where
         }
     }
 
+    /// Returns the Direct Mode Error flag
     pub fn direct_mode_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().dmeif0().bit_is_set(),
@@ -862,6 +1010,7 @@ where
         }
     }
 
+    /// Returns the Fifo Error flag
     pub fn fifo_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().feif0().bit_is_set(),
@@ -876,6 +1025,7 @@ where
         }
     }
 
+    /// Performs the ISR clear
     fn clear_isr_impl(&self, isr: &mut StreamIsr<DMA>) {
         self.clear_transfer_complete(isr);
         self.clear_half_transfer(isr);
@@ -884,6 +1034,7 @@ where
         self.clear_fifo_error(isr);
     }
 
+    /// Clears the Transfer Complete flag
     pub fn clear_transfer_complete(&self, isr: &mut StreamIsr<DMA>) {
         match self.id() {
             0 => {
@@ -914,6 +1065,7 @@ where
         }
     }
 
+    /// Clears the Half Transfer flag
     pub fn clear_half_transfer(&self, isr: &mut StreamIsr<DMA>) {
         match self.id() {
             0 => {
@@ -944,6 +1096,7 @@ where
         }
     }
 
+    /// Clears the Transfer Error flag
     pub fn clear_transfer_error(&self, isr: &mut StreamIsr<DMA>) {
         match self.id() {
             0 => {
@@ -974,6 +1127,7 @@ where
         }
     }
 
+    /// Clears the Direct Mode Error flag
     pub fn clear_direct_mode_error(&self, isr: &mut StreamIsr<DMA>) {
         match self.id() {
             0 => {
@@ -1004,6 +1158,7 @@ where
         }
     }
 
+    /// Clears the Fifo Error flag
     pub fn clear_fifo_error(&self, isr: &mut StreamIsr<DMA>) {
         match self.id() {
             0 => {
@@ -1040,6 +1195,7 @@ where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
+    /// Clears the ISR
     pub fn clear_isr(
         self,
         isr: &mut StreamIsr<DMA>,
@@ -1056,6 +1212,7 @@ where
     DMA: DMATrait,
     ED: NotDisabled,
 {
+    /// Clears the ISR
     pub fn clear_isr(&self, isr: &mut StreamIsr<DMA>) {
         self.clear_isr_impl(isr);
     }
@@ -1079,6 +1236,7 @@ where
 {
 }
 
+/// DMA Mux
 pub struct DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
@@ -1096,6 +1254,9 @@ impl<CXX> DmaMux<CXX, ReqNone, SyncDisabled, EgDisabled>
 where
     CXX: ChannelId,
 {
+    /// Creates an instance of a DMA Mux in initial state.
+    ///
+    /// Should only be called after RCC-reset of the DMA.
     fn after_reset(rb: &'static CCR) -> Self {
         DmaMux {
             rb,
@@ -1112,10 +1273,12 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// Returns the id of the DMA Mux
     pub fn id(&self) -> usize {
         CXX::MUX_ID
     }
 
+    /// Returns the request id assigned to this Mux
     pub fn request_id(&self) -> RequestId {
         debug_assert_eq!(
             ReqId::REQUEST_ID,
@@ -1129,10 +1292,12 @@ where
         ReqId::REQUEST_ID
     }
 
+    /// Returns the Sync Overrun Interrupt config flag
     pub fn sync_overrun_interrupt(&self) -> SyncOverrunInterrupt {
         self.rb.read().soie().bit().into()
     }
 
+    /// Sets the Sync Overrun Interrupt config flag
     pub fn set_sync_overrun_interrupt(
         &mut self,
         sync_overrun_intrpt: SyncOverrunInterrupt,
@@ -1141,34 +1306,41 @@ where
             .modify(|_, w| w.soie().bit(sync_overrun_intrpt.into()));
     }
 
+    /// Returns the Synchronization Polarity
     pub fn sync_polarity(&self) -> SyncPolarity {
         self.rb.read().spol().bits().try_into().unwrap()
     }
 
+    /// Sets the Synchronization Polarity
     pub fn set_sync_polarity(&mut self, sync_polarity: SyncPolarity) {
         self.rb.modify(|_, w| w.spol().bits(sync_polarity.into()));
     }
 
+    /// Returns the number of requests
     pub fn nbreq(&self) -> NbReq {
         self.rb.read().nbreq().bits().try_into().unwrap()
     }
 
+    /// Returns the Synchronization ID
     pub fn sync_id(&self) -> SyncId {
         self.rb.read().sync_id().bits().try_into().unwrap()
     }
 
+    /// Sets the Synchronization ID
     pub fn set_sync_id(&mut self, sync_id: SyncId) {
         unsafe {
             self.rb.modify(|_, w| w.sync_id().bits(sync_id.into()));
         }
     }
 
+    /// Performs the request id write
     fn set_req_id_impl(&mut self, request_id: RequestId) {
         unsafe {
             self.rb.modify(|_, w| w.dmareq_id().bits(request_id.into()));
         }
     }
 
+    /// Transmutes the state of the DMA Mux
     fn transmute<NewSyncED, NewEgED>(
         self,
     ) -> DmaMux<CXX, ReqId, NewSyncED, NewEgED>
@@ -1189,6 +1361,7 @@ where
     CXX: ChannelId,
     ReqId: RequestIdTrait,
 {
+    /// Sets the number of requests
     pub fn set_nbreq(&mut self, nbreq: NbReq) {
         self.rb.modify(|_, w| w.nbreq().bits(nbreq.into()));
     }
@@ -1200,6 +1373,7 @@ where
     ReqId: RequestIdTrait,
     EgED: EgEDTrait,
 {
+    /// Enables synchronization
     pub fn enable_sync(self) -> DmaMux<CXX, ReqId, SyncEnabled, EgED> {
         self.rb.modify(|_, w| w.se().set_bit());
 
@@ -1213,6 +1387,7 @@ where
     ReqId: RequestIdTrait,
     EgED: EgEDTrait,
 {
+    /// Disables synchronization
     pub fn disable_sync(self) -> DmaMux<CXX, ReqId, SyncDisabled, EgED> {
         self.rb.modify(|_, w| w.se().clear_bit());
 
@@ -1226,6 +1401,7 @@ where
     ReqId: RequestIdTrait,
     SyncED: SyncEDTrait,
 {
+    /// Enables event generation
     pub fn enable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgEnabled> {
         self.rb.modify(|_, w| w.ege().set_bit());
 
@@ -1239,6 +1415,7 @@ where
     ReqId: RequestIdTrait,
     SyncED: SyncEDTrait,
 {
+    /// Disables event generation
     pub fn disable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgDisabled> {
         self.rb.modify(|_, w| w.ege().clear_bit());
 
@@ -1252,6 +1429,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// Sets request id
     pub fn set_req_id<NewReqId>(
         mut self,
         req_id: NewReqId,
@@ -1276,6 +1454,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// Unsets request id, defaulting to `ReqNone` and returning the old one
     pub fn unset_req_id(
         mut self,
     ) -> (DmaMux<CXX, ReqNone, SyncED, EgED>, ReqId) {
@@ -1291,6 +1470,7 @@ where
         (new_dma_mux, old_req_id)
     }
 
+    /// Replaces the request id
     pub fn replace_req_id<NewReqId>(
         mut self,
         req_id: NewReqId,
