@@ -1143,7 +1143,7 @@ fn check_buffer_not_empty<P>(buffer: &[P]) {
 }
 
 //
-// Secure Transfer implementations
+// Safe Transfer implementations
 //
 
 fn check_word_offset<P>(buffer: &[*const P])
@@ -1304,7 +1304,7 @@ pub(super) fn check_double_buffer<Memory>(
 
         if len_0 != len_1 {
             panic!(
-                "Invalid double buffer config: len_0 ({}) != len_1({})",
+                "Invalid double buffer config: len_0 ({}) != len_1 ({})",
                 len_0, len_1
             );
         }

@@ -1498,6 +1498,7 @@ where
     SyncED: SyncEDTrait,
     EgED: EgEDTrait,
 {
+    /// Checks the ISR for errors
     pub fn check_isr(&self, mux_isr: &MuxIsr) -> Result<(), OverrunError> {
         if self.is_sync_overrun(mux_isr) {
             Err(OverrunError)
@@ -1506,12 +1507,14 @@ where
         }
     }
 
+    /// Returns the Sync Overrun flag
     pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
         let mask: u16 = 1 << self.id() as u16;
 
         mux_isr.csr.read().sof().bits() & mask != 0
     }
 
+    /// Clears the ISR
     pub fn clear_isr(&self, mux_isr: &mut MuxIsr) {
         match self.id() {
             0 => mux_isr.cfr.write(|w| w.csof0().set_bit()),
@@ -1553,6 +1556,7 @@ where
 {
 }
 
+/// Memory-safe DMA transfer for single-buffer
 pub struct SafeTransfer<'wo, Peripheral, Memory, State>
 where
     Peripheral: Payload,
@@ -1569,6 +1573,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
+    /// Initializes new DMA transfer without starting it yet
     pub fn new(
         peripheral: PeripheralBufferStatic<'wo, Peripheral>,
         memory: MemoryBufferStatic<Memory>,
@@ -1590,14 +1595,18 @@ where
     Memory: Payload,
     State: TransferState,
 {
+    /// Returns peripheral buffer
     pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
         &self.peripheral
     }
 
+    /// Returns memory buffer
     pub fn memory(&self) -> &MemoryBufferStatic<Memory> {
         &self.memory
     }
 
+    /// Sets the content of destination buffer
+    ///
     /// # Safety
     ///
     /// The caller must ensure, that the DMA is currently not modifying this address.
@@ -1617,6 +1626,7 @@ where
         }
     }
 
+    /// Returns pointer to destination buffer
     pub fn dest_ptr(
         &mut self,
         index: Option<usize>,
@@ -1638,6 +1648,7 @@ where
     Source: Payload,
     Dest: Payload,
 {
+    /// Starts the transfer
     pub fn start<CXX, DMA>(
         self,
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
@@ -1666,10 +1677,12 @@ where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
+    /// Returns the stream assigned to the transfer
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
     }
 
+    /// Sets the Transfer Complete Interrupt config flag of the assigned stream
     pub fn set_transfer_complete_interrupt(
         &mut self,
         tc_intrpt: TransferCompleteInterrupt,
@@ -1677,6 +1690,7 @@ where
         self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
     }
 
+    /// Sets the Half Transfer Interrupt config flag of the assigned stream
     pub fn set_half_transfer_interrupt(
         &mut self,
         ht_intrpt: HalfTransferInterrupt,
@@ -1684,6 +1698,7 @@ where
         self.state.stream.set_half_transfer_interrupt(ht_intrpt);
     }
 
+    /// Sets the Transfer Error Interrupt config flag of the assigned stream
     pub fn set_transfer_error_interrupt(
         &mut self,
         te_intrpt: TransferErrorInterrupt,
@@ -1691,6 +1706,7 @@ where
         self.state.stream.set_transfer_error_interrupt(te_intrpt);
     }
 
+    /// Sets the Direct Mode Error Interrupt config flag of the assigned stream
     pub fn set_direct_mode_error_interrupt(
         &mut self,
         dme_intrpt: DirectModeErrorInterrupt,
@@ -1700,16 +1716,18 @@ where
             .set_direct_mode_error_interrupt(dme_intrpt);
     }
 
+    /// Sets the Fifo Error Interrupt config flag of the assigned stream
     pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
+    /// Stops the transfer, returning the stream
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
         self.state.stream.disable().await_disabled()
     }
 }
 
-/// Safe Transfer with Double Buffer as Source
+/// Memory-safe DMA transfer for double buffer
 pub struct SafeTransferDoubleBuffer<'wo, Peripheral, Memory, State>
 where
     Peripheral: Payload,
@@ -1727,6 +1745,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
+    /// Initializes new DMA transfer without starting it yet
     pub fn new(
         peripheral: PeripheralBufferStatic<'wo, Peripheral>,
         memories: [MemoryBufferStatic<Memory>; 2],
@@ -1749,14 +1768,17 @@ where
     Memory: Payload,
     State: TransferState,
 {
+    /// Returns peripheral buffer
     pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
         &self.peripheral
     }
 
+    /// Returns memory buffers
     pub fn memories(&self) -> &[MemoryBufferStatic<Memory>; 2] {
         &self.memories
     }
 
+    /// Sets the content of destination buffer
     pub unsafe fn set_dest(
         &mut self,
         index: Option<usize>,
@@ -1778,6 +1800,7 @@ where
         }
     }
 
+    /// Returns a pointer to the destination buffer
     pub fn dest_ptr(
         &mut self,
         index: Option<usize>,
@@ -1804,6 +1827,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
+    /// Starts the transfer
     pub fn start<CXX, DMA>(
         self,
         mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
@@ -1839,10 +1863,12 @@ where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
 {
+    /// Returns the stream assigned to the transfer
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
         &self.state.stream
     }
 
+    /// Sets the Transfer Complete Interrupt config flag
     pub fn set_transfer_complete_interrupt(
         &mut self,
         tc_intrpt: TransferCompleteInterrupt,
@@ -1850,6 +1876,7 @@ where
         self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
     }
 
+    /// Sets the Half Transfer Interrupt config flag
     pub fn set_half_transfer_interrupt(
         &mut self,
         ht_intrpt: HalfTransferInterrupt,
@@ -1857,6 +1884,7 @@ where
         self.state.stream.set_half_transfer_interrupt(ht_intrpt);
     }
 
+    /// Sets the Transfer Error Interrupt config flag
     pub fn set_transfer_error_interrupt(
         &mut self,
         te_intrpt: TransferErrorInterrupt,
@@ -1864,6 +1892,7 @@ where
         self.state.stream.set_transfer_error_interrupt(te_intrpt);
     }
 
+    /// Sets the Direct Mode Error Interrupt config flag
     pub fn set_direct_mode_error_interrupt(
         &mut self,
         dme_intrpt: DirectModeErrorInterrupt,
@@ -1873,10 +1902,12 @@ where
             .set_direct_mode_error_interrupt(dme_intrpt);
     }
 
+    /// Sets the Fifo Error Interrupt config flag
     pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
         self.state.stream.set_fifo_error_interrupt(fe_intrpt);
     }
 
+    /// Sets the memory-0 address
     pub fn set_m0a(&mut self, m0a: MemoryBufferStatic<Memory>) {
         let ptr = m0a.as_ptr(Some(0));
 
@@ -1887,6 +1918,7 @@ where
         block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
     }
 
+    /// Sets the memory-1 address
     pub fn set_m1a(&mut self, m1a: MemoryBufferStatic<Memory>) {
         let ptr = m1a.as_ptr(Some(0));
 
@@ -1897,6 +1929,7 @@ where
         block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
     }
 
+    /// Stops the transfer
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
         self.state.stream.disable().await_disabled()
     }
@@ -1935,16 +1968,22 @@ pub type RequestGenerators = (
     RequestGenerator<G7, GenDisabled>,
 );
 
+/// Container for shared items across the dma
 pub struct DmaShared {
     pub stream_isr_dma_1: StreamIsr<DMA1>,
     pub stream_isr_dma_2: StreamIsr<DMA2>,
     pub mux_shared: MuxShared,
 }
 
+/// Contains all channels, request generators and the shared items
 pub struct Dma {
+    /// Channels for DMA1
     pub channels_dma_1: ChannelsDma1,
+    /// Channels for DMA2
     pub channels_dma_2: ChannelsDma2,
+    /// Shared items for both DMAs
     pub dma_shared: DmaShared,
+    /// All request generators
     pub request_generators: RequestGenerators,
     /// Do not access this field. This is stored in case the user want's the peripheral back.
     _dma_1: DMA1,
@@ -1955,6 +1994,7 @@ pub struct Dma {
 }
 
 impl Dma {
+    /// Initializes the DMA-HAL. This is the entrypoint of the HAL.
     pub fn new(
         dma_1: DMA1,
         dma_2: DMA2,
@@ -2089,6 +2129,7 @@ impl Dma {
         }
     }
 
+    /// Resets the DMA
     fn reset_dma(rcc: &mut RCC) {
         rcc.ahb1rstr.modify(|_, w| w.dma1rst().set_bit());
         rcc.ahb1rstr.modify(|_, w| w.dma1rst().clear_bit());
@@ -2096,11 +2137,13 @@ impl Dma {
         rcc.ahb1rstr.modify(|_, w| w.dma2rst().clear_bit());
     }
 
+    /// Enables the DMA clock
     fn enable_dma(rcc: &mut RCC) {
         rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
         rcc.ahb1enr.modify(|_, w| w.dma2en().set_bit());
     }
 
+    /// Resets the MUX by manually clearing all bits
     fn reset_mux(mux: &mut DMAMUX1) {
         for ccr in mux.ccr.iter() {
             ccr.reset();
