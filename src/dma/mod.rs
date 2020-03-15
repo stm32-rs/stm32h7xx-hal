@@ -435,16 +435,12 @@ where
 
     /// Performs the volatile write to the `M0a` register
     fn impl_set_m0a(&mut self, m0a: M0a) {
-        unsafe {
-            self.rb.m0ar.modify(|_, w| w.m0a().bits(m0a.into()));
-        }
+        self.rb.m0ar.modify(|_, w| w.m0a().bits(m0a.into()));
     }
 
     /// Performs the volatile write to the `M1a` register
     fn impl_set_m1a(&mut self, m1a: M1a) {
-        unsafe {
-            self.rb.m0ar.modify(|_, w| w.m0a().bits(m1a.into()));
-        }
+        self.rb.m0ar.modify(|_, w| w.m0a().bits(m1a.into()));
     }
 
     /// Transmutes the state of `self`
@@ -519,9 +515,7 @@ where
 
     /// Sets the Priority Level
     pub fn set_priority_level(&mut self, priority_level: PriorityLevel) {
-        unsafe {
-            self.rb.cr.modify(|_, w| w.pl().bits(priority_level.into()));
-        }
+        self.rb.cr.modify(|_, w| w.pl().bits(priority_level.into()));
     }
 
     /// Sets the Buffer Mode (`Direct` or `Fifo` mode)
@@ -536,32 +530,24 @@ where
 
     /// Sets the Peripheral Burst
     pub fn set_p_burst(&mut self, p_burst: PBurst) {
-        unsafe {
-            self.rb.cr.modify(|_, w| w.pburst().bits(p_burst.into()));
-        }
+        self.rb.cr.modify(|_, w| w.pburst().bits(p_burst.into()));
     }
 
     /// Sets the Memory Burst
     pub fn set_m_burst(&mut self, m_burst: MBurst) {
-        unsafe {
-            self.rb.cr.modify(|_, w| w.mburst().bits(m_burst.into()));
-        }
+        self.rb.cr.modify(|_, w| w.mburst().bits(m_burst.into()));
     }
 
     /// Sets the NDT register
     pub fn set_ndt(&mut self, ndt: Ndt) {
         self.config_ndt = ndt;
 
-        unsafe {
-            self.rb.ndtr.modify(|_, w| w.ndt().bits(ndt.into()));
-        }
+        self.rb.ndtr.modify(|_, w| w.ndt().bits(ndt.into()));
     }
 
     /// Sets the Peripheral Address
     pub fn set_pa(&mut self, pa: Pa) {
-        unsafe {
-            self.rb.par.modify(|_, w| w.pa().bits(pa.into()));
-        }
+        self.rb.par.modify(|_, w| w.pa().bits(pa.into()));
     }
 
     /// Sets the Memory-0 Address
@@ -576,11 +562,9 @@ where
 
     /// Sets the Fifo Threshold
     pub fn set_fifo_threshold(&mut self, fifo_threshold: FifoThreshold) {
-        unsafe {
-            self.rb
-                .fcr
-                .modify(|_, w| w.fth().bits(fifo_threshold.into()));
-        }
+        self.rb
+            .fcr
+            .modify(|_, w| w.fth().bits(fifo_threshold.into()));
     }
 
     /// Sets the Transfer Mode
@@ -1496,8 +1480,6 @@ where
 
     /// Returns the Sync Overrun flag
     pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
-        let mask: u16 = 1 << self.id() as u16;
-
         mux_isr.csr.read().sof0().bit_is_set()
     }
 
