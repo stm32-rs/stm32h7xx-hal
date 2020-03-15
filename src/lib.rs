@@ -54,6 +54,9 @@ pub use stm32h7::stm32h757cm7 as stm32;
 #[cfg(all(feature = "singlecore", feature = "dualcore"))]
 compile_error!("Cannot not select both singlecore and dualcore");
 
+#[cfg(all(feature = "cm7", feature = "cm4"))]
+compile_error!("Cannot not select both CM7 and CM4");
+
 #[cfg(feature = "device-selected")]
 pub use crate::stm32 as pac;
 #[cfg(feature = "device-selected")]
@@ -67,6 +70,8 @@ pub use crate::stm32::interrupt;
 pub mod adc;
 #[cfg(feature = "device-selected")]
 pub mod delay;
+#[cfg(feature = "device-selected")]
+pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 #[cfg(feature = "device-selected")]
