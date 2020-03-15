@@ -90,30 +90,6 @@ pub enum Event {
     HSECSS = 87,
 }
 
-impl Event {
-    pub(crate) fn from_pin(n: u8) -> Event {
-        match n {
-            0 => Event::GPIO0,
-            1 => Event::GPIO1,
-            2 => Event::GPIO2,
-            3 => Event::GPIO3,
-            4 => Event::GPIO4,
-            5 => Event::GPIO5,
-            6 => Event::GPIO6,
-            7 => Event::GPIO7,
-            8 => Event::GPIO8,
-            9 => Event::GPIO9,
-            10 => Event::GPIO10,
-            11 => Event::GPIO11,
-            12 => Event::GPIO12,
-            13 => Event::GPIO13,
-            14 => Event::GPIO14,
-            15 => Event::GPIO15,
-            _ => unreachable!(),
-        }
-    }
-}
-
 /// Return an EXTI register for the current CPU
 #[cfg(any(feature = "singlecore"))]
 macro_rules! reg_for_cpu {
