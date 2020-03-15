@@ -5,6 +5,7 @@ pub use crate::adc::AdcExt as _stm32h7xx_hal_adc_AdcExt;
 pub use crate::delay::DelayExt as _stm32h7xx_hal_delay_DelayExt;
 #[cfg(feature = "dma")]
 pub use crate::dma::DmaExt as _stm32h7xx_hal_dma_DmaExt;
+pub use crate::exti::ExtiExt as _stm32h7xx_hal_delay_ExtiExt;
 pub use crate::flash::FlashExt as _stm32h7xx_hal_flash_FlashExt;
 pub use crate::gpio::GpioExt as _stm32h7xx_hal_gpio_GpioExt;
 pub use crate::i2c::I2cExt as _stm32h7xx_hal_i2c_I2cExt;

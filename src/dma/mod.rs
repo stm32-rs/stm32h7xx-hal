@@ -1498,7 +1498,7 @@ where
     pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
         let mask: u16 = 1 << self.id() as u16;
 
-        mux_isr.csr.read().sof().bits() & mask != 0
+        mux_isr.csr.read().sof0().bit_is_set()
     }
 
     /// Clears the ISR
