@@ -1,18 +1,12 @@
 //! DMA Stream
 
 use super::DMATrait;
-use crate::private;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
 use core::marker::PhantomData;
 
 type_state! {
-    ED, Disabled, Disabling, Enabled
+    ED, Disabled, Enabled
 }
-
-pub trait NotDisabled: ED + private::Sealed {}
-
-impl NotDisabled for Disabling {}
-impl NotDisabled for Enabled {}
 
 type_state! {
     IsrState, IsrCleared, IsrUncleared

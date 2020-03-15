@@ -37,12 +37,12 @@ use self::stm32::dmamux1::CCR;
 use self::stm32::{DMA1, DMA2, RCC};
 use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
-    Disabled, Disabling, Enabled, Error, Event, FifoErrorInterrupt,
-    FifoThreshold, FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
+    Disabled, Enabled, Error, Event, FifoErrorInterrupt, FifoThreshold,
+    FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
     IsrState as IsrStateTrait, IsrUncleared, M0a, M1a, MBurst, MSize, Minc,
-    Ndt, NotDisabled, PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel,
-    StreamIsr, TransferCompleteInterrupt, TransferDirection,
-    TransferErrorInterrupt, TransferMode, ED as EDTrait,
+    Ndt, PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel, StreamIsr,
+    TransferCompleteInterrupt, TransferDirection, TransferErrorInterrupt,
+    TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, block, Error as NbError};
 use crate::private;
@@ -667,11 +667,10 @@ where
     }
 }
 
-impl<CXX, DMA, ED, IsrState> Stream<CXX, DMA, ED, IsrState>
+impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
-    ED: NotDisabled,
     IsrState: IsrStateTrait,
 {
     /// Sets the Memory-0 Address on the fly
@@ -878,8 +877,10 @@ where
     IsrState: IsrStateTrait,
 {
     /// Disables the stream
-    pub fn disable(self) -> Stream<CXX, DMA, Disabling, IsrState> {
+    pub fn disable(self) -> Stream<CXX, DMA, Disabled, IsrState> {
         self.rb.cr.modify(|_, w| w.en().clear_bit());
+
+        while self.rb.cr.read().en().bit_is_set() {}
 
         self.transmute()
     }
@@ -893,20 +894,6 @@ where
         } else {
             Some(self.pincos())
         }
-    }
-}
-
-impl<CXX, DMA, IsrState> Stream<CXX, DMA, Disabling, IsrState>
-where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    IsrState: IsrStateTrait,
-{
-    /// Block current thread until stream has been disabled.
-    pub fn await_disabled(self) -> Stream<CXX, DMA, Disabled, IsrState> {
-        while self.rb.cr.read().en().bit_is_set() {}
-
-        self.transmute()
     }
 }
 
@@ -1207,11 +1194,10 @@ where
     }
 }
 
-impl<CXX, DMA, ED> Stream<CXX, DMA, ED, IsrUncleared>
+impl<CXX, DMA> Stream<CXX, DMA, Enabled, IsrUncleared>
 where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,
-    ED: NotDisabled,
 {
     /// Clears the ISR
     pub fn clear_isr(&self, isr: &mut StreamIsr<DMA>) {
@@ -1724,7 +1710,7 @@ where
 
     /// Stops the transfer, returning the stream
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
-        self.state.stream.disable().await_disabled()
+        self.state.stream.disable()
     }
 }
 
@@ -1932,7 +1918,7 @@ where
 
     /// Stops the transfer
     pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
-        self.state.stream.disable().await_disabled()
+        self.state.stream.disable()
     }
 }
 
