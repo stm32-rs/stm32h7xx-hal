@@ -1,6 +1,6 @@
 //! DMA Mux shared access objects
 
-use super::super::stm32::dmamux1::{CFR, CSR, RGCFR, RGSR};
+use crate::stm32::dmamux1::{CFR, CSR, RGCFR, RGSR};
 
 pub struct MuxIsr {
     pub(in super::super) csr: &'static CSR,

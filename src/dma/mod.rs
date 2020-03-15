@@ -45,6 +45,7 @@ use self::stream::{
     TransferErrorInterrupt, TransferMode, ED as EDTrait,
 };
 use crate::nb::{self, block, Error as NbError};
+use crate::private;
 use crate::rcc::Ccdr;
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
@@ -54,9 +55,9 @@ use stm32h7::stm32h743 as stm32;
 use stm32h7::stm32h743::DMAMUX1;
 
 /// Marker Trait for DMA peripherals
-pub unsafe trait DMATrait: Send {}
-unsafe impl DMATrait for DMA1 {}
-unsafe impl DMATrait for DMA2 {}
+pub trait DMATrait: Send + private::Sealed {}
+impl DMATrait for DMA1 {}
+impl DMATrait for DMA2 {}
 
 /// DMA Channel
 pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>

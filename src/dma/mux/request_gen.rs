@@ -1,10 +1,12 @@
 //! DMA Request Generator
 
+use crate::private;
+
 type_state! {
     ED, Disabled, Enabled
 }
 
-pub unsafe trait GenId: Send {
+pub trait GenId: Send + private::Sealed {
     const ID: usize;
 }
 
@@ -13,7 +15,8 @@ macro_rules! gen_ids {
         $(
             pub struct $name;
 
-            unsafe impl GenId for $name {
+            impl private::Sealed for $name {}
+            impl GenId for $name {
                 const ID:usize = $id;
             }
         )*

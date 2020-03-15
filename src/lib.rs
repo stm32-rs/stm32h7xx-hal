@@ -31,6 +31,11 @@ pub use nb;
 pub use nb::block;
 
 // Single core
+
+// TODO: Remove and uncomment below
+pub use stm32h7::stm32h743 as stm32;
+
+/*
 #[cfg(any(
     feature = "stm32h742",
     feature = "stm32h743",
@@ -55,6 +60,7 @@ pub use stm32h7::stm32h753v as stm32;
 pub use stm32h7::stm32h747cm7 as stm32;
 #[cfg(any(feature = "stm32h757cm7",))]
 pub use stm32h7::stm32h757cm7 as stm32;
+*/
 
 #[cfg(all(feature = "singlecore", feature = "dualcore"))]
 compile_error!("Cannot not select both singlecore and dualcore");
@@ -67,6 +73,8 @@ pub use crate::stm32 as device;
 // Enable use of interrupt macro
 #[cfg(feature = "rt")]
 pub use crate::stm32::interrupt;
+
+mod private;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;

@@ -6,15 +6,17 @@ use super::stream::{
     Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
 use super::{DMATrait, Stream};
+use crate::private;
 use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::{mem, ptr};
 
-pub unsafe trait TransferState: Send + Sync {}
+pub trait TransferState: Send + Sync + private::Sealed {}
 
 pub struct Start;
-unsafe impl TransferState for Start {}
+impl private::Sealed for Start {}
+impl TransferState for Start {}
 
 pub struct Ongoing<CXX, DMA>
 where
@@ -24,7 +26,14 @@ where
     pub(super) stream: Stream<CXX, DMA, Enabled, IsrUncleared>,
 }
 
-unsafe impl<CXX, DMA> TransferState for Ongoing<CXX, DMA>
+impl<CXX, DMA> private::Sealed for Ongoing<CXX, DMA>
+where
+    CXX: ChannelId<DMA = DMA>,
+    DMA: DMATrait,
+{
+}
+
+impl<CXX, DMA> TransferState for Ongoing<CXX, DMA>
 where
     CXX: ChannelId<DMA = DMA>,
     DMA: DMATrait,

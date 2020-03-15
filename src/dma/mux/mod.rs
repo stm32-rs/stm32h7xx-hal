@@ -8,7 +8,7 @@ use self::request_gen::{
     TriggerOverrunError, TriggerOverrunInterrupt, ED as GenED,
 };
 use self::shared::{MuxIsr, RequestGenIsr};
-use super::stm32::dmamux1::RGCR;
+use crate::stm32::dmamux1::RGCR;
 use core::convert::TryInto;
 use core::marker::PhantomData;
 
@@ -85,19 +85,21 @@ macro_rules! request_id {
 
         pub mod request_ids {
             use super::RequestId as RequestIdEnum;
+            use crate::private;
 
-            pub unsafe trait RequestId: Send {
+            pub trait RequestId: Send + private::Sealed {
                 const REQUEST_ID: RequestIdEnum;
             }
 
             #[derive(Clone, Copy)]
             pub struct ReqNone;
 
-            unsafe impl RequestId for ReqNone {
+            impl private::Sealed for ReqNone {}
+            impl RequestId for ReqNone {
                 const REQUEST_ID: RequestIdEnum = RequestIdEnum::None;
             }
 
-            pub unsafe trait RequestIdSome: RequestId {}
+            pub trait RequestIdSome: RequestId + private::Sealed {}
 
             $(
                 pub struct $request_id {
@@ -112,11 +114,12 @@ macro_rules! request_id {
                     }
                 }
 
-                unsafe impl RequestId for $request_id {
+                impl private::Sealed for $request_id {}
+                impl RequestId for $request_id {
                     const REQUEST_ID: RequestIdEnum = RequestIdEnum::$request_id;
                 }
 
-                unsafe impl RequestIdSome for $request_id {}
+                impl RequestIdSome for $request_id {}
             )*
         }
     };

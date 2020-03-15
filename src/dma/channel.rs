@@ -1,21 +1,25 @@
 //! DMA Channels
 
-use super::stm32::{DMA1, DMA2};
 use super::DMATrait;
+use crate::private;
+use crate::stm32::{DMA1, DMA2};
 
-pub unsafe trait ChannelId: Send {
+pub trait ChannelId: Send + private::Sealed {
     const STREAM_ID: usize;
     const MUX_ID: usize;
 
     type DMA: DMATrait;
 }
 
+#[doc(hidden)]
 macro_rules! channels {
     ($($channel:ident => [$stream:tt, $mux:tt, $dma:ident]),*) => {
         $(
             pub struct $channel;
 
-            unsafe impl ChannelId for $channel {
+            impl crate::private::Sealed for $channel {}
+
+            impl ChannelId for $channel {
                 const STREAM_ID: usize = $stream;
                 const MUX_ID: usize = $mux;
 

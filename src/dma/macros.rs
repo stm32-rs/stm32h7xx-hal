@@ -2,13 +2,15 @@
 
 macro_rules! type_state {
     ($trait:ident, $($type_state:ident),*) => {
-        pub unsafe trait $trait: core::fmt::Debug + PartialEq + Eq + Clone + Copy + Send + Sync {}
+        pub trait $trait: core::fmt::Debug + PartialEq + Eq + Clone + Copy + Send + Sync + crate::private::Sealed {}
 
         $(
             #[derive(Debug, PartialEq, Eq, Clone, Copy)]
             pub struct $type_state;
 
-            unsafe impl $trait for $type_state {}
+            impl crate::private::Sealed for $type_state {}
+
+            impl $trait for $type_state {}
         )*
     };
 }
