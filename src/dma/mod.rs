@@ -32,9 +32,6 @@ use self::safe_transfer::{
     MemoryBufferStatic, Ongoing, Payload, PayloadPort, PeripheralBufferStatic,
     PointerPort, Start, TransferState,
 };
-use self::stm32::dma1::ST;
-use self::stm32::dmamux1::CCR;
-use self::stm32::{DMA1, DMA2, RCC};
 use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
     Disabled, Enabled, Error, Event, FifoErrorInterrupt, FifoThreshold,
@@ -47,11 +44,12 @@ use self::stream::{
 use crate::nb::{self, block, Error as NbError};
 use crate::private;
 use crate::rcc::Ccdr;
+use crate::stm32::dma1::ST;
+use crate::stm32::dmamux1::CCR;
+use crate::stm32::{DMA1, DMA2, RCC};
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::mem;
-// TODO: Remove when merging. Necessary for me as I'm using CLion with rust plugin, which doesn't support conditionally imported items yet.
-use stm32h7::stm32h743 as stm32;
 use stm32h7::stm32h743::DMAMUX1;
 
 /// Marker Trait for DMA peripherals

@@ -5,12 +5,12 @@
 /// # Usage
 ///
 /// ```
-/// pub trait InternalTrait: private::Sealed {}
+/// pub trait InternalTrait: Sealed {}
 ///
 /// pub struct Foo;
 ///
 /// // Enables `Foo` to implement `InternalTrait`.
-/// impl private::Sealed for Foo {}
+/// impl Sealed for Foo {}
 /// impl InternalTrait for Foo {}
 /// ```
 pub trait Sealed {}
