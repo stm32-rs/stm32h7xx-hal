@@ -3,6 +3,7 @@
 use super::DMATrait;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
 use core::marker::PhantomData;
+use crate::private;
 
 type_state! {
     ED, Disabled, Enabled
@@ -247,4 +248,61 @@ pub struct Error {
     pub fifo_error: bool,
     pub event: Option<Event>,
     pub crashed: bool,
+}
+
+pub struct ConfigBuilder<TransferDir>
+where
+    TransferDir: TransferDirectionTrait,
+{
+    _transfer_dir: PhantomData<TransferDir>,
+}
+
+pub trait TransferDirectionTrait: private::Sealed {
+    fn transfer_direction() -> TransferDirection;
+}
+
+pub struct P2M;
+pub struct M2P;
+pub struct M2M;
+
+impl private::Sealed for P2M {}
+impl private::Sealed for M2P {}
+impl private::Sealed for M2M {}
+
+impl TransferDirectionTrait for P2M {
+    fn transfer_direction() -> TransferDirection {
+        TransferDirection::P2M
+    }
+}
+
+impl TransferDirectionTrait for M2P {
+    fn transfer_direction() -> TransferDirection {
+        TransferDirection::M2P
+    }
+}
+
+impl TransferDirectionTrait for M2M {
+    fn transfer_direction() -> TransferDirection {
+        TransferDirection::M2M
+    }
+}
+
+pub trait NotM2M: private::Sealed {}
+impl NotM2M for P2M {}
+impl NotM2M for M2P {}
+
+pub struct NotConfigured;
+
+macro_rules! panic_not_configured {
+    ($item:tt) => {
+        panic!("{} is not configured.", $item);
+    }
+}
+
+impl private::Sealed for NotConfigured {}
+
+impl TransferDirectionTrait for NotConfigured {
+    fn transfer_direction() -> TransferDirection {
+        panic_not_configured!("Transfer Direction");
+    }
 }
