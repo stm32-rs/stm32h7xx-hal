@@ -70,6 +70,24 @@ a number of fantastic resources available to help.
 - [Rust Embedded FAQ](https://docs.rust-embedded.org/faq.html)
 - [rust-embedded/awesome-embedded-rust](https://github.com/rust-embedded/awesome-embedded-rust)
 
+Hardware
+--------
+
+Below is a short list of publicly available and documented STM32H7
+development boards. Note that including them on this list does not
+mean they have been successfully tested with this crate. Some boards
+have a Board Support Crate (BSP) offering pin mappings and additional
+functionality.
+
+Board | Manufacturer | BSP / Examples?
+---|---|---
+[NUCLEO-H743ZI](https://www.st.com/en/evaluation-tools/nucleo-h743zi.html) | ST | [Examples](https://github.com/astraw/nucleo-h743zi)
+[STM32H743I-EVAL](https://www.st.com/en/evaluation-tools/stm32h743i-eval.html) | ST |
+[STM32H747I-EVAL](https://www.st.com/en/evaluation-tools/stm32h747i-eval.html) | ST |
+[STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html) | ST |
+[Portenta H7](https://store.arduino.cc/portenta-h7) | Arduino |
+[OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
+
 
 Minimum supported Rust version
 ------------------------------
@@ -77,6 +95,16 @@ Minimum supported Rust version
 The minimum supported Rust version at the moment is **1.39.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
+
+Other STM32H7 crates
+--------------------
+
+This crate only includes implmentations of [embedded-hal][] traits or
+other core functionality. An incomplete list of additional peripheral
+support crates is given here:
+
+- [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
+- _[Search crates.io...](https://crates.io/search?q=stm32h7)_
 
 Changelog
 ---------
