@@ -256,6 +256,10 @@ pub struct Error {
 // CONFIG BUILDER
 /////////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////////
+// # CONFIG BUILDER
+/////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ConfigBuilder<
     C_TransferDir,
@@ -270,12 +274,27 @@ pub struct ConfigBuilder<
     C_CircularMode: CircularModeTrait,
     C_BufferMode: BufferModeTrait,
 {
+    tc_intrpt: Option<TransferCompleteInterrupt>,
+    ht_intrpt: Option<HalfTransferInterrupt>,
+    te_intrpt: Option<TransferErrorInterrupt>,
+    dme_intrpt: Option<DirectModeErrorInterrupt>,
+    fe_intrpt: Option<FifoErrorInterrupt>,
+    pinc: Option<Pinc>,
+    minc: Option<Minc>,
+    priority: Option<PriorityLevel>,
+    p_size: Option<PSize>,
+    ndt: Option<Ndt>,
+    pa: Option<Pa>,
+    m0a: Option<M0a>,
     transfer_mode: C_TransferMode,
     buffer_mode: C_BufferMode,
     _phantom: PhantomData<(C_TransferDir, C_FlowController, C_CircularMode)>,
 }
 
-// Generic Impl
+/////////////////////////////////////////////////////////////////////////
+// ## GENERIC IMPLEMENTATION
+/////////////////////////////////////////////////////////////////////////
+
 impl<
         C_TransferDir,
         C_TransferMode,
@@ -297,12 +316,211 @@ where
     C_CircularMode: CircularModeTrait,
     C_BufferMode: BufferModeTrait,
 {
-    // IMPL
+    pub fn transfer_complete_interrupt(
+        mut self,
+        tc_intrpt: TransferCompleteInterrupt,
+    ) -> Self {
+        self.tc_intrpt = Some(tc_intrpt);
+
+        self
+    }
+
+    pub fn half_transfer_interrupt(
+        mut self,
+        ht_intrpt: HalfTransferInterrupt,
+    ) -> Self {
+        self.ht_intrpt = Some(ht_intrpt);
+
+        self
+    }
+
+    pub fn transfer_error_interrupt(
+        mut self,
+        te_intrpt: TransferErrorInterrupt,
+    ) -> Self {
+        self.te_intrpt = Some(te_intrpt);
+
+        self
+    }
+
+    pub fn direct_mode_error_interrupt(
+        mut self,
+        dme_intrpt: DirectModeErrorInterrupt,
+    ) -> Self {
+        self.dme_intrpt = Some(dme_intrpt);
+
+        self
+    }
+
+    pub fn fifo_error_interrupt(
+        mut self,
+        fe_intrpt: FifoErrorInterrupt,
+    ) -> Self {
+        self.fe_intrpt = Some(fe_intrpt);
+
+        self
+    }
+
+    pub fn pinc(mut self, pinc: Pinc) -> Self {
+        self.pinc = Some(pinc);
+
+        self
+    }
+
+    pub fn minc(mut self, minc: Minc) -> Self {
+        self.minc = Some(minc);
+
+        self
+    }
+
+    pub fn priority_level(mut self, priority: PriorityLevel) -> Self {
+        self.priority = Some(priority);
+
+        self
+    }
+
+    pub fn p_size(mut self, p_size: PSize) -> Self {
+        self.p_size = Some(p_size);
+
+        self
+    }
+
+    pub fn ndt(mut self, ndt: Ndt) -> Self {
+        self.ndt = Some(ndt);
+
+        self
+    }
+
+    pub fn pa(mut self, pa: Pa) -> Self {
+        self.pa = Some(pa);
+
+        self
+    }
+
+    pub fn m0a(mut self, m0a: M0a) -> Self {
+        self.m0a = Some(m0a);
+
+        self
+    }
+
+    fn transmute<NewC_TransferDir, NewC_FlowController, NewC_CircularMode>(
+        self,
+    ) -> ConfigBuilder<
+        NewC_TransferDir,
+        C_TransferMode,
+        NewC_FlowController,
+        NewC_CircularMode,
+        C_BufferMode,
+    >
+    where
+        NewC_TransferDir: TransferDirectionTrait,
+        NewC_FlowController: FlowControllerTrait,
+        NewC_CircularMode: CircularModeTrait,
+    {
+        ConfigBuilder {
+            tc_intrpt: self.tc_intrpt,
+            ht_intrpt: self.ht_intrpt,
+            te_intrpt: self.te_intrpt,
+            dme_intrpt: self.dme_intrpt,
+            fe_intrpt: self.fe_intrpt,
+            pinc: self.pinc,
+            minc: self.minc,
+            priority: self.priority,
+            p_size: self.p_size,
+            ndt: self.ndt,
+            pa: self.pa,
+            m0a: self.m0a,
+            transfer_mode: self.transfer_mode,
+            buffer_mode: self.buffer_mode,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn transmute_new_transfer_mode<
+        NewC_TransferDir,
+        NewC_TransferMode,
+        NewC_FlowController,
+        NewC_CircularMode,
+    >(
+        self,
+        transfer_mode: NewC_TransferMode,
+    ) -> ConfigBuilder<
+        NewC_TransferDir,
+        NewC_TransferMode,
+        NewC_FlowController,
+        NewC_CircularMode,
+        C_BufferMode,
+    >
+    where
+        NewC_TransferDir: TransferDirectionTrait,
+        NewC_TransferMode: TransferModeTrait,
+        NewC_FlowController: FlowControllerTrait,
+        NewC_CircularMode: CircularModeTrait,
+    {
+        ConfigBuilder {
+            tc_intrpt: self.tc_intrpt,
+            ht_intrpt: self.ht_intrpt,
+            te_intrpt: self.te_intrpt,
+            dme_intrpt: self.dme_intrpt,
+            fe_intrpt: self.fe_intrpt,
+            pinc: self.pinc,
+            minc: self.minc,
+            priority: self.priority,
+            p_size: self.p_size,
+            ndt: self.ndt,
+            pa: self.pa,
+            m0a: self.m0a,
+            buffer_mode: self.buffer_mode,
+            _phantom: PhantomData,
+            transfer_mode,
+        }
+    }
+
+    fn transmute_new_buffer_mode<
+        NewC_TransferDir,
+        NewC_FlowController,
+        NewC_CircularMode,
+        NewC_BufferMode,
+    >(
+        self,
+        buffer_mode: NewC_TransferMode,
+    ) -> ConfigBuilder<
+        NewC_TransferDir,
+        C_TransferMode,
+        NewC_FlowController,
+        NewC_CircularMode,
+        NewC_BufferMode,
+    >
+    where
+        NewC_TransferDir: TransferDirectionTrait,
+        NewC_FlowController: FlowControllerTrait,
+        NewC_CircularMode: CircularModeTrait,
+        NewC_BufferMode: BufferModeTrait,
+    {
+        ConfigBuilder {
+            tc_intrpt: self.tc_intrpt,
+            ht_intrpt: self.ht_intrpt,
+            te_intrpt: self.te_intrpt,
+            dme_intrpt: self.dme_intrpt,
+            fe_intrpt: self.fe_intrpt,
+            pinc: self.pinc,
+            minc: self.minc,
+            priority: self.priority,
+            p_size: self.p_size,
+            ndt: self.ndt,
+            pa: self.pa,
+            m0a: self.m0a,
+            transfer_mode: self.transfer_mode,
+            _phantom: PhantomData,
+            buffer_mode,
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
 // # TRANSFER DIRECTION
 /////////////////////////////////////////////////////////////////////////
+
 pub trait TransferDirectionTrait: DefaultTraits + private::Sealed {
     const TRANSFER_DIRECTION: Option<TransferDirection>;
 }
