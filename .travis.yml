@@ -1,9 +1,9 @@
 language: rust
 
 rust:
-  - nightly
-  - beta
+  - 1.39.0
   - stable
+  - nightly
 
 cache: cargo
 

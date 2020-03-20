@@ -1,90 +1,124 @@
-[![docs](https://docs.rs/stm32h7xx-hal/badge.svg)](https://docs.rs/stm32h7xx-hal)
-[![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/12691)
-[![Build status](https://travis-ci.com/stm32-rs/stm32h7xx-hal.svg?branch=master)](https://travis-ci.com/stm32-rs/stm32h7xx-hal)
-
 # [Documentation](https://docs.rs/stm32h7xx-hal)
 
-# stm32h7xx-hal
+stm32h7xx-hal
+=============
 
-**This crate has support for most commonly used peripherals, but is
-not complete.  Collaboration on this crate is highly welcome as are
-pull requests!**
+[![docs.rs](https://docs.rs/stm32h7xx-hal/badge.svg)](https://docs.rs/stm32h7xx-hal)
+[![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/12691)
+[![Travis](https://travis-ci.com/stm32-rs/stm32h7xx-hal.svg?branch=master)](https://travis-ci.com/stm32-rs/stm32h7xx-hal)
+[![Crates.io](https://img.shields.io/crates/v/stm32h7xx-hal.svg)](https://crates.io/crates/stm32h7xx-hal)
 
-`stm32h7xx-hal` contains a hardware abstraction on top of the
-peripheral access API for the STMicro STM32H7 series
-microcontrollers. The selection of the MCU is done by feature gates,
-typically specified by board support crates.
+[_stm32h7xx-hal_](https://github.com/stm32-rs/stm32h7xx-hal) contains
+a hardware abstraction layer on top of the peripheral access API for
+the STMicro STM32H7xx family of microcontrollers. The idea behind this
+crate is to gloss over the slight differences in the various
+peripherals available on those MCUs so a HAL can be written for all
+chips in that same family without having to cut and paste crates for
+every single model.
 
-The currently supported feature gates are:
+This crate relies on Adam Greig's fantastic [stm32h7][] crate to provide
+appropriate register definitions, and implements a partial set of the
+[embedded-hal][] traits. Much of the implementation was adapted from
+other HAL crates in the [stm32-rs organisation][stm32-rs].
 
-*   `stm32h743` ✔️
-*   `stm32h753` ✔️
+Collaboration on this crate is highly welcome, as are pull requests!
 
-Feature gates for the `stm32h742`, `stm32h750` also exist but may not be
-complete.
 
-In 2019 ST released hardware Revision V of the STM32H742, STM32H743,
-STM32H750 and STM32H753 ([eevblog][]). This hardware revision makes
-breaking hardware changes, documented in [AN5312][]. These parts are
-supported with the following feature gates:
+Supported Configurations
+------------------------
 
-*   `stm32h743v` ✔️
-*   `stm32h753v` ✔️
+* __stm32h743v__ (Revision V: stm32h743, stm32h742, stm32h750)
+* __stm32h753v__
+* __stm32h743__ (Revision Y: stm32h743, stm32h742, stm32h750)
+* __stm32h753__
+* __stm32h747cm7__ (stm32h747, stm32h757)
 
-Again, feature gates `stm32h742v`, `stm32h750v` also exist.
 
-There is also support for dual core parts. Currently only the
-Cortex-M7 core is supported.
+#### Single core parts (Cortex M7)
+In 2019 ST released hardware Revision V of the stm32h742, stm32h743,
+stm32h750 and stm32h753 ([eevblog][]). This hardware revision makes
+breaking hardware changes, documented in [AN5312][]. If you have a
+device purchased since mid-2019, you likely want to use the feature
+gate ending in a __v__.
 
-*   `stm32h747cm7` ✔️
-*   `stm32h757cm7` ✔️
+#### Dual core parts (Cortex M7 + Cortex M4)
+On dual core parts, currently only the Cortex M7 core is supported.
 
-The idea behind this crate is to gloss over the slight differences in
-the various peripherals available on those MCUs so a HAL can be
-written for all chips in that same family without having to cut and
-paste crates for every single model.
+Getting Started
+---------------
 
-This crate relies on Adam Greig's fantastic [`stm32h7`][] Peripheral
-Access Crate (PAC) to provide appropriate register definitions. This
-crate implements a partial set of the [`embedded-hal`][] traits.
+The `examples` folder contains several example programs. To compile
+them, one must specify the target device as cargo feature:
+```
+$ cargo build --features=stm32h743v,rt
+```
 
-Much of the implementation was adapted from other HAL crates in the
-[stm32-rs organisation][stm32-rs].
+To use stm32h7xx-hal as a dependency in a standalone project the
+target device feature must be specified in the `Cargo.toml` file:
+```
+[dependencies]
+cortex-m = "0.6.0"
+cortex-m-rt = "0.6.10"
+stm32h7xx-hal = {version = "0.3", features = ["stm32h743v","rt"]}
+```
 
-Dependencies
+If you are unfamiliar with embedded development using Rust, there are
+a number of fantastic resources available to help.
+
+- [Embedded Rust Documentation](https://docs.rust-embedded.org/)
+- [The Embedded Rust Book](https://docs.rust-embedded.org/book/)
+- [Rust Embedded FAQ](https://docs.rust-embedded.org/faq.html)
+- [rust-embedded/awesome-embedded-rust](https://github.com/rust-embedded/awesome-embedded-rust)
+
+Hardware
 --------
 
-1. Rustup toolchain installer
+Below is a short list of publicly available and documented STM32H7
+development boards. Note that including them on this list does not
+mean they have been successfully tested with this crate. Some boards
+have a Board Support Crate (BSP) offering pin mappings and additional
+functionality.
 
-    https://rustup.rs
+Board | Manufacturer | BSP / Examples?
+---|---|---
+[NUCLEO-H743ZI](https://www.st.com/en/evaluation-tools/nucleo-h743zi.html) | ST | [Examples](https://github.com/astraw/nucleo-h743zi)
+[STM32H743I-EVAL](https://www.st.com/en/evaluation-tools/stm32h743i-eval.html) | ST |
+[STM32H747I-EVAL](https://www.st.com/en/evaluation-tools/stm32h747i-eval.html) | ST |
+[STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html) | ST |
+[Portenta H7](https://store.arduino.cc/portenta-h7) | Arduino |
+[OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
 
 
-Configure Toolchain
---------
+Minimum supported Rust version
+------------------------------
 
-`$ rustup target add thumbv7em-none-eabihf`
+The minimum supported Rust version at the moment is **1.39.0**. Older
+versions **may** compile, especially when some features are not used
+in your application.
 
-Build Examples
---------
+Other STM32H7 crates
+--------------------
 
-You will need to change `stm32h743` to match your hardware.
+This crate only includes implmentations of [embedded-hal][] traits or
+other core functionality. An incomplete list of additional peripheral
+support crates is given here:
 
-`$ cargo build --release --examples --features stm32h743,rt`
+- [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
+- _[Search crates.io...](https://crates.io/search?q=stm32h7)_
 
-Run an Example
---------
+Changelog
+---------
 
-`$ cargo run --release --features stm32h743,rt --example blinky`
+See [CHANGELOG.md](CHANGELOG.md).
 
-This will start `arm-none-eabi-gdb`.
 
 License
---------
+-------
 
-[0-clause BSD license](LICENSE-0BSD.txt).
+0-Clause BSD License, see [LICENSE-0BSD.txt](LICENSE-0BSD.txt) for more details.
 
-[`stm32h7`]: https://crates.io/crates/stm32h7
+[stm32h7]: https://crates.io/crates/stm32h7
 [stm32-rs]: https://github.com/stm32-rs
-[`embedded-hal`]: https://github.com/rust-embedded/embedded-hal
+[embedded-hal]: https://github.com/rust-embedded/embedded-hal
 [AN5312]: https://www.st.com/resource/en/application_note/dm00609692.pdf
 [eevblog]: https://www.eevblog.com/forum/microcontrollers/stm32h7-series-revision-beware-of-the-changes!/
