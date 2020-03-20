@@ -105,7 +105,7 @@ impl From<AdcSampleTime> for u8 {
     }
 }
 
-/// ADC LSHIFT[3:0] of the converted value
+/// ADC LSHIFT\[3:0\] of the converted value
 ///
 /// Only values in range of 0..=15 are allowed.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -375,7 +375,7 @@ macro_rules! adc_hal {
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
-                /// Note: After power-up, a [`calibration`]: #method.calibrate shall be run
+                /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
                 pub fn power_up(&mut self, delay: &mut Delay) {
                     // Refer to RM0433 Rev 6 - Chapter 24.4.6
                     self.rb.cr.modify(|_, w|
@@ -387,7 +387,7 @@ macro_rules! adc_hal {
 
                 /// Enables Deeppowerdown-mode and disables voltage regulator
                 ///
-                /// Note: This resets the [`calibration`]: #method.calibrate of the ADC
+                /// Note: This resets the [`calibration`](#method.calibrate) of the ADC
                 pub fn power_down(&mut self) {
                     // Refer to RM0433 Rev 6 - Chapter 24.4.6
                     self.rb.cr.modify(|_, w|
@@ -637,7 +637,7 @@ macro_rules! adc_hal {
 
                 /// Set ADC lshift
                 ///
-                /// LSHIFT[3:0] must be in range of 0..=15
+                /// LSHIFT\[3:0\] must be in range of 0..=15
                 pub fn set_lshift(&mut self, lshift: AdcLshift) {
                     self.lshift = lshift;
                 }
@@ -653,9 +653,9 @@ macro_rules! adc_hal {
                 }
 
                 /// Returns the linear calibration values stored in an array in the following order:
-                /// LINCALRDYW1 -> result[0]
+                /// LINCALRDYW1 -> result\[0\]
                 /// ...
-                /// LINCALRDYW6 -> result[5]
+                /// LINCALRDYW6 -> result\[5\]
                 pub fn read_linear_calibration_values(&mut self) -> AdcCalLinear {
                     // Refer to RM0433 Rev 6 - Chapter 24.4.8 (Page 920)
                     self.check_linear_read_conditions();

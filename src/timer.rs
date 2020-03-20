@@ -126,7 +126,6 @@ macro_rules! hal {
             impl CountDown for Timer<$TIMX> {
                 type Time = Hertz;
 
-                #[allow(unused_unsafe)]
                 fn start<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
@@ -273,9 +272,27 @@ macro_rules! hal {
 }
 
 hal! {
+    // Advanced-control
     TIM1: (tim1, apb2, tim1en, tim1rst),
+    TIM8: (tim8, apb2, tim8en, tim8rst),
+
+    // General-purpose
     TIM2: (tim2, apb1l, tim2en, tim2rst),
-    // TIM3: (tim3, APB1, tim3en, tim3rst),
-    // TIM4: (tim4, APB1, tim4en, tim4rst),
-    // TIM5: (tim5, APB1, tim7en, tim7rst),
+    TIM3: (tim3, apb1l, tim3en, tim3rst),
+    TIM4: (tim4, apb1l, tim4en, tim4rst),
+    TIM5: (tim5, apb1l, tim5en, tim5rst),
+
+    // Basic
+    TIM6: (tim6, apb1l, tim6en, tim6rst),
+    TIM7: (tim7, apb1l, tim7en, tim7rst),
+
+    // General-purpose
+    TIM12: (tim12, apb1l, tim12en, tim12rst),
+    TIM13: (tim13, apb1l, tim13en, tim13rst),
+    TIM14: (tim14, apb1l, tim14en, tim14rst),
+
+    // General-purpose
+    TIM15: (tim15, apb2, tim15en, tim15rst),
+    TIM16: (tim16, apb2, tim16en, tim16rst),
+    TIM17: (tim17, apb2, tim17en, tim17rst),
 }
