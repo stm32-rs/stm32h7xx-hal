@@ -1,11 +1,11 @@
 //! DMA Stream
 
-use super::DMATrait;
-use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
-use core::marker::PhantomData;
-use core::fmt;
 use super::utils::DefaultTraits;
+use super::DMATrait;
 use crate::private;
+use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
+use core::fmt;
+use core::marker::PhantomData;
 
 type_state! {
     ED, Disabled, Enabled
@@ -252,26 +252,65 @@ pub struct Error {
     pub crashed: bool,
 }
 
+/////////////////////////////////////////////////////////////////////////
+// CONFIG BUILDER
+/////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ConfigBuilder<TransferDir>
-where
-    TransferDir: TransferDirectionTrait,
+pub struct ConfigBuilder<
+    C_TransferDir,
+    C_TransferMode,
+    C_FlowController,
+    C_CircularMode,
+    C_BufferMode,
+> where
+    C_TransferDir: TransferDirectionTrait,
+    C_TransferMode: TransferModeTrait,
+    C_FlowController: FlowControllerTrait,
+    C_CircularMode: CircularModeTrait,
+    C_BufferMode: BufferModeTrait,
 {
-    transfer_dir: TransferDir,
+    transfer_mode: C_TransferMode,
+    buffer_mode: C_BufferMode,
+    _phantom: PhantomData<(C_TransferDir, C_FlowController, C_CircularMode)>,
 }
 
+// Generic Impl
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+    >
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+    >
+where
+    C_TransferDir: TransferDirectionTrait,
+    C_TransferMode: TransferModeTrait,
+    C_FlowController: FlowControllerTrait,
+    C_CircularMode: CircularModeTrait,
+    C_BufferMode: BufferModeTrait,
+{
+    // IMPL
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # TRANSFER DIRECTION
+/////////////////////////////////////////////////////////////////////////
 pub trait TransferDirectionTrait: DefaultTraits + private::Sealed {
-    fn transfer_direction() -> TransferDirection;
+    const TRANSFER_DIRECTION: Option<TransferDirection>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct P2M {
-    conf: NotM2MConf,
-}
+pub struct P2M {}
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct M2P {
-    conf: NotM2MConf,
-}
+pub struct M2P {}
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct M2M;
 
@@ -280,62 +319,152 @@ impl private::Sealed for M2P {}
 impl private::Sealed for M2M {}
 
 impl TransferDirectionTrait for P2M {
-    fn transfer_direction() -> TransferDirection {
-        TransferDirection::P2M
-    }
+    const TRANSFER_DIRECTION: Option<TransferDirection> =
+        Some(TransferDirection::P2M);
 }
 
 impl TransferDirectionTrait for M2P {
-    fn transfer_direction() -> TransferDirection {
-        TransferDirection::M2P
-    }
+    const TRANSFER_DIRECTION: Option<TransferDirection> =
+        Some(TransferDirection::M2P);
 }
 
 impl TransferDirectionTrait for M2M {
-    fn transfer_direction() -> TransferDirection {
-        TransferDirection::M2M
-    }
+    const TRANSFER_DIRECTION: Option<TransferDirection> =
+        Some(TransferDirection::M2M);
 }
 
-pub trait NotM2M: DefaultTraits + private::Sealed {
-    fn not_m2m_conf(self) -> NotM2MConf;
-}
+pub trait NotM2M: DefaultTraits + private::Sealed {}
 
-impl NotM2M for P2M {
-    fn not_m2m_conf(self) -> NotM2MConf {
-        self.conf
-    }
-}
-impl NotM2M for M2P {
-    fn not_m2m_conf(self) -> NotM2MConf {
-        self.conf
-    }
+impl NotM2M for P2M {}
+impl NotM2M for M2P {}
+
+/////////////////////////////////////////////////////////////////////////
+// # TRANSFER MODE
+/////////////////////////////////////////////////////////////////////////
+
+pub trait TransferModeTrait: DefaultTraits + private::Sealed {
+    const TRANSFER_MODE: Option<TransferMode>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct NotM2MConf {
+pub struct Direct;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Fifo {
+    fifo_threshold: Option<FifoThreshold>,
+    p_burst: Option<PBurst>,
+    m_burst: Option<MBurst>,
+    m_size: Option<MSize>,
 }
 
-impl private::Sealed for NotM2MConf {}
+impl private::Sealed for Direct {}
+impl private::Sealed for Fifo {}
 
-pub trait TransferModeTrait: private::Sealed {
-    fn transfer_mode() -> TransferMode;
+impl TransferModeTrait for Direct {
+    const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Direct);
 }
+impl TransferModeTrait for Fifo {
+    const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Fifo);
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # FLOW CONTROLLER
+/////////////////////////////////////////////////////////////////////////
+
+pub trait FlowControllerTrait: DefaultTraits + private::Sealed {
+    const FLOW_CONTROLLER: Option<FlowController>;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Dma;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Peripheral;
+
+impl private::Sealed for Dma {}
+impl private::Sealed for Peripheral {}
+
+impl FlowControllerTrait for Dma {
+    const FLOW_CONTROLLER: Option<FlowController> = Some(FlowController::Dma);
+}
+impl FlowControllerTrait for Peripheral {
+    const FLOW_CONTROLLER: Option<FlowController> =
+        Some(FlowController::Peripheral);
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # CIRCULAR MODE
+/////////////////////////////////////////////////////////////////////////
+
+pub trait CircularModeTrait: DefaultTraits + private::Sealed {
+    const CIRCULAR_MODE: Option<CircularMode>;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Circular;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct NotCircular;
+
+impl private::Sealed for Circular {}
+impl private::Sealed for NotCircular {}
+
+impl CircularModeTrait for Circular {
+    const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Enabled);
+}
+impl CircularModeTrait for NotCircular {
+    const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Disabled);
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # BUFFER MODE
+/////////////////////////////////////////////////////////////////////////
+
+pub trait BufferModeTrait: DefaultTraits + private::Sealed {
+    const BUFFER_MODE: Option<BufferMode>;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct RegularBuffer;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct DoubleBuffer {
+    current_target: Option<CurrentTarget>,
+    m1a: Option<M1a>,
+}
+
+impl private::Sealed for RegularBuffer {}
+impl private::Sealed for DoubleBuffer {}
+
+impl BufferModeTrait for RegularBuffer {
+    const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::Regular);
+}
+impl BufferModeTrait for DoubleBuffer {
+    const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::DoubleBuffer);
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # NOT CONFIGURED
+/////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NotConfigured;
 
-macro_rules! panic_not_configured {
-    ($item:tt) => {
-        panic!("{} is not configured.", $item);
-    }
-}
-
 impl private::Sealed for NotConfigured {}
 
 impl TransferDirectionTrait for NotConfigured {
-    fn transfer_direction() -> TransferDirection {
-        panic_not_configured!("Transfer Direction");
-    }
+    const TRANSFER_DIRECTION: Option<TransferDirection> = None;
+}
+
+impl TransferModeTrait for NotConfigured {
+    const TRANSFER_MODE: Option<TransferMode> = None;
+}
+
+impl FlowControllerTrait for NotConfigured {
+    const FLOW_CONTROLLER: Option<FlowController> = None;
+}
+
+impl CircularModeTrait for NotConfigured {
+    const CIRCULAR_MODE: Option<CircularMode> = None;
+}
+
+impl BufferModeTrait for NotConfigured {
+    const BUFFER_MODE: Option<BufferMode> = None;
 }

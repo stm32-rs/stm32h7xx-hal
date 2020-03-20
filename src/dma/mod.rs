@@ -5,11 +5,11 @@
 
 #[macro_use]
 mod macros;
-mod utils;
 pub mod channel;
 pub mod mux;
 pub mod safe_transfer;
 pub mod stream;
+mod utils;
 
 use self::channel::{
     ChannelId, C0, C1, C10, C11, C12, C13, C14, C15, C2, C3, C4, C5, C6, C7,
