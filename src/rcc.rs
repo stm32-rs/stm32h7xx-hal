@@ -1,4 +1,81 @@
 //! Reset and Clock Control
+//!
+//! This module configures the RCC unit to provide set frequencies for
+//! the input to the SCGU `sys_ck`, the AMBA High-performance Busses
+//! and Advanced eXtensible Interface bus `hclk`, the AMBA Peripheral
+//! Busses `pclkN` and the peripheral clock `per_ck`.
+//!
+//! See Fig 46 "Core and bus clock generation" in Reference Manual
+//! RM0433 for information (p 336).
+//!
+//! HSI is 64 MHz.
+//! CSI is 4 MHz.
+//! HSI48 is 48MHz.
+//!
+//! # Usage
+//!
+//! This peripheral is must be used alongside the `PWR` peripheral to
+//! freeze voltage scaling of the device.
+//!
+//! A builder pattern is used to specify the state and frequency of
+//! possible clocks. The `freeze` method configures the RCC peripheral
+//! in a best-effort attempt to generate these clocks. The actual
+//! clocks configured are returned in `ccdr.clocks`.
+//!
+//! No clock specification overrides another. However supplying some
+//! clock specifications may influence multiple resulting clocks,
+//! including those corresponding to other clock specifications. This
+//! is particularly the case for PLL clocks, where the frequencies of
+//! adjacent 'P', 'Q, and 'R' clock outputs must have a simple integer
+//! fraction relationship.
+//!
+//! Some clock specifications imply other clock specifications, as follows:
+//!
+//! * `use_hse(a)` implies `sys_ck(a)`
+//!
+//! * `sys_ck(b)` implies `pll1_p_ck(b)` unless `b` equals HSI or `a`
+//!
+//! * `pll1_p_ck(c)` implies `pll1_r_ck(c/2)`, including when
+//! `pll1_p_ck` was implied by `sys_ck(c)`.
+//!
+//! Implied clock specifications can always be overridden by explicitly
+//! specifying that clock. If this results in a configuration that
+//! cannot be achieved by hardware, `freeze` will panic.
+//!
+//! # Example
+//!
+//! A simple example:
+//!
+//! ```rust
+//!     let dp = pac::Peripherals::take().unwrap();
+//!
+//!     let pwr = dp.PWR.constrain();
+//!     let vos = pwr.freeze();
+//!
+//!     let rcc = dp.RCC.constrain();
+//!     let mut ccdr = rcc
+//!         .sys_ck(96.mhz())
+//!         .pclk1(48.mhz())
+//!         .freeze(vos, &dp.SYSCFG);
+//! ```
+//!
+//! A more complex example, involving the PLL:
+//!
+//! ```rust
+//!     let dp = pac::Peripherals::take().unwrap();
+//!
+//!     let pwr = dp.PWR.constrain();
+//!     let vos = pwr.freeze();
+//!
+//!     let rcc = dp.RCC.constrain();
+//!     let mut ccdr = rcc
+//!         .sys_ck(200.mhz()) // Implies pll1_p_ck
+//!         // For non-integer values, round up. `freeze` will never
+//!         // configure a clock faster than that specified.
+//!         .pll1_q_ck(33_333_334.hz())
+//!         .freeze(vos, &dp.SYSCFG);
+//! ```
+//!
 #![deny(missing_docs)]
 
 use crate::pwr::VoltageScale as Voltage;
@@ -9,17 +86,6 @@ use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{rcc, RCC, SYSCFG};
 use crate::time::Hertz;
-
-/// This module configures the RCC unit to provide set frequencies for
-/// the input to the SCGU `sys_ck`, the AMBA High-performace Busses
-/// and Advanced eXtensible Interface bus `hclk`, the AMBA Peripheral
-/// Busses `pclkN` and the periperal clock `per_ck`.
-///
-/// Check Fig 46 "Core and bus clock generation" in the reference
-/// manual for information (p 336).
-///
-/// HSI is 64 MHz.
-///
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -792,9 +858,23 @@ impl Rcc {
     }
 
     /// Freeze the core clocks, returning a Core Clocks Distribution
-    /// and Reset (CCDR) object.
+    /// and Reset (CCDR) structure. The actual frequency of the clocks
+    /// configured is returned in the `clocks` member of the CCDR
+    /// structure.
+    ///
+    /// Note that `freeze` will never result in a clock _faster_ than
+    /// that specified. It may result in a clock that is a factor of [1,
+    /// 2) slower.
     ///
     /// `syscfg` is required to enable the I/O compensation cell.
+    ///
+    /// # Panics
+    ///
+    /// If a clock specification cannot be achieved within the
+    /// hardware specification then this function will panic. This
+    /// function may also panic if a clock specification can be
+    /// achieved, but the mechanism for doing so is not yet
+    /// implemented here.
     pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         let rcc = &self.rb;
 

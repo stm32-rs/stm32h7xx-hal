@@ -1,26 +1,53 @@
 //! Time units
 
+use core::fmt;
 use cortex_m::peripheral::DWT;
 
 /// Bits per second
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Bps(pub u32);
 
 /// Hertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Hertz(pub u32);
 
 /// KiloHertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct KiloHertz(pub u32);
 
 /// MegaHertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MegaHertz(pub u32);
 
 /// MilliSeconds
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct MilliSeconds(pub u32);
+
+impl fmt::Display for Bps {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} bits per second", self.0)
+    }
+}
+impl fmt::Display for Hertz {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} Hz", self.0)
+    }
+}
+impl fmt::Display for KiloHertz {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} kHz", self.0)
+    }
+}
+impl fmt::Display for MegaHertz {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} MHz", self.0)
+    }
+}
+impl fmt::Display for MilliSeconds {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} ms", self.0)
+    }
+}
 
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
