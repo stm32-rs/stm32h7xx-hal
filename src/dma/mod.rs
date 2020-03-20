@@ -5,6 +5,7 @@
 
 #[macro_use]
 mod macros;
+mod utils;
 pub mod channel;
 pub mod mux;
 pub mod safe_transfer;

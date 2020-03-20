@@ -3,6 +3,8 @@
 use super::DMATrait;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
 use core::marker::PhantomData;
+use core::fmt;
+use super::utils::DefaultTraits;
 use crate::private;
 
 type_state! {
@@ -250,19 +252,27 @@ pub struct Error {
     pub crashed: bool,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ConfigBuilder<TransferDir>
 where
     TransferDir: TransferDirectionTrait,
 {
-    _transfer_dir: PhantomData<TransferDir>,
+    transfer_dir: TransferDir,
 }
 
-pub trait TransferDirectionTrait: private::Sealed {
+pub trait TransferDirectionTrait: DefaultTraits + private::Sealed {
     fn transfer_direction() -> TransferDirection;
 }
 
-pub struct P2M;
-pub struct M2P;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct P2M {
+    conf: NotM2MConf,
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct M2P {
+    conf: NotM2MConf,
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct M2M;
 
 impl private::Sealed for P2M {}
@@ -287,10 +297,33 @@ impl TransferDirectionTrait for M2M {
     }
 }
 
-pub trait NotM2M: private::Sealed {}
-impl NotM2M for P2M {}
-impl NotM2M for M2P {}
+pub trait NotM2M: DefaultTraits + private::Sealed {
+    fn not_m2m_conf(self) -> NotM2MConf;
+}
 
+impl NotM2M for P2M {
+    fn not_m2m_conf(self) -> NotM2MConf {
+        self.conf
+    }
+}
+impl NotM2M for M2P {
+    fn not_m2m_conf(self) -> NotM2MConf {
+        self.conf
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct NotM2MConf {
+
+}
+
+impl private::Sealed for NotM2MConf {}
+
+pub trait TransferModeTrait: private::Sealed {
+    fn transfer_mode() -> TransferMode;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NotConfigured;
 
 macro_rules! panic_not_configured {
