@@ -119,4 +119,8 @@ macro_rules! rng_core {
     };
 }
 
-rng_core!(usize, u32, u16, u8);
+rng_core!(u32, u16, u8);
+
+// Test host may have > 32-bit types, which we don't consider.
+#[cfg(not(test))]
+rng_core!(usize);

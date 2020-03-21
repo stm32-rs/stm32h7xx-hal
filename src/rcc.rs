@@ -1267,3 +1267,132 @@ impl CoreClocks {
         self.c_ck
     }
 }
+
+#[cfg(test)]
+mod tests {
+    macro_rules! dummy_method {
+        ($($name:ident),+) => (
+            $(
+                fn $name(self) -> Self {
+                    self
+                }
+            )+
+        )
+    }
+
+    // Mock PLL CFGR
+    struct WPllCfgr {}
+    impl WPllCfgr {
+        dummy_method! { vcosel, medium_vco, wide_vco }
+        dummy_method! { pllrge, range1, range2, range4, range8 }
+    }
+    struct MockPllCfgr {}
+    impl MockPllCfgr {
+        // Modify mock registers
+        fn modify<F>(&self, func: F)
+        where
+            F: FnOnce((), WPllCfgr) -> WPllCfgr,
+        {
+            func((), WPllCfgr {});
+        }
+    }
+
+    // Mock RCC
+    struct MockRcc {
+        pub pllcfgr: MockPllCfgr,
+    }
+    impl MockRcc {
+        pub fn new() -> Self {
+            MockRcc {
+                pllcfgr: MockPllCfgr {},
+            }
+        }
+    }
+
+    #[test]
+    /// Test PFD input frequency PLL and VCO output frequency
+    fn vco_setup_normal() {
+        let rcc = MockRcc::new();
+
+        let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
+        let output = 240_000_000; // PLL output frequency (P_CK)
+        println!(
+            "PLL2/3 {} MHz -> {} MHz",
+            pllsrc as f32 / 1e6,
+            output as f32 / 1e6
+        );
+
+        // ----------------------------------------
+
+        // VCO Setup
+        println!("NORMAL");
+        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+            NORMAL: pllsrc, output, rcc, vcosel, pllrge
+        };
+        // Feedback divider. Integer only
+        let pll_x_n = vco_ck_target / ref_x_ck;
+
+        // ----------------------------------------
+
+        // Input
+        println!("M Divider {}", pll_x_m);
+        let input = pllsrc as f32 / pll_x_m as f32;
+        println!("==> Input {} MHz", input / 1e6);
+        println!();
+        assert_eq!(input, 1.9230769e6);
+
+        println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
+        println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
+
+        // Output
+        println!("P Divider {}", pll_x_p);
+        let output = pll_x_n as f32 * input / pll_x_p as f32;
+        println!("==> Output {} MHz", output / 1e6);
+        println!();
+
+        assert_eq!(output, 238.46153e6);
+    }
+
+    #[test]
+    /// Test PFD input frequency PLL and VCO output frequency
+    fn vco_setup_iterative() {
+        let rcc = MockRcc::new();
+
+        let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
+        let output = 240_000_000; // PLL output frequency (P_CK)
+        println!(
+            "PLL2/3 {} MHz -> {} MHz",
+            pllsrc as f32 / 1e6,
+            output as f32 / 1e6
+        );
+
+        // ----------------------------------------
+
+        // VCO Setup
+        println!("ITERATIVE");
+        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+            ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
+        };
+        // Feedback divider. Integer only
+        let pll_x_n = vco_ck_target / ref_x_ck;
+
+        // ----------------------------------------
+
+        // Input
+        println!("M Divider {}", pll_x_m);
+        let input = pllsrc as f32 / pll_x_m as f32;
+        println!("==> Input {} MHz", input / 1e6);
+        println!();
+        assert_eq!(input, 5e6);
+
+        println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
+        println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
+
+        // Output
+        println!("P Divider {}", pll_x_p);
+        let output = pll_x_n as f32 * input / pll_x_p as f32;
+        println!("==> Output {} MHz", output / 1e6);
+        println!();
+        assert_eq!(output, 240e6);
+    }
+}

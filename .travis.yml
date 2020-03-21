@@ -30,6 +30,7 @@ matrix:
 
 script:
   - RUSTFLAGS="-D warnings" cargo build --verbose --release --examples --features rt,$MCU
+  - cargo test --lib --features rt,$MCU --target x86_64-unknown-linux-gnu
 
 notifications:
   email: false
