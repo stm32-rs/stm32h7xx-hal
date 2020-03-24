@@ -590,7 +590,7 @@ where
         C_CircularMode,
         C_BufferMode,
     > {
-        self.transmute_new_transfer_mode(Fifo::default())
+        self.transmute_transfer_mode(Fifo::default())
     }
 
     pub fn flow_controller_dma(
@@ -614,7 +614,7 @@ where
         C_CircularMode,
         RegularBuffer,
     > {
-        self.transmute_new_buffer_mode(RegularBuffer)
+        self.transmute_buffer_mode(RegularBuffer)
     }
 
     fn transmute<NewC_TransferDir, NewC_FlowController, NewC_CircularMode>(
@@ -650,26 +650,18 @@ where
         }
     }
 
-    fn transmute_new_transfer_mode<
-        NewC_TransferDir,
-        NewC_TransferMode,
-        NewC_FlowController,
-        NewC_CircularMode,
-    >(
+    fn transmute_transfer_mode<NewC_TransferMode>(
         self,
         transfer_mode: NewC_TransferMode,
     ) -> ConfigBuilder<
-        NewC_TransferDir,
+        C_TransferDir,
         NewC_TransferMode,
-        NewC_FlowController,
-        NewC_CircularMode,
+        C_FlowController,
+        C_CircularMode,
         C_BufferMode,
     >
     where
-        NewC_TransferDir: TransferDirectionTrait,
         NewC_TransferMode: TransferModeTrait,
-        NewC_FlowController: FlowControllerTrait,
-        NewC_CircularMode: CircularModeTrait,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -690,25 +682,17 @@ where
         }
     }
 
-    fn transmute_new_buffer_mode<
-        NewC_TransferDir,
-        NewC_FlowController,
-        NewC_CircularMode,
-        NewC_BufferMode,
-    >(
+    fn transmute_buffer_mode<NewC_BufferMode>(
         self,
         buffer_mode: NewC_BufferMode,
     ) -> ConfigBuilder<
-        NewC_TransferDir,
+        C_TransferDir,
         C_TransferMode,
-        NewC_FlowController,
-        NewC_CircularMode,
+        C_FlowController,
+        C_CircularMode,
         NewC_BufferMode,
     >
     where
-        NewC_TransferDir: TransferDirectionTrait,
-        NewC_FlowController: FlowControllerTrait,
-        NewC_CircularMode: CircularModeTrait,
         NewC_BufferMode: BufferModeTrait,
     {
         ConfigBuilder {
@@ -743,10 +727,9 @@ where
     pub fn transfer_dir_m2m(
         self,
     ) -> ConfigBuilder<M2M, Fifo, Dma, NotCircular, RegularBuffer> {
-        let builder: ConfigBuilder<M2M, _, Dma, NotCircular, _> =
-            self.transmute_new_transfer_mode(Fifo::default());
-
-        builder.transmute_new_buffer_mode(RegularBuffer)
+        self.transmute()
+            .transmute_transfer_mode(Fifo::default())
+            .transmute_buffer_mode(RegularBuffer)
     }
 }
 
@@ -780,7 +763,7 @@ where
         C_CircularMode,
         C_BufferMode,
     > {
-        self.transmute_new_transfer_mode(Direct)
+        self.transmute_transfer_mode(Direct)
     }
 
     pub fn flow_controller_peripheral(
@@ -826,7 +809,7 @@ where
         NotCircular,
         RegularBuffer,
     > {
-        self.transmute_new_buffer_mode(RegularBuffer)
+        self.transmute().transmute_buffer_mode(RegularBuffer)
     }
 }
 
@@ -860,7 +843,7 @@ where
         self,
     ) -> ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_Circular, DoubleBuffer>
     {
-        self.transmute_new_buffer_mode(DoubleBuffer::default())
+        self.transmute_buffer_mode(DoubleBuffer::default())
     }
 }
 
@@ -875,6 +858,72 @@ impl Default
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<C_TransferDir, C_FlowController, C_CircularMode, C_BufferMode>
+    ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+    >
+where
+    C_TransferDir: TransferDirectionTrait,
+    C_FlowController: FlowControllerTrait,
+    C_CircularMode: CircularModeTrait,
+    C_BufferMode: BufferModeTrait,
+{
+    pub fn fifo_threshold(mut self, fifo_threshold: FifoThreshold) -> Self {
+        self.transfer_mode.fifo_threshold = Some(fifo_threshold);
+
+        self
+    }
+
+    pub fn p_burst(mut self, p_burst: PBurst) -> Self {
+        self.transfer_mode.p_burst = Some(p_burst);
+
+        self
+    }
+
+    pub fn m_burst(mut self, m_burst: MBurst) -> Self {
+        self.transfer_mode.m_burst = Some(m_burst);
+
+        self
+    }
+
+    pub fn m_size(mut self, m_size: MSize) -> Self {
+        self.transfer_mode.m_size = Some(m_size);
+
+        self
+    }
+}
+
+impl<C_TransferDir, C_TransferMode, C_FlowController, C_CircularMode>
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        DoubleBuffer,
+    >
+where
+    C_TransferDir: TransferDirectionTrait,
+    C_TransferMode: TransferModeTrait,
+    C_FlowController: FlowControllerTrait,
+    C_CircularMode: CircularModeTrait,
+{
+    pub fn current_target(mut self, current_target: CurrentTarget) -> Self {
+        self.buffer_mode.current_target = Some(current_target);
+
+        self
+    }
+
+    pub fn m1a(mut self, m1a: M1a) -> Self {
+        self.buffer_mode.m1a = Some(m1a);
+
+        self
     }
 }
 
