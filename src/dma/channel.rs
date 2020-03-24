@@ -1,6 +1,6 @@
 //! DMA Channels
 
-use super::DMATrait;
+use super::DmaPeripheral;
 use crate::private;
 use crate::stm32::{DMA1, DMA2};
 
@@ -8,7 +8,7 @@ pub trait ChannelId: Send + private::Sealed {
     const STREAM_ID: usize;
     const MUX_ID: usize;
 
-    type DMA: DMATrait;
+    type DMA: DmaPeripheral;
 }
 
 #[doc(hidden)]

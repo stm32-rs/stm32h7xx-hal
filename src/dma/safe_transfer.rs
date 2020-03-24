@@ -5,7 +5,7 @@ use super::stream::{
     CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize,
     Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
-use super::{DMATrait, Stream};
+use super::{DmaPeripheral, Stream};
 use crate::private;
 use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
@@ -21,7 +21,7 @@ impl TransferState for Start {}
 pub struct Ongoing<CXX, DMA>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     pub(super) stream: Stream<CXX, DMA, Enabled, IsrUncleared>,
 }
@@ -29,14 +29,14 @@ where
 impl<CXX, DMA> private::Sealed for Ongoing<CXX, DMA>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
 }
 
 impl<CXX, DMA> TransferState for Ongoing<CXX, DMA>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
 }
 
@@ -1183,7 +1183,7 @@ pub(super) fn configure_safe_transfer<CXX, DMA, Peripheral, Memory>(
     memory: &MemoryBuffer<Memory>,
 ) where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
     Peripheral: Payload,
     Memory: Payload,
 {
@@ -1248,7 +1248,7 @@ fn configure_ndt<CXX, DMA, Peripheral, Memory>(
     memory: &MemoryBuffer<Memory>,
 ) where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
     Peripheral: Payload,
     Memory: Payload,
 {

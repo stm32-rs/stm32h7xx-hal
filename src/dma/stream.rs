@@ -1,7 +1,7 @@
 //! DMA Stream
 
 use super::utils::DefaultTraits;
-use super::DMATrait;
+use super::DmaPeripheral;
 use crate::private;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
 use core::marker::PhantomData;
@@ -202,7 +202,7 @@ impl IntoNum for FifoThreshold {
 
 pub struct StreamIsr<DMA>
 where
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     pub(super) lisr: &'static LISR,
     pub(super) hisr: &'static HISR,
@@ -215,7 +215,7 @@ where
 
 impl<DMA> StreamIsr<DMA>
 where
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     pub(super) fn new(
         lisr: &'static LISR,
@@ -233,8 +233,8 @@ where
     }
 }
 
-unsafe impl<DMA> Send for StreamIsr<DMA> where DMA: DMATrait {}
-unsafe impl<DMA> Sync for StreamIsr<DMA> where DMA: DMATrait {}
+unsafe impl<DMA> Send for StreamIsr<DMA> where DMA: DmaPeripheral {}
+unsafe impl<DMA> Sync for StreamIsr<DMA> where DMA: DmaPeripheral {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Event {
@@ -392,11 +392,11 @@ pub struct ConfigBuilder<
     C_CircularMode,
     C_BufferMode,
 > where
-    C_TransferDir: TransferDirectionTrait,
-    C_TransferMode: TransferModeTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
-    C_BufferMode: BufferModeTrait,
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
 {
     tc_intrpt: Option<TransferCompleteInterrupt>,
     ht_intrpt: Option<HalfTransferInterrupt>,
@@ -464,11 +464,11 @@ impl<
         C_BufferMode,
     >
 where
-    C_TransferDir: TransferDirectionTrait,
-    C_TransferMode: TransferModeTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
-    C_BufferMode: BufferModeTrait,
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
 {
     pub fn transfer_complete_interrupt(
         mut self,
@@ -627,9 +627,9 @@ where
         C_BufferMode,
     >
     where
-        NewC_TransferDir: TransferDirectionTrait,
-        NewC_FlowController: FlowControllerTrait,
-        NewC_CircularMode: CircularModeTrait,
+        NewC_TransferDir: ITransferDirection,
+        NewC_FlowController: IFlowController,
+        NewC_CircularMode: ICircularMode,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -661,7 +661,7 @@ where
         C_BufferMode,
     >
     where
-        NewC_TransferMode: TransferModeTrait,
+        NewC_TransferMode: ITransferMode,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -693,7 +693,7 @@ where
         NewC_BufferMode,
     >
     where
-        NewC_BufferMode: BufferModeTrait,
+        NewC_BufferMode: IBufferMode,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -718,11 +718,11 @@ where
 impl<C_TransferDir, C_Fifo, C_Dma, C_NotCircular, C_RegularBuffer>
     ConfigBuilder<C_TransferDir, C_Fifo, C_Dma, C_NotCircular, C_RegularBuffer>
 where
-    C_TransferDir: TransferDirectionTrait,
-    C_Fifo: TransferModeTrait + Into<Fifo>,
-    C_Dma: FlowControllerTrait + Into<Dma>,
-    C_NotCircular: CircularModeTrait + Into<NotCircular>,
-    C_RegularBuffer: BufferModeTrait + Into<RegularBuffer>,
+    C_TransferDir: ITransferDirection,
+    C_Fifo: ITransferMode + Into<Fifo>,
+    C_Dma: IFlowController + Into<Dma>,
+    C_NotCircular: ICircularMode + Into<NotCircular>,
+    C_RegularBuffer: IBufferMode + Into<RegularBuffer>,
 {
     pub fn transfer_dir_m2m(
         self,
@@ -749,10 +749,10 @@ impl<
     >
 where
     C_NotM2M: NotM2M,
-    C_TransferMode: TransferModeTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
-    C_BufferMode: BufferModeTrait,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
 {
     pub fn transfer_mode_direct(
         self,
@@ -794,11 +794,11 @@ impl<
         C_RegularBuffer,
     >
 where
-    C_TransferDir: TransferDirectionTrait,
-    C_TransferMode: TransferModeTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
-    C_RegularBuffer: BufferModeTrait + Into<RegularBuffer>,
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_RegularBuffer: IBufferMode + Into<RegularBuffer>,
 {
     pub fn circular_mode_disabled(
         self,
@@ -817,10 +817,10 @@ impl<C_NotM2M, C_TransferMode, C_Dma, C_CircularMode, C_BufferMode>
     ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_CircularMode, C_BufferMode>
 where
     C_NotM2M: NotM2M,
-    C_TransferMode: TransferModeTrait,
-    C_Dma: FlowControllerTrait + Into<Dma>,
-    C_CircularMode: CircularModeTrait,
-    C_BufferMode: BufferModeTrait,
+    C_TransferMode: ITransferMode,
+    C_Dma: IFlowController + Into<Dma>,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
 {
     pub fn circular_mode_enabled(
         self,
@@ -834,10 +834,10 @@ impl<C_NotM2M, C_TransferMode, C_Dma, C_Circular, C_BufferMode>
     ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_Circular, C_BufferMode>
 where
     C_NotM2M: NotM2M,
-    C_TransferMode: TransferModeTrait,
-    C_Dma: FlowControllerTrait + Into<Dma>,
-    C_Circular: CircularModeTrait + Into<Circular>,
-    C_BufferMode: BufferModeTrait,
+    C_TransferMode: ITransferMode,
+    C_Dma: IFlowController + Into<Dma>,
+    C_Circular: ICircularMode + Into<Circular>,
+    C_BufferMode: IBufferMode,
 {
     pub fn buffer_mode_double_buffer(
         self,
@@ -870,10 +870,10 @@ impl<C_TransferDir, C_FlowController, C_CircularMode, C_BufferMode>
         C_BufferMode,
     >
 where
-    C_TransferDir: TransferDirectionTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
-    C_BufferMode: BufferModeTrait,
+    C_TransferDir: ITransferDirection,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
 {
     pub fn fifo_threshold(mut self, fifo_threshold: FifoThreshold) -> Self {
         self.transfer_mode.fifo_threshold = Some(fifo_threshold);
@@ -909,10 +909,10 @@ impl<C_TransferDir, C_TransferMode, C_FlowController, C_CircularMode>
         DoubleBuffer,
     >
 where
-    C_TransferDir: TransferDirectionTrait,
-    C_TransferMode: TransferModeTrait,
-    C_FlowController: FlowControllerTrait,
-    C_CircularMode: CircularModeTrait,
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
 {
     pub fn current_target(mut self, current_target: CurrentTarget) -> Self {
         self.buffer_mode.current_target = Some(current_target);
@@ -931,14 +931,14 @@ where
 // # TRANSFER DIRECTION
 /////////////////////////////////////////////////////////////////////////
 
-pub trait TransferDirectionTrait: DefaultTraits + private::Sealed {
+pub trait ITransferDirection: DefaultTraits + private::Sealed {
     const TRANSFER_DIRECTION: Option<TransferDirection>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct P2M {}
+pub struct P2M;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct M2P {}
+pub struct M2P;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct M2M;
 
@@ -946,22 +946,22 @@ impl private::Sealed for P2M {}
 impl private::Sealed for M2P {}
 impl private::Sealed for M2M {}
 
-impl TransferDirectionTrait for P2M {
+impl ITransferDirection for P2M {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::P2M);
 }
 
-impl TransferDirectionTrait for M2P {
+impl ITransferDirection for M2P {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::M2P);
 }
 
-impl TransferDirectionTrait for M2M {
+impl ITransferDirection for M2M {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::M2M);
 }
 
-pub trait NotM2M: TransferDirectionTrait {}
+pub trait NotM2M: ITransferDirection {}
 
 impl NotM2M for P2M {}
 impl NotM2M for M2P {}
@@ -970,7 +970,7 @@ impl NotM2M for M2P {}
 // # TRANSFER MODE
 /////////////////////////////////////////////////////////////////////////
 
-pub trait TransferModeTrait: DefaultTraits + private::Sealed {
+pub trait ITransferMode: DefaultTraits + private::Sealed {
     const TRANSFER_MODE: Option<TransferMode>;
 }
 
@@ -988,10 +988,10 @@ pub struct Fifo {
 impl private::Sealed for Direct {}
 impl private::Sealed for Fifo {}
 
-impl TransferModeTrait for Direct {
+impl ITransferMode for Direct {
     const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Direct);
 }
-impl TransferModeTrait for Fifo {
+impl ITransferMode for Fifo {
     const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Fifo);
 }
 
@@ -999,7 +999,7 @@ impl TransferModeTrait for Fifo {
 // # FLOW CONTROLLER
 /////////////////////////////////////////////////////////////////////////
 
-pub trait FlowControllerTrait: DefaultTraits + private::Sealed {
+pub trait IFlowController: DefaultTraits + private::Sealed {
     const FLOW_CONTROLLER: Option<FlowController>;
 }
 
@@ -1011,10 +1011,10 @@ pub struct Peripheral;
 impl private::Sealed for Dma {}
 impl private::Sealed for Peripheral {}
 
-impl FlowControllerTrait for Dma {
+impl IFlowController for Dma {
     const FLOW_CONTROLLER: Option<FlowController> = Some(FlowController::Dma);
 }
-impl FlowControllerTrait for Peripheral {
+impl IFlowController for Peripheral {
     const FLOW_CONTROLLER: Option<FlowController> =
         Some(FlowController::Peripheral);
 }
@@ -1023,7 +1023,7 @@ impl FlowControllerTrait for Peripheral {
 // # CIRCULAR MODE
 /////////////////////////////////////////////////////////////////////////
 
-pub trait CircularModeTrait: DefaultTraits + private::Sealed {
+pub trait ICircularMode: DefaultTraits + private::Sealed {
     const CIRCULAR_MODE: Option<CircularMode>;
 }
 
@@ -1035,10 +1035,10 @@ pub struct NotCircular;
 impl private::Sealed for Circular {}
 impl private::Sealed for NotCircular {}
 
-impl CircularModeTrait for Circular {
+impl ICircularMode for Circular {
     const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Enabled);
 }
-impl CircularModeTrait for NotCircular {
+impl ICircularMode for NotCircular {
     const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Disabled);
 }
 
@@ -1046,7 +1046,7 @@ impl CircularModeTrait for NotCircular {
 // # BUFFER MODE
 /////////////////////////////////////////////////////////////////////////
 
-pub trait BufferModeTrait: DefaultTraits + private::Sealed {
+pub trait IBufferMode: DefaultTraits + private::Sealed {
     const BUFFER_MODE: Option<BufferMode>;
 }
 
@@ -1061,10 +1061,10 @@ pub struct DoubleBuffer {
 impl private::Sealed for RegularBuffer {}
 impl private::Sealed for DoubleBuffer {}
 
-impl BufferModeTrait for RegularBuffer {
+impl IBufferMode for RegularBuffer {
     const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::Regular);
 }
-impl BufferModeTrait for DoubleBuffer {
+impl IBufferMode for DoubleBuffer {
     const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::DoubleBuffer);
 }
 
@@ -1077,23 +1077,23 @@ pub struct NotConfigured;
 
 impl private::Sealed for NotConfigured {}
 
-impl TransferDirectionTrait for NotConfigured {
+impl ITransferDirection for NotConfigured {
     const TRANSFER_DIRECTION: Option<TransferDirection> = None;
 }
 
-impl TransferModeTrait for NotConfigured {
+impl ITransferMode for NotConfigured {
     const TRANSFER_MODE: Option<TransferMode> = None;
 }
 
-impl FlowControllerTrait for NotConfigured {
+impl IFlowController for NotConfigured {
     const FLOW_CONTROLLER: Option<FlowController> = None;
 }
 
-impl CircularModeTrait for NotConfigured {
+impl ICircularMode for NotConfigured {
     const CIRCULAR_MODE: Option<CircularMode> = None;
 }
 
-impl BufferModeTrait for NotConfigured {
+impl IBufferMode for NotConfigured {
     const BUFFER_MODE: Option<BufferMode> = None;
 }
 

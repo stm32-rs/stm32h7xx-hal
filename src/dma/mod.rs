@@ -18,14 +18,12 @@ use self::channel::{
 use self::mux::request_gen::{
     Disabled as GenDisabled, G0, G1, G2, G3, G4, G5, G6, G7,
 };
-use self::mux::request_ids::{
-    ReqNone, RequestId as RequestIdTrait, RequestIdSome,
-};
+use self::mux::request_ids::{ReqNone, RequestId as IRequestId, RequestIdSome};
 use self::mux::shared::{MuxIsr, RequestGenIsr};
 use self::mux::{
-    EgDisabled, EgED as EgEDTrait, EgEnabled, MuxShared, NbReq, OverrunError,
-    RequestGenerator, RequestId, SyncDisabled, SyncED as SyncEDTrait,
-    SyncEnabled, SyncId, SyncOverrunInterrupt, SyncPolarity,
+    EgDisabled, EgED as IEgED, EgEnabled, MuxShared, NbReq, OverrunError,
+    RequestGenerator, RequestId, SyncDisabled, SyncED as ISyncED, SyncEnabled,
+    SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
     check_buffer, check_double_buffer, configure_safe_transfer, mut_ptr_memory,
@@ -37,10 +35,10 @@ use self::stream::{
     BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
     Disabled, Enabled, Error, Event, FifoErrorInterrupt, FifoThreshold,
     FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
-    IsrState as IsrStateTrait, IsrUncleared, M0a, M1a, MBurst, MSize, Minc,
-    Ndt, PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel, StreamIsr,
+    IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst, MSize, Minc, Ndt,
+    PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel, StreamIsr,
     TransferCompleteInterrupt, TransferDirection, TransferErrorInterrupt,
-    TransferMode, ED as EDTrait,
+    TransferMode, ED as IED,
 };
 use crate::nb::{self, block, Error as NbError};
 use crate::private;
@@ -54,20 +52,20 @@ use core::mem;
 use stm32h7::stm32h743::DMAMUX1;
 
 /// Marker Trait for DMA peripherals
-pub trait DMATrait: Send + private::Sealed {}
-impl DMATrait for DMA1 {}
-impl DMATrait for DMA2 {}
+pub trait DmaPeripheral: Send + private::Sealed {}
+impl DmaPeripheral for DMA1 {}
+impl DmaPeripheral for DMA2 {}
 
 /// DMA Channel
 pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    StreamED: EDTrait,
-    IsrState: IsrStateTrait,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    DMA: DmaPeripheral,
+    StreamED: IED,
+    IsrState: IIsrState,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     pub stream: Stream<CXX, DMA, StreamED, IsrState>,
     pub mux: DmaMux<CXX, ReqId, SyncED, EgED>,
@@ -77,12 +75,12 @@ impl<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
     Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    StreamED: EDTrait,
-    IsrState: IsrStateTrait,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    DMA: DmaPeripheral,
+    StreamED: IED,
+    IsrState: IIsrState,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// Exposes the stream as owned value in a closure
     pub fn stream_owned<F, NewStreamED, NewIsrState>(
@@ -93,8 +91,8 @@ where
         F: FnOnce(
             Stream<CXX, DMA, StreamED, IsrState>,
         ) -> Stream<CXX, DMA, NewStreamED, NewIsrState>,
-        NewStreamED: EDTrait,
-        NewIsrState: IsrStateTrait,
+        NewStreamED: IED,
+        NewIsrState: IIsrState,
     {
         let new_stream = op(self.stream);
 
@@ -113,9 +111,9 @@ where
         F: FnOnce(
             DmaMux<CXX, ReqId, SyncED, EgED>,
         ) -> DmaMux<CXX, NewReqId, NewSyncED, NewEgED>,
-        NewReqId: RequestIdTrait,
-        NewSyncED: SyncEDTrait,
-        NewEgED: EgEDTrait,
+        NewReqId: IRequestId,
+        NewSyncED: ISyncED,
+        NewEgED: IEgED,
     {
         let new_mux = op(self.mux);
 
@@ -130,9 +128,9 @@ where
 pub struct Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    ED: EDTrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    ED: IED,
+    IsrState: IIsrState,
 {
     /// This field *must not* be mutated using shared references
     rb: &'static ST,
@@ -143,7 +141,7 @@ where
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Creates an instance of a Stream in initial state.
     ///
@@ -160,9 +158,9 @@ where
 impl<CXX, DMA, ED, IsrState> Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    ED: EDTrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    ED: IED,
+    IsrState: IIsrState,
 {
     /// Returns the id of the Stream
     pub fn id(&self) -> usize {
@@ -447,8 +445,8 @@ where
         self,
     ) -> Stream<CXX, DMA, NewED, NewIsrState>
     where
-        NewED: EDTrait,
-        NewIsrState: IsrStateTrait,
+        NewED: IED,
+        NewIsrState: IIsrState,
     {
         Stream {
             rb: self.rb,
@@ -461,8 +459,8 @@ where
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Disabled, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    IsrState: IIsrState,
 {
     /// Sets the Flow Controller
     pub fn set_flow_controller(&mut self, flow_controller: FlowController) {
@@ -653,8 +651,8 @@ where
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    IsrState: IIsrState,
 {
     /// Sets the Memory-0 Address on the fly
     ///
@@ -701,7 +699,7 @@ where
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Checks the config for data integrity and enables the stream
     ///
@@ -856,8 +854,8 @@ where
 impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    IsrState: IIsrState,
 {
     /// Disables the stream
     pub fn disable(self) -> Stream<CXX, DMA, Disabled, IsrState> {
@@ -883,8 +881,8 @@ where
 impl<CXX, DMA, ED> Stream<CXX, DMA, ED, IsrUncleared>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    ED: EDTrait,
+    DMA: DmaPeripheral,
+    ED: IED,
 {
     /// Returns the contents of the isr.
     ///
@@ -1164,7 +1162,7 @@ where
 impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrUncleared>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Clears the ISR
     pub fn clear_isr(
@@ -1180,7 +1178,7 @@ where
 impl<CXX, DMA> Stream<CXX, DMA, Enabled, IsrUncleared>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Clears the ISR
     pub fn clear_isr(&self, isr: &mut StreamIsr<DMA>) {
@@ -1191,18 +1189,18 @@ where
 unsafe impl<CXX, DMA, ED, IsrState> Send for Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    ED: EDTrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    ED: IED,
+    IsrState: IIsrState,
 {
 }
 
 unsafe impl<CXX, DMA, ED, IsrState> Sync for Stream<CXX, DMA, ED, IsrState>
 where
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
-    ED: EDTrait,
-    IsrState: IsrStateTrait,
+    DMA: DmaPeripheral,
+    ED: IED,
+    IsrState: IIsrState,
 {
 }
 
@@ -1210,9 +1208,9 @@ where
 pub struct DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// This field *must not* be mutated using shared references
     rb: &'static CCR,
@@ -1239,9 +1237,9 @@ where
 impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// Returns the id of the DMA Mux
     pub fn id(&self) -> usize {
@@ -1315,8 +1313,8 @@ where
         self,
     ) -> DmaMux<CXX, ReqId, NewSyncED, NewEgED>
     where
-        NewSyncED: SyncEDTrait,
-        NewEgED: EgEDTrait,
+        NewSyncED: ISyncED,
+        NewEgED: IEgED,
     {
         DmaMux {
             rb: self.rb,
@@ -1329,7 +1327,7 @@ where
 impl<CXX, ReqId> DmaMux<CXX, ReqId, SyncDisabled, EgDisabled>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
+    ReqId: IRequestId,
 {
     /// Sets the number of requests
     pub fn set_nbreq(&mut self, nbreq: NbReq) {
@@ -1340,8 +1338,8 @@ where
 impl<CXX, ReqId, EgED> DmaMux<CXX, ReqId, SyncDisabled, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    EgED: IEgED,
 {
     /// Enables synchronization
     pub fn enable_sync(self) -> DmaMux<CXX, ReqId, SyncEnabled, EgED> {
@@ -1354,8 +1352,8 @@ where
 impl<CXX, ReqId, EgED> DmaMux<CXX, ReqId, SyncEnabled, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    EgED: IEgED,
 {
     /// Disables synchronization
     pub fn disable_sync(self) -> DmaMux<CXX, ReqId, SyncDisabled, EgED> {
@@ -1368,8 +1366,8 @@ where
 impl<CXX, ReqId, SyncED> DmaMux<CXX, ReqId, SyncED, EgDisabled>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
 {
     /// Enables event generation
     pub fn enable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgEnabled> {
@@ -1382,8 +1380,8 @@ where
 impl<CXX, ReqId, SyncED> DmaMux<CXX, ReqId, SyncED, EgEnabled>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
 {
     /// Disables event generation
     pub fn disable_event_gen(self) -> DmaMux<CXX, ReqId, SyncED, EgDisabled> {
@@ -1396,8 +1394,8 @@ where
 impl<CXX, SyncED, EgED> DmaMux<CXX, ReqNone, SyncED, EgED>
 where
     CXX: ChannelId,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// Sets request id
     pub fn set_req_id<NewReqId>(
@@ -1421,8 +1419,8 @@ impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
     ReqId: RequestIdSome,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// Unsets request id, defaulting to `ReqNone` and returning the old one
     pub fn unset_req_id(
@@ -1464,9 +1462,9 @@ where
 impl<CXX, ReqId, SyncED, EgED> DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
     /// Checks the ISR for errors
     pub fn check_isr(&self, mux_isr: &MuxIsr) -> Result<(), OverrunError> {
@@ -1509,18 +1507,18 @@ where
 unsafe impl<CXX, ReqId, SyncED, EgED> Send for DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
 }
 
 unsafe impl<CXX, ReqId, SyncED, EgED> Sync for DmaMux<CXX, ReqId, SyncED, EgED>
 where
     CXX: ChannelId,
-    ReqId: RequestIdTrait,
-    SyncED: SyncEDTrait,
-    EgED: EgEDTrait,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
 {
 }
 
@@ -1623,7 +1621,7 @@ where
     ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX, DMA>>
     where
         CXX: ChannelId<DMA = DMA>,
-        DMA: DMATrait,
+        DMA: DmaPeripheral,
     {
         configure_safe_transfer(&mut stream, &self.peripheral, &self.memory);
         stream.set_buffer_mode(BufferMode::Regular);
@@ -1643,7 +1641,7 @@ where
     Source: Payload,
     Dest: Payload,
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Returns the stream assigned to the transfer
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
@@ -1802,7 +1800,7 @@ where
     ) -> SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Ongoing<CXX, DMA>>
     where
         CXX: ChannelId<DMA = DMA>,
-        DMA: DMATrait,
+        DMA: DmaPeripheral,
     {
         stream.set_buffer_mode(BufferMode::DoubleBuffer);
         stream.set_m1a(M1a(self.memories[1].as_ptr(Some(0)) as u32));
@@ -1829,7 +1827,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
     CXX: ChannelId<DMA = DMA>,
-    DMA: DMATrait,
+    DMA: DmaPeripheral,
 {
     /// Returns the stream assigned to the transfer
     pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
@@ -2177,8 +2175,8 @@ impl Dma {
     }
 }
 
-pub trait DmaExt: DMATrait {
-    type Other: DMATrait;
+pub trait DmaExt: DmaPeripheral {
+    type Other: DmaPeripheral;
 
     fn dma(
         self,
