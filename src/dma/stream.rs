@@ -269,6 +269,7 @@ pub struct Config {
     pub ndt: Ndt,
     pub pa: Pa,
     pub m0a: M0a,
+    pub transfer_direction: TransferDirectionConf,
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -391,12 +392,14 @@ pub struct ConfigBuilder<
     C_FlowController,
     C_CircularMode,
     C_BufferMode,
+    C_PBurst,
 > where
-    C_TransferDir: ITransferDirection,
-    C_TransferMode: ITransferMode,
-    C_FlowController: IFlowController,
-    C_CircularMode: ICircularMode,
-    C_BufferMode: IBufferMode,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     tc_intrpt: Option<TransferCompleteInterrupt>,
     ht_intrpt: Option<HalfTransferInterrupt>,
@@ -412,6 +415,7 @@ pub struct ConfigBuilder<
     m0a: Option<M0a>,
     transfer_mode: C_TransferMode,
     buffer_mode: C_BufferMode,
+    p_burst: C_PBurst,
     _phantom: PhantomData<(C_TransferDir, C_FlowController, C_CircularMode)>,
 }
 
@@ -421,6 +425,7 @@ pub struct ConfigBuilder<
 
 impl
     ConfigBuilder<
+        NotConfigured,
         NotConfigured,
         NotConfigured,
         NotConfigured,
@@ -444,6 +449,7 @@ impl
             m0a: None,
             transfer_mode: NotConfigured,
             buffer_mode: NotConfigured,
+            p_burst: NotConfigured,
             _phantom: PhantomData,
         }
     }
@@ -455,6 +461,7 @@ impl<
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
     ConfigBuilder<
         C_TransferDir,
@@ -462,13 +469,15 @@ impl<
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
 where
-    C_TransferDir: ITransferDirection,
-    C_TransferMode: ITransferMode,
-    C_FlowController: IFlowController,
-    C_CircularMode: ICircularMode,
-    C_BufferMode: IBufferMode,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     pub fn transfer_complete_interrupt(
         mut self,
@@ -557,66 +566,6 @@ where
         self
     }
 
-    pub fn transfer_dir_p2m(
-        self,
-    ) -> ConfigBuilder<
-        P2M,
-        C_TransferMode,
-        C_FlowController,
-        C_CircularMode,
-        C_BufferMode,
-    > {
-        self.transmute()
-    }
-
-    pub fn transfer_dir_m2p(
-        self,
-    ) -> ConfigBuilder<
-        M2P,
-        C_TransferMode,
-        C_FlowController,
-        C_CircularMode,
-        C_BufferMode,
-    > {
-        self.transmute()
-    }
-
-    pub fn transfer_mode_fifo(
-        self,
-    ) -> ConfigBuilder<
-        C_TransferDir,
-        Fifo,
-        C_FlowController,
-        C_CircularMode,
-        C_BufferMode,
-    > {
-        self.transmute_transfer_mode(Fifo::default())
-    }
-
-    pub fn flow_controller_dma(
-        self,
-    ) -> ConfigBuilder<
-        C_TransferDir,
-        C_TransferMode,
-        Dma,
-        C_CircularMode,
-        C_BufferMode,
-    > {
-        self.transmute()
-    }
-
-    pub fn buffer_mode_regular(
-        self,
-    ) -> ConfigBuilder<
-        C_TransferDir,
-        C_TransferMode,
-        C_FlowController,
-        C_CircularMode,
-        RegularBuffer,
-    > {
-        self.transmute_buffer_mode(RegularBuffer)
-    }
-
     fn transmute<NewC_TransferDir, NewC_FlowController, NewC_CircularMode>(
         self,
     ) -> ConfigBuilder<
@@ -625,11 +574,12 @@ where
         NewC_FlowController,
         NewC_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
     where
-        NewC_TransferDir: ITransferDirection,
-        NewC_FlowController: IFlowController,
-        NewC_CircularMode: ICircularMode,
+        NewC_TransferDir: MaybeNotConfigured<S_TransferDir>,
+        NewC_FlowController: MaybeNotConfigured<S_FlowController>,
+        NewC_CircularMode: MaybeNotConfigured<S_CircularMode>,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -646,6 +596,7 @@ where
             m0a: self.m0a,
             transfer_mode: self.transfer_mode,
             buffer_mode: self.buffer_mode,
+            p_burst: self.p_burst,
             _phantom: PhantomData,
         }
     }
@@ -659,9 +610,10 @@ where
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
     where
-        NewC_TransferMode: ITransferMode,
+        NewC_TransferMode: MaybeNotConfigured<S_TransferMode>,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -677,6 +629,7 @@ where
             pa: self.pa,
             m0a: self.m0a,
             buffer_mode: self.buffer_mode,
+            p_burst: self.p_burst,
             _phantom: PhantomData,
             transfer_mode,
         }
@@ -691,9 +644,10 @@ where
         C_FlowController,
         C_CircularMode,
         NewC_BufferMode,
+        C_PBurst,
     >
     where
-        NewC_BufferMode: IBufferMode,
+        NewC_BufferMode: MaybeNotConfigured<S_BufferMode>,
     {
         ConfigBuilder {
             tc_intrpt: self.tc_intrpt,
@@ -709,24 +663,99 @@ where
             pa: self.pa,
             m0a: self.m0a,
             transfer_mode: self.transfer_mode,
+            p_burst: self.p_burst,
             _phantom: PhantomData,
             buffer_mode,
         }
     }
+
+    fn transmute_p_burst<NewC_PBurst>(
+        self,
+        p_burst: NewC_PBurst,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        NewC_PBurst,
+    >
+    where
+        NewC_PBurst: MaybeNotConfigured<S_PBurst>,
+    {
+        ConfigBuilder {
+            tc_intrpt: self.tc_intrpt,
+            ht_intrpt: self.ht_intrpt,
+            te_intrpt: self.te_intrpt,
+            dme_intrpt: self.dme_intrpt,
+            fe_intrpt: self.fe_intrpt,
+            pinc: self.pinc,
+            minc: self.minc,
+            priority: self.priority,
+            p_size: self.p_size,
+            ndt: self.ndt,
+            pa: self.pa,
+            m0a: self.m0a,
+            transfer_mode: self.transfer_mode,
+            buffer_mode: self.buffer_mode,
+            _phantom: PhantomData,
+            p_burst,
+        }
+    }
 }
 
-impl<C_TransferDir, C_Fifo, C_Dma, C_NotCircular, C_RegularBuffer>
-    ConfigBuilder<C_TransferDir, C_Fifo, C_Dma, C_NotCircular, C_RegularBuffer>
+impl<
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
+    ConfigBuilder<
+        NotConfigured,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
 where
-    C_TransferDir: ITransferDirection,
-    C_Fifo: ITransferMode + Into<Fifo>,
-    C_Dma: IFlowController + Into<Dma>,
-    C_NotCircular: ICircularMode + Into<NotCircular>,
-    C_RegularBuffer: IBufferMode + Into<RegularBuffer>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
+    pub fn transfer_dir_p2m(
+        self,
+    ) -> ConfigBuilder<
+        P2M,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    > {
+        self.transmute()
+    }
+
+    pub fn transfer_dir_m2p(
+        self,
+    ) -> ConfigBuilder<
+        M2P,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    > {
+        self.transmute()
+    }
+
     pub fn transfer_dir_m2m(
         self,
-    ) -> ConfigBuilder<M2M, Fifo, Dma, NotCircular, RegularBuffer> {
+    ) -> ConfigBuilder<M2M, Fifo, Dma, NotCircular, RegularBuffer, C_PBurst>
+    {
         self.transmute()
             .transmute_transfer_mode(Fifo::default())
             .transmute_buffer_mode(RegularBuffer)
@@ -734,25 +763,56 @@ where
 }
 
 impl<
-        C_NotM2M,
-        C_TransferMode,
+        C_TransferDir,
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
     ConfigBuilder<
-        C_NotM2M,
-        C_TransferMode,
+        C_TransferDir,
+        NotConfigured,
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_TransferDir: ITransferDirection,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
+{
+    pub fn transfer_mode_fifo(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    > {
+        self.transmute_transfer_mode(Fifo::default())
+    }
+}
+
+impl<C_NotM2M, C_FlowController, C_CircularMode, C_BufferMode, C_PBurst>
+    ConfigBuilder<
+        C_NotM2M,
+        NotConfigured,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
     >
 where
     C_NotM2M: NotM2M,
-    C_TransferMode: ITransferMode,
-    C_FlowController: IFlowController,
-    C_CircularMode: ICircularMode,
-    C_BufferMode: IBufferMode,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     pub fn transfer_mode_direct(
         self,
@@ -762,18 +822,133 @@ where
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        Single,
     > {
         self.transmute_transfer_mode(Direct)
+            .transmute_p_burst(Single::default())
     }
+}
 
+impl<C_TransferDir, C_TransferMode, C_CircularMode, C_BufferMode, C_PBurst>
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        NotConfigured,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
+{
+    pub fn flow_controller_dma(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        Dma,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    > {
+        self.transmute()
+    }
+}
+
+impl<C_NotM2M, C_TransferMode, C_CircularMode, C_BufferMode, C_PBurst>
+    ConfigBuilder<
+        C_NotM2M,
+        C_TransferMode,
+        NotConfigured,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_NotM2M: NotM2M,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
+{
     pub fn flow_controller_peripheral(
         self,
     ) -> ConfigBuilder<
         C_NotM2M,
         C_TransferMode,
         Peripheral,
-        C_CircularMode,
+        NotCircular,
+        RegularBuffer,
+        C_PBurst,
+    > {
+        self.transmute().transmute_buffer_mode(RegularBuffer)
+    }
+}
+
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
         C_BufferMode,
+        C_PBurst,
+    >
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        NotConfigured,
+        C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: IFlowController,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
+{
+    pub fn circular_mode_disabled(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        NotCircular,
+        C_BufferMode,
+        C_PBurst,
+    > {
+        self.transmute()
+    }
+}
+
+impl<C_NotM2M, C_TransferMode, C_BufferMode, C_PBurst>
+    ConfigBuilder<
+        C_NotM2M,
+        C_TransferMode,
+        Dma,
+        NotConfigured,
+        C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_NotM2M: NotM2M,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
+{
+    pub fn circular_mode_enabled(
+        self,
+    ) -> ConfigBuilder<
+        C_NotM2M,
+        C_TransferMode,
+        Dma,
+        Circular,
+        C_BufferMode,
+        C_PBurst,
     > {
         self.transmute()
     }
@@ -784,71 +959,161 @@ impl<
         C_TransferMode,
         C_FlowController,
         C_CircularMode,
-        C_RegularBuffer,
+        C_PBurst,
     >
     ConfigBuilder<
         C_TransferDir,
         C_TransferMode,
         C_FlowController,
         C_CircularMode,
-        C_RegularBuffer,
+        NotConfigured,
+        C_PBurst,
     >
 where
-    C_TransferDir: ITransferDirection,
-    C_TransferMode: ITransferMode,
-    C_FlowController: IFlowController,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
     C_CircularMode: ICircularMode,
-    C_RegularBuffer: IBufferMode + Into<RegularBuffer>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
-    pub fn circular_mode_disabled(
+    pub fn buffer_mode_regular(
         self,
     ) -> ConfigBuilder<
         C_TransferDir,
         C_TransferMode,
         C_FlowController,
-        NotCircular,
+        C_CircularMode,
         RegularBuffer,
+        C_PBurst,
     > {
-        self.transmute().transmute_buffer_mode(RegularBuffer)
+        self.transmute_buffer_mode(RegularBuffer)
     }
 }
 
-impl<C_NotM2M, C_TransferMode, C_Dma, C_CircularMode, C_BufferMode>
-    ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_CircularMode, C_BufferMode>
+impl<C_TransferDir, C_TransferMode, C_FlowController, C_PBurst>
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        Circular,
+        NotConfigured,
+        C_PBurst,
+    >
 where
-    C_NotM2M: NotM2M,
-    C_TransferMode: ITransferMode,
-    C_Dma: IFlowController + Into<Dma>,
-    C_CircularMode: ICircularMode,
-    C_BufferMode: IBufferMode,
-{
-    pub fn circular_mode_enabled(
-        self,
-    ) -> ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, Circular, C_BufferMode>
-    {
-        self.transmute()
-    }
-}
-
-impl<C_NotM2M, C_TransferMode, C_Dma, C_Circular, C_BufferMode>
-    ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_Circular, C_BufferMode>
-where
-    C_NotM2M: NotM2M,
-    C_TransferMode: ITransferMode,
-    C_Dma: IFlowController + Into<Dma>,
-    C_Circular: ICircularMode + Into<Circular>,
-    C_BufferMode: IBufferMode,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     pub fn buffer_mode_double_buffer(
         self,
-    ) -> ConfigBuilder<C_NotM2M, C_TransferMode, C_Dma, C_Circular, DoubleBuffer>
-    {
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        Circular,
+        DoubleBuffer,
+        C_PBurst,
+    > {
         self.transmute_buffer_mode(DoubleBuffer::default())
+    }
+}
+
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+    >
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        NotConfigured,
+    >
+where
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: ITransferMode,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+{
+}
+
+impl<C_TransferDir, C_FlowController, C_CircularMode, C_BufferMode>
+    ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        NotConfigured,
+    >
+where
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+{
+    pub fn p_burst_single(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        Single,
+    > {
+        self.transmute_p_burst(Single::default())
+    }
+
+    pub fn p_burst_incr4(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        Incr4,
+    > {
+        self.transmute_p_burst(Incr4)
+    }
+
+    pub fn p_burst_incr8(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        Incr8,
+    > {
+        self.transmute_p_burst(Incr8)
+    }
+
+    pub fn p_burst_incr16(
+        self,
+    ) -> ConfigBuilder<
+        C_TransferDir,
+        Fifo,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        Incr16,
+    > {
+        self.transmute_p_burst(Incr16)
     }
 }
 
 impl Default
     for ConfigBuilder<
+        NotConfigured,
         NotConfigured,
         NotConfigured,
         NotConfigured,
@@ -861,28 +1126,30 @@ impl Default
     }
 }
 
-impl<C_TransferDir, C_FlowController, C_CircularMode, C_BufferMode>
+impl<
+        C_TransferDir,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
     ConfigBuilder<
         C_TransferDir,
         Fifo,
         C_FlowController,
         C_CircularMode,
         C_BufferMode,
+        C_PBurst,
     >
 where
-    C_TransferDir: ITransferDirection,
-    C_FlowController: IFlowController,
-    C_CircularMode: ICircularMode,
-    C_BufferMode: IBufferMode,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     pub fn fifo_threshold(mut self, fifo_threshold: FifoThreshold) -> Self {
         self.transfer_mode.fifo_threshold = Some(fifo_threshold);
-
-        self
-    }
-
-    pub fn p_burst(mut self, p_burst: PBurst) -> Self {
-        self.transfer_mode.p_burst = Some(p_burst);
 
         self
     }
@@ -900,19 +1167,27 @@ where
     }
 }
 
-impl<C_TransferDir, C_TransferMode, C_FlowController, C_CircularMode>
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_PBurst,
+    >
     ConfigBuilder<
         C_TransferDir,
         C_TransferMode,
         C_FlowController,
         C_CircularMode,
         DoubleBuffer,
+        C_PBurst,
     >
 where
-    C_TransferDir: ITransferDirection,
-    C_TransferMode: ITransferMode,
-    C_FlowController: IFlowController,
-    C_CircularMode: ICircularMode,
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_PBurst: MaybeNotConfigured<S_PBurst>,
 {
     pub fn current_target(mut self, current_target: CurrentTarget) -> Self {
         self.buffer_mode.current_target = Some(current_target);
@@ -927,12 +1202,109 @@ where
     }
 }
 
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+    >
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        Single,
+    >
+where
+    C_TransferDir: MaybeNotConfigured<S_TransferDir>,
+    C_TransferMode: MaybeNotConfigured<S_TransferMode>,
+    C_FlowController: MaybeNotConfigured<S_FlowController>,
+    C_CircularMode: MaybeNotConfigured<S_CircularMode>,
+    C_BufferMode: MaybeNotConfigured<S_BufferMode>,
+{
+    pub fn pincos(mut self, pincos: Pincos) -> Self {
+        self.p_burst.pincos = Some(pincos);
+
+        self
+    }
+}
+
+impl<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
+    ConfigBuilder<
+        C_TransferDir,
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >
+where
+    C_TransferDir: ITransferDirection,
+    C_TransferMode: ITransferMode,
+    C_FlowController: IFlowController,
+    C_CircularMode: ICircularMode,
+    C_BufferMode: IBufferMode,
+    C_PBurst: IPBurst,
+{
+    pub fn build(self) -> Config {
+        let transfer_direction_conf =
+            C_TransferDir::build::<_, C_FlowController, C_CircularMode, _, _>(
+                self.transfer_mode,
+                self.buffer_mode,
+                self.p_burst,
+            );
+
+        Config {
+            transfer_complete_interrupt: self.tc_intrpt.unwrap(),
+            half_transfer_interrupt: self.ht_intrpt.unwrap(),
+            transfer_error_interrupt: self.te_intrpt.unwrap(),
+            direct_mode_error_interrupt: self.dme_intrpt.unwrap(),
+            fifo_error_interrupt: self.fe_intrpt.unwrap(),
+            pinc: self.pinc.unwrap(),
+            minc: self.minc.unwrap(),
+            priority_level: self.priority.unwrap(),
+            p_size: self.p_size.unwrap(),
+            ndt: self.ndt.unwrap(),
+            pa: self.pa.unwrap(),
+            m0a: self.m0a.unwrap(),
+            transfer_direction: transfer_direction_conf,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # TRANSFER DIRECTION
 /////////////////////////////////////////////////////////////////////////
 
 pub trait ITransferDirection: DefaultTraits + private::Sealed {
     const TRANSFER_DIRECTION: Option<TransferDirection>;
+
+    fn build<
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >(
+        transfer_mode: C_TransferMode,
+        buffer_mode: C_BufferMode,
+        p_burst: C_PBurst,
+    ) -> TransferDirectionConf
+    where
+        C_TransferMode: ITransferMode,
+        C_FlowController: IFlowController,
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+        C_PBurst: IPBurst;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -949,16 +1321,90 @@ impl private::Sealed for M2M {}
 impl ITransferDirection for P2M {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::P2M);
+
+    fn build<
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >(
+        transfer_mode: C_TransferMode,
+        buffer_mode: C_BufferMode,
+        p_burst: C_PBurst,
+    ) -> TransferDirectionConf
+    where
+        C_TransferMode: ITransferMode,
+        C_FlowController: IFlowController,
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+        C_PBurst: IPBurst,
+    {
+        TransferDirectionConf::NotM2M(NotM2MConf {
+            transfer_dir: TransferDirectionNotM2M::P2M,
+            transfer_mode: transfer_mode.build(p_burst),
+            flow: C_FlowController::build::<C_CircularMode, _>(buffer_mode),
+        })
+    }
 }
 
 impl ITransferDirection for M2P {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::M2P);
+
+    fn build<
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >(
+        transfer_mode: C_TransferMode,
+        buffer_mode: C_BufferMode,
+        p_burst: C_PBurst,
+    ) -> TransferDirectionConf
+    where
+        C_TransferMode: ITransferMode,
+        C_FlowController: IFlowController,
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+        C_PBurst: IPBurst,
+    {
+        TransferDirectionConf::NotM2M(NotM2MConf {
+            transfer_dir: TransferDirectionNotM2M::M2P,
+            transfer_mode: transfer_mode.build(p_burst),
+            flow: C_FlowController::build::<C_CircularMode, _>(buffer_mode),
+        })
+    }
 }
 
 impl ITransferDirection for M2M {
     const TRANSFER_DIRECTION: Option<TransferDirection> =
         Some(TransferDirection::M2M);
+
+    fn build<
+        C_TransferMode,
+        C_FlowController,
+        C_CircularMode,
+        C_BufferMode,
+        C_PBurst,
+    >(
+        transfer_mode: C_TransferMode,
+        _: C_BufferMode,
+        p_burst: C_PBurst,
+    ) -> TransferDirectionConf
+    where
+        C_TransferMode: ITransferMode,
+        C_FlowController: IFlowController,
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+        C_PBurst: IPBurst,
+    {
+        TransferDirectionConf::M2M(match transfer_mode.build(p_burst) {
+            TransferModeConf::Fifo(fifo_conf) => fifo_conf,
+            _ => unreachable!(),
+        })
+    }
 }
 
 pub trait NotM2M: ITransferDirection {}
@@ -972,6 +1418,10 @@ impl NotM2M for M2P {}
 
 pub trait ITransferMode: DefaultTraits + private::Sealed {
     const TRANSFER_MODE: Option<TransferMode>;
+
+    fn build<C_PBurst>(self, p_burst: C_PBurst) -> TransferModeConf
+    where
+        C_PBurst: IPBurst;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -980,7 +1430,6 @@ pub struct Direct;
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Fifo {
     fifo_threshold: Option<FifoThreshold>,
-    p_burst: Option<PBurst>,
     m_burst: Option<MBurst>,
     m_size: Option<MSize>,
 }
@@ -990,9 +1439,30 @@ impl private::Sealed for Fifo {}
 
 impl ITransferMode for Direct {
     const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Direct);
+
+    fn build<C_PBurst>(self, _: C_PBurst) -> TransferModeConf
+    where
+        C_PBurst: IPBurst,
+    {
+        TransferModeConf::Direct
+    }
 }
 impl ITransferMode for Fifo {
     const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Fifo);
+
+    fn build<C_PBurst>(self, p_burst: C_PBurst) -> TransferModeConf
+    where
+        C_PBurst: IPBurst,
+    {
+        let conf = FifoConf {
+            fifo_threshold: self.fifo_threshold.unwrap(),
+            p_burst: p_burst.build(),
+            m_burst: self.m_burst.unwrap(),
+            m_size: self.m_size.unwrap(),
+        };
+
+        TransferModeConf::Fifo(conf)
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1001,6 +1471,13 @@ impl ITransferMode for Fifo {
 
 pub trait IFlowController: DefaultTraits + private::Sealed {
     const FLOW_CONTROLLER: Option<FlowController>;
+
+    fn build<C_CircularMode, C_BufferMode>(
+        buffer_mode: C_BufferMode,
+    ) -> FlowControllerConf
+    where
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -1013,10 +1490,30 @@ impl private::Sealed for Peripheral {}
 
 impl IFlowController for Dma {
     const FLOW_CONTROLLER: Option<FlowController> = Some(FlowController::Dma);
+
+    fn build<C_CircularMode, C_BufferMode>(
+        buffer_mode: C_BufferMode,
+    ) -> FlowControllerConf
+    where
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+    {
+        FlowControllerConf::Dma(C_CircularMode::build(buffer_mode))
+    }
 }
 impl IFlowController for Peripheral {
     const FLOW_CONTROLLER: Option<FlowController> =
         Some(FlowController::Peripheral);
+
+    fn build<C_CircularMode, C_BufferMode>(
+        _: C_BufferMode,
+    ) -> FlowControllerConf
+    where
+        C_CircularMode: ICircularMode,
+        C_BufferMode: IBufferMode,
+    {
+        FlowControllerConf::Peripheral
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1025,6 +1522,10 @@ impl IFlowController for Peripheral {
 
 pub trait ICircularMode: DefaultTraits + private::Sealed {
     const CIRCULAR_MODE: Option<CircularMode>;
+
+    fn build<C_BufferMode>(buffer_mode: C_BufferMode) -> CircularModeConf
+    where
+        C_BufferMode: IBufferMode;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -1037,9 +1538,23 @@ impl private::Sealed for NotCircular {}
 
 impl ICircularMode for Circular {
     const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Enabled);
+
+    fn build<C_BufferMode>(buffer_mode: C_BufferMode) -> CircularModeConf
+    where
+        C_BufferMode: IBufferMode,
+    {
+        CircularModeConf::Enabled(buffer_mode.build())
+    }
 }
 impl ICircularMode for NotCircular {
     const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Disabled);
+
+    fn build<C_BufferMode>(_: C_BufferMode) -> CircularModeConf
+    where
+        C_BufferMode: IBufferMode,
+    {
+        CircularModeConf::Disabled
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1048,6 +1563,8 @@ impl ICircularMode for NotCircular {
 
 pub trait IBufferMode: DefaultTraits + private::Sealed {
     const BUFFER_MODE: Option<BufferMode>;
+
+    fn build(self) -> BufferModeConf;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -1063,9 +1580,80 @@ impl private::Sealed for DoubleBuffer {}
 
 impl IBufferMode for RegularBuffer {
     const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::Regular);
+
+    fn build(self) -> BufferModeConf {
+        BufferModeConf::Regular
+    }
 }
 impl IBufferMode for DoubleBuffer {
     const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::DoubleBuffer);
+
+    fn build(self) -> BufferModeConf {
+        let conf = DoubleBufferConf {
+            current_target: self.current_target.unwrap(),
+            m1a: self.m1a.unwrap(),
+        };
+
+        BufferModeConf::DoubleBuffer(conf)
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////
+// # PBURST
+/////////////////////////////////////////////////////////////////////////
+
+pub trait IPBurst: DefaultTraits + private::Sealed {
+    const P_BURST: Option<PBurst>;
+
+    fn build(self) -> PBurstConf;
+}
+
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Single {
+    pincos: Option<Pincos>,
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Incr4;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Incr8;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Incr16;
+
+impl private::Sealed for Single {}
+impl private::Sealed for Incr4 {}
+impl private::Sealed for Incr8 {}
+impl private::Sealed for Incr16 {}
+
+impl IPBurst for Single {
+    const P_BURST: Option<PBurst> = Some(PBurst::Single);
+
+    fn build(self) -> PBurstConf {
+        PBurstConf::Single(self.pincos.unwrap())
+    }
+}
+
+impl IPBurst for Incr4 {
+    const P_BURST: Option<PBurst> = Some(PBurst::Incr4);
+
+    fn build(self) -> PBurstConf {
+        PBurstConf::Incr4
+    }
+}
+
+impl IPBurst for Incr8 {
+    const P_BURST: Option<PBurst> = Some(PBurst::Incr8);
+
+    fn build(self) -> PBurstConf {
+        PBurstConf::Incr8
+    }
+}
+
+impl IPBurst for Incr16 {
+    const P_BURST: Option<PBurst> = Some(PBurst::Incr16);
+
+    fn build(self) -> PBurstConf {
+        PBurstConf::Incr16
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1077,54 +1665,25 @@ pub struct NotConfigured;
 
 impl private::Sealed for NotConfigured {}
 
-impl ITransferDirection for NotConfigured {
-    const TRANSFER_DIRECTION: Option<TransferDirection> = None;
-}
+pub trait MaybeNotConfigured<C>: DefaultTraits + private::Sealed {}
 
-impl ITransferMode for NotConfigured {
-    const TRANSFER_MODE: Option<TransferMode> = None;
-}
+pub struct S_TransferDir;
+pub struct S_TransferMode;
+pub struct S_FlowController;
+pub struct S_CircularMode;
+pub struct S_BufferMode;
+pub struct S_PBurst;
 
-impl IFlowController for NotConfigured {
-    const FLOW_CONTROLLER: Option<FlowController> = None;
-}
+impl MaybeNotConfigured<S_TransferDir> for NotConfigured {}
+impl MaybeNotConfigured<S_TransferMode> for NotConfigured {}
+impl MaybeNotConfigured<S_FlowController> for NotConfigured {}
+impl MaybeNotConfigured<S_CircularMode> for NotConfigured {}
+impl MaybeNotConfigured<S_BufferMode> for NotConfigured {}
+impl MaybeNotConfigured<S_PBurst> for NotConfigured {}
 
-impl ICircularMode for NotConfigured {
-    const CIRCULAR_MODE: Option<CircularMode> = None;
-}
-
-impl IBufferMode for NotConfigured {
-    const BUFFER_MODE: Option<BufferMode> = None;
-}
-
-impl NotM2M for NotConfigured {}
-
-impl From<NotConfigured> for Fifo {
-    fn from(_: NotConfigured) -> Self {
-        Self::default()
-    }
-}
-
-impl From<NotConfigured> for Dma {
-    fn from(_: NotConfigured) -> Self {
-        Self
-    }
-}
-
-impl From<NotConfigured> for NotCircular {
-    fn from(_: NotConfigured) -> Self {
-        Self
-    }
-}
-
-impl From<NotConfigured> for Circular {
-    fn from(_: NotConfigured) -> Self {
-        Self
-    }
-}
-
-impl From<NotConfigured> for RegularBuffer {
-    fn from(_: NotConfigured) -> Self {
-        Self
-    }
-}
+impl<T> MaybeNotConfigured<S_TransferDir> for T where T: ITransferDirection {}
+impl<T> MaybeNotConfigured<S_TransferMode> for T where T: ITransferMode {}
+impl<T> MaybeNotConfigured<S_FlowController> for T where T: IFlowController {}
+impl<T> MaybeNotConfigured<S_CircularMode> for T where T: ICircularMode {}
+impl<T> MaybeNotConfigured<S_BufferMode> for T where T: IBufferMode {}
+impl<T> MaybeNotConfigured<S_PBurst> for T where T: IPBurst {}
