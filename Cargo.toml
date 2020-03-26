@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -19,7 +19,7 @@ exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
 features = ["stm32h743", "rt"]
-target = "thumbv7em-none-eabihf"
+targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
 embedded-hal = "0.2.3"
