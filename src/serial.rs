@@ -4,6 +4,7 @@ use core::fmt;
 use core::marker::PhantomData;
 use core::ptr;
 
+use embedded_hal::blocking::serial as serial_block;
 use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
@@ -542,15 +543,17 @@ macro_rules! usart {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
-                    // TODO clear errors in ICR
-
                     Err(if isr.pe().bit_is_set() {
+                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.pecf().clear() );};
                         nb::Error::Other(Error::Parity)
                     } else if isr.fe().bit_is_set() {
+                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.fecf().clear() );};
                         nb::Error::Other(Error::Framing)
                     } else if isr.nf().bit_is_set() {
+                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.ncf().clear() );};
                         nb::Error::Other(Error::Noise)
                     } else if isr.ore().bit_is_set() {
+                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.orecf().clear() );};
                         nb::Error::Other(Error::Overrun)
                     } else if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
@@ -579,6 +582,10 @@ macro_rules! usart {
                     };
                     tx.write(byte)
                 }
+            }
+
+            impl<PINS> serial_block::write::Default<u8> for Serial<$USARTX, PINS> {
+                //implement marker trait to opt-in to default blocking write implementation
             }
 
             impl serial::Write<u8> for Tx<$USARTX> {
