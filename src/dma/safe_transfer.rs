@@ -1227,7 +1227,7 @@ pub(super) fn configure_safe_transfer<CXX, DMA, Peripheral, Memory>(
         }
     }
 
-    if stream.effective_circular_mode() == CircularMode::Enabled {
+    if stream.circular_mode() == CircularMode::Enabled {
         if peripheral.is_write() {
             stream.set_transfer_direction(TransferDirection::M2P);
         } else {

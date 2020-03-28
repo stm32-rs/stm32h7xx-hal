@@ -32,7 +32,7 @@ use self::safe_transfer::{
     PointerPort, Start, TransferState,
 };
 use self::stream::{
-    BufferMode, CircularMode, CurrentTarget, DirectModeErrorInterrupt,
+    BufferMode, CircularMode, Config, CurrentTarget, DirectModeErrorInterrupt,
     Disabled, Enabled, Error, Event, FifoErrorInterrupt, FifoThreshold,
     FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
     IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst, MSize, Minc, Ndt,
@@ -462,189 +462,151 @@ where
     DMA: DmaPeripheral,
     IsrState: IIsrState,
 {
+    pub fn apply_config(&mut self, config: Config) {
+        self.set_transfer_complete_interrupt(
+            config.transfer_complete_interrupt,
+        );
+        self.set_half_transfer_interrupt(config.half_transfer_interrupt);
+        self.set_transfer_error_interrupt(config.transfer_error_interrupt);
+        self.set_direct_mode_error_interrupt(
+            config.direct_mode_error_interrupt,
+        );
+        self.set_fifo_error_interrupt(config.fifo_error_interrupt);
+        self.set_pinc(config.pinc);
+        self.set_minc(config.minc);
+        self.set_priority_level(config.priority_level);
+        self.set_p_size(config.p_size);
+        self.set_ndt(config.ndt);
+        self.set_pa(config.pa);
+        self.set_m0a(config.m0a);
+
+        self.set_transfer_direction(config.transfer_direction());
+        self.set_transfer_mode(config.transfer_mode());
+        self.set_flow_controller(config.flow_controller());
+        self.set_circular_mode(config.circular_mode());
+        self.set_buffer_mode(config.buffer_mode());
+
+        if let Some(fifo_threshold) = config.fifo_threshold() {
+            self.set_fifo_threshold(fifo_threshold);
+        }
+        self.set_p_burst(config.p_burst());
+        self.set_m_burst(config.m_burst());
+        self.set_m_size(config.m_size());
+        self.set_pincos(config.pincos());
+
+        self.set_current_target(config.current_target());
+        if let Some(m1a) = config.m1a() {
+            self.set_m1a(m1a);
+        }
+    }
+
     /// Sets the Flow Controller
-    pub fn set_flow_controller(&mut self, flow_controller: FlowController) {
+    fn set_flow_controller(&mut self, flow_controller: FlowController) {
         self.rb
             .cr
             .modify(|_, w| w.pfctrl().bit(flow_controller.into()));
     }
 
     /// Sets the Transfer Direction
-    pub fn set_transfer_direction(&mut self, transfer_dir: TransferDirection) {
+    fn set_transfer_direction(&mut self, transfer_dir: TransferDirection) {
         unsafe {
             self.rb.cr.modify(|_, w| w.dir().bits(transfer_dir.into()));
         }
     }
 
     /// Sets the Circular Mode
-    pub fn set_circular_mode(&mut self, circ_mode: CircularMode) {
+    fn set_circular_mode(&mut self, circ_mode: CircularMode) {
         self.rb.cr.modify(|_, w| w.circ().bit(circ_mode.into()));
     }
 
     /// Sets the Peripheral Increment config flag
-    pub fn set_pinc(&mut self, pinc: Pinc) {
+    fn set_pinc(&mut self, pinc: Pinc) {
         self.rb.cr.modify(|_, w| w.pinc().bit(pinc.into()));
     }
 
     /// Sets the Memory Increment config flag
-    pub fn set_minc(&mut self, minc: Minc) {
+    fn set_minc(&mut self, minc: Minc) {
         self.rb.cr.modify(|_, w| w.minc().bit(minc.into()));
     }
 
     /// Sets the Peripheral Size
-    pub fn set_p_size(&mut self, p_size: PSize) {
+    fn set_p_size(&mut self, p_size: PSize) {
         unsafe {
             self.rb.cr.modify(|_, w| w.psize().bits(p_size.into()));
         }
     }
 
     /// Sets the Memory Size
-    pub fn set_m_size(&mut self, m_size: MSize) {
+    fn set_m_size(&mut self, m_size: MSize) {
         unsafe {
             self.rb.cr.modify(|_, w| w.msize().bits(m_size.into()));
         }
     }
 
     /// Sets the Peripheral Increment Offset
-    pub fn set_pincos(&mut self, pincos: Pincos) {
+    fn set_pincos(&mut self, pincos: Pincos) {
         self.rb.cr.modify(|_, w| w.pincos().bit(pincos.into()));
     }
 
     /// Sets the Priority Level
-    pub fn set_priority_level(&mut self, priority_level: PriorityLevel) {
+    fn set_priority_level(&mut self, priority_level: PriorityLevel) {
         self.rb.cr.modify(|_, w| w.pl().bits(priority_level.into()));
     }
 
     /// Sets the Buffer Mode (`Direct` or `Fifo` mode)
-    pub fn set_buffer_mode(&mut self, buffer_mode: BufferMode) {
+    fn set_buffer_mode(&mut self, buffer_mode: BufferMode) {
         self.rb.cr.modify(|_, w| w.dbm().bit(buffer_mode.into()));
     }
 
     /// Sets the Current Target
-    pub fn set_current_target(&mut self, current_target: CurrentTarget) {
+    fn set_current_target(&mut self, current_target: CurrentTarget) {
         self.rb.cr.modify(|_, w| w.ct().bit(current_target.into()));
     }
 
     /// Sets the Peripheral Burst
-    pub fn set_p_burst(&mut self, p_burst: PBurst) {
+    fn set_p_burst(&mut self, p_burst: PBurst) {
         self.rb.cr.modify(|_, w| w.pburst().bits(p_burst.into()));
     }
 
     /// Sets the Memory Burst
-    pub fn set_m_burst(&mut self, m_burst: MBurst) {
+    fn set_m_burst(&mut self, m_burst: MBurst) {
         self.rb.cr.modify(|_, w| w.mburst().bits(m_burst.into()));
     }
 
     /// Sets the NDT register
-    pub fn set_ndt(&mut self, ndt: Ndt) {
+    fn set_ndt(&mut self, ndt: Ndt) {
         self.config_ndt = ndt;
 
         self.rb.ndtr.modify(|_, w| w.ndt().bits(ndt.into()));
     }
 
     /// Sets the Peripheral Address
-    pub fn set_pa(&mut self, pa: Pa) {
+    fn set_pa(&mut self, pa: Pa) {
         self.rb.par.modify(|_, w| w.pa().bits(pa.into()));
     }
 
     /// Sets the Memory-0 Address
-    pub fn set_m0a(&mut self, m0a: M0a) {
+    fn set_m0a(&mut self, m0a: M0a) {
         self.impl_set_m0a(m0a);
     }
 
     /// Sets the Memory-1 Address
-    pub fn set_m1a(&mut self, m1a: M1a) {
+    fn set_m1a(&mut self, m1a: M1a) {
         self.impl_set_m1a(m1a);
     }
 
     /// Sets the Fifo Threshold
-    pub fn set_fifo_threshold(&mut self, fifo_threshold: FifoThreshold) {
+    fn set_fifo_threshold(&mut self, fifo_threshold: FifoThreshold) {
         self.rb
             .fcr
             .modify(|_, w| w.fth().bits(fifo_threshold.into()));
     }
 
     /// Sets the Transfer Mode
-    pub fn set_transfer_mode(&mut self, transfer_mode: TransferMode) {
+    fn set_transfer_mode(&mut self, transfer_mode: TransferMode) {
         self.rb
             .fcr
             .modify(|_, w| w.dmdis().bit(transfer_mode.into()));
-    }
-
-    /// Returns the effective Flow Controller
-    ///
-    /// Read the documentation of `flow_controller` for more details.
-    pub fn effective_flow_controller(&self) -> FlowController {
-        if self.transfer_direction() == TransferDirection::M2M {
-            FlowController::Dma
-        } else {
-            self.flow_controller()
-        }
-    }
-
-    /// Returns the effective Circular Mode
-    ///
-    /// Read the documentation of `circular_mode` for more details.
-    pub fn effective_circular_mode(&self) -> CircularMode {
-        if self.buffer_mode() == BufferMode::DoubleBuffer {
-            CircularMode::Enabled
-        } else {
-            self.circular_mode()
-        }
-    }
-
-    /// Returns the effective Memory Size
-    ///
-    /// Read the documentation of `m_size` for more details.
-    pub fn effective_m_size(&self) -> MSize {
-        if self.transfer_mode() == TransferMode::Direct {
-            match self.p_size() {
-                PSize::Byte => MSize::Byte,
-                PSize::HalfWord => MSize::HalfWord,
-                PSize::Word => MSize::Word,
-            }
-        } else {
-            self.m_size()
-        }
-    }
-
-    /// Returns the effective Peripheral Increment Offset
-    ///
-    /// Read the documentation of `pincos` for more details.
-    pub fn effective_pincos(&self) -> Option<Pincos> {
-        if self.pinc() == Pinc::Fixed {
-            return None;
-        }
-
-        if self.transfer_mode() == TransferMode::Direct
-            || self.p_burst() != PBurst::Single
-        {
-            Some(Pincos::PSize)
-        } else {
-            Some(self.pincos())
-        }
-    }
-
-    /// Returns the effective Peripheral Burst
-    ///
-    /// Read the documentation of `p_burst` for more details.
-    pub fn effective_p_burst(&self) -> PBurst {
-        if self.transfer_mode() == TransferMode::Direct {
-            PBurst::Single
-        } else {
-            self.p_burst()
-        }
-    }
-
-    /// Returns the effective Memory Burst
-    ///
-    /// Read the documentation of `m_burst` for more details.
-    pub fn effective_m_burst(&self) -> MBurst {
-        if self.transfer_mode() == TransferMode::Direct {
-            MBurst::Single
-        } else {
-            self.m_burst()
-        }
     }
 }
 
@@ -730,7 +692,7 @@ where
 
     /// Checks the config for data integrity
     fn check_config(&self) {
-        if self.effective_circular_mode() == CircularMode::Enabled {
+        if self.circular_mode() == CircularMode::Enabled {
             self.check_config_circular();
         }
 
@@ -864,17 +826,6 @@ where
         while self.rb.cr.read().en().bit_is_set() {}
 
         self.transmute()
-    }
-
-    /// Returns the effective Peripheral Increment Offset
-    ///
-    /// Read the documentation of `pincos` for more details.
-    pub fn effective_pincos(&self) -> Option<Pincos> {
-        if self.pinc() == Pinc::Fixed {
-            None
-        } else {
-            Some(self.pincos())
-        }
     }
 }
 

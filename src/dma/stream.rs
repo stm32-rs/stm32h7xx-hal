@@ -272,6 +272,154 @@ pub struct Config {
     pub transfer_direction: TransferDirectionConf,
 }
 
+impl Config {
+    pub fn transfer_direction(self) -> TransferDirection {
+        self.transfer_direction.into()
+    }
+
+    pub fn transfer_mode(self) -> TransferMode {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode, ..
+            }) => transfer_mode.into(),
+            TransferDirectionConf::M2M(_) => TransferMode::Fifo,
+        }
+    }
+
+    pub fn flow_controller(self) -> FlowController {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf { flow, .. }) => {
+                flow.into()
+            }
+            TransferDirectionConf::M2M(_) => FlowController::Dma,
+        }
+    }
+
+    pub fn circular_mode(self) -> CircularMode {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                flow: FlowControllerConf::Dma(circular_mode),
+                ..
+            }) => circular_mode.into(),
+            _ => CircularMode::Disabled,
+        }
+    }
+
+    pub fn buffer_mode(self) -> BufferMode {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                flow:
+                    FlowControllerConf::Dma(CircularModeConf::Enabled(buffer_mode)),
+                ..
+            }) => buffer_mode.into(),
+            _ => BufferMode::Regular,
+        }
+    }
+
+    pub fn fifo_threshold(self) -> Option<FifoThreshold> {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode:
+                    TransferModeConf::Fifo(FifoConf { fifo_threshold, .. }),
+                ..
+            }) => Some(fifo_threshold),
+            TransferDirectionConf::M2M(FifoConf { fifo_threshold, .. }) => {
+                Some(fifo_threshold)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn p_burst(self) -> PBurst {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode: TransferModeConf::Fifo(FifoConf { p_burst, .. }),
+                ..
+            }) => p_burst.into(),
+            TransferDirectionConf::M2M(FifoConf { p_burst, .. }) => {
+                p_burst.into()
+            }
+            _ => PBurst::Single,
+        }
+    }
+
+    pub fn m_burst(self) -> MBurst {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode: TransferModeConf::Fifo(FifoConf { m_burst, .. }),
+                ..
+            }) => m_burst,
+            TransferDirectionConf::M2M(FifoConf { m_burst, .. }) => m_burst,
+            _ => MBurst::Single,
+        }
+    }
+
+    pub fn m_size(self) -> MSize {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode: TransferModeConf::Fifo(FifoConf { m_size, .. }),
+                ..
+            }) => m_size,
+            TransferDirectionConf::M2M(FifoConf { m_size, .. }) => m_size,
+            _ => match self.p_size {
+                PSize::Byte => MSize::Byte,
+                PSize::HalfWord => MSize::HalfWord,
+                PSize::Word => MSize::Word,
+            },
+        }
+    }
+
+    pub fn pincos(self) -> Pincos {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_mode:
+                    TransferModeConf::Fifo(FifoConf {
+                        p_burst: PBurstConf::Single(pincos),
+                        ..
+                    }),
+                ..
+            }) => pincos,
+            TransferDirectionConf::M2M(FifoConf {
+                p_burst: PBurstConf::Single(pincos),
+                ..
+            }) => pincos,
+            _ => Pincos::PSize,
+        }
+    }
+
+    pub fn current_target(self) -> CurrentTarget {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                flow:
+                    FlowControllerConf::Dma(CircularModeConf::Enabled(
+                        BufferModeConf::DoubleBuffer(DoubleBufferConf {
+                            current_target,
+                            ..
+                        }),
+                    )),
+                ..
+            }) => current_target,
+            _ => CurrentTarget::M0a,
+        }
+    }
+
+    pub fn m1a(self) -> Option<M1a> {
+        match self.transfer_direction {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                flow:
+                    FlowControllerConf::Dma(CircularModeConf::Enabled(
+                        BufferModeConf::DoubleBuffer(DoubleBufferConf {
+                            m1a,
+                            ..
+                        }),
+                    )),
+                ..
+            }) => Some(m1a),
+            _ => None,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # TRANSFER DIRECTION CONFIG
 /////////////////////////////////////////////////////////////////////////
@@ -280,6 +428,17 @@ pub struct Config {
 pub enum TransferDirectionConf {
     M2M(FifoConf),
     NotM2M(NotM2MConf),
+}
+
+impl From<TransferDirectionConf> for TransferDirection {
+    fn from(conf: TransferDirectionConf) -> TransferDirection {
+        match conf {
+            TransferDirectionConf::NotM2M(NotM2MConf {
+                transfer_dir, ..
+            }) => transfer_dir.into(),
+            TransferDirectionConf::M2M(_) => TransferDirection::M2M,
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -303,6 +462,15 @@ pub enum TransferDirectionNotM2M {
     M2P,
 }
 
+impl From<TransferDirectionNotM2M> for TransferDirection {
+    fn from(dir: TransferDirectionNotM2M) -> Self {
+        match dir {
+            TransferDirectionNotM2M::P2M => Self::P2M,
+            TransferDirectionNotM2M::M2P => Self::M2P,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # TRANSFER MODE CONFIG
 /////////////////////////////////////////////////////////////////////////
@@ -313,6 +481,15 @@ pub enum TransferModeConf {
     Fifo(FifoConf),
 }
 
+impl From<TransferModeConf> for TransferMode {
+    fn from(conf: TransferModeConf) -> Self {
+        match conf {
+            TransferModeConf::Fifo(_) => Self::Fifo,
+            TransferModeConf::Direct => Self::Direct,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # FLOW CONTROLLER CONFIG
 /////////////////////////////////////////////////////////////////////////
@@ -321,6 +498,15 @@ pub enum TransferModeConf {
 pub enum FlowControllerConf {
     Dma(CircularModeConf),
     Peripheral,
+}
+
+impl From<FlowControllerConf> for FlowController {
+    fn from(conf: FlowControllerConf) -> Self {
+        match conf {
+            FlowControllerConf::Dma(_) => Self::Dma,
+            FlowControllerConf::Peripheral => Self::Peripheral,
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -347,6 +533,17 @@ pub enum PBurstConf {
     Incr16,
 }
 
+impl From<PBurstConf> for PBurst {
+    fn from(conf: PBurstConf) -> Self {
+        match conf {
+            PBurstConf::Single(_) => Self::Single,
+            PBurstConf::Incr4 => Self::Incr4,
+            PBurstConf::Incr8 => Self::Incr8,
+            PBurstConf::Incr16 => Self::Incr16,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # CIRCULAR CONFIG
 /////////////////////////////////////////////////////////////////////////
@@ -357,6 +554,15 @@ pub enum CircularModeConf {
     Enabled(BufferModeConf),
 }
 
+impl From<CircularModeConf> for CircularMode {
+    fn from(conf: CircularModeConf) -> Self {
+        match conf {
+            CircularModeConf::Disabled => Self::Disabled,
+            CircularModeConf::Enabled(_) => Self::Enabled,
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////
 // # BUFFER MODE CONFIG
 /////////////////////////////////////////////////////////////////////////
@@ -365,6 +571,15 @@ pub enum CircularModeConf {
 pub enum BufferModeConf {
     Regular,
     DoubleBuffer(DoubleBufferConf),
+}
+
+impl From<BufferModeConf> for BufferMode {
+    fn from(conf: BufferModeConf) -> Self {
+        match conf {
+            BufferModeConf::Regular => Self::Regular,
+            BufferModeConf::DoubleBuffer(_) => Self::DoubleBuffer,
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1286,8 +1501,9 @@ where
 /////////////////////////////////////////////////////////////////////////
 
 pub trait ITransferDirection: DefaultTraits + private::Sealed {
-    const TRANSFER_DIRECTION: Option<TransferDirection>;
+    const TRANSFER_DIRECTION: TransferDirection;
 
+    #[doc(hidden)]
     fn build<
         C_TransferMode,
         C_FlowController,
@@ -1319,9 +1535,9 @@ impl private::Sealed for M2P {}
 impl private::Sealed for M2M {}
 
 impl ITransferDirection for P2M {
-    const TRANSFER_DIRECTION: Option<TransferDirection> =
-        Some(TransferDirection::P2M);
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::P2M;
 
+    #[doc(hidden)]
     fn build<
         C_TransferMode,
         C_FlowController,
@@ -1349,9 +1565,9 @@ impl ITransferDirection for P2M {
 }
 
 impl ITransferDirection for M2P {
-    const TRANSFER_DIRECTION: Option<TransferDirection> =
-        Some(TransferDirection::M2P);
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::M2P;
 
+    #[doc(hidden)]
     fn build<
         C_TransferMode,
         C_FlowController,
@@ -1379,9 +1595,9 @@ impl ITransferDirection for M2P {
 }
 
 impl ITransferDirection for M2M {
-    const TRANSFER_DIRECTION: Option<TransferDirection> =
-        Some(TransferDirection::M2M);
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::M2M;
 
+    #[doc(hidden)]
     fn build<
         C_TransferMode,
         C_FlowController,
@@ -1417,8 +1633,9 @@ impl NotM2M for M2P {}
 /////////////////////////////////////////////////////////////////////////
 
 pub trait ITransferMode: DefaultTraits + private::Sealed {
-    const TRANSFER_MODE: Option<TransferMode>;
+    const TRANSFER_MODE: TransferMode;
 
+    #[doc(hidden)]
     fn build<C_PBurst>(self, p_burst: C_PBurst) -> TransferModeConf
     where
         C_PBurst: IPBurst;
@@ -1438,8 +1655,9 @@ impl private::Sealed for Direct {}
 impl private::Sealed for Fifo {}
 
 impl ITransferMode for Direct {
-    const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Direct);
+    const TRANSFER_MODE: TransferMode = TransferMode::Direct;
 
+    #[doc(hidden)]
     fn build<C_PBurst>(self, _: C_PBurst) -> TransferModeConf
     where
         C_PBurst: IPBurst,
@@ -1448,7 +1666,7 @@ impl ITransferMode for Direct {
     }
 }
 impl ITransferMode for Fifo {
-    const TRANSFER_MODE: Option<TransferMode> = Some(TransferMode::Fifo);
+    const TRANSFER_MODE: TransferMode = TransferMode::Fifo;
 
     fn build<C_PBurst>(self, p_burst: C_PBurst) -> TransferModeConf
     where
@@ -1470,8 +1688,9 @@ impl ITransferMode for Fifo {
 /////////////////////////////////////////////////////////////////////////
 
 pub trait IFlowController: DefaultTraits + private::Sealed {
-    const FLOW_CONTROLLER: Option<FlowController>;
+    const FLOW_CONTROLLER: FlowController;
 
+    #[doc(hidden)]
     fn build<C_CircularMode, C_BufferMode>(
         buffer_mode: C_BufferMode,
     ) -> FlowControllerConf
@@ -1489,8 +1708,9 @@ impl private::Sealed for Dma {}
 impl private::Sealed for Peripheral {}
 
 impl IFlowController for Dma {
-    const FLOW_CONTROLLER: Option<FlowController> = Some(FlowController::Dma);
+    const FLOW_CONTROLLER: FlowController = FlowController::Dma;
 
+    #[doc(hidden)]
     fn build<C_CircularMode, C_BufferMode>(
         buffer_mode: C_BufferMode,
     ) -> FlowControllerConf
@@ -1502,8 +1722,7 @@ impl IFlowController for Dma {
     }
 }
 impl IFlowController for Peripheral {
-    const FLOW_CONTROLLER: Option<FlowController> =
-        Some(FlowController::Peripheral);
+    const FLOW_CONTROLLER: FlowController = FlowController::Peripheral;
 
     fn build<C_CircularMode, C_BufferMode>(
         _: C_BufferMode,
@@ -1521,8 +1740,9 @@ impl IFlowController for Peripheral {
 /////////////////////////////////////////////////////////////////////////
 
 pub trait ICircularMode: DefaultTraits + private::Sealed {
-    const CIRCULAR_MODE: Option<CircularMode>;
+    const CIRCULAR_MODE: CircularMode;
 
+    #[doc(hidden)]
     fn build<C_BufferMode>(buffer_mode: C_BufferMode) -> CircularModeConf
     where
         C_BufferMode: IBufferMode;
@@ -1537,8 +1757,9 @@ impl private::Sealed for Circular {}
 impl private::Sealed for NotCircular {}
 
 impl ICircularMode for Circular {
-    const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Enabled);
+    const CIRCULAR_MODE: CircularMode = CircularMode::Enabled;
 
+    #[doc(hidden)]
     fn build<C_BufferMode>(buffer_mode: C_BufferMode) -> CircularModeConf
     where
         C_BufferMode: IBufferMode,
@@ -1547,7 +1768,7 @@ impl ICircularMode for Circular {
     }
 }
 impl ICircularMode for NotCircular {
-    const CIRCULAR_MODE: Option<CircularMode> = Some(CircularMode::Disabled);
+    const CIRCULAR_MODE: CircularMode = CircularMode::Disabled;
 
     fn build<C_BufferMode>(_: C_BufferMode) -> CircularModeConf
     where
@@ -1562,8 +1783,9 @@ impl ICircularMode for NotCircular {
 /////////////////////////////////////////////////////////////////////////
 
 pub trait IBufferMode: DefaultTraits + private::Sealed {
-    const BUFFER_MODE: Option<BufferMode>;
+    const BUFFER_MODE: BufferMode;
 
+    #[doc(hidden)]
     fn build(self) -> BufferModeConf;
 }
 
@@ -1579,15 +1801,17 @@ impl private::Sealed for RegularBuffer {}
 impl private::Sealed for DoubleBuffer {}
 
 impl IBufferMode for RegularBuffer {
-    const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::Regular);
+    const BUFFER_MODE: BufferMode = BufferMode::Regular;
 
+    #[doc(hidden)]
     fn build(self) -> BufferModeConf {
         BufferModeConf::Regular
     }
 }
 impl IBufferMode for DoubleBuffer {
-    const BUFFER_MODE: Option<BufferMode> = Some(BufferMode::DoubleBuffer);
+    const BUFFER_MODE: BufferMode = BufferMode::DoubleBuffer;
 
+    #[doc(hidden)]
     fn build(self) -> BufferModeConf {
         let conf = DoubleBufferConf {
             current_target: self.current_target.unwrap(),
@@ -1603,8 +1827,9 @@ impl IBufferMode for DoubleBuffer {
 /////////////////////////////////////////////////////////////////////////
 
 pub trait IPBurst: DefaultTraits + private::Sealed {
-    const P_BURST: Option<PBurst>;
+    const P_BURST: PBurst;
 
+    #[doc(hidden)]
     fn build(self) -> PBurstConf;
 }
 
@@ -1625,32 +1850,36 @@ impl private::Sealed for Incr8 {}
 impl private::Sealed for Incr16 {}
 
 impl IPBurst for Single {
-    const P_BURST: Option<PBurst> = Some(PBurst::Single);
+    const P_BURST: PBurst = PBurst::Single;
 
+    #[doc(hidden)]
     fn build(self) -> PBurstConf {
         PBurstConf::Single(self.pincos.unwrap())
     }
 }
 
 impl IPBurst for Incr4 {
-    const P_BURST: Option<PBurst> = Some(PBurst::Incr4);
+    const P_BURST: PBurst = PBurst::Incr4;
 
+    #[doc(hidden)]
     fn build(self) -> PBurstConf {
         PBurstConf::Incr4
     }
 }
 
 impl IPBurst for Incr8 {
-    const P_BURST: Option<PBurst> = Some(PBurst::Incr8);
+    const P_BURST: PBurst = PBurst::Incr8;
 
+    #[doc(hidden)]
     fn build(self) -> PBurstConf {
         PBurstConf::Incr8
     }
 }
 
 impl IPBurst for Incr16 {
-    const P_BURST: Option<PBurst> = Some(PBurst::Incr16);
+    const P_BURST: PBurst = PBurst::Incr16;
 
+    #[doc(hidden)]
     fn build(self) -> PBurstConf {
         PBurstConf::Incr16
     }
