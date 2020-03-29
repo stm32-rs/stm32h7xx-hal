@@ -178,7 +178,7 @@ where
     }
 
     /// Sets the Transfer Complete Interrupt config flag
-    pub fn set_transfer_complete_interrupt(
+    fn set_transfer_complete_interrupt(
         &mut self,
         tc_intrpt: TransferCompleteInterrupt,
     ) {
@@ -191,7 +191,7 @@ where
     }
 
     /// Sets the Half Transfer Interrupt config flag
-    pub fn set_half_transfer_interrupt(
+    fn set_half_transfer_interrupt(
         &mut self,
         ht_intrpt: HalfTransferInterrupt,
     ) {
@@ -204,7 +204,7 @@ where
     }
 
     /// Sets the Transfer Error Interrupt config flag
-    pub fn set_transfer_error_interrupt(
+    fn set_transfer_error_interrupt(
         &mut self,
         te_intrpt: TransferErrorInterrupt,
     ) {
@@ -217,7 +217,7 @@ where
     }
 
     /// Sets the Direct Mode Error Interrupt config flag
-    pub fn set_direct_mode_error_interrupt(
+    fn set_direct_mode_error_interrupt(
         &mut self,
         dme_intrpt: DirectModeErrorInterrupt,
     ) {
@@ -230,16 +230,11 @@ where
     }
 
     /// Sets the Fifo Error Interrupt config flag
-    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+    fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
         self.rb.fcr.modify(|_, w| w.feie().bit(fe_intrpt.into()));
     }
 
     /// Returns the Flow Controller
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced to `Dma`, if `transfer_direction` is `M2M`.
-    ///
-    /// This invariant are covered in `effective_flow_controller` (defined for disabled streams).
     pub fn flow_controller(&self) -> FlowController {
         self.rb.cr.read().pfctrl().bit().into()
     }
@@ -250,14 +245,6 @@ where
     }
 
     /// Returns the Circular Mode
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced
-    ///
-    /// - **by hardware** to `Enabled`, if `buffer_mode` is `DoubleBuffer`.
-    /// - **by software** to `Disabled` if `transfer_direction` is `M2M`.
-    ///
-    /// These invariants is covered in `effective_circular_mode`.
     pub fn circular_mode(&self) -> CircularMode {
         self.rb.cr.read().circ().bit().into()
     }
@@ -278,23 +265,11 @@ where
     }
 
     /// Returns the Memory Size
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced to `p_size`, if `transfer_mode` is `Direct`.
-    ///
-    /// This invariant is covered in `effective_m_size`.
     pub fn m_size(&self) -> MSize {
         self.rb.cr.read().msize().bits().try_into().unwrap()
     }
 
     /// Returns the Peripheral Increment Offset
-    ///
-    /// **Note** (for disabled and enabled streams):
-    ///
-    /// - This config value has no meaning, if `pinc` is `Fixed`.
-    /// - This config value gets forced to `PSize`, if `p_burst` is not `Single`.
-    ///
-    /// These invariants are covered in `effective_pincos` (defined for disabled and enabled streams).
     pub fn pincos(&self) -> Pincos {
         self.rb.cr.read().pincos().bit().into()
     }
@@ -305,58 +280,21 @@ where
     }
 
     /// Returns the Buffer Mode
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced to `Regular` **by software** (to avoid TransferError-Flag), if
-    ///
-    /// - `TransferDirection` is `M2M` or
-    /// - `FlowController` is `Peripheral`
-    ///
-    /// These invariants are covered in `effective_buffer_mode` (defined for disabled streams).
     pub fn buffer_mode(&self) -> BufferMode {
         self.rb.cr.read().dbm().bit().into()
     }
 
     /// Returns the Current Target
-    ///
-    /// **Note** (for disabled and enabled streams):
-    /// This config value has no meaning, if `BufferMode` is `Regular`.
-    ///
-    /// This invariant is covered in `effective_current_target`.
     pub fn current_target(&self) -> CurrentTarget {
         self.rb.cr.read().ct().bit().into()
     }
 
-    /// Returns the effective Current Target
-    ///
-    /// Read the documentation of `current_target` for more details.
-    ///
-    /// **Note**: If this config value has no meaning (because `BufferMode` is `Regular`),
-    /// the method returns `CurrentTarget::M0a`.
-    pub fn effective_current_target(&self) -> CurrentTarget {
-        if self.buffer_mode() == BufferMode::Regular {
-            CurrentTarget::M0a
-        } else {
-            self.current_target()
-        }
-    }
-
     /// Returns the Peripheral Burst config flag
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
-    ///
-    /// This invariant is covered in `effective_p_burst` (defined for disabled streams).
     pub fn p_burst(&self) -> PBurst {
         self.rb.cr.read().pburst().bits().try_into().unwrap()
     }
 
     /// Returns the Memory Burst config flag
-    ///
-    /// **Note** (for disabled streams):
-    /// This config value gets forced to `Single`, if `transfer_mode` is `Direct`.
-    ///
-    /// This invariant is covered in `effective_m_burst` (defined for disabled streams).
     pub fn m_burst(&self) -> MBurst {
         self.rb.cr.read().mburst().bits().try_into().unwrap()
     }
@@ -382,47 +320,13 @@ where
     }
 
     /// Returns the Memory-1 Address
-    ///
-    /// **Note** (for disabled and enabled streams):
-    /// This config value has no meaning, if `buffer_mode` is `Regular`.
-    ///
-    /// This invariant is covered in `effective_m1a` (defined for disabled and enabled streams).
     pub fn m1a(&self) -> M1a {
         self.rb.m1ar.read().m1a().bits().into()
     }
 
-    /// Returns the effective Memory-1 Address
-    ///
-    /// Read the documentation of `m1a` for more details.
-    pub fn effective_m1a(&self) -> Option<M1a> {
-        if self.buffer_mode() == BufferMode::Regular {
-            None
-        } else {
-            Some(self.m1a())
-        }
-    }
-
     /// Returns the Fifo Threshold
-    ///
-    /// **Note** (for disabled and enabled streams):
-    /// This config value has no meaning, if `transfer_mode` is `Direct`.
-    ///
-    /// This invariant is covered in `effective_fifo_threshold` (defined for disabled and enabled streams).
     pub fn fifo_threshold(&self) -> FifoThreshold {
         self.rb.fcr.read().fth().bits().try_into().unwrap()
-    }
-
-    /// Returns the effective Fifo Threshold.
-    ///
-    /// If the Fifo Threshold has no meaning, `None` is being returned.
-    ///
-    /// Read the documentation of `fifo_threshold` for more details.
-    pub fn effective_fifo_threshold(&self) -> Option<FifoThreshold> {
-        if self.transfer_mode() == TransferMode::Direct {
-            None
-        } else {
-            Some(self.fifo_threshold())
-        }
     }
 
     /// Returns the Transfer Mode (`Direct` or `Fifo` Mode)
