@@ -320,13 +320,22 @@ where
     }
 
     /// Returns the Memory-1 Address
-    pub fn m1a(&self) -> M1a {
-        self.rb.m1ar.read().m1a().bits().into()
+    pub fn m1a(&self) -> Option<M1a> {
+        if self.buffer_mode() == BufferMode::DoubleBuffer {
+            Some(self.rb.m1ar.read().m1a().bits().into())
+        } else {
+            None
+        }
+
     }
 
     /// Returns the Fifo Threshold
-    pub fn fifo_threshold(&self) -> FifoThreshold {
-        self.rb.fcr.read().fth().bits().try_into().unwrap()
+    pub fn fifo_threshold(&self) -> Option<FifoThreshold> {
+        if self.transfer_mode() == TransferMode::Fifo {
+            Some(self.rb.fcr.read().fth().bits().try_into().unwrap())
+        } else {
+            None
+        }
     }
 
     /// Returns the Transfer Mode (`Direct` or `Fifo` Mode)
@@ -672,7 +681,7 @@ where
         let m_size = self.m_size().into_num();
         let m_burst = self.m_burst().into_num();
         // Fifo Size in bytes
-        let fifo_size = self.fifo_threshold().into_num() * 4;
+        let fifo_size = self.fifo_threshold().unwrap().into_num() * 4;
 
         if m_size * m_burst > fifo_size {
             panic!("FIFO configuration invalid, because `msize * mburst > fifo_size`");
@@ -693,7 +702,7 @@ where
         const FULL_FIFO_BYTES: usize = 16;
 
         if p_burst * p_size == FULL_FIFO_BYTES
-            && self.fifo_threshold() == FifoThreshold::F3_4
+            && self.fifo_threshold().unwrap() == FifoThreshold::F3_4
         {
             panic!(
                 "FIFO configuration invalid, because \
