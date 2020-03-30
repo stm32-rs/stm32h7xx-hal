@@ -32,13 +32,15 @@ use self::safe_transfer::{
     PointerPort, Start, TransferState,
 };
 use self::stream::{
-    BufferMode, CircularMode, Config, CurrentTarget, DirectModeErrorInterrupt,
-    Disabled, Enabled, Error, Event, FifoErrorInterrupt, FifoThreshold,
-    FlowController, HalfTransferInterrupt, IntoNum, IsrCleared,
-    IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst, MSize, Minc, Ndt,
-    PBurst, PSize, Pa, Pinc, Pincos, PriorityLevel, StreamIsr,
-    TransferCompleteInterrupt, TransferDirection, TransferErrorInterrupt,
-    TransferMode, ED as IED,
+    BufferMode, BufferModeConf, CircularMode, CircularModeConf, Config,
+    CurrentTarget, DirectModeErrorInterrupt, Disabled, DoubleBufferConf,
+    Enabled, Error, Event, FifoConf, FifoErrorInterrupt, FifoThreshold,
+    FlowController, FlowControllerConf, HalfTransferInterrupt, IntoNum,
+    IsrCleared, IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst, MSize,
+    Minc, Ndt, NotM2MConf, PBurst, PBurstConf, PSize, Pa, Pinc, Pincos,
+    PriorityLevel, StreamIsr, TransferCompleteInterrupt, TransferDirection,
+    TransferDirectionConf, TransferErrorInterrupt, TransferMode,
+    TransferModeConf, ED as IED,
 };
 use crate::nb::{self, block, Error as NbError};
 use crate::private;
@@ -162,6 +164,102 @@ where
     ED: IED,
     IsrState: IIsrState,
 {
+    pub fn config(&self) -> Config {
+        Config {
+            transfer_complete_interrupt: self.transfer_complete_interrupt(),
+            half_transfer_interrupt: self.half_transfer_interrupt(),
+            transfer_error_interrupt: self.transfer_error_interrupt(),
+            direct_mode_error_interrupt: self.direct_mode_error_interrupt(),
+            fifo_error_interrupt: self.fifo_error_interrupt(),
+            pinc: self.pinc(),
+            minc: self.minc(),
+            priority_level: self.priority_level(),
+            p_size: self.p_size(),
+            ndt: self.ndt(),
+            pa: self.pa(),
+            m0a: self.m0a(),
+            transfer_direction: self.transfer_direction_config(),
+        }
+    }
+
+    fn transfer_direction_config(&self) -> TransferDirectionConf {
+        match self.transfer_direction() {
+            TransferDirection::P2M | TransferDirection::M2P => {
+                TransferDirectionConf::NotM2M(self.not_m2m_config())
+            }
+            TransferDirection::M2M => {
+                TransferDirectionConf::M2M(self.fifo_config())
+            }
+        }
+    }
+
+    fn not_m2m_config(&self) -> NotM2MConf {
+        NotM2MConf {
+            transfer_dir: self.transfer_direction().try_into().unwrap(),
+            transfer_mode: self.transfer_mode_config(),
+            flow: self.flow_controller_config(),
+        }
+    }
+
+    fn transfer_mode_config(&self) -> TransferModeConf {
+        match self.transfer_mode() {
+            TransferMode::Direct => TransferModeConf::Direct,
+            TransferMode::Fifo => TransferModeConf::Fifo(self.fifo_config()),
+        }
+    }
+
+    fn flow_controller_config(&self) -> FlowControllerConf {
+        match self.flow_controller() {
+            FlowController::Dma => {
+                FlowControllerConf::Dma(self.circular_mode_config())
+            }
+            FlowController::Peripheral => FlowControllerConf::Peripheral,
+        }
+    }
+
+    fn circular_mode_config(&self) -> CircularModeConf {
+        match self.circular_mode() {
+            CircularMode::Disabled => CircularModeConf::Disabled,
+            CircularMode::Enabled => {
+                CircularModeConf::Enabled(self.buffer_mode_config())
+            }
+        }
+    }
+
+    fn buffer_mode_config(&self) -> BufferModeConf {
+        match self.buffer_mode() {
+            BufferMode::Regular => BufferModeConf::Regular,
+            BufferMode::DoubleBuffer => {
+                BufferModeConf::DoubleBuffer(self.double_buffer_config())
+            }
+        }
+    }
+
+    fn double_buffer_config(&self) -> DoubleBufferConf {
+        DoubleBufferConf {
+            current_target: self.current_target(),
+            m1a: self.m1a().unwrap(),
+        }
+    }
+
+    fn fifo_config(&self) -> FifoConf {
+        FifoConf {
+            fifo_threshold: self.fifo_threshold().unwrap(),
+            p_burst: self.p_burst_config(),
+            m_burst: self.m_burst(),
+            m_size: self.m_size(),
+        }
+    }
+
+    fn p_burst_config(&self) -> PBurstConf {
+        match self.p_burst() {
+            PBurst::Single => PBurstConf::Single(self.pincos()),
+            PBurst::Incr4 => PBurstConf::Incr4,
+            PBurst::Incr8 => PBurstConf::Incr8,
+            PBurst::Incr16 => PBurstConf::Incr16,
+        }
+    }
+
     /// Returns the id of the Stream
     pub fn id(&self) -> usize {
         CXX::STREAM_ID
@@ -326,7 +424,6 @@ where
         } else {
             None
         }
-
     }
 
     /// Returns the Fifo Threshold

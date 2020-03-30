@@ -4,6 +4,7 @@ use super::utils::DefaultTraits;
 use super::DmaPeripheral;
 use crate::private;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR};
+use core::convert::TryFrom;
 use core::marker::PhantomData;
 
 type_state! {
@@ -467,6 +468,18 @@ impl From<TransferDirectionNotM2M> for TransferDirection {
         match dir {
             TransferDirectionNotM2M::P2M => Self::P2M,
             TransferDirectionNotM2M::M2P => Self::M2P,
+        }
+    }
+}
+
+impl TryFrom<TransferDirection> for TransferDirectionNotM2M {
+    type Error = ();
+
+    fn try_from(value: TransferDirection) -> Result<Self, ()> {
+        match value {
+            TransferDirection::P2M => Ok(TransferDirectionNotM2M::P2M),
+            TransferDirection::M2P => Ok(TransferDirectionNotM2M::M2P),
+            _ => Err(()),
         }
     }
 }
