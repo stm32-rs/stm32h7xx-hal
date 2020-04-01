@@ -1,6 +1,7 @@
 //! DMA Request Generator
 
 use crate::private;
+use crate::stm32::dmamux1::{RGCFR, RGSR};
 
 type_state! {
     ED, Disabled, Enabled
@@ -66,3 +67,21 @@ int_struct! {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TriggerOverrunError;
+
+pub struct RequestGenIsr {
+    pub(super) rgsr: &'static RGSR,
+    /// This field *must not* be mutated using shared references
+    pub(super) rgcfr: &'static RGCFR,
+}
+
+impl RequestGenIsr {
+    pub(in super::super) fn new(
+        rgsr: &'static RGSR,
+        rgcfr: &'static RGCFR,
+    ) -> Self {
+        RequestGenIsr { rgsr, rgcfr }
+    }
+}
+
+unsafe impl Send for RequestGenIsr {}
+unsafe impl Sync for RequestGenIsr {}

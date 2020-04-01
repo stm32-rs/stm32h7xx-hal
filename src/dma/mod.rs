@@ -11,10 +11,10 @@ pub mod stream;
 mod utils;
 
 use self::mux::request_gen::{
-    Disabled as GenDisabled, G0, G1, G2, G3, G4, G5, G6, G7,
+    Disabled as GenDisabled, RequestGenIsr, G0, G1, G2, G3, G4, G5, G6, G7,
 };
 use self::mux::request_ids::{ReqNone, RequestId as IRequestId, RequestIdSome};
-use self::mux::shared::{MuxIsr, RequestGenIsr};
+use self::mux::MuxIsr;
 use self::mux::{
     EgDisabled, EgED as IEgED, EgEnabled, MuxShared, NbReq, OverrunError,
     RequestGenerator, RequestId, SyncDisabled, SyncED as ISyncED, SyncEnabled,

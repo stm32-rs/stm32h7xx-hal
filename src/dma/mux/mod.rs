@@ -1,14 +1,13 @@
 //! DMA Mux
 
 pub mod request_gen;
-pub mod shared;
 
 use self::request_gen::{
-    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId, SigId,
-    TriggerOverrunError, TriggerOverrunInterrupt, ED as GenED,
+    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId,
+    RequestGenIsr, SigId, TriggerOverrunError, TriggerOverrunInterrupt,
+    ED as GenED,
 };
-use self::shared::{MuxIsr, RequestGenIsr};
-use crate::stm32::dmamux1::RGCR;
+use crate::stm32::dmamux1::{CFR, CSR, RGCR};
 use core::convert::TryInto;
 use core::marker::PhantomData;
 
@@ -249,6 +248,15 @@ pub struct MuxShared {
     pub req_gen_isr: RequestGenIsr,
     pub request_ids: RequestIds,
 }
+
+pub struct MuxIsr {
+    pub(super) csr: &'static CSR,
+    /// This field *must not* be mutated using shared references
+    pub(super) cfr: &'static CFR,
+}
+
+unsafe impl Send for MuxIsr {}
+unsafe impl Sync for MuxIsr {}
 
 impl MuxShared {
     pub(super) fn new(mux_isr: MuxIsr, req_gen_isr: RequestGenIsr) -> Self {
