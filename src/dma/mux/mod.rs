@@ -249,15 +249,6 @@ pub struct MuxShared {
     pub request_ids: RequestIds,
 }
 
-pub struct MuxIsr {
-    pub(super) csr: &'static CSR,
-    /// This field *must not* be mutated using shared references
-    pub(super) cfr: &'static CFR,
-}
-
-unsafe impl Send for MuxIsr {}
-unsafe impl Sync for MuxIsr {}
-
 impl MuxShared {
     pub(super) fn new(mux_isr: MuxIsr, req_gen_isr: RequestGenIsr) -> Self {
         MuxShared {
@@ -267,6 +258,15 @@ impl MuxShared {
         }
     }
 }
+
+pub struct MuxIsr {
+    pub(super) csr: &'static CSR,
+    /// This field *must not* be mutated using shared references
+    pub(super) cfr: &'static CFR,
+}
+
+unsafe impl Send for MuxIsr {}
+unsafe impl Sync for MuxIsr {}
 
 pub struct OverrunError;
 
