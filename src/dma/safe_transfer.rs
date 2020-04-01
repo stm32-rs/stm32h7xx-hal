@@ -1,10 +1,10 @@
 //! Safe DMA Transfers
 
-use super::channel::ChannelId;
 use super::stream::{
     CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize,
     Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
+use super::ChannelId;
 use super::{DmaPeripheral, Stream};
 use crate::private;
 use core::convert::{TryFrom, TryInto};

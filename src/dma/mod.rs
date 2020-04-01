@@ -5,16 +5,11 @@
 
 #[macro_use]
 mod macros;
-pub mod channel;
 pub mod mux;
 pub mod safe_transfer;
 pub mod stream;
 mod utils;
 
-use self::channel::{
-    ChannelId, C0, C1, C10, C11, C12, C13, C14, C15, C2, C3, C4, C5, C6, C7,
-    C8, C9,
-};
 use self::mux::request_gen::{
     Disabled as GenDisabled, G0, G1, G2, G3, G4, G5, G6, G7,
 };
@@ -57,6 +52,49 @@ use stm32h7::stm32h743::DMAMUX1;
 pub trait DmaPeripheral: Send + private::Sealed {}
 impl DmaPeripheral for DMA1 {}
 impl DmaPeripheral for DMA2 {}
+
+pub trait ChannelId: Send + private::Sealed {
+    const STREAM_ID: usize;
+    const MUX_ID: usize;
+
+    type DMA: DmaPeripheral;
+}
+
+macro_rules! channels {
+    ($($channel:ident => [$stream:tt, $mux:tt, $dma:ident]),*) => {
+        $(
+            pub struct $channel;
+
+            impl crate::private::Sealed for $channel {}
+
+            impl ChannelId for $channel {
+                const STREAM_ID: usize = $stream;
+                const MUX_ID: usize = $mux;
+
+                type DMA = $dma;
+            }
+        )*
+    };
+}
+
+channels! {
+    C0 => [0, 0, DMA1],
+    C1 => [1, 1, DMA1],
+    C2 => [2, 2, DMA1],
+    C3 => [3, 3, DMA1],
+    C4 => [4, 4, DMA1],
+    C5 => [5, 5, DMA1],
+    C6 => [6, 6, DMA1],
+    C7 => [7, 7, DMA1],
+    C8 => [0, 8, DMA2],
+    C9 => [1, 9, DMA2],
+    C10 => [2, 10, DMA2],
+    C11 => [3, 11, DMA2],
+    C12 => [4, 12, DMA2],
+    C13 => [5, 13, DMA2],
+    C14 => [6, 14, DMA2],
+    C15 => [7, 15, DMA2]
+}
 
 /// DMA Channel
 pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
