@@ -87,6 +87,27 @@ use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{rcc, RCC, SYSCFG};
 use crate::time::Hertz;
 
+mod core_clocks;
+mod pll;
+
+pub use core_clocks::CoreClocks;
+pub use pll::{PllConfig, PllConfigStrategy};
+
+/// Configuration of the core clocks
+pub struct Config {
+    hse: Option<u32>,
+    sys_ck: Option<u32>,
+    per_ck: Option<u32>,
+    rcc_hclk: Option<u32>,
+    rcc_pclk1: Option<u32>,
+    rcc_pclk2: Option<u32>,
+    rcc_pclk3: Option<u32>,
+    rcc_pclk4: Option<u32>,
+    pll1: PllConfig,
+    pll2: PllConfig,
+    pll3: PllConfig,
+}
+
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the
@@ -106,24 +127,9 @@ impl RccExt for RCC {
                 rcc_pclk2: None,
                 rcc_pclk3: None,
                 rcc_pclk4: None,
-                pll1: PllConfig {
-                    strategy: PllConfigStrategy::Normal,
-                    p_ck: None,
-                    q_ck: None,
-                    r_ck: None,
-                },
-                pll2: PllConfig {
-                    strategy: PllConfigStrategy::Normal,
-                    p_ck: None,
-                    q_ck: None,
-                    r_ck: None,
-                },
-                pll3: PllConfig {
-                    strategy: PllConfigStrategy::Normal,
-                    p_ck: None,
-                    q_ck: None,
-                    r_ck: None,
-                },
+                pll1: PllConfig::default(),
+                pll2: PllConfig::default(),
+                pll3: PllConfig::default(),
             },
             rb: self,
         }
@@ -297,38 +303,6 @@ impl D3CCIPR {
 const HSI: u32 = 64_000_000; // Hz
 const CSI: u32 = 4_000_000; // Hz
 const HSI48: u32 = 48_000_000; // Hz
-
-/// Strategies for configuring a Phase Locked Loop (PLL)
-#[derive(Copy, Clone)]
-pub enum PllConfigStrategy {
-    /// VCOL, highest PFD frequency, highest VCO frequency
-    Normal,
-    /// VCOH, choose PFD frequency for accuracy, highest VCO frequency
-    Iterative,
-}
-
-/// Configuration of a Phase Locked Loop (PLL)
-pub struct PllConfig {
-    strategy: PllConfigStrategy,
-    p_ck: Option<u32>,
-    q_ck: Option<u32>,
-    r_ck: Option<u32>,
-}
-
-/// Configuration of the core clocks
-pub struct Config {
-    hse: Option<u32>,
-    sys_ck: Option<u32>,
-    per_ck: Option<u32>,
-    rcc_hclk: Option<u32>,
-    rcc_pclk1: Option<u32>,
-    rcc_pclk2: Option<u32>,
-    rcc_pclk3: Option<u32>,
-    rcc_pclk4: Option<u32>,
-    pll1: PllConfig,
-    pll2: PllConfig,
-    pll3: PllConfig,
-}
 
 /// Setter defintion for pclk 1 - 4
 macro_rules! pclk_setter {
@@ -507,260 +481,7 @@ macro_rules! ppre_calculate {
     };
 }
 
-/// Calculate VCO output divider (p-divider). Choose the highest VCO
-/// frequency to give specified output.
-///
-/// Returns *target* VCO frequency
-///
-macro_rules! vco_output_divider_setup {
-    ($output: ident, $vco_min: ident, $vco_max: ident $(,$pll1_p:ident)*) => {{
-        // Macro-based selection
-        let pll_x_p = match true {
-            $(
-                // Specific to PLL1
-                true => {
-                    let $pll1_p = if $output > $vco_max / 2 {
-                        1
-                    } else {
-                        (($vco_max / $output) | 1) - 1 // Must be even or unity
-                    };
-                    $pll1_p
-                },
-            )*
-                // Specific to PLL2/3
-                _ => if $output > $vco_max / 2 {
-                    1
-                } else {
-                    $vco_max / $output
-                }
-        };
-
-        // Calcuate VCO output
-        let vco_ck = $output * pll_x_p;
-
-        assert!(pll_x_p <= 128);
-        assert!(vco_ck >= $vco_min);
-        assert!(vco_ck <= $vco_max);
-
-        (vco_ck, pll_x_p)
-    }};
-}
-
-/// Setup PFD input frequency and VCO output frequency
-///
-macro_rules! vco_setup {
-    // Normal: VCOL, highest PFD frequency, highest VCO frequency
-    (NORMAL: $pllsrc:ident, $output:ident,
-     $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
-         // VCO output frequency. Choose the highest VCO frequency
-         let vco_min = 150_000_000;
-         let vco_max = 420_000_000;
-         let (vco_ck_target, pll_x_p) = {
-             vco_output_divider_setup! { $output, vco_min, vco_max $(, $pll1_p)* }
-         };
-
-         // Input divisor, resulting in a reference clock in the range
-         // 1 to 2 MHz. Choose the highest reference clock (lowest m)
-         let pll_x_m = ($pllsrc + 1_999_999) / 2_000_000;
-
-         assert!(pll_x_m < 64);
-
-         // Calculate resulting reference clock
-         let ref_x_ck = $pllsrc / pll_x_m;
-         assert!(ref_x_ck >= 1_000_000 && ref_x_ck <= 2_000_000);
-
-         // Configure VCO
-         $rcc.pllcfgr.modify(|_, w| {
-             w.$pllXvcosel()
-                 .medium_vco() // 150 - 420MHz Medium VCO
-                 .$pllXrge()
-                 .range1() // ref_x_ck is 1 - 2 MHz
-         });
-
-         (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target)
-     }};
-    // Iterative: VCOH, choose PFD frequency for accuracy, highest VCO frequency
-    (ITERATIVE: $pllsrc:ident, $output:ident,
-     $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
-         // VCO output frequency limits
-         let vco_min = 192_000_000;
-         #[cfg(not(feature = "revision_v"))]
-         let vco_max = 836_000_000;
-         #[cfg(feature = "revision_v")]
-         let vco_max = 960_000_000;
-
-         // VCO output frequency. Choose the highest VCO frequency
-         let (vco_ck_target, pll_x_p) = {
-             vco_output_divider_setup! { $output, vco_min, vco_max $(, $pll1_p)* }
-         };
-
-         // Input divisor, resulting in a reference clock in the
-         // range 2 to 16 MHz.
-         let pll_x_m_min = ($pllsrc + 15_999_999) / 16_000_000;
-         let pll_x_m_max = match $pllsrc {
-             0 ..= 127_999_999 => $pllsrc / 2_000_000,
-             _ => 63            // pllm < 64
-         };
-
-         // Iterative search for the lowest m value that minimizes
-         // the difference between requested and actual VCO frequency
-         let pll_x_m = (pll_x_m_min..=pll_x_m_max).min_by_key(|pll_x_m| {
-             let ref_x_ck = $pllsrc / pll_x_m;
-
-             // Feedback divider. Integer only
-             let pll_x_n = vco_ck_target / ref_x_ck;
-
-             vco_ck_target as i32 - (ref_x_ck * pll_x_n) as i32
-         }).unwrap();
-
-         assert!(pll_x_m < 64);
-
-         // Calculate resulting reference clock
-         let ref_x_ck = $pllsrc / pll_x_m;
-         assert!(ref_x_ck >= 2_000_000 && ref_x_ck <= 16_000_000);
-
-         // Configure VCO
-         $rcc.pllcfgr.modify(|_, w| {
-             w.$pllXvcosel()
-                 .wide_vco() // 192 - 836MHz Medium VCO
-         });
-         $rcc.pllcfgr.modify(|_, w| {
-             match ref_x_ck {
-                 2_000_000 ..= 3_999_999 => // ref_x_ck is 2 - 4 MHz
-                     w.$pllXrge().range2(),
-                 4_000_000 ..= 7_999_999 => // ref_x_ck is 4 - 8 MHz
-                     w.$pllXrge().range4(),
-                 _ =>           // ref_x_ck is 8 - 16 MHz
-                     w.$pllXrge().range8(),
-             }
-         });
-
-         (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target)
-     }};
-}
-
-macro_rules! pll_setup {
-    ($pll_setup:ident: ($pllXvcosel:ident, $pllXrge:ident, $pllXfracen:ident,
-                   $pllXdivr:ident, $divnX:ident, $divmX:ident,
-                   OUTPUTS: [ $($CK:ident:
-                                ($div:ident, $diven:ident, $DD:tt $(,$unsafe:ident)*)),+ ]
-                   $(,$pll1_p:ident)*
-    )) => {
-        /// PLL Setup
-        /// Returns (Option(pllX_p_ck), Option(pllX_q_ck), Option(pllX_r_ck))
-        fn $pll_setup(
-            &self,
-            rcc: &RCC,
-            pll: &PllConfig,
-        ) -> (Option<Hertz>, Option<Hertz>, Option<Hertz>) {
-            // PLL sourced from either HSE or HSI
-            let pllsrc = self.config.hse.unwrap_or(HSI);
-            assert!(pllsrc > 0);
-
-            // PLL output
-            match pll.p_ck {
-                Some(output) => {
-                    // Set VCO parameters based on VCO strategy
-                    let (ref_x_ck, pll_x_m, pll_x_p, vco_ck) =
-                        match pll.strategy {
-                            PllConfigStrategy::Iterative => {
-                                vco_setup! { ITERATIVE: pllsrc, output,
-                                             rcc, $pllXvcosel,
-                                             $pllXrge $(, $pll1_p)* }
-                            },
-                            _ => {
-                                vco_setup! { NORMAL: pllsrc, output,
-                                             rcc, $pllXvcosel,
-                                             $pllXrge $(, $pll1_p)* }
-                            }
-
-                        };
-
-                    // Feedback divider. Integer only
-                    let pll_x_n = vco_ck / ref_x_ck;
-
-                    // Write dividers
-                    rcc.pllckselr.modify(|_, w| {
-                        w.$divmX().bits(pll_x_m as u8) // ref prescaler
-                    });
-                    // unsafe as not all values are permitted: see RM0433
-                    assert!(pll_x_n >= 4);
-                    assert!(pll_x_n <= 512);
-                    rcc.$pllXdivr
-                        .modify(|_, w| unsafe { w.$divnX().bits((pll_x_n - 1) as u16) });
-
-                    // Configure PLL
-                    rcc.pllcfgr.modify(|_, w| {
-                        w.$pllXfracen().reset() // No FRACN
-                    });
-
-                    // Calulate additional output dividers
-                    let pll_x_q = match pll.q_ck {
-                        Some(ck) => (vco_ck + ck - 1) / ck,
-                        None => 0
-                    };
-                    let pll_x_r = match pll.r_ck {
-                        Some(ck) => (vco_ck + ck - 1) / ck,
-                        None => 0
-                    };
-                    let dividers = (pll_x_p, pll_x_q, pll_x_r);
-
-                    // Setup and return output clocks
-                    ($(
-                        // Enable based on config
-                        match pll.$CK {
-                            Some(_) => {
-                                // Setup divider
-                                rcc.$pllXdivr
-                                    .modify(|_, w| $($unsafe)* {
-                                        w.$div().bits((dividers.$DD - 1) as u8)
-                                    });
-
-                                rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
-                                Some(Hertz(ref_x_ck * pll_x_n / dividers.$DD))
-                            }
-                            None => {
-                                rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
-                                None
-                            }
-                        },
-                    )+)
-                },
-                None => {
-                    assert!(pll.q_ck.is_none(), "Must set PLL P clock for Q clock to take effect!");
-                    assert!(pll.r_ck.is_none(), "Must set PLL P clock for R clock to take effect!");
-                    (None, None, None)
-                }
-            }
-        }
-    };
-}
-
 impl Rcc {
-    pll_setup! {
-    pll1_setup: (pll1vcosel, pll1rge, pll1fracen, pll1divr, divn1, divm1,
-                 OUTPUTS: [
-                      // unsafe as not all values are permitted: see RM0433
-                     p_ck: (divp1, divp1en, 0, unsafe),
-                     q_ck: (divq1, divq1en, 1),
-                     r_ck: (divr1, divr1en, 2) ],
-                 pll1_p)
-    }
-    pll_setup! {
-    pll2_setup: (pll2vcosel, pll2rge, pll2fracen, pll2divr, divn2, divm2,
-                 OUTPUTS: [
-                     p_ck: (divp2, divp2en, 0),
-                     q_ck: (divq2, divq2en, 1),
-                     r_ck: (divr2, divr2en, 2)])
-    }
-    pll_setup! {
-    pll3_setup: (pll3vcosel, pll3rge, pll3fracen, pll3divr, divn3, divm3,
-                 OUTPUTS: [
-                     p_ck: (divp3, divp3en, 0),
-                     q_ck: (divq3, divq3en, 1),
-                     r_ck: (divr3, divr3en, 2)])
-    }
-
     fn flash_setup(rcc_aclk: u32, vos: Voltage) {
         use crate::stm32::FLASH;
         let rcc_aclk_mhz = rcc_aclk / 1_000_000;
@@ -842,7 +563,7 @@ impl Rcc {
         sys_use_pll1_p: bool,
         pll1_p_ck: Option<u32>,
     ) -> Option<u32> {
-        let pll1_r_ck = match (sys_use_pll1_p, self.config.pll1.r_ck) {
+        match (sys_use_pll1_p, self.config.pll1.r_ck) {
             // pll1_p_ck selected as system clock but pll1_r_ck not
             // set. The traceclk mux is synchronous with the system
             // clock mux, but has pll1_r_ck as an input. In order to
@@ -852,9 +573,7 @@ impl Rcc {
             // of pll1_r_ck. Or pll1 is selected, assume user has set
             // a suitable pll1_r_ck frequency.
             _ => self.config.pll1.r_ck,
-        };
-
-        pll1_r_ck
+        }
     }
 
     /// Freeze the core clocks, returning a Core Clocks Distribution
@@ -1126,273 +845,5 @@ impl Rcc {
             d3ccipr: D3CCIPR { _0: () },
             rb: self.rb,
         }
-    }
-}
-
-/// Frozen core clock frequencies
-///
-/// The existence of this value indicates that the core clock
-/// configuration can no longer be changed
-#[derive(Clone, Copy)]
-pub struct CoreClocks {
-    hclk: Hertz,
-    pclk1: Hertz,
-    pclk2: Hertz,
-    pclk3: Hertz,
-    pclk4: Hertz,
-    ppre1: u8,
-    ppre2: u8,
-    ppre3: u8,
-    ppre4: u8,
-    csi_ck: Option<Hertz>,
-    hsi_ck: Option<Hertz>,
-    hsi48_ck: Option<Hertz>,
-    per_ck: Option<Hertz>,
-    hse_ck: Option<Hertz>,
-    pll1_p_ck: Option<Hertz>,
-    pll1_q_ck: Option<Hertz>,
-    pll1_r_ck: Option<Hertz>,
-    pll2_p_ck: Option<Hertz>,
-    pll2_q_ck: Option<Hertz>,
-    pll2_r_ck: Option<Hertz>,
-    pll3_p_ck: Option<Hertz>,
-    pll3_q_ck: Option<Hertz>,
-    pll3_r_ck: Option<Hertz>,
-    timx_ker_ck: Hertz,
-    timy_ker_ck: Hertz,
-    sys_ck: Hertz,
-    c_ck: Hertz,
-}
-
-/// Getters for pclk and ppre
-macro_rules! pclk_ppre_getter {
-    ($(($pclk:ident, $ppre:ident),)+) => {
-        $(
-            /// Returns the frequency of the APBn
-            pub fn $pclk(&self) -> Hertz {
-                self.$pclk
-            }
-            /// Returns the prescaler of the APBn
-            pub fn $ppre(&self) -> u8 {
-                self.$ppre
-            }
-        )+
-    };
-}
-
-/// Getters for optional clocks
-macro_rules! optional_ck_getter {
-    ($($opt_ck:ident,)+) => {
-        $(
-            /// Returns the frequency of optional clock $opt_ck
-            pub fn $opt_ck(&self) -> Option<Hertz> {
-                self.$opt_ck
-            }
-        )+
-    };
-}
-
-/// Getters for pll clocks
-macro_rules! pll_getter {
-    ($($pll_ck:ident,)+) => {
-        $(
-            /// Returns the frequency of the PLLx output
-            pub fn $pll_ck(&self) -> Option<Hertz> {
-                self.$pll_ck
-            }
-        )+
-    };
-}
-
-impl CoreClocks {
-    /// Returns the frequency of AHB1,2,3 busses
-    pub fn hclk(&self) -> Hertz {
-        self.hclk
-    }
-
-    /// Returns the frequency of the AXI bus
-    pub fn aclk(&self) -> Hertz {
-        self.hclk // Same as HCLK
-    }
-
-    pclk_ppre_getter! {
-        (pclk1, ppre1),
-        (pclk2, ppre2),
-        (pclk3, ppre3),
-        (pclk4, ppre4),
-    }
-
-    optional_ck_getter! {
-        csi_ck,
-        hsi_ck,
-        hsi48_ck,
-        per_ck,
-        hse_ck,
-    }
-
-    pll_getter! {
-        pll1_p_ck,
-        pll1_q_ck,
-        pll1_r_ck,
-        pll2_p_ck,
-        pll2_q_ck,
-        pll2_r_ck,
-        pll3_p_ck,
-        pll3_q_ck,
-        pll3_r_ck,
-    }
-
-    /// Returns the input frequency to the SCGU
-    pub fn sys_ck(&self) -> Hertz {
-        self.sys_ck
-    }
-
-    /// Returns the input frequency to the SCGU - ALIAS
-    pub fn sysclk(&self) -> Hertz {
-        self.sys_ck
-    }
-
-    /// Returns the CK_INT frequency for timers on APB1
-    pub fn timx_ker_ck(&self) -> Hertz {
-        self.timx_ker_ck
-    }
-
-    /// Returns the CK_INT frequency for timers on APB2
-    pub fn timy_ker_ck(&self) -> Hertz {
-        self.timy_ker_ck
-    }
-
-    /// Returns the core frequency
-    pub fn c_ck(&self) -> Hertz {
-        self.c_ck
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    macro_rules! dummy_method {
-        ($($name:ident),+) => (
-            $(
-                fn $name(self) -> Self {
-                    self
-                }
-            )+
-        )
-    }
-
-    // Mock PLL CFGR
-    struct WPllCfgr {}
-    impl WPllCfgr {
-        dummy_method! { vcosel, medium_vco, wide_vco }
-        dummy_method! { pllrge, range1, range2, range4, range8 }
-    }
-    struct MockPllCfgr {}
-    impl MockPllCfgr {
-        // Modify mock registers
-        fn modify<F>(&self, func: F)
-        where
-            F: FnOnce((), WPllCfgr) -> WPllCfgr,
-        {
-            func((), WPllCfgr {});
-        }
-    }
-
-    // Mock RCC
-    struct MockRcc {
-        pub pllcfgr: MockPllCfgr,
-    }
-    impl MockRcc {
-        pub fn new() -> Self {
-            MockRcc {
-                pllcfgr: MockPllCfgr {},
-            }
-        }
-    }
-
-    #[test]
-    /// Test PFD input frequency PLL and VCO output frequency
-    fn vco_setup_normal() {
-        let rcc = MockRcc::new();
-
-        let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
-        let output = 240_000_000; // PLL output frequency (P_CK)
-        println!(
-            "PLL2/3 {} MHz -> {} MHz",
-            pllsrc as f32 / 1e6,
-            output as f32 / 1e6
-        );
-
-        // ----------------------------------------
-
-        // VCO Setup
-        println!("NORMAL");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
-            NORMAL: pllsrc, output, rcc, vcosel, pllrge
-        };
-        // Feedback divider. Integer only
-        let pll_x_n = vco_ck_target / ref_x_ck;
-
-        // ----------------------------------------
-
-        // Input
-        println!("M Divider {}", pll_x_m);
-        let input = pllsrc as f32 / pll_x_m as f32;
-        println!("==> Input {} MHz", input / 1e6);
-        println!();
-        assert_eq!(input, 1.9230769e6);
-
-        println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
-        println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
-
-        // Output
-        println!("P Divider {}", pll_x_p);
-        let output = pll_x_n as f32 * input / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
-        println!();
-
-        assert_eq!(output, 238.46153e6);
-    }
-
-    #[test]
-    /// Test PFD input frequency PLL and VCO output frequency
-    fn vco_setup_iterative() {
-        let rcc = MockRcc::new();
-
-        let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
-        let output = 240_000_000; // PLL output frequency (P_CK)
-        println!(
-            "PLL2/3 {} MHz -> {} MHz",
-            pllsrc as f32 / 1e6,
-            output as f32 / 1e6
-        );
-
-        // ----------------------------------------
-
-        // VCO Setup
-        println!("ITERATIVE");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
-            ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
-        };
-        // Feedback divider. Integer only
-        let pll_x_n = vco_ck_target / ref_x_ck;
-
-        // ----------------------------------------
-
-        // Input
-        println!("M Divider {}", pll_x_m);
-        let input = pllsrc as f32 / pll_x_m as f32;
-        println!("==> Input {} MHz", input / 1e6);
-        println!();
-        assert_eq!(input, 5e6);
-
-        println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
-        println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
-
-        // Output
-        println!("P Divider {}", pll_x_p);
-        let output = pll_x_n as f32 * input / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
-        println!();
-        assert_eq!(output, 240e6);
     }
 }
