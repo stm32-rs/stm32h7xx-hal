@@ -358,7 +358,7 @@ mod tests {
         let input = pllsrc as f32 / pll_x_m as f32;
         println!("==> Input {} MHz", input / 1e6);
         println!();
-        assert_eq!(input, 1.9230769e6);
+        assert!((input > 1e6) && (input < 2e6));
 
         println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
         println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
@@ -369,7 +369,8 @@ mod tests {
         println!("==> Output {} MHz", output / 1e6);
         println!();
 
-        assert_eq!(output, 238.46153e6);
+        let error = output - 240e6;
+        assert!(f32::abs(error) < 2.4e6); // < ±1% error
     }
 
     #[test]
