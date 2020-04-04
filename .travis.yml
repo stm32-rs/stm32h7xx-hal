@@ -1,0 +1,36 @@
+language: rust
+
+rust:
+  - 1.39.0
+  - stable
+  - nightly
+
+cache: cargo
+
+branches:
+  only:
+    - staging
+    - trying
+    - master
+
+before_script:
+  - rustup target add thumbv7em-none-eabihf
+
+env:
+- MCU=stm32h743
+- MCU=stm32h753
+- MCU=stm32h743v
+- MCU=stm32h753v
+- MCU=stm32h747cm7
+- MCU=stm32h747cm4
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+script:
+  - RUSTFLAGS="-D warnings" cargo build --verbose --release --examples --features rt,$MCU
+
+notifications:
+  email: false
