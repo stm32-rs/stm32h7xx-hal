@@ -35,6 +35,7 @@ features = ["const-fn"]
 
 [dev-dependencies]
 panic-itm = "~0.4.1"
+cortex-m-rtfm = "0.5.1"
 cortex-m-log = { version = "~0.6", features = ["itm"] }
 
 [features]
@@ -68,3 +69,11 @@ codegen-units = 1 # better optimizations
 debug = true # symbols are nice and they don't increase the size in flash
 lto = true # better optimizations
 opt-level = "s" # optimize for binary size
+
+[[example]]
+name = "rtfm"
+required-features = ["rt"]
+
+[[example]]
+name = "rtfm_timers"
+required-features = ["rt"]
