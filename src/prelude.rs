@@ -2,6 +2,7 @@
 pub use embedded_hal::prelude::*;
 
 pub use crate::adc::AdcExt as _stm32h7xx_hal_adc_AdcExt;
+pub use crate::dac::DacExt as _stm32h7xx_hal_dac_DacExt;
 pub use crate::delay::DelayExt as _stm32h7xx_hal_delay_DelayExt;
 pub use crate::exti::ExtiExt as _stm32h7xx_hal_delay_ExtiExt;
 pub use crate::flash::FlashExt as _stm32h7xx_hal_flash_FlashExt;
