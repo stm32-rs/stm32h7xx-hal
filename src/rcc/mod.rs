@@ -180,6 +180,8 @@ pub struct Ccdr {
     pub apb4: APB4,
     /// RCC Domain 3 Kernel Clock Configuration Register
     pub d3ccipr: D3CCIPR,
+    /// RCC Domain 1 Kernel Clock Configuration Register
+    pub d1ccipr: D1CCIPR,
     // Yes, it lives (locally)! We retain the right to switch most
     // PKSUs on the fly, to fine-tune PLL frequencies, and to enable /
     // reset peripherals.
@@ -297,6 +299,17 @@ pub struct D3CCIPR {
 impl D3CCIPR {
     pub(crate) fn kernel_ccip(&mut self) -> &rcc::D3CCIPR {
         unsafe { &(*RCC::ptr()).d3ccipr }
+    }
+}
+
+/// RCC Domain 1 Kernel Clock Configuration Register
+pub struct D1CCIPR {
+    _0: (),
+}
+
+impl D3CCIPR {
+    pub(crate) fn kernel_ccip(&mut self) -> &rcc::D1CCIPR {
+        unsafe { &(*RCC::ptr()).d1ccipr }
     }
 }
 
@@ -843,6 +856,7 @@ impl Rcc {
                 c_ck: Hertz(sys_d1cpre_ck),
             },
             d3ccipr: D3CCIPR { _0: () },
+            d3ccipr: D1CCIPR { _0: () },
             rb: self.rb,
         }
     }
