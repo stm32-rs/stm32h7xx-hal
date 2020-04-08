@@ -856,7 +856,7 @@ impl Rcc {
                 c_ck: Hertz(sys_d1cpre_ck),
             },
             d3ccipr: D3CCIPR { _0: () },
-            d3ccipr: D1CCIPR { _0: () },
+            d1ccipr: D1CCIPR { _0: () },
             rb: self.rb,
         }
     }
