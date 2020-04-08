@@ -307,7 +307,7 @@ pub struct D1CCIPR {
     _0: (),
 }
 
-impl D3CCIPR {
+impl D1CCIPR {
     pub(crate) fn kernel_ccip(&mut self) -> &rcc::D1CCIPR {
         unsafe { &(*RCC::ptr()).d1ccipr }
     }
