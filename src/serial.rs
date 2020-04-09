@@ -50,7 +50,7 @@ use crate::dma::safe_transfer::{
 use crate::dma::stream::{
     Disabled as StreamDisabled, IsrCleared as StreamIsrCleared, StreamIsr,
 };
-use crate::dma::{Channel, ChannelId, DmaMux, DmaPeripheral, SafeTransfer};
+use crate::dma::{Channel, ChannelId, DmaMux, SafeTransfer};
 use crate::Never;
 use core::ops::Deref;
 
@@ -786,78 +786,57 @@ impl SerialChannelDma for UART8 {
 
 pub trait IState {}
 
-pub struct Start<CXX, DMA, ReqId, SyncED, EgED>
+pub struct Start<CXX, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
 {
-    channel: Channel<
-        CXX,
-        DMA,
-        StreamDisabled,
-        StreamIsrCleared,
-        ReqId,
-        SyncED,
-        EgED,
-    >,
+    channel:
+        Channel<CXX, StreamDisabled, StreamIsrCleared, ReqId, SyncED, EgED>,
 }
 
-pub struct Initialized<CXX, DMA, ReqId, SyncED, EgED, Peripheral, Memory>
+pub struct Initialized<CXX, ReqId, SyncED, EgED, Peripheral, Memory>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
     Peripheral: Payload,
     Memory: Payload,
 {
-    channel: Channel<
-        CXX,
-        DMA,
-        StreamDisabled,
-        StreamIsrCleared,
-        ReqId,
-        SyncED,
-        EgED,
-    >,
+    channel:
+        Channel<CXX, StreamDisabled, StreamIsrCleared, ReqId, SyncED, EgED>,
     transfer: SafeTransfer<'static, Peripheral, Memory, TransferStart>,
 }
 
-pub struct Ongoing<CXX, ReqId, SyncED, EgED, Peripheral, Memory, DMA>
+pub struct Ongoing<CXX, ReqId, SyncED, EgED, Peripheral, Memory>
 where
-    CXX: ChannelId<DMA = DMA>,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
     Peripheral: Payload,
     Memory: Payload,
-    DMA: DmaPeripheral,
 {
     mux: DmaMux<CXX, ReqId, SyncED, EgED>,
-    transfer:
-        SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX, DMA>>,
+    transfer: SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX>>,
 }
 
-impl<CXX, DMA, ReqId, SyncED, EgED> IState
-    for Start<CXX, DMA, ReqId, SyncED, EgED>
+impl<CXX, ReqId, SyncED, EgED> IState for Start<CXX, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
 {
 }
 
-impl<CXX, DMA, ReqId, SyncED, EgED, Peripheral, Memory> IState
-    for Initialized<CXX, DMA, ReqId, SyncED, EgED, Peripheral, Memory>
+impl<CXX, ReqId, SyncED, EgED, Peripheral, Memory> IState
+    for Initialized<CXX, ReqId, SyncED, EgED, Peripheral, Memory>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
@@ -866,16 +845,15 @@ where
 {
 }
 
-impl<CXX, ReqId, SyncED, EgED, Peripheral, Memory, DMA> IState
-    for Ongoing<CXX, ReqId, SyncED, EgED, Peripheral, Memory, DMA>
+impl<CXX, ReqId, SyncED, EgED, Peripheral, Memory> IState
+    for Ongoing<CXX, ReqId, SyncED, EgED, Peripheral, Memory>
 where
-    CXX: ChannelId<DMA = DMA>,
+    CXX: ChannelId,
     ReqId: SerialRequest,
     SyncED: ISyncED,
     EgED: IEgED,
     Peripheral: Payload,
     Memory: Payload,
-    DMA: DmaPeripheral,
 {
 }
 
@@ -888,12 +866,11 @@ where
     state: State,
 }
 
-impl<USART, PINS, CXX, DMA, SyncED, EgED>
-    SerialDmaRx<USART, PINS, Start<CXX, DMA, USART::Rx, SyncED, EgED>>
+impl<USART, PINS, CXX, SyncED, EgED>
+    SerialDmaRx<USART, PINS, Start<CXX, USART::Rx, SyncED, EgED>>
 where
     USART: SerialChannelDma + Deref<Target = RegisterBlock>,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     SyncED: ISyncED,
     EgED: IEgED,
 {
@@ -901,7 +878,6 @@ where
         serial: Serial<USART, PINS>,
         channel: Channel<
             CXX,
-            DMA,
             StreamDisabled,
             StreamIsrCleared,
             USART::Rx,
@@ -925,7 +901,7 @@ where
     ) -> SerialDmaRx<
         USART,
         PINS,
-        Initialized<CXX, DMA, USART::Rx, SyncED, EgED, Peripheral, Memory>,
+        Initialized<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory>,
     >
     where
         Peripheral: Payload,
@@ -955,15 +931,7 @@ where
         mut self,
     ) -> (
         Serial<USART, PINS>,
-        Channel<
-            CXX,
-            DMA,
-            StreamDisabled,
-            StreamIsrCleared,
-            USART::Rx,
-            SyncED,
-            EgED,
-        >,
+        Channel<CXX, StreamDisabled, StreamIsrCleared, USART::Rx, SyncED, EgED>,
     ) {
         self.disable_dma_mode();
 
@@ -979,16 +947,15 @@ where
     }
 }
 
-impl<USART, PINS, CXX, DMA, SyncED, EgED, Peripheral, Memory>
+impl<USART, PINS, CXX, SyncED, EgED, Peripheral, Memory>
     SerialDmaRx<
         USART,
         PINS,
-        Initialized<CXX, DMA, USART::Rx, SyncED, EgED, Peripheral, Memory>,
+        Initialized<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory>,
     >
 where
     USART: SerialChannelDma + Deref<Target = RegisterBlock>,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     SyncED: ISyncED,
     EgED: IEgED,
     Peripheral: Payload,
@@ -999,7 +966,7 @@ where
     ) -> SerialDmaRx<
         USART,
         PINS,
-        Ongoing<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory, DMA>,
+        Ongoing<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory>,
     > {
         let transfer = self.state.transfer.start(self.state.channel.stream);
 
@@ -1013,16 +980,15 @@ where
     }
 }
 
-impl<USART, PINS, CXX, DMA, SyncED, EgED, Peripheral, Memory>
+impl<USART, PINS, CXX, SyncED, EgED, Peripheral, Memory>
     SerialDmaRx<
         USART,
         PINS,
-        Ongoing<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory, DMA>,
+        Ongoing<CXX, USART::Rx, SyncED, EgED, Peripheral, Memory>,
     >
 where
     USART: SerialChannelDma + Deref<Target = RegisterBlock>,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     SyncED: ISyncED,
     EgED: IEgED,
     Peripheral: Payload,
@@ -1030,14 +996,13 @@ where
 {
     pub fn transfer(
         &self,
-    ) -> &SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX, DMA>>
-    {
+    ) -> &SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX>> {
         &self.state.transfer
     }
 
     pub fn transfer_mut(
         &mut self,
-    ) -> &mut SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX, DMA>>
+    ) -> &mut SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX>>
     {
         &mut self.state.transfer
     }
@@ -1048,9 +1013,8 @@ where
 
     pub fn stop(
         self,
-        isr: &mut StreamIsr<DMA>,
-    ) -> SerialDmaRx<USART, PINS, Start<CXX, DMA, USART::Rx, SyncED, EgED>>
-    {
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> SerialDmaRx<USART, PINS, Start<CXX, USART::Rx, SyncED, EgED>> {
         let stream = self.state.transfer.stop().clear_isr(isr);
         let channel = Channel {
             stream,

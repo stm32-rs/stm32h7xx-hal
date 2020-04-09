@@ -97,25 +97,23 @@ channels! {
 }
 
 /// DMA Channel
-pub struct Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
+pub struct Channel<CXX, StreamED, IsrState, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     StreamED: IED,
     IsrState: IIsrState,
     ReqId: IRequestId,
     SyncED: ISyncED,
     EgED: IEgED,
 {
-    pub stream: Stream<CXX, DMA, StreamED, IsrState>,
+    pub stream: Stream<CXX, StreamED, IsrState>,
     pub mux: DmaMux<CXX, ReqId, SyncED, EgED>,
 }
 
-impl<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
-    Channel<CXX, DMA, StreamED, IsrState, ReqId, SyncED, EgED>
+impl<CXX, StreamED, IsrState, ReqId, SyncED, EgED>
+    Channel<CXX, StreamED, IsrState, ReqId, SyncED, EgED>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     StreamED: IED,
     IsrState: IIsrState,
     ReqId: IRequestId,
@@ -126,11 +124,11 @@ where
     pub fn stream_owned<F, NewStreamED, NewIsrState>(
         self,
         op: F,
-    ) -> Channel<CXX, DMA, NewStreamED, NewIsrState, ReqId, SyncED, EgED>
+    ) -> Channel<CXX, NewStreamED, NewIsrState, ReqId, SyncED, EgED>
     where
         F: FnOnce(
-            Stream<CXX, DMA, StreamED, IsrState>,
-        ) -> Stream<CXX, DMA, NewStreamED, NewIsrState>,
+            Stream<CXX, StreamED, IsrState>,
+        ) -> Stream<CXX, NewStreamED, NewIsrState>,
         NewStreamED: IED,
         NewIsrState: IIsrState,
     {
@@ -146,7 +144,7 @@ where
     pub fn mux_owned<F, NewReqId, NewSyncED, NewEgED>(
         self,
         op: F,
-    ) -> Channel<CXX, DMA, StreamED, IsrState, NewReqId, NewSyncED, NewEgED>
+    ) -> Channel<CXX, StreamED, IsrState, NewReqId, NewSyncED, NewEgED>
     where
         F: FnOnce(
             DmaMux<CXX, ReqId, SyncED, EgED>,
@@ -165,23 +163,21 @@ where
 }
 
 /// DMA Stream
-pub struct Stream<CXX, DMA, ED, IsrState>
+pub struct Stream<CXX, ED, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ED: IED,
     IsrState: IIsrState,
 {
     /// This field *must not* be mutated using shared references
     rb: &'static ST,
     config_ndt: Ndt,
-    _phantom_data: PhantomData<(CXX, DMA, ED, IsrState)>,
+    _phantom_data: PhantomData<(CXX, ED, IsrState)>,
 }
 
-impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
+impl<CXX> Stream<CXX, Disabled, IsrCleared>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Creates an instance of a Stream in initial state.
     ///
@@ -195,10 +191,9 @@ where
     }
 }
 
-impl<CXX, DMA, ED, IsrState> Stream<CXX, DMA, ED, IsrState>
+impl<CXX, ED, IsrState> Stream<CXX, ED, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ED: IED,
     IsrState: IIsrState,
 {
@@ -489,9 +484,7 @@ where
     }
 
     /// Transmutes the state of `self`
-    fn transmute<NewED, NewIsrState>(
-        self,
-    ) -> Stream<CXX, DMA, NewED, NewIsrState>
+    fn transmute<NewED, NewIsrState>(self) -> Stream<CXX, NewED, NewIsrState>
     where
         NewED: IED,
         NewIsrState: IIsrState,
@@ -504,10 +497,9 @@ where
     }
 }
 
-impl<CXX, DMA, IsrState> Stream<CXX, DMA, Disabled, IsrState>
+impl<CXX, IsrState> Stream<CXX, Disabled, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     IsrState: IIsrState,
 {
     pub fn apply_config(&mut self, config: Config) {
@@ -658,10 +650,9 @@ where
     }
 }
 
-impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
+impl<CXX, IsrState> Stream<CXX, Enabled, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     IsrState: IIsrState,
 {
     /// Sets the Memory-0 Address on the fly
@@ -706,17 +697,16 @@ where
     }
 }
 
-impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrCleared>
+impl<CXX> Stream<CXX, Disabled, IsrCleared>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Checks the config for data integrity and enables the stream
     ///
     /// # Safety
     ///
     /// Aliasing rules aren't enforced.
-    pub unsafe fn enable(self) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub unsafe fn enable(self) -> Stream<CXX, Enabled, IsrUncleared> {
         self.check_config();
 
         self.enable_unchecked()
@@ -730,9 +720,7 @@ where
     ///
     /// - Aliasing rules aren't enforced
     /// - Config is not checked for guaranteeing data integrity
-    pub unsafe fn enable_unchecked(
-        self,
-    ) -> Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub unsafe fn enable_unchecked(self) -> Stream<CXX, Enabled, IsrUncleared> {
         self.rb.cr.modify(|_, w| w.en().set_bit());
 
         self.transmute()
@@ -861,14 +849,13 @@ where
     }
 }
 
-impl<CXX, DMA, IsrState> Stream<CXX, DMA, Enabled, IsrState>
+impl<CXX, IsrState> Stream<CXX, Enabled, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     IsrState: IIsrState,
 {
     /// Disables the stream
-    pub fn disable(self) -> Stream<CXX, DMA, Disabled, IsrState> {
+    pub fn disable(self) -> Stream<CXX, Disabled, IsrState> {
         self.rb.cr.modify(|_, w| w.en().clear_bit());
 
         while self.rb.cr.read().en().bit_is_set() {}
@@ -877,10 +864,9 @@ where
     }
 }
 
-impl<CXX, DMA, ED> Stream<CXX, DMA, ED, IsrUncleared>
+impl<CXX, ED> Stream<CXX, ED, IsrUncleared>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ED: IED,
 {
     /// Returns the contents of the isr.
@@ -889,7 +875,7 @@ where
     /// * If there are errors, the errors are being wrapped into `Error` and returned as `Err`
     pub fn check_isr(
         &self,
-        isr: &StreamIsr<DMA>,
+        isr: &StreamIsr<CXX::DMA>,
     ) -> Result<Option<Event>, Error> {
         let transfer_error = self.transfer_error_flag(isr);
         let direct_mode_error = self.direct_mode_error_flag(isr);
@@ -919,7 +905,7 @@ where
     }
 
     /// Returns the Transfer Complete flag
-    pub fn transfer_complete_flag(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn transfer_complete_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().tcif0().bit_is_set(),
             1 => isr.lisr.read().tcif1().bit_is_set(),
@@ -934,7 +920,7 @@ where
     }
 
     /// Returns the Half Transfer flag
-    pub fn half_transfer_flag(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn half_transfer_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().htif0().bit_is_set(),
             1 => isr.lisr.read().htif1().bit_is_set(),
@@ -949,7 +935,7 @@ where
     }
 
     /// Returns the Transfer Error flag
-    pub fn transfer_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn transfer_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().teif0().bit_is_set(),
             1 => isr.lisr.read().teif1().bit_is_set(),
@@ -964,7 +950,7 @@ where
     }
 
     /// Returns the Direct Mode Error flag
-    pub fn direct_mode_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn direct_mode_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().dmeif0().bit_is_set(),
             1 => isr.lisr.read().dmeif1().bit_is_set(),
@@ -979,7 +965,7 @@ where
     }
 
     /// Returns the Fifo Error flag
-    pub fn fifo_error_flag(&self, isr: &StreamIsr<DMA>) -> bool {
+    pub fn fifo_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
         match self.id() {
             0 => isr.lisr.read().feif0().bit_is_set(),
             1 => isr.lisr.read().feif1().bit_is_set(),
@@ -994,7 +980,7 @@ where
     }
 
     /// Performs the ISR clear
-    fn clear_isr_impl(&self, isr: &mut StreamIsr<DMA>) {
+    fn clear_isr_impl(&self, isr: &mut StreamIsr<CXX::DMA>) {
         self.clear_transfer_complete(isr);
         self.clear_half_transfer(isr);
         self.clear_transfer_error(isr);
@@ -1003,7 +989,7 @@ where
     }
 
     /// Clears the Transfer Complete flag
-    pub fn clear_transfer_complete(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_transfer_complete(&self, isr: &mut StreamIsr<CXX::DMA>) {
         match self.id() {
             0 => {
                 isr.lifcr.write(|w| w.ctcif0().set_bit());
@@ -1034,7 +1020,7 @@ where
     }
 
     /// Clears the Half Transfer flag
-    pub fn clear_half_transfer(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_half_transfer(&self, isr: &mut StreamIsr<CXX::DMA>) {
         match self.id() {
             0 => {
                 isr.lifcr.write(|w| w.chtif0().set_bit());
@@ -1065,7 +1051,7 @@ where
     }
 
     /// Clears the Transfer Error flag
-    pub fn clear_transfer_error(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_transfer_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
         match self.id() {
             0 => {
                 isr.lifcr.write(|w| w.cteif0().set_bit());
@@ -1096,7 +1082,7 @@ where
     }
 
     /// Clears the Direct Mode Error flag
-    pub fn clear_direct_mode_error(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_direct_mode_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
         match self.id() {
             0 => {
                 isr.lifcr.write(|w| w.cdmeif0().set_bit());
@@ -1127,7 +1113,7 @@ where
     }
 
     /// Clears the Fifo Error flag
-    pub fn clear_fifo_error(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_fifo_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
         match self.id() {
             0 => {
                 isr.lifcr.write(|w| w.cfeif0().set_bit());
@@ -1158,35 +1144,33 @@ where
     }
 }
 
-impl<CXX, DMA> Stream<CXX, DMA, Disabled, IsrUncleared>
+impl<CXX> Stream<CXX, Disabled, IsrUncleared>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Clears the ISR
     pub fn clear_isr(
         self,
-        isr: &mut StreamIsr<DMA>,
-    ) -> Stream<CXX, DMA, Disabled, IsrCleared> {
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> Stream<CXX, Disabled, IsrCleared> {
         self.clear_isr_impl(isr);
 
         self.transmute()
     }
 }
 
-impl<CXX, DMA> Stream<CXX, DMA, Enabled, IsrUncleared>
+impl<CXX> Stream<CXX, Enabled, IsrUncleared>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Clears the ISR
-    pub fn clear_isr(&self, isr: &mut StreamIsr<DMA>) {
+    pub fn clear_isr(&self, isr: &mut StreamIsr<CXX::DMA>) {
         self.clear_isr_impl(isr);
     }
 
     pub fn wait_until_completed(
         &self,
-        isr: &StreamIsr<DMA>,
+        isr: &StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         match self.check_isr(isr) {
             Ok(Some(Event::TransferComplete)) => Ok(()),
@@ -1197,7 +1181,7 @@ where
 
     pub fn wait_until_completed_clear(
         &self,
-        isr: &mut StreamIsr<DMA>,
+        isr: &mut StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         let res = self.wait_until_completed(isr);
 
@@ -1208,7 +1192,7 @@ where
 
     pub fn wait_until_half_transfer(
         &self,
-        isr: &StreamIsr<DMA>,
+        isr: &StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         match self.check_isr(isr) {
             Ok(Some(Event::HalfTransfer)) => Ok(()),
@@ -1219,7 +1203,7 @@ where
 
     pub fn wait_until_half_transfer_clear(
         &self,
-        isr: &mut StreamIsr<DMA>,
+        isr: &mut StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         let res = self.wait_until_half_transfer(isr);
 
@@ -1230,7 +1214,7 @@ where
 
     pub fn wait_until_next_half(
         &self,
-        isr: &StreamIsr<DMA>,
+        isr: &StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         match self.check_isr(isr) {
             Ok(event) => match event {
@@ -1245,7 +1229,7 @@ where
 
     pub fn wait_until_next_half_clear(
         &self,
-        isr: &mut StreamIsr<DMA>,
+        isr: &mut StreamIsr<CXX::DMA>,
     ) -> nb::Result<(), Error> {
         let res = self.wait_until_next_half(isr);
 
@@ -1257,7 +1241,7 @@ where
     fn clear_isr_if_not_blocking(
         &self,
         res: nb::Result<(), Error>,
-        isr: &mut StreamIsr<DMA>,
+        isr: &mut StreamIsr<CXX::DMA>,
     ) {
         if !matches!(res, Err(NbError::WouldBlock)) {
             self.clear_isr(isr);
@@ -1265,19 +1249,17 @@ where
     }
 }
 
-unsafe impl<CXX, DMA, ED, IsrState> Send for Stream<CXX, DMA, ED, IsrState>
+unsafe impl<CXX, ED, IsrState> Send for Stream<CXX, ED, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ED: IED,
     IsrState: IIsrState,
 {
 }
 
-unsafe impl<CXX, DMA, ED, IsrState> Sync for Stream<CXX, DMA, ED, IsrState>
+unsafe impl<CXX, ED, IsrState> Sync for Stream<CXX, ED, IsrState>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     ED: IED,
     IsrState: IIsrState,
 {
@@ -1694,13 +1676,12 @@ where
     Dest: Payload,
 {
     /// Starts the transfer
-    pub fn start<CXX, DMA>(
+    pub fn start<CXX>(
         self,
-        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
-    ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX, DMA>>
+        mut stream: Stream<CXX, Disabled, IsrCleared>,
+    ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX>>
     where
-        CXX: ChannelId<DMA = DMA>,
-        DMA: DmaPeripheral,
+        CXX: ChannelId,
     {
         configure_safe_transfer(&mut stream, &self.peripheral, &self.memory);
         stream.set_buffer_mode(BufferMode::Regular);
@@ -1715,15 +1696,14 @@ where
     }
 }
 
-impl<Source, Dest, CXX, DMA> SafeTransfer<'_, Source, Dest, Ongoing<CXX, DMA>>
+impl<Source, Dest, CXX> SafeTransfer<'_, Source, Dest, Ongoing<CXX>>
 where
     Source: Payload,
     Dest: Payload,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Returns the stream assigned to the transfer
-    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub fn stream(&self) -> &Stream<CXX, Enabled, IsrUncleared> {
         &self.state.stream
     }
 
@@ -1767,7 +1747,7 @@ where
     }
 
     /// Stops the transfer, returning the stream
-    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
+    pub fn stop(self) -> Stream<CXX, Disabled, IsrUncleared> {
         self.state.stream.disable()
     }
 }
@@ -1873,13 +1853,12 @@ where
     Memory: Payload,
 {
     /// Starts the transfer
-    pub fn start<CXX, DMA>(
+    pub fn start<CXX>(
         self,
-        mut stream: Stream<CXX, DMA, Disabled, IsrCleared>,
-    ) -> SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Ongoing<CXX, DMA>>
+        mut stream: Stream<CXX, Disabled, IsrCleared>,
+    ) -> SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Ongoing<CXX>>
     where
-        CXX: ChannelId<DMA = DMA>,
-        DMA: DmaPeripheral,
+        CXX: ChannelId,
     {
         stream.set_buffer_mode(BufferMode::DoubleBuffer);
         stream.set_m1a(M1a(self.memories[1].as_ptr(Some(0)) as u32));
@@ -1900,16 +1879,15 @@ where
     }
 }
 
-impl<Peripheral, Memory, CXX, DMA>
-    SafeTransferDoubleBuffer<'_, Peripheral, Memory, Ongoing<CXX, DMA>>
+impl<Peripheral, Memory, CXX>
+    SafeTransferDoubleBuffer<'_, Peripheral, Memory, Ongoing<CXX>>
 where
     Peripheral: Payload,
     Memory: Payload,
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
     /// Returns the stream assigned to the transfer
-    pub fn stream(&self) -> &Stream<CXX, DMA, Enabled, IsrUncleared> {
+    pub fn stream(&self) -> &Stream<CXX, Enabled, IsrUncleared> {
         &self.state.stream
     }
 
@@ -1975,31 +1953,31 @@ where
     }
 
     /// Stops the transfer
-    pub fn stop(self) -> Stream<CXX, DMA, Disabled, IsrUncleared> {
+    pub fn stop(self) -> Stream<CXX, Disabled, IsrUncleared> {
         self.state.stream.disable()
     }
 }
 
 pub type ChannelsDma1 = (
-    Channel<C0, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C1, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C2, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C3, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C4, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C5, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C6, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C7, DMA1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C0, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C1, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C3, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C4, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C5, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C6, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C7, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
 );
 
 pub type ChannelsDma2 = (
-    Channel<C8, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C9, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C10, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C11, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C12, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C13, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C14, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
-    Channel<C15, DMA2, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C8, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C9, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C10, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C11, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C12, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C13, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C14, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
+    Channel<C15, Disabled, IsrCleared, ReqNone, SyncDisabled, EgDisabled>,
 );
 
 pub type RequestGenerators = (

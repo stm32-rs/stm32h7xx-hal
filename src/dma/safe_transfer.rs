@@ -4,8 +4,7 @@ use super::stream::{
     CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize,
     Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
-use super::ChannelId;
-use super::{DmaPeripheral, Stream};
+use super::{ChannelId, Stream};
 use crate::private;
 use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
@@ -18,27 +17,16 @@ pub struct Start;
 impl private::Sealed for Start {}
 impl TransferState for Start {}
 
-pub struct Ongoing<CXX, DMA>
+pub struct Ongoing<CXX>
 where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
 {
-    pub(super) stream: Stream<CXX, DMA, Enabled, IsrUncleared>,
+    pub(super) stream: Stream<CXX, Enabled, IsrUncleared>,
 }
 
-impl<CXX, DMA> private::Sealed for Ongoing<CXX, DMA>
-where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
-{
-}
+impl<CXX> private::Sealed for Ongoing<CXX> where CXX: ChannelId {}
 
-impl<CXX, DMA> TransferState for Ongoing<CXX, DMA>
-where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
-{
-}
+impl<CXX> TransferState for Ongoing<CXX> where CXX: ChannelId {}
 
 /// # Safety
 ///
@@ -1177,13 +1165,12 @@ where
     }
 }
 
-pub(super) fn configure_safe_transfer<CXX, DMA, Peripheral, Memory>(
-    stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
+pub(super) fn configure_safe_transfer<CXX, Peripheral, Memory>(
+    stream: &mut Stream<CXX, Disabled, IsrCleared>,
     peripheral: &PeripheralBuffer<Peripheral>,
     memory: &MemoryBuffer<Memory>,
 ) where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     Peripheral: Payload,
     Memory: Payload,
 {
@@ -1242,13 +1229,12 @@ pub(super) fn configure_safe_transfer<CXX, DMA, Peripheral, Memory>(
     configure_ndt(stream, peripheral, memory);
 }
 
-fn configure_ndt<CXX, DMA, Peripheral, Memory>(
-    stream: &mut Stream<CXX, DMA, Disabled, IsrCleared>,
+fn configure_ndt<CXX, Peripheral, Memory>(
+    stream: &mut Stream<CXX, Disabled, IsrCleared>,
     peripheral: &PeripheralBuffer<Peripheral>,
     memory: &MemoryBuffer<Memory>,
 ) where
-    CXX: ChannelId<DMA = DMA>,
-    DMA: DmaPeripheral,
+    CXX: ChannelId,
     Peripheral: Payload,
     Memory: Payload,
 {
