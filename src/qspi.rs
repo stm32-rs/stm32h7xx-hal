@@ -47,6 +47,12 @@ impl Qspi {
             w.en().clear_bit()
         });
 
+        // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
+        // flash size violation may still trigger.
+        regs.dcr.write(|w| unsafe {
+            w.fsize().bits(0x1F)
+        });
+
         // Clear all pending flags.
         regs.fcr.write(|w| {
             w
@@ -62,11 +68,6 @@ impl Qspi {
             .fmode().bits(0)
             .dmode().bits(0b01)
             .imode().bits(0b01)
-        });
-
-        // Ensure QSPI keeps the clock IDLE-low.
-        regs.dcr.write(|w| {
-            w.ckmode().clear_bit()
         });
 
         let spi_frequency = frequency.into().0;
@@ -141,10 +142,7 @@ impl Qspi {
         // Configure the mode to indirect write and configure the instruction byte.
         self.rb.ccr.modify(|_, w| unsafe {
             w.fmode().bits(0b00)
-        });
-
-        self.rb.ccr.modify(|_, w| unsafe {
-            w.instruction().bits(addr)
+             .instruction().bits(addr)
         });
 
         // Enable the transaction
@@ -189,6 +187,7 @@ impl Qspi {
         // Configure the mode to indirect read and configure the instruction byte.
         self.rb.ccr.modify(|_, w| unsafe {
             w.fmode().bits(0b01)
+             .instruction().bits(addr)
         });
 
         // Enable the transaction
@@ -196,7 +195,7 @@ impl Qspi {
 
         // Write the instruction bits to force the read to start. This has to be done after the
         // transaction is enabled to indicate to the peripheral that we are ready to start the
-        // transaction.
+        // transaction, even though these bits should already be set.
         self.rb.ccr.modify(|_, w| unsafe {
             w.instruction().bits(addr)
         });
