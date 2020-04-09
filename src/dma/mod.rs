@@ -1183,6 +1183,86 @@ where
     pub fn clear_isr(&self, isr: &mut StreamIsr<DMA>) {
         self.clear_isr_impl(isr);
     }
+
+    pub fn wait_until_completed(
+        &self,
+        isr: &StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        match self.check_isr(isr) {
+            Ok(Some(Event::TransferComplete)) => Ok(()),
+            Err(err) => Err(NbError::Other(err)),
+            _ => Err(NbError::WouldBlock),
+        }
+    }
+
+    pub fn wait_until_completed_clear(
+        &self,
+        isr: &mut StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        let res = self.wait_until_completed(isr);
+
+        self.clear_isr_if_not_blocking(res, isr);
+
+        res
+    }
+
+    pub fn wait_until_half_transfer(
+        &self,
+        isr: &StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        match self.check_isr(isr) {
+            Ok(Some(Event::HalfTransfer)) => Ok(()),
+            Err(err) => Err(NbError::Other(err)),
+            _ => Err(NbError::WouldBlock),
+        }
+    }
+
+    pub fn wait_until_half_transfer_clear(
+        &self,
+        isr: &mut StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        let res = self.wait_until_half_transfer(isr);
+
+        self.clear_isr_if_not_blocking(res, isr);
+
+        res
+    }
+
+    pub fn wait_until_next_half(
+        &self,
+        isr: &StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        match self.check_isr(isr) {
+            Ok(event) => match event {
+                Some(Event::HalfTransfer) | Some(Event::TransferComplete) => {
+                    Ok(())
+                }
+                None => Err(NbError::WouldBlock),
+            },
+            Err(err) => Err(NbError::Other(err)),
+        }
+    }
+
+    pub fn wait_until_next_half_clear(
+        &self,
+        isr: &mut StreamIsr<DMA>,
+    ) -> nb::Result<(), Error> {
+        let res = self.wait_until_next_half(isr);
+
+        self.clear_isr_if_not_blocking(res, isr);
+
+        res
+    }
+
+    fn clear_isr_if_not_blocking(
+        &self,
+        res: nb::Result<(), Error>,
+        isr: &mut StreamIsr<DMA>,
+    ) {
+        if !matches!(res, Err(NbError::WouldBlock)) {
+            self.clear_isr(isr);
+        }
+    }
 }
 
 unsafe impl<CXX, DMA, ED, IsrState> Send for Stream<CXX, DMA, ED, IsrState>
