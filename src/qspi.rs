@@ -20,6 +20,7 @@ pub enum QspiError {
     Unsupported,
     InvalidAddress,
     Underflow,
+    FifoData,
     InvalidClock,
 }
 
@@ -78,8 +79,10 @@ impl Qspi {
             },
         };
 
+        // Write the prescaler and select flash bank 2 - flash bank 1 is currently unsupported.
         regs.cr.write(|w| unsafe {
             w.prescaler().bits(divisor as u8)
+             .fsel().set_bit()
         });
 
         Ok(Qspi{rb: regs})
@@ -107,7 +110,7 @@ impl Qspi {
             QspiMode::OneBit => {
                 self.rb.ccr.modify(|_, w| unsafe {
                     w.imode().bits(0b01)
-                     .fmode().bits(0b01)
+                     .dmode().bits(0b01)
                 });
 
                 Ok(())
@@ -115,7 +118,7 @@ impl Qspi {
             QspiMode::FourBit => {
                 self.rb.ccr.modify(|_, w| unsafe {
                     w.imode().bits(0b11)
-                     .fmode().bits(0b11)
+                     .dmode().bits(0b11)
                 });
 
                 Ok(())
@@ -129,19 +132,23 @@ impl Qspi {
             return Err(QspiError::Busy);
         }
 
-        // Disable SPI first
-        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
+
+        // Write the length
+        self.rb.dlr.write(|w| unsafe {w.dl().bits(data.len() as u32 - 1)});
 
         // Configure the mode to indirect write and configure the instruction byte.
         self.rb.ccr.modify(|_, w| unsafe {
             w.fmode().bits(0b00)
-             .instruction().bits(0x80_u8 | addr)
         });
 
-        // TODO: Flush the write FIFO?
+        self.rb.ccr.modify(|_, w| unsafe {
+            w.instruction().bits(addr)
+        });
 
-        // Write the length
-        self.rb.dlr.write(|w| unsafe {w.dl().bits(data.len() as u32)});
+        // Enable the transaction
+        self.rb.cr.modify(|_, w| {w.en().set_bit()});
 
         // Write data to the FIFO in a byte-wise manner.
         unsafe {
@@ -150,13 +157,18 @@ impl Qspi {
             }
         }
 
-        // Enable the transaction
-        self.rb.cr.modify(|_, w| {w.en().set_bit()});
-
         // Wait for the transaction to complete
-        while self.is_busy() {}
+        while self.rb.sr.read().tcf().bit_is_clear() {}
+
+        // Check that there is no more transaction pending.
+        if self.is_busy() {
+            return Err(QspiError::FifoData);
+        }
 
         self.rb.cr.modify(|_, w| {w.en().clear_bit()});
+
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
 
         Ok(())
     }
@@ -166,35 +178,33 @@ impl Qspi {
             return Err(QspiError::Busy);
         }
 
-        if (addr & 0x80) != 0 {
-            return Err(QspiError::InvalidAddress);
-        }
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
 
-        // Disable SPI first?
-        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
+        // Write the length that should be read.
+        self.rb.dlr.write(|w| unsafe {
+            w.dl().bits(dest.len() as u32 - 1)
+        });
 
         // Configure the mode to indirect read and configure the instruction byte.
         self.rb.ccr.modify(|_, w| unsafe {
             w.fmode().bits(0b01)
-             .instruction().bits(addr)
-        });
-
-        // TODO: Flush the data FIFO?
-
-        // Write the length that should be read.
-        self.rb.dlr.write(|w| unsafe {
-            w.dl().bits(dest.len() as u32)
         });
 
         // Enable the transaction
         self.rb.cr.modify(|_, w| {w.en().set_bit()});
 
+        // Write the instruction bits to force the read to start. This has to be done after the
+        // transaction is enabled to indicate to the peripheral that we are ready to start the
+        // transaction.
+        self.rb.ccr.modify(|_, w| unsafe {
+            w.instruction().bits(addr)
+        });
+
         // Wait for the transaction to complete
-        while self.is_busy() {}
+        while self.rb.sr.read().tcf().bit_is_clear() {}
 
-        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
-
-        // Check that there's a valid number of bytes in the FIFO to be read.
+        // Check for underflow on the FIFO.
         if (self.rb.sr.read().flevel().bits() as usize) < dest.len() {
             return Err(QspiError::Underflow);
         }
@@ -205,6 +215,16 @@ impl Qspi {
                 *location = ptr::read_volatile(&self.rb.dr as *const _ as *const u8);
             }
         }
+
+        // Check that there is no more transaction pending.
+        if self.is_busy() {
+            return Err(QspiError::FifoData);
+        }
+
+        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
+
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
 
         Ok(())
     }
