@@ -22,9 +22,9 @@ use self::mux::{
 };
 use self::safe_transfer::{
     check_buffer, check_double_buffer, configure_safe_transfer, mut_ptr_memory,
-    mut_ptr_peripheral, set_memory_impl, set_peripheral_impl, DoubleBuffer,
+    mut_ptr_peripheral, set_memory_impl, set_peripheral_impl,
     MemoryBufferStatic, Ongoing, Payload, PayloadPort, PeripheralBufferStatic,
-    PointerPort, Start, TransferState,
+    PointerPort, Start, TransferState, WhichBuffer,
 };
 use self::stream::{
     BufferMode, BufferModeConf, CircularMode, CircularModeConf, Config,
@@ -1807,7 +1807,7 @@ where
     pub unsafe fn set_dest(
         &mut self,
         index: Option<usize>,
-        double_buffer: Option<DoubleBuffer>,
+        double_buffer: Option<WhichBuffer>,
         payload: PayloadPort<Peripheral, Memory>,
     ) {
         if self.peripheral.is_write() {
@@ -1829,7 +1829,7 @@ where
     pub fn dest_ptr(
         &mut self,
         index: Option<usize>,
-        double_buffer: Option<DoubleBuffer>,
+        double_buffer: Option<WhichBuffer>,
     ) -> PointerPort<Peripheral, Memory> {
         if self.peripheral.is_write() {
             let ptr = mut_ptr_peripheral(&mut self.peripheral, index);

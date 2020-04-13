@@ -1,12 +1,12 @@
 //! Safe DMA Transfers
 
 use super::stream::{
-    CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a, MSize,
-    Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
+    BufferMode, CircularMode, Disabled, Enabled, IsrCleared, IsrUncleared, M0a,
+    MSize, Minc, Ndt, PSize, Pa, Pinc, Pincos, TransferDirection, TransferMode,
 };
 use super::{ChannelId, Stream};
 use crate::private;
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::{mem, ptr};
@@ -31,9 +31,11 @@ impl<CXX> TransferState for Ongoing<CXX> where CXX: ChannelId {}
 /// # Safety
 ///
 /// * `Self` must be valid for any bit representation
+/// * `Self::Size` must be
 pub unsafe trait Payload:
     Sized + Clone + Copy + Send + Sync + 'static
 {
+    type Size: IPayloadSize;
 }
 
 // Maps Payload size to number of bytes
@@ -90,27 +92,371 @@ impl PayloadSize {
     where
         P: Payload,
     {
-        let size_bytes: usize = mem::size_of::<P>();
+        let size = P::Size::SIZE;
 
-        size_bytes.try_into().unwrap_or_else(|_| {
-            panic!("The size of the buffer type must be either 1, 2 or 4 bytes")
-        })
+        debug_assert_eq!(mem::size_of::<P>(), size.into());
+
+        size
     }
 }
 
-unsafe impl Payload for u8 {}
+pub trait IPayloadSize {
+    const SIZE: PayloadSize;
+}
 
-unsafe impl Payload for i8 {}
+pub struct Byte;
+pub struct HalfWord;
+pub struct Word;
 
-unsafe impl Payload for u16 {}
+impl IPayloadSize for Byte {
+    const SIZE: PayloadSize = PayloadSize::Byte;
+}
+impl IPayloadSize for HalfWord {
+    const SIZE: PayloadSize = PayloadSize::HalfWord;
+}
+impl IPayloadSize for Word {
+    const SIZE: PayloadSize = PayloadSize::Word;
+}
 
-unsafe impl Payload for i16 {}
+unsafe impl Payload for u8 {
+    type Size = Byte;
+}
 
-unsafe impl Payload for u32 {}
+unsafe impl Payload for i8 {
+    type Size = Byte;
+}
 
-unsafe impl Payload for i32 {}
+unsafe impl Payload for u16 {
+    type Size = HalfWord;
+}
 
-unsafe impl Payload for f32 {}
+unsafe impl Payload for i16 {
+    type Size = HalfWord;
+}
+
+unsafe impl Payload for u32 {
+    type Size = Word;
+}
+
+unsafe impl Payload for i32 {
+    type Size = Word;
+}
+
+unsafe impl Payload for f32 {
+    type Size = Word;
+}
+
+pub trait IMemoryBuffer {
+    type Memory: Payload;
+
+    const BUFFER_MODE: BufferMode;
+
+    fn first(&self) -> &MemoryBuffer<Self::Memory>;
+}
+
+pub struct SingleBuffer<'buf, Memory>
+where
+    Memory: Payload,
+{
+    pub memory: MemoryBuffer<'buf, Memory>,
+}
+
+impl<Memory> IMemoryBuffer for SingleBuffer<'_, Memory>
+where
+    Memory: Payload,
+{
+    type Memory = Memory;
+
+    const BUFFER_MODE: BufferMode = BufferMode::Regular;
+
+    fn first(&self) -> &MemoryBuffer<Memory> {
+        &self.memory
+    }
+}
+
+pub struct DoubleBuffer<'buf0, 'buf1, Memory>
+where
+    Memory: Payload,
+{
+    pub memory_0: MemoryBuffer<'buf0, Memory>,
+    pub memory_1: MemoryBuffer<'buf1, Memory>,
+}
+
+impl<Memory> IMemoryBuffer for DoubleBuffer<'_, '_, Memory>
+where
+    Memory: Payload,
+{
+    type Memory = Memory;
+
+    const BUFFER_MODE: BufferMode = BufferMode::DoubleBuffer;
+
+    fn first(&self) -> &MemoryBuffer<Memory> {
+        &self.memory_0
+    }
+}
+
+pub trait IBuffers<'p_buf, 'wo> {
+    type Peripheral: Payload;
+    type MemoryBuffer: IMemoryBuffer;
+
+    const TRANSFER_MODE: TransferMode;
+
+    fn buffers(
+        self,
+    ) -> Buffers<'p_buf, 'wo, Self::Peripheral, Self::MemoryBuffer>;
+
+    fn buffers_ref(
+        &self,
+    ) -> BuffersRef<'_, 'p_buf, 'wo, Self::Peripheral, Self::MemoryBuffer>;
+}
+
+pub struct Buffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    MemoryBuffer: IMemoryBuffer,
+{
+    pub peripheral_buffer: PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+    pub memory_buffer: MemoryBuffer,
+}
+
+pub struct BuffersRef<'r, 'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    MemoryBuffer: IMemoryBuffer,
+{
+    pub peripheral_buffer: &'r PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+    pub memory_buffer: &'r MemoryBuffer,
+}
+pub struct FifoBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    MemoryBuffer: IMemoryBuffer,
+{
+    peripheral_buffer: PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+    memory_buffer: MemoryBuffer,
+}
+
+impl<'p_buf, 'wo, Peripheral, MemoryBuffer>
+    FifoBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    MemoryBuffer: IMemoryBuffer,
+{
+    pub fn new(
+        peripheral: PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+        memory_buffer: MemoryBuffer,
+    ) -> Self {
+        assert_ne!(peripheral.is_read(), memory_buffer.first().is_read());
+
+        Self {
+            peripheral_buffer: peripheral,
+            memory_buffer,
+        }
+    }
+}
+
+impl<'p_buf, 'wo, Peripheral, MemoryBuffer> IBuffers<'p_buf, 'wo>
+    for FifoBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    MemoryBuffer: IMemoryBuffer,
+{
+    type Peripheral = Peripheral;
+    type MemoryBuffer = MemoryBuffer;
+
+    const TRANSFER_MODE: TransferMode = TransferMode::Fifo;
+
+    fn buffers(self) -> Buffers<'p_buf, 'wo, Peripheral, MemoryBuffer> {
+        Buffers {
+            peripheral_buffer: self.peripheral_buffer,
+            memory_buffer: self.memory_buffer,
+        }
+    }
+
+    fn buffers_ref(
+        &self,
+    ) -> BuffersRef<'_, 'p_buf, 'wo, Peripheral, MemoryBuffer> {
+        BuffersRef {
+            peripheral_buffer: &self.peripheral_buffer,
+            memory_buffer: &self.memory_buffer,
+        }
+    }
+}
+
+pub struct DirectBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload<Size = <MemoryBuffer::Memory as Payload>::Size>,
+    MemoryBuffer: IMemoryBuffer,
+{
+    peripheral_buffer: PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+    memory_buffer: MemoryBuffer,
+}
+
+impl<'p_buf, 'wo, Peripheral, Memory, MemoryBuffer>
+    DirectBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    Memory: Payload<Size = Peripheral::Size>,
+    MemoryBuffer: IMemoryBuffer<Memory = Memory>,
+{
+    pub fn new(
+        peripheral: PeripheralBuffer<'p_buf, 'wo, Peripheral>,
+        memory_buffer: MemoryBuffer,
+    ) -> Self {
+        assert_ne!(peripheral.is_read(), memory_buffer.first().is_read());
+
+        Self {
+            peripheral_buffer: peripheral,
+            memory_buffer,
+        }
+    }
+}
+
+impl<'p_buf, 'wo, Peripheral, Memory, MemoryBuffer> IBuffers<'p_buf, 'wo>
+    for DirectBuffers<'p_buf, 'wo, Peripheral, MemoryBuffer>
+where
+    Peripheral: Payload,
+    Memory: Payload<Size = Peripheral::Size>,
+    MemoryBuffer: IMemoryBuffer<Memory = Memory>,
+{
+    type Peripheral = Peripheral;
+    type MemoryBuffer = MemoryBuffer;
+
+    const TRANSFER_MODE: TransferMode = TransferMode::Direct;
+
+    fn buffers(self) -> Buffers<'p_buf, 'wo, Peripheral, MemoryBuffer> {
+        Buffers {
+            peripheral_buffer: self.peripheral_buffer,
+            memory_buffer: self.memory_buffer,
+        }
+    }
+
+    fn buffers_ref(
+        &self,
+    ) -> BuffersRef<'_, 'p_buf, 'wo, Peripheral, MemoryBuffer> {
+        BuffersRef {
+            peripheral_buffer: &self.peripheral_buffer,
+            memory_buffer: &self.memory_buffer,
+        }
+    }
+}
+
+pub trait ITransferDirection<'p_buf, 'wo> {
+    type Buffers: IBuffers<'p_buf, 'wo>;
+
+    const TRANSFER_DIRECTION: TransferDirection;
+
+    fn buffers(self) -> Self::Buffers;
+}
+
+pub struct PeripheralToMemory<BUFFERS>
+where
+    for<'p_buf, 'wo> BUFFERS: IBuffers<'p_buf, 'wo>,
+{
+    buffers: BUFFERS,
+}
+
+impl<BUFFERS> PeripheralToMemory<BUFFERS>
+where
+    for<'p_buf, 'wo> BUFFERS: IBuffers<'p_buf, 'wo>,
+{
+    pub fn new(buffers: BUFFERS) -> Self {
+        assert!(buffers.buffers_ref().peripheral_buffer.is_read());
+        assert!(buffers.buffers_ref().memory_buffer.first().is_write());
+
+        Self { buffers }
+    }
+}
+
+impl<'p_buf, 'wo, BUFFERS> ITransferDirection<'p_buf, 'wo>
+    for PeripheralToMemory<BUFFERS>
+where
+    for<'p_buf1, 'wo1> BUFFERS: IBuffers<'p_buf1, 'wo1>,
+{
+    type Buffers = BUFFERS;
+
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::P2M;
+
+    fn buffers(self) -> BUFFERS {
+        self.buffers
+    }
+}
+
+pub struct MemoryToPeripheral<BUFFERS>
+where
+    for<'p_buf, 'wo> BUFFERS: IBuffers<'p_buf, 'wo>,
+{
+    buffers: BUFFERS,
+}
+
+impl<BUFFERS> MemoryToPeripheral<BUFFERS>
+where
+    for<'p_buf, 'wo> BUFFERS: IBuffers<'p_buf, 'wo>,
+{
+    pub fn new(buffers: BUFFERS) -> Self {
+        assert!(buffers.buffers_ref().memory_buffer.first().is_read());
+        assert!(buffers.buffers_ref().peripheral_buffer.is_write());
+
+        Self { buffers }
+    }
+}
+
+impl<'p_buf, 'wo, BUFFERS> ITransferDirection<'p_buf, 'wo>
+    for MemoryToPeripheral<BUFFERS>
+where
+    for<'p_buf1, 'wo1> BUFFERS: IBuffers<'p_buf1, 'wo1>,
+{
+    type Buffers = BUFFERS;
+
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::M2P;
+
+    fn buffers(self) -> BUFFERS {
+        self.buffers
+    }
+}
+
+pub struct MemoryToMemory<'m_buf, BUFFERS, Memory>
+where
+    for<'p_buf, 'wo> BUFFERS:
+        IBuffers<'p_buf, 'wo, MemoryBuffer = SingleBuffer<'m_buf, Memory>>,
+    Memory: Payload,
+{
+    buffers: BUFFERS,
+    _phantom: PhantomData<&'m_buf Memory>,
+}
+
+impl<'m_buf, BUFFERS, Memory> MemoryToMemory<'m_buf, BUFFERS, Memory>
+where
+    for<'p_buf, 'wo> BUFFERS:
+        IBuffers<'p_buf, 'wo, MemoryBuffer = SingleBuffer<'m_buf, Memory>>,
+    Memory: Payload,
+{
+    pub fn new(buffers: BUFFERS) -> Self {
+        assert!(buffers.buffers_ref().peripheral_buffer.is_read());
+        assert!(buffers.buffers_ref().memory_buffer.memory.is_write());
+
+        Self {
+            buffers,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'p_buf, 'm_buf, 'wo, BUFFERS, Memory> ITransferDirection<'p_buf, 'wo>
+    for MemoryToMemory<'m_buf, BUFFERS, Memory>
+where
+    for<'p_buf1, 'wo1> BUFFERS:
+        IBuffers<'p_buf1, 'wo1, MemoryBuffer = SingleBuffer<'m_buf, Memory>>,
+    Memory: Payload,
+{
+    type Buffers = BUFFERS;
+
+    const TRANSFER_DIRECTION: TransferDirection = TransferDirection::M2M;
+
+    fn buffers(self) -> BUFFERS {
+        self.buffers
+    }
+}
 
 #[derive(Clone, Copy)]
 pub enum PayloadPort<Peripheral, Memory>
@@ -1381,16 +1727,16 @@ where
 }
 
 #[derive(Clone, Copy)]
-pub enum DoubleBuffer {
+pub enum WhichBuffer {
     First,
     Second,
 }
 
-impl DoubleBuffer {
+impl WhichBuffer {
     pub fn index(self) -> usize {
         match self {
-            DoubleBuffer::First => 0,
-            DoubleBuffer::Second => 1,
+            WhichBuffer::First => 0,
+            WhichBuffer::Second => 1,
         }
     }
 }
