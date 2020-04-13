@@ -31,7 +31,7 @@ impl<CXX> TransferState for Ongoing<CXX> where CXX: ChannelId {}
 /// # Safety
 ///
 /// * `Self` must be valid for any bit representation
-/// * `Self::Size` must be
+/// * `Self::Size` must be equal to actual size
 pub unsafe trait Payload:
     Sized + Clone + Copy + Send + Sync + 'static
 {
