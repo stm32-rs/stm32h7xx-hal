@@ -21,10 +21,8 @@ use self::mux::{
     SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
 use self::safe_transfer::{
-    check_buffer, check_double_buffer, configure_safe_transfer, mut_ptr_memory,
-    mut_ptr_peripheral, set_memory_impl, set_peripheral_impl,
-    MemoryBufferStatic, Ongoing, Payload, PayloadPort, PeripheralBufferStatic,
-    PointerPort, Start, TransferState, WhichBuffer,
+    Config as TransferConfig, MemoryBuffer, Ongoing, Payload, PayloadSize,
+    PeripheralBuffer, Start, TransferState,
 };
 use self::stream::{
     BufferMode, BufferModeConf, CircularMode, CircularModeConf, Config,
@@ -37,7 +35,8 @@ use self::stream::{
     TransferDirectionConf, TransferErrorInterrupt, TransferMode,
     TransferModeConf, ED as IED,
 };
-use crate::nb::{self, block, Error as NbError};
+use crate::dma::safe_transfer::Buffer;
+use crate::nb::{self, Error as NbError};
 use crate::private;
 use crate::rcc::Ccdr;
 use crate::stm32::dma1::ST;
@@ -45,7 +44,6 @@ use crate::stm32::dmamux1::CCR;
 use crate::stm32::{DMA1, DMA2, RCC};
 use core::convert::{Infallible, TryFrom, TryInto};
 use core::marker::PhantomData;
-use core::mem;
 use stm32h7::stm32h743::DMAMUX1;
 
 /// Marker Trait for DMA peripherals
@@ -1583,378 +1581,84 @@ where
 {
 }
 
-/// Memory-safe DMA transfer for single-buffer
-pub struct SafeTransfer<'wo, Peripheral, Memory, State>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    State: TransferState,
-{
-    peripheral: PeripheralBufferStatic<'wo, Peripheral>,
-    memory: MemoryBufferStatic<Memory>,
+pub struct Transfer<'wo, State: TransferState<'wo>> {
     state: State,
+    _phantom: PhantomData<&'wo ()>,
 }
 
-impl<'wo, Peripheral, Memory> SafeTransfer<'wo, Peripheral, Memory, Start>
+impl<'wo, Peripheral, Memory> Transfer<'wo, Start<'wo, Peripheral, Memory>>
 where
     Peripheral: Payload,
     Memory: Payload,
 {
-    /// Initializes new DMA transfer without starting it yet
-    pub fn new(
-        peripheral: PeripheralBufferStatic<'wo, Peripheral>,
-        memory: MemoryBufferStatic<Memory>,
-    ) -> Self {
-        check_buffer(&peripheral, &memory);
-
-        SafeTransfer {
-            peripheral,
-            memory,
-            state: Start,
-        }
-    }
-}
-
-impl<'wo, Peripheral, Memory, State>
-    SafeTransfer<'wo, Peripheral, Memory, State>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    State: TransferState,
-{
-    /// Returns peripheral buffer
-    pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
-        &self.peripheral
-    }
-
-    /// Returns memory buffer
-    pub fn memory(&self) -> &MemoryBufferStatic<Memory> {
-        &self.memory
-    }
-
-    /// Sets the content of destination buffer
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure, that the DMA is currently not modifying this address.
-    pub unsafe fn set_dest(
-        &mut self,
-        index: Option<usize>,
-        payload: PayloadPort<Peripheral, Memory>,
-    ) {
-        if self.peripheral.is_write() {
-            set_peripheral_impl(
-                &mut self.peripheral,
-                index,
-                payload.peripheral(),
-            );
-        } else {
-            set_memory_impl(&mut self.memory, index, payload.memory());
+    pub fn new(conf: TransferConfig<'wo, Peripheral, Memory>) -> Self {
+        Self {
+            state: Start { conf },
+            _phantom: PhantomData,
         }
     }
 
-    /// Returns pointer to destination buffer
-    pub fn dest_ptr(
-        &mut self,
-        index: Option<usize>,
-    ) -> PointerPort<Peripheral, Memory> {
-        if self.peripheral.is_write() {
-            let ptr = mut_ptr_peripheral(&mut self.peripheral, index);
-
-            PointerPort::Peripheral(ptr)
-        } else {
-            let ptr = mut_ptr_memory(&mut self.memory, index);
-
-            PointerPort::Memory(ptr)
-        }
-    }
-}
-
-impl<'wo, Source, Dest> SafeTransfer<'wo, Source, Dest, Start>
-where
-    Source: Payload,
-    Dest: Payload,
-{
-    /// Starts the transfer
-    pub fn start<CXX>(
+    pub fn start<CXX: ChannelId>(
         self,
         mut stream: Stream<CXX, Disabled, IsrCleared>,
-    ) -> SafeTransfer<'wo, Source, Dest, Ongoing<CXX>>
-    where
-        CXX: ChannelId,
-    {
-        configure_safe_transfer(&mut stream, &self.peripheral, &self.memory);
-        stream.set_buffer_mode(BufferMode::Regular);
+    ) -> Transfer<'wo, Ongoing<'wo, Peripheral, Memory, CXX>> {
+        self.configure_stream(&mut stream);
 
-        SafeTransfer {
-            peripheral: self.peripheral,
-            memory: self.memory,
+        Transfer {
             state: Ongoing {
                 stream: unsafe { stream.enable() },
+                buffers: self.state.conf.free(),
             },
-        }
-    }
-}
-
-impl<Source, Dest, CXX> SafeTransfer<'_, Source, Dest, Ongoing<CXX>>
-where
-    Source: Payload,
-    Dest: Payload,
-    CXX: ChannelId,
-{
-    /// Returns the stream assigned to the transfer
-    pub fn stream(&self) -> &Stream<CXX, Enabled, IsrUncleared> {
-        &self.state.stream
-    }
-
-    /// Sets the Transfer Complete Interrupt config flag of the assigned stream
-    pub fn set_transfer_complete_interrupt(
-        &mut self,
-        tc_intrpt: TransferCompleteInterrupt,
-    ) {
-        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
-    }
-
-    /// Sets the Half Transfer Interrupt config flag of the assigned stream
-    pub fn set_half_transfer_interrupt(
-        &mut self,
-        ht_intrpt: HalfTransferInterrupt,
-    ) {
-        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
-    }
-
-    /// Sets the Transfer Error Interrupt config flag of the assigned stream
-    pub fn set_transfer_error_interrupt(
-        &mut self,
-        te_intrpt: TransferErrorInterrupt,
-    ) {
-        self.state.stream.set_transfer_error_interrupt(te_intrpt);
-    }
-
-    /// Sets the Direct Mode Error Interrupt config flag of the assigned stream
-    pub fn set_direct_mode_error_interrupt(
-        &mut self,
-        dme_intrpt: DirectModeErrorInterrupt,
-    ) {
-        self.state
-            .stream
-            .set_direct_mode_error_interrupt(dme_intrpt);
-    }
-
-    /// Sets the Fifo Error Interrupt config flag of the assigned stream
-    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
-        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
-    }
-
-    /// Stops the transfer, returning the stream
-    pub fn stop(self) -> Stream<CXX, Disabled, IsrUncleared> {
-        self.state.stream.disable()
-    }
-}
-
-/// Memory-safe DMA transfer for double buffer
-pub struct SafeTransferDoubleBuffer<'wo, Peripheral, Memory, State>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    State: TransferState,
-{
-    peripheral: PeripheralBufferStatic<'wo, Peripheral>,
-    memories: [MemoryBufferStatic<Memory>; 2],
-    state: State,
-}
-
-impl<'wo, Peripheral, Memory>
-    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Start>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    /// Initializes new DMA transfer without starting it yet
-    pub fn new(
-        peripheral: PeripheralBufferStatic<'wo, Peripheral>,
-        memories: [MemoryBufferStatic<Memory>; 2],
-    ) -> Self {
-        check_buffer(&peripheral, &memories[0]);
-        check_double_buffer(&memories);
-
-        SafeTransferDoubleBuffer {
-            peripheral,
-            memories,
-            state: Start,
-        }
-    }
-}
-
-impl<'wo, Peripheral, Memory, State>
-    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, State>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    State: TransferState,
-{
-    /// Returns peripheral buffer
-    pub fn peripheral(&self) -> &PeripheralBufferStatic<'wo, Peripheral> {
-        &self.peripheral
-    }
-
-    /// Returns memory buffers
-    pub fn memories(&self) -> &[MemoryBufferStatic<Memory>; 2] {
-        &self.memories
-    }
-
-    /// Sets the content of destination buffer
-    pub unsafe fn set_dest(
-        &mut self,
-        index: Option<usize>,
-        double_buffer: Option<WhichBuffer>,
-        payload: PayloadPort<Peripheral, Memory>,
-    ) {
-        if self.peripheral.is_write() {
-            set_peripheral_impl(
-                &mut self.peripheral,
-                index,
-                payload.peripheral(),
-            );
-        } else {
-            set_memory_impl(
-                &mut self.memories[double_buffer.unwrap().index()],
-                index,
-                payload.memory(),
-            );
+            _phantom: PhantomData,
         }
     }
 
-    /// Returns a pointer to the destination buffer
-    pub fn dest_ptr(
-        &mut self,
-        index: Option<usize>,
-        double_buffer: Option<WhichBuffer>,
-    ) -> PointerPort<Peripheral, Memory> {
-        if self.peripheral.is_write() {
-            let ptr = mut_ptr_peripheral(&mut self.peripheral, index);
+    fn configure_stream<CXX: ChannelId>(
+        &self,
+        stream: &mut Stream<CXX, Disabled, IsrCleared>,
+    ) {
+        let mut conf = stream.config();
+        conf.transfer_direction = self.state.conf.transfer_direction_conf();
 
-            PointerPort::Peripheral(ptr)
-        } else {
-            let ptr = mut_ptr_memory(
-                &mut self.memories[double_buffer.unwrap().index()],
-                index,
-            );
+        // Configure ndt
 
-            PointerPort::Memory(ptr)
+        let buffers = self.state.buffers().get();
+
+        match buffers.peripheral_buffer {
+            Buffer::Peripheral(PeripheralBuffer::Fixed(_))
+            | Buffer::Memory(MemoryBuffer::Fixed(_)) => {
+                match buffers.memory_buffer.m0a() {
+                    MemoryBuffer::Fixed(_) => {
+                        // NDT must be configured in advance
+                    }
+                    MemoryBuffer::Incremented(buffer) => {
+                        let p_size: usize =
+                            PayloadSize::from_payload::<Peripheral>().into();
+                        let m_size: usize =
+                            PayloadSize::from_payload::<Memory>().into();
+
+                        let memory_bytes = buffer.len() * m_size;
+
+                        if memory_bytes % p_size != 0 {
+                            panic!("Last transfer may be incomplete.");
+                        }
+
+                        let ndt = u16::try_from(memory_bytes / p_size).unwrap();
+                        conf.ndt = Ndt(ndt);
+                    }
+                }
+            }
+            Buffer::Peripheral(PeripheralBuffer::Incremented(buffer)) => {
+                let ndt = u16::try_from(buffer.len()).unwrap();
+                conf.ndt = Ndt(ndt);
+            }
+            Buffer::Memory(MemoryBuffer::Incremented(buffer)) => {
+                let ndt = u16::try_from(buffer.len()).unwrap();
+                conf.ndt = Ndt(ndt);
+            }
         }
-    }
-}
 
-impl<'wo, Peripheral, Memory>
-    SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Start>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    /// Starts the transfer
-    pub fn start<CXX>(
-        self,
-        mut stream: Stream<CXX, Disabled, IsrCleared>,
-    ) -> SafeTransferDoubleBuffer<'wo, Peripheral, Memory, Ongoing<CXX>>
-    where
-        CXX: ChannelId,
-    {
-        stream.set_buffer_mode(BufferMode::DoubleBuffer);
-        stream.set_m1a(M1a(self.memories[1].as_ptr(Some(0)) as u32));
-
-        configure_safe_transfer(
-            &mut stream,
-            &self.peripheral,
-            &self.memories[0],
-        );
-
-        SafeTransferDoubleBuffer {
-            peripheral: self.peripheral,
-            memories: self.memories,
-            state: Ongoing {
-                stream: unsafe { stream.enable() },
-            },
-        }
-    }
-}
-
-impl<Peripheral, Memory, CXX>
-    SafeTransferDoubleBuffer<'_, Peripheral, Memory, Ongoing<CXX>>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    CXX: ChannelId,
-{
-    /// Returns the stream assigned to the transfer
-    pub fn stream(&self) -> &Stream<CXX, Enabled, IsrUncleared> {
-        &self.state.stream
-    }
-
-    /// Sets the Transfer Complete Interrupt config flag
-    pub fn set_transfer_complete_interrupt(
-        &mut self,
-        tc_intrpt: TransferCompleteInterrupt,
-    ) {
-        self.state.stream.set_transfer_complete_interrupt(tc_intrpt);
-    }
-
-    /// Sets the Half Transfer Interrupt config flag
-    pub fn set_half_transfer_interrupt(
-        &mut self,
-        ht_intrpt: HalfTransferInterrupt,
-    ) {
-        self.state.stream.set_half_transfer_interrupt(ht_intrpt);
-    }
-
-    /// Sets the Transfer Error Interrupt config flag
-    pub fn set_transfer_error_interrupt(
-        &mut self,
-        te_intrpt: TransferErrorInterrupt,
-    ) {
-        self.state.stream.set_transfer_error_interrupt(te_intrpt);
-    }
-
-    /// Sets the Direct Mode Error Interrupt config flag
-    pub fn set_direct_mode_error_interrupt(
-        &mut self,
-        dme_intrpt: DirectModeErrorInterrupt,
-    ) {
-        self.state
-            .stream
-            .set_direct_mode_error_interrupt(dme_intrpt);
-    }
-
-    /// Sets the Fifo Error Interrupt config flag
-    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
-        self.state.stream.set_fifo_error_interrupt(fe_intrpt);
-    }
-
-    /// Sets the memory-0 address
-    pub fn set_m0a(&mut self, m0a: MemoryBufferStatic<Memory>) {
-        let ptr = m0a.as_ptr(Some(0));
-
-        mem::replace(&mut self.memories[0], m0a);
-
-        check_double_buffer(&self.memories);
-
-        block!(self.state.stream.set_m0a(M0a(ptr as u32))).unwrap();
-    }
-
-    /// Sets the memory-1 address
-    pub fn set_m1a(&mut self, m1a: MemoryBufferStatic<Memory>) {
-        let ptr = m1a.as_ptr(Some(0));
-
-        mem::replace(&mut self.memories[1], m1a);
-
-        check_double_buffer(&self.memories);
-
-        block!(self.state.stream.set_m1a(M1a(ptr as u32))).unwrap();
-    }
-
-    /// Stops the transfer
-    pub fn stop(self) -> Stream<CXX, Disabled, IsrUncleared> {
-        self.state.stream.disable()
+        stream.apply_config(conf);
     }
 }
 
