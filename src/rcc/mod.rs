@@ -89,9 +89,11 @@ use crate::time::Hertz;
 
 mod core_clocks;
 mod pll;
+pub mod rec;
 
 pub use core_clocks::CoreClocks;
 pub use pll::{PllConfig, PllConfigStrategy};
+pub use rec::ResetEnable;
 
 /// Configuration of the core clocks
 pub struct Config {

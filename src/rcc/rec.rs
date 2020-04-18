@@ -1,0 +1,145 @@
+//! Peripheral Reset and Enable Control
+#![deny(missing_docs)]
+
+use core::marker::PhantomData;
+
+use super::Rcc;
+use crate::stm32::RCC;
+use cortex_m::interrupt;
+
+/// A trait for Resetting, Enabling and Disabling a single peripheral
+pub trait ResetEnable {
+    /// Enable this periperhal
+    fn enable(self) -> Self;
+    /// Disable this periperhal
+    fn disable(self) -> Self;
+    /// Reset this periperhal
+    fn reset(self) -> Self;
+}
+
+// NOTE `no_mangle` is used here to prevent linking different minor
+// versions of this crate as that would let you `take` more than once (one
+// per minor version)
+#[no_mangle]
+static mut RCC_PERIPHERALS_REC: bool = false;
+impl Rcc {
+    /// Returns all the peripherals resets / enables *once*
+    #[inline]
+    pub fn take_peripherals(&self) -> Option<PeripheralsREC> {
+        interrupt::free(|_| {
+            if unsafe { RCC_PERIPHERALS_REC } {
+                None
+            } else {
+                Some(unsafe { self.steal_periperhals() })
+            }
+        })
+    }
+}
+
+macro_rules! peripheral_reset_and_enable_control {
+    ($($AXBn:ident, $axb_doc:expr => [$($p:expr),*];)+) => {
+        paste::item! {
+            /// Peripheral Reset and Enable Control
+            #[non_exhaustive]
+            #[allow(non_snake_case)]
+            pub struct PeripheralsREC {
+                $(
+                    $(
+                        #[allow(missing_docs)]
+                        pub [<$p:upper>]: $p,
+                    )*
+                )+
+            }
+            impl Rcc {
+                /// Unchecked version of `PeripheralsREC::take`
+                #[inline]
+                pub unsafe fn steal_periperhals(&self) -> PeripheralsREC {
+                    RCC_PERIPHERALS_REC = true;
+
+                    PeripheralsREC {
+                        $(
+                            $(
+                                [<$p:upper>]: $p {
+                                    _marker: PhantomData,
+                                },
+                            )*
+                        )+
+                    }
+                }
+            }
+            $(
+                $(
+                    /// Owned ability to Reset, Enable and Disable peripheral
+                    pub struct $p {
+                        _marker: PhantomData<*const ()>,
+                    }
+                    impl ResetEnable for $p {
+                        #[inline(always)]
+                        fn enable(self) -> Self {
+                            // unsafe: Owned exclusive access to this bitfield
+                            let enr = unsafe {
+                                &(*RCC::ptr()).[<$AXBn:lower enr>]
+                            };
+                            enr.modify(|_, w| w.
+                                       [<$p:lower en>]().set_bit());
+                            self
+                        }
+                        #[inline(always)]
+                        fn disable(self) -> Self {
+                            // unsafe: Owned exclusive access to this bitfield
+                            let enr = unsafe {
+                                &(*RCC::ptr()).[<$AXBn:lower enr>]
+                            };
+                            enr.modify(|_, w| w.
+                                       [<$p:lower en>]().clear_bit());
+                            self
+                        }
+                        #[inline(always)]
+                        fn reset(self) -> Self {
+                            // unsafe: Owned exclusive access to this bitfield
+                            let rstr = unsafe {
+                                &(*RCC::ptr()).[<$AXBn:lower rstr>]
+                            };
+                            rstr.modify(|_, w| w.
+                                        [<$p:lower rst>]().set_bit());
+                            rstr.modify(|_, w| w.
+                                        [<$p:lower rst>]().clear_bit());
+                            self
+                        }
+                    }
+                )*
+            )+
+        }
+    }
+}
+
+// Must only contain periperhals that are not used anywhere in this HAL
+peripheral_reset_and_enable_control! {
+    AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
+        Eth1Mac, Dma2, Dma1
+    ];
+    AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
+        Sdmmc2, Hash, Crypt
+    ];
+    AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
+        Sdmmc1, Qspi, Fmc, Jpgdec, Dma2d, Mdma
+    ];
+    AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
+        Hsem, Bdma, Crc
+    ];
+    APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
+        Dac12
+    ];
+    APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
+        Fdcan, Mdios, Opamp, Swp, Crs
+    ];
+    APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
+        Hrtim, Dfsdm1
+    ];
+    APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
+        Ltdc
+    ];
+    APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
+        Vref, Comp12
+    ];
+}

@@ -1,6 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
 
+extern crate paste;
+
 #[derive(Debug)]
 pub enum Never {}
 
