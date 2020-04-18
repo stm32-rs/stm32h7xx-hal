@@ -10,6 +10,7 @@ use crate::private;
 use core::convert::TryInto;
 use core::fmt::Debug;
 use core::{mem, ptr};
+use enum_as_inner::EnumAsInner;
 
 pub trait TransferState<'wo>: Send + Sync + private::Sealed {
     type Peripheral: Payload;
@@ -207,6 +208,7 @@ unsafe impl Payload for f32 {
     type Size = Word;
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum MemoryBufferType<Memory: Payload> {
     SingleBuffer(SingleBuffer<Memory>),
     DoubleBuffer(DoubleBuffer<Memory>),
@@ -219,58 +221,6 @@ impl<Memory: Payload> MemoryBufferType<Memory> {
 
     pub fn is_double_buffer(&self) -> bool {
         self.as_double_buffer().is_some()
-    }
-
-    pub fn into_single_buffer(self) -> Option<SingleBuffer<Memory>> {
-        if let Self::SingleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_single_buffer(&self) -> Option<&SingleBuffer<Memory>> {
-        if let Self::SingleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_single_buffer_mut(
-        &mut self,
-    ) -> Option<&mut SingleBuffer<Memory>> {
-        if let Self::SingleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_double_buffer(self) -> Option<DoubleBuffer<Memory>> {
-        if let Self::DoubleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_double_buffer(&self) -> Option<&DoubleBuffer<Memory>> {
-        if let Self::DoubleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_double_buffer_mut(
-        &mut self,
-    ) -> Option<&mut DoubleBuffer<Memory>> {
-        if let Self::DoubleBuffer(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
     }
 
     pub fn is_read(&self) -> bool {
@@ -294,6 +244,7 @@ impl<Memory: Payload> MemoryBufferType<Memory> {
     }
 }
 
+#[derive(Debug)]
 pub struct SingleBuffer<Memory>
 where
     Memory: Payload,
@@ -301,6 +252,7 @@ where
     pub memory: MemoryBuffer<Memory>,
 }
 
+#[derive(Debug)]
 pub struct DoubleBuffer<Memory>
 where
     Memory: Payload,
@@ -375,6 +327,7 @@ impl<Memory: Payload> DoubleBuffer<Memory> {
     }
 }
 
+#[derive(Debug)]
 pub struct Config<'wo, Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -523,6 +476,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Buffers<'wo, Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -532,6 +486,7 @@ where
     memory_buffer: MemoryBufferType<Memory>,
 }
 
+#[derive(Debug)]
 pub struct BuffersView<'a, 'wo, Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -541,6 +496,7 @@ where
     pub memory_buffer: &'a MemoryBufferType<Memory>,
 }
 
+#[derive(Debug)]
 pub struct BuffersViewMut<'a, 'wo, Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -629,13 +585,13 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct StreamConfig {
     pub transfer_mode: TransferModeConf,
     pub flow_controller: FlowControllerConf,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum PayloadPort<Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -667,6 +623,7 @@ where
     }
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum PointerPort<Peripheral, Memory>
 where
     Peripheral: Payload,
@@ -676,6 +633,7 @@ where
     Memory(*mut Memory),
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum Buffer<'wo, P>
 where
     P: Payload,
@@ -701,56 +659,6 @@ where
             true
         } else {
             false
-        }
-    }
-
-    pub fn into_peripheral(self) -> Option<PeripheralBuffer<'wo, P>> {
-        if let Self::Peripheral(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_peripheral(&self) -> Option<&PeripheralBuffer<'wo, P>> {
-        if let Self::Peripheral(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_peripheral_mut(
-        &mut self,
-    ) -> Option<&mut PeripheralBuffer<'wo, P>> {
-        if let Self::Peripheral(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_memory(self) -> Option<MemoryBuffer<P>> {
-        if let Self::Memory(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_memory(&self) -> Option<&MemoryBuffer<P>> {
-        if let Self::Memory(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_memory_mut(&mut self) -> Option<&mut MemoryBuffer<P>> {
-        if let Self::Memory(buffer) = self {
-            Some(buffer)
-        } else {
-            None
         }
     }
 
@@ -797,6 +705,7 @@ where
     }
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum MemoryBuffer<P>
 where
     P: Payload,
@@ -822,56 +731,6 @@ where
             true
         } else {
             false
-        }
-    }
-
-    pub fn into_fixed(self) -> Option<FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_fixed(&self) -> Option<&FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_fixed_mut(&mut self) -> Option<&mut FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_incremented(self) -> Option<RegularOffsetBuffer<P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_incremented(&self) -> Option<&RegularOffsetBuffer<P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_incremented_mut(
-        &mut self,
-    ) -> Option<&mut RegularOffsetBuffer<P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
         }
     }
 
@@ -904,6 +763,7 @@ where
     }
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum PeripheralBuffer<'wo, P>
 where
     P: Payload,
@@ -929,56 +789,6 @@ where
             true
         } else {
             false
-        }
-    }
-
-    pub fn into_fixed(self) -> Option<FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_fixed(&self) -> Option<&FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_fixed_mut(&mut self) -> Option<&mut FixedBuffer<P>> {
-        if let Self::Fixed(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_incremented(self) -> Option<IncrementedBuffer<'wo, P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_incremented(&self) -> Option<&IncrementedBuffer<'wo, P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_incremented_mut(
-        &mut self,
-    ) -> Option<&mut IncrementedBuffer<'wo, P>> {
-        if let Self::Incremented(buffer) = self {
-            Some(buffer)
-        } else {
-            None
         }
     }
 
@@ -1013,6 +823,7 @@ where
     }
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum IncrementedBuffer<'wo, P>
 where
     P: Payload,
@@ -1038,58 +849,6 @@ where
             true
         } else {
             false
-        }
-    }
-
-    pub fn into_regular_offset(self) -> Option<RegularOffsetBuffer<P>> {
-        if let Self::RegularOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_regular_offset(&self) -> Option<&RegularOffsetBuffer<P>> {
-        if let Self::RegularOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_regular_offset_mut(
-        &mut self,
-    ) -> Option<&mut RegularOffsetBuffer<P>> {
-        if let Self::RegularOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_word_offset(self) -> Option<WordOffsetBuffer<'wo, P>> {
-        if let Self::WordOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_word_offset(&self) -> Option<&WordOffsetBuffer<'wo, P>> {
-        if let Self::WordOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_word_offset_mut(
-        &mut self,
-    ) -> Option<&mut WordOffsetBuffer<'wo, P>> {
-        if let Self::WordOffset(buffer) = self {
-            Some(buffer)
-        } else {
-            None
         }
     }
 
@@ -1129,6 +888,7 @@ where
     }
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum FixedBuffer<P>
 where
     P: Payload,
@@ -1155,54 +915,6 @@ where
         }
     }
 
-    pub fn into_read(self) -> Option<FixedBufferR<P>> {
-        if let Self::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_read(&self) -> Option<&FixedBufferR<P>> {
-        if let Self::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_read_mut(&mut self) -> Option<&mut FixedBufferR<P>> {
-        if let Self::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_write(self) -> Option<FixedBufferW<P>> {
-        if let Self::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_write(&self) -> Option<&FixedBufferW<P>> {
-        if let Self::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_write_mut(&mut self) -> Option<&mut FixedBufferW<P>> {
-        if let Self::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
     pub unsafe fn get(&self) -> P {
         match self {
             FixedBuffer::Read(buffer) => buffer.get(),
@@ -1218,7 +930,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct FixedBufferR<P>(*const P)
 where
     P: Payload;
@@ -1244,6 +956,7 @@ unsafe impl<P> Send for FixedBufferR<P> where P: Payload {}
 
 unsafe impl<P> Sync for FixedBufferR<P> where P: Payload {}
 
+#[derive(Debug)]
 pub struct FixedBufferW<P>(*mut P)
 where
     P: Payload;
@@ -1283,6 +996,7 @@ unsafe impl<P> Send for FixedBufferW<P> where P: Payload {}
 
 unsafe impl<P> Sync for FixedBufferW<P> where P: Payload {}
 
+#[derive(Debug, EnumAsInner)]
 pub enum RegularOffsetBuffer<P>
 where
     P: Payload,
@@ -1306,54 +1020,6 @@ where
         match self {
             RegularOffsetBuffer::Write(_) => true,
             RegularOffsetBuffer::Read(_) => false,
-        }
-    }
-
-    pub fn into_read(self) -> Option<RegularOffsetBufferR<P>> {
-        if let RegularOffsetBuffer::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_read(&self) -> Option<&RegularOffsetBufferR<P>> {
-        if let RegularOffsetBuffer::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_read_mut(&mut self) -> Option<&mut RegularOffsetBufferR<P>> {
-        if let RegularOffsetBuffer::Read(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_write(self) -> Option<RegularOffsetBufferW<P>> {
-        if let RegularOffsetBuffer::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_write(&self) -> Option<&RegularOffsetBufferW<P>> {
-        if let RegularOffsetBuffer::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_write_mut(&mut self) -> Option<&mut RegularOffsetBufferW<P>> {
-        if let RegularOffsetBuffer::Write(buffer) = self {
-            Some(buffer)
-        } else {
-            None
         }
     }
 
@@ -1381,7 +1047,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct RegularOffsetBufferR<P>(*const [P])
 where
     P: Payload;
@@ -1420,6 +1086,7 @@ unsafe impl<P> Send for RegularOffsetBufferR<P> where P: Payload {}
 
 unsafe impl<P> Sync for RegularOffsetBufferR<P> where P: Payload {}
 
+#[derive(Debug)]
 pub struct RegularOffsetBufferW<P>(*mut [P])
 where
     P: Payload;
@@ -1487,6 +1154,7 @@ where
     ptr::read_volatile(&slice[index] as *const _)
 }
 
+#[derive(Debug, EnumAsInner)]
 pub enum WordOffsetBuffer<'wo, P>
 where
     P: Payload,
@@ -1513,38 +1181,6 @@ where
         }
     }
 
-    pub fn as_read(&self) -> WordOffsetBufferR<'wo, P> {
-        if let &WordOffsetBuffer::Read(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a write buffer.");
-        }
-    }
-
-    pub fn into_write(self) -> WordOffsetBufferW<'wo, P> {
-        if let WordOffsetBuffer::Write(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a read buffer.");
-        }
-    }
-
-    pub fn as_write(&self) -> &WordOffsetBufferW<'wo, P> {
-        if let WordOffsetBuffer::Write(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a read buffer.");
-        }
-    }
-
-    pub fn as_mut_write(&mut self) -> &mut WordOffsetBufferW<'wo, P> {
-        if let WordOffsetBuffer::Write(buffer) = self {
-            buffer
-        } else {
-            panic!("The buffer is a read buffer.");
-        }
-    }
-
     pub unsafe fn get(&self, index: usize) -> P {
         match self {
             WordOffsetBuffer::Read(buffer) => buffer.get(index),
@@ -1567,7 +1203,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct WordOffsetBufferR<'wo, P>(&'wo [*const P])
 where
     P: Payload;
@@ -1604,6 +1240,7 @@ unsafe impl<P> Send for WordOffsetBufferR<'_, P> where P: Payload {}
 
 unsafe impl<P> Sync for WordOffsetBufferR<'_, P> where P: Payload {}
 
+#[derive(Debug)]
 pub struct WordOffsetBufferW<'wo, P>(&'wo mut [*mut P])
 where
     P: Payload;
@@ -1686,7 +1323,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum WhichBuffer {
     First,
     Second,

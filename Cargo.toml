@@ -29,6 +29,8 @@ stm32h7 = "0.10.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"
+# FIXME: Change to crates.io when next version (> 0.3.2) gets released
+enum-as-inner = { git = "https://github.com/bluejekyll/enum-as-inner", rev = "9670594f29ade6feba581ee746736087e335210b" }
 [dependencies.bare-metal]
 version = "0.2.4"
 features = ["const-fn"]
