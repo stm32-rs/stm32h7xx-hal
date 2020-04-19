@@ -46,7 +46,7 @@ macro_rules! peripheral_reset_and_enable_control {
                 $(
                     $(
                         #[allow(missing_docs)]
-                        pub [<$p:upper>]: $p,
+                        pub [< $p:upper >]: $p,
                     )*
                 )+
             }
@@ -59,7 +59,7 @@ macro_rules! peripheral_reset_and_enable_control {
                     PeripheralsREC {
                         $(
                             $(
-                                [<$p:upper>]: $p {
+                                [< $p:upper >]: $p {
                                     _marker: PhantomData,
                                 },
                             )*
@@ -78,32 +78,32 @@ macro_rules! peripheral_reset_and_enable_control {
                         fn enable(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
                             let enr = unsafe {
-                                &(*RCC::ptr()).[<$AXBn:lower enr>]
+                                &(*RCC::ptr()).[< $AXBn:lower enr >]
                             };
                             enr.modify(|_, w| w.
-                                       [<$p:lower en>]().set_bit());
+                                       [< $p:lower en >]().set_bit());
                             self
                         }
                         #[inline(always)]
                         fn disable(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
                             let enr = unsafe {
-                                &(*RCC::ptr()).[<$AXBn:lower enr>]
+                                &(*RCC::ptr()).[< $AXBn:lower enr >]
                             };
                             enr.modify(|_, w| w.
-                                       [<$p:lower en>]().clear_bit());
+                                       [< $p:lower en >]().clear_bit());
                             self
                         }
                         #[inline(always)]
                         fn reset(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
                             let rstr = unsafe {
-                                &(*RCC::ptr()).[<$AXBn:lower rstr>]
+                                &(*RCC::ptr()).[< $AXBn:lower rstr >]
                             };
                             rstr.modify(|_, w| w.
-                                        [<$p:lower rst>]().set_bit());
+                                        [< $p:lower rst >]().set_bit());
                             rstr.modify(|_, w| w.
-                                        [<$p:lower rst>]().clear_bit());
+                                        [< $p:lower rst >]().clear_bit());
                             self
                         }
                     }
