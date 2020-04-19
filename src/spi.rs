@@ -1,4 +1,58 @@
 //! Serial Peripheral Interface (SPI) bus
+//!
+//! This module implements the [embedded-hal](embedded-hal) traits for
+//! master mode SPI.
+//!
+//! # Usage
+//!
+//! In the simplest case, SPI can be initialised from the device
+//! peripheral and the GPIO pins.
+//!
+//! ```
+//! use stm32h7xx_hal::spi;
+//!
+//! let dp = ...;                   // Device peripherals
+//! let (sck, miso, mosi) = ...;    // GPIO pins
+//!
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! The GPIO pins should be supplied as a
+//! tuple in the following order:
+//!
+//! - Serial Clock (SCK)
+//! - Master In Slave Out (MISO)
+//! - Master Out Slave In (MOSI)
+//!
+//! If one of the pins is not required, explicitly pass one of the
+//! filler types instead:
+//!
+//! ```
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! ## Word Sizes
+//!
+//! The word size used by the SPI controller must be indicated to the
+//! compiler. This can be done either using an explicit type
+//! annotation, or with a type hint. The possible word sizes are 8
+//! bits (`u8`) or 16 bits (`u16`).
+//!
+//! For example, an explict type annotation:
+//! ```
+//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! ## Clocks
+//!
+//! The bitrate calculation is based upon the clock currently assigned
+//! in the RCC CCIP register. The default assignments are:
+//!
+//! - SPI1, SPI2, SPI3: __PLL1 Q CK__
+//! - SPI4, SPI5: __APB__
+//! - SPI6: __PCLK4__
+//!
+//! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;
 pub use crate::hal::spi::{
@@ -6,6 +60,7 @@ pub use crate::hal::spi::{
 };
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
+use core::marker::PhantomData;
 use core::ptr;
 use nb;
 use stm32h7::Variant::Val;
@@ -206,250 +261,264 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct Spi<SPI, PINS> {
+pub struct Spi<SPI, PINS, WORD = u8> {
     spi: SPI,
     pins: PINS,
+    _word: PhantomData<WORD>,
 }
 
-pub trait SpiExt<SPI>: Sized {
+pub trait SpiExt<SPI, WORD>: Sized {
     fn spi<PINS, T>(
         self,
         pins: PINS,
         mode: Mode,
         freq: T,
         ccdr: &Ccdr,
-    ) -> Spi<SPI, PINS>
+    ) -> Spi<SPI, PINS, WORD>
     where
         PINS: Pins<SPI>,
         T: Into<Hertz>;
 }
 
 macro_rules! spi {
-	($($SPIX:ident: ($spiX:ident, $apbXenr:ident,
-                     $spiXen:ident, $pclkX:ident),)+) => {
+    (DSIZE, $spi:ident,  u8) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(8 - 1) // 8 bit frames
+        });
+    };
+    (DSIZE, $spi:ident, u16) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(16 - 1) // 16 bit frames
+        });
+    };
+	($($SPIX:ident: ($spiX:ident, $apbXenr:ident, $spiXen:ident,
+                     $pclkX:ident) => ($($TY:ident),+),)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
-                pub fn $spiX<T>(
-                    spi: $SPIX,
-                    pins: PINS,
-                    mode: Mode,
-                    freq: T,
-                    ccdr: &Ccdr,
-                ) -> Self
-                where
-                    PINS: Pins<$SPIX>,
-                    T: Into<Hertz>,
-                {
-                    // Enable clock for SPI
-                    ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
+            // For each $TY
+            $(
+                impl<PINS> Spi<$SPIX, PINS, $TY> {
+                    pub fn $spiX<T>(
+                        spi: $SPIX,
+                        pins: PINS,
+                        mode: Mode,
+                        freq: T,
+                        ccdr: &Ccdr,
+                    ) -> Self
+                    where
+                        PINS: Pins<$SPIX>,
+                        T: Into<Hertz>,
+                    {
+                        // Enable clock for SPI
+                        ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
 
-                    // Disable SS output
-                    spi.cfg2.write(|w| w.ssoe().disabled());
+                        // Disable SS output
+                        spi.cfg2.write(|w| w.ssoe().disabled());
 
-                    let spi_freq = freq.into().0;
-	                let spi_ker_ck = match Self::kernel_clk(ccdr) {
-                        Some(ker_hz) => ker_hz.0,
-                        _ => panic!("$SPIX kernel clock not running!")
-                    };
-                    let mbr = match spi_ker_ck / spi_freq {
-                        0 => unreachable!(),
-                        1..=2 => MBR::DIV2,
-                        3..=5 => MBR::DIV4,
-                        6..=11 => MBR::DIV8,
-                        12..=23 => MBR::DIV16,
-                        24..=47 => MBR::DIV32,
-                        48..=95 => MBR::DIV64,
-                        96..=191 => MBR::DIV128,
-                        _ => MBR::DIV256,
-                    };
-                    spi.cfg1.modify(|_, w| {
-                        w.mbr()
-                            .variant(mbr) // master baud rate
-                            .dsize()
-                            .bits(8 - 1) // 8 bit frames
-                    });
-
-                    // ssi: select slave = master mode
-                    spi.cr1.write(|w| w.ssi().slave_not_selected());
-
-                    // mstr: master configuration
-                    // lsbfrst: MSB first
-                    // ssm: enable software slave management (NSS pin
-                    // free for other uses)
-                    // comm: full-duplex
-                    spi.cfg2.write(|w| {
-                        w.cpha()
-                            .bit(mode.phase ==
-                                 Phase::CaptureOnSecondTransition)
-                            .cpol()
-                            .bit(mode.polarity == Polarity::IdleHigh)
-                            .master()
-                            .master()
-                            .lsbfrst()
-                            .msbfirst()
-                            .ssm()
-                            .enabled()
-                            .comm()
-                            .full_duplex()
-                    });
-
-                    // spe: enable the SPI bus
-                    spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
-
-                    Spi { spi, pins }
-                }
-
-                /// Enable interrupts for the given `event`:
-                ///  - Received data ready to be read (RXP)
-                ///  - Transmit data register empty (TXP)
-                ///  - Error
-                pub fn listen(&mut self, event: Event) {
-                    match event {
-                        Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().not_masked()),
-                        Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().not_masked()),
-                        Event::Error => self.spi.ier.modify(|_, w| {
-                            w.udrie() // Underrun
-                                .not_masked()
-                                .ovrie() // Overrun
-                                .not_masked()
-                                .crceie() // CRC error
-                                .not_masked()
-                                .modfie() // Mode fault
-                                .not_masked()
-                        }),
-                    }
-                }
-
-                /// Disable interrupts for the given `event`:
-                ///  - Received data ready to be read (RXP)
-                ///  - Transmit data register empty (TXP)
-                ///  - Error
-                pub fn unlisten(&mut self, event: Event) {
-                    match event {
-                        Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().masked()),
-                        Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().masked()),
-                        Event::Error => self.spi.ier.modify(|_, w| {
-                            w.udrie() // Underrun
-                                .masked()
-                                .ovrie() // Overrun
-                                .masked()
-                                .crceie() // CRC error
-                                .masked()
-                                .modfie() // Mode fault
-                                .masked()
-                        }),
-                    }
-                }
-
-                /// Return `true` if the TXP flag is set, i.e. new
-                /// data to transmit can be written to the SPI.
-                pub fn is_txp(&self) -> bool {
-                    self.spi.sr.read().txp().is_not_full()
-                }
-
-                /// Return `true` if the RXP flag is set, i.e. new
-                /// data has been received and can be read from the
-                /// SPI.
-                pub fn is_rxp(&self) -> bool {
-                    self.spi.sr.read().rxp().is_not_empty()
-                }
-
-                /// Return `true` if the MODF flag is set, i.e. the
-                /// SPI has experienced a mode fault
-                pub fn is_modf(&self) -> bool {
-                    self.spi.sr.read().modf().is_fault()
-                }
-
-                /// Return `true` if the OVR flag is set, i.e. new
-                /// data has been received while the receive data
-                /// register was already filled.
-                pub fn is_ovr(&self) -> bool {
-                    self.spi.sr.read().ovr().is_overrun()
-                }
-
-                pub fn free(self) -> ($SPIX, PINS) {
-                    (self.spi, self.pins)
-                }
-            }
-
-            impl SpiExt<$SPIX> for $SPIX {
-	            fn spi<PINS, T>(self,
-                                pins: PINS,
-                                mode: Mode,
-                                freq: T,
-                                ccdr: &Ccdr) -> Spi<$SPIX, PINS>
-	            where
-	                PINS: Pins<$SPIX>,
-	                T: Into<Hertz>
-	            {
-	                Spi::$spiX(self, pins, mode, freq, ccdr)
-	            }
-	        }
-
-
-            impl<PINS> hal::spi::FullDuplex<u8> for Spi<$SPIX, PINS> {
-                type Error = Error;
-
-                fn read(&mut self) -> nb::Result<u8, Error> {
-                    let sr = self.spi.sr.read();
-
-                    Err(if sr.ovr().is_overrun() {
-                        nb::Error::Other(Error::Overrun)
-                    } else if sr.modf().is_fault() {
-                        nb::Error::Other(Error::ModeFault)
-                    } else if sr.crce().is_error() {
-                        nb::Error::Other(Error::Crc)
-                    } else if sr.rxp().is_not_empty() {
-                        // NOTE(read_volatile) read only 1 byte (the
-                        // svd2rust API only allows reading a
-                        // half-word)
-                        return Ok(unsafe {
-                            ptr::read_volatile(
-                                &self.spi.rxdr as *const _ as *const u8,
-                            )
+                        let spi_freq = freq.into().0;
+	                    let spi_ker_ck = match Self::kernel_clk(ccdr) {
+                            Some(ker_hz) => ker_hz.0,
+                            _ => panic!("$SPIX kernel clock not running!")
+                        };
+                        let mbr = match spi_ker_ck / spi_freq {
+                            0 => unreachable!(),
+                            1..=2 => MBR::DIV2,
+                            3..=5 => MBR::DIV4,
+                            6..=11 => MBR::DIV8,
+                            12..=23 => MBR::DIV16,
+                            24..=47 => MBR::DIV32,
+                            48..=95 => MBR::DIV64,
+                            96..=191 => MBR::DIV128,
+                            _ => MBR::DIV256,
+                        };
+                        spi.cfg1.modify(|_, w| {
+                            w.mbr()
+                                .variant(mbr) // master baud rate
                         });
-                    } else {
-                        nb::Error::WouldBlock
-                    })
-                }
+                        spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
 
-                fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-                    let sr = self.spi.sr.read();
+                        // ssi: select slave = master mode
+                        spi.cr1.write(|w| w.ssi().slave_not_selected());
 
-                    Err(if sr.ovr().is_overrun() {
-                        nb::Error::Other(Error::Overrun)
-                    } else if sr.modf().is_fault() {
-                        nb::Error::Other(Error::ModeFault)
-                    } else if sr.crce().is_error() {
-                        nb::Error::Other(Error::Crc)
-                    } else if sr.txp().is_not_full() {
-                        // NOTE(write_volatile) see note above
-                        unsafe {
-                            ptr::write_volatile(
-                                &self.spi.txdr as *const _ as *mut u8,
-                                byte,
-                            )
+                        // mstr: master configuration
+                        // lsbfrst: MSB first
+                        // ssm: enable software slave management (NSS pin
+                        // free for other uses)
+                        // comm: full-duplex
+                        spi.cfg2.write(|w| {
+                            w.cpha()
+                                .bit(mode.phase ==
+                                     Phase::CaptureOnSecondTransition)
+                                .cpol()
+                                .bit(mode.polarity == Polarity::IdleHigh)
+                                .master()
+                                .master()
+                                .lsbfrst()
+                                .msbfirst()
+                                .ssm()
+                                .enabled()
+                                .comm()
+                                .full_duplex()
+                        });
+
+                        // spe: enable the SPI bus
+                        spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+
+                        Spi { spi, pins, _word: PhantomData }
+                    }
+
+                    /// Enable interrupts for the given `event`:
+                    ///  - Received data ready to be read (RXP)
+                    ///  - Transmit data register empty (TXP)
+                    ///  - Error
+                    pub fn listen(&mut self, event: Event) {
+                        match event {
+                            Event::Rxp => self.spi.ier.modify(|_, w|
+                                                              w.rxpie().not_masked()),
+                            Event::Txp => self.spi.ier.modify(|_, w|
+                                                              w.txpie().not_masked()),
+                            Event::Error => self.spi.ier.modify(|_, w| {
+                                w.udrie() // Underrun
+                                    .not_masked()
+                                    .ovrie() // Overrun
+                                    .not_masked()
+                                    .crceie() // CRC error
+                                    .not_masked()
+                                    .modfie() // Mode fault
+                                    .not_masked()
+                            }),
                         }
-                        // write CSTART to start a transaction in
-                        // master mode
-                        self.spi.cr1.modify(|_, w| w.cstart().started());
+                    }
 
-                        return Ok(());
-                    } else {
-                        nb::Error::WouldBlock
-                    })
+                    /// Disable interrupts for the given `event`:
+                    ///  - Received data ready to be read (RXP)
+                    ///  - Transmit data register empty (TXP)
+                    ///  - Error
+                    pub fn unlisten(&mut self, event: Event) {
+                        match event {
+                            Event::Rxp => self.spi.ier.modify(|_, w|
+                                                              w.rxpie().masked()),
+                            Event::Txp => self.spi.ier.modify(|_, w|
+                                                              w.txpie().masked()),
+                            Event::Error => self.spi.ier.modify(|_, w| {
+                                w.udrie() // Underrun
+                                    .masked()
+                                    .ovrie() // Overrun
+                                    .masked()
+                                    .crceie() // CRC error
+                                    .masked()
+                                    .modfie() // Mode fault
+                                    .masked()
+                            }),
+                        }
+                    }
+
+                    /// Return `true` if the TXP flag is set, i.e. new
+                    /// data to transmit can be written to the SPI.
+                    pub fn is_txp(&self) -> bool {
+                        self.spi.sr.read().txp().is_not_full()
+                    }
+
+                    /// Return `true` if the RXP flag is set, i.e. new
+                    /// data has been received and can be read from the
+                    /// SPI.
+                    pub fn is_rxp(&self) -> bool {
+                        self.spi.sr.read().rxp().is_not_empty()
+                    }
+
+                    /// Return `true` if the MODF flag is set, i.e. the
+                    /// SPI has experienced a mode fault
+                    pub fn is_modf(&self) -> bool {
+                        self.spi.sr.read().modf().is_fault()
+                    }
+
+                    /// Return `true` if the OVR flag is set, i.e. new
+                    /// data has been received while the receive data
+                    /// register was already filled.
+                    pub fn is_ovr(&self) -> bool {
+                        self.spi.sr.read().ovr().is_overrun()
+                    }
+
+                    pub fn free(self) -> ($SPIX, PINS) {
+                        (self.spi, self.pins)
+                    }
                 }
-            }
 
-            impl<PINS> hal::blocking::spi::transfer::Default<u8>
-                for Spi<$SPIX, PINS> {}
+                impl SpiExt<$SPIX, $TY> for $SPIX {
+	                fn spi<PINS, T>(self,
+                                    pins: PINS,
+                                    mode: Mode,
+                                    freq: T,
+                                    ccdr: &Ccdr) -> Spi<$SPIX, PINS, $TY>
+	                where
+	                    PINS: Pins<$SPIX>,
+	                    T: Into<Hertz>
+	                {
+	                    Spi::<$SPIX, _, $TY>::$spiX(self, pins, mode, freq, ccdr)
+	                }
+	            }
 
-            impl<PINS> hal::blocking::spi::write::Default<u8>
-                for Spi<$SPIX, PINS> {}
+                impl<PINS> hal::spi::FullDuplex<$TY> for Spi<$SPIX, PINS, $TY> {
+                    type Error = Error;
+
+                    fn read(&mut self) -> nb::Result<$TY, Error> {
+                        let sr = self.spi.sr.read();
+
+                        Err(if sr.ovr().is_overrun() {
+                            nb::Error::Other(Error::Overrun)
+                        } else if sr.modf().is_fault() {
+                            nb::Error::Other(Error::ModeFault)
+                        } else if sr.crce().is_error() {
+                            nb::Error::Other(Error::Crc)
+                        } else if sr.rxp().is_not_empty() {
+                            // NOTE(read_volatile) read only 1 byte (the
+                            // svd2rust API only allows reading a
+                            // half-word)
+                            return Ok(unsafe {
+                                ptr::read_volatile(
+                                    &self.spi.rxdr as *const _ as *const $TY,
+                                )
+                            });
+                        } else {
+                            nb::Error::WouldBlock
+                        })
+                    }
+
+                    fn send(&mut self, byte: $TY) -> nb::Result<(), Error> {
+                        let sr = self.spi.sr.read();
+
+                        Err(if sr.ovr().is_overrun() {
+                            nb::Error::Other(Error::Overrun)
+                        } else if sr.modf().is_fault() {
+                            nb::Error::Other(Error::ModeFault)
+                        } else if sr.crce().is_error() {
+                            nb::Error::Other(Error::Crc)
+                        } else if sr.txp().is_not_full() {
+                            // NOTE(write_volatile) see note above
+                            unsafe {
+                                ptr::write_volatile(
+                                    &self.spi.txdr as *const _ as *mut $TY,
+                                    byte,
+                                )
+                            }
+                            // write CSTART to start a transaction in
+                            // master mode
+                            self.spi.cr1.modify(|_, w| w.cstart().started());
+
+                            return Ok(());
+                        } else {
+                            nb::Error::WouldBlock
+                        })
+                    }
+                }
+
+                impl<PINS> hal::blocking::spi::transfer::Default<$TY>
+                    for Spi<$SPIX, PINS, $TY> {}
+
+                impl<PINS> hal::blocking::spi::write::Default<$TY>
+                    for Spi<$SPIX, PINS, $TY> {}
+            )+
         )+
 	}
 }
@@ -457,7 +526,7 @@ macro_rules! spi {
 macro_rules! spi123sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -478,7 +547,7 @@ macro_rules! spi123sel {
 macro_rules! spi45sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -499,7 +568,7 @@ macro_rules! spi45sel {
 macro_rules! spi6sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -519,12 +588,12 @@ macro_rules! spi6sel {
 }
 
 spi! {
-    SPI1: (spi1, apb2enr,  spi1en, pclk2),
-    SPI2: (spi2, apb1lenr, spi2en, pclk1),
-    SPI3: (spi3, apb1lenr, spi3en, pclk1),
-    SPI4: (spi4, apb2enr,  spi4en, pclk2),
-    SPI5: (spi5, apb2enr,  spi5en, pclk2),
-    SPI6: (spi6, apb4enr,  spi6en, pclk2),
+    SPI1: (spi1, apb2enr,  spi1en, pclk2) => (u8, u16),
+    SPI2: (spi2, apb1lenr, spi2en, pclk1) => (u8, u16),
+    SPI3: (spi3, apb1lenr, spi3en, pclk1) => (u8, u16),
+    SPI4: (spi4, apb2enr,  spi4en, pclk2) => (u8, u16),
+    SPI5: (spi5, apb2enr,  spi5en, pclk2) => (u8, u16),
+    SPI6: (spi6, apb4enr,  spi6en, pclk2) => (u8, u16),
 }
 
 spi123sel! {

@@ -53,7 +53,7 @@ fn main() -> ! {
             .spi((sck, miso, mosi), spi::MODE_0, 3.mhz(), &mut ccdr);
 
     // Write fixed data
-    spi.write(&[0x11, 0x22, 0x33]).unwrap();
+    spi.write(&[0x11u8, 0x22, 0x33]).unwrap();
 
     // Echo what is received on the SPI
     let mut received = 0;
