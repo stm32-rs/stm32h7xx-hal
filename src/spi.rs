@@ -9,6 +9,7 @@ use crate::stm32::spi1::cfg1::MBR_A as MBR;
 use core::ptr;
 use nb;
 use stm32h7::Variant::Val;
+use core::convert::From;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
@@ -55,6 +56,18 @@ where
 {
 }
 
+/// A structure for specifying SPI configuration.
+///
+/// This structure uses builder semantics to generate the configuration.
+///
+/// `Example`
+/// ```
+/// use embedded_hal::spi::Mode;
+///
+/// let config = Config::new(Mode::MODE_0)
+///     .frame_size(8)
+///     .freeze();
+/// ```
 #[derive(Copy, Clone)]
 pub struct Config {
     mode: Mode,
@@ -64,40 +77,61 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new() -> Self {
+    /// Create a default configuration for the SPI interface.
+    ///
+    /// Arguments:
+    /// * `mode` - The SPI mode to configure.
+    pub fn new(mode: Mode) -> Self {
         Config {
-            mode: Mode{
-                polarity: Polarity::IdleHigh,
-                phase: Phase::CaptureOnSecondTransition
-            },
+            mode: mode,
             swap_miso_mosi: false,
             cs_delay: 0.0,
             frame_size: 8_u8,
         }
     }
 
-    pub fn set_mode(&mut self, mode: Mode) -> &mut Self {
-        self.mode = mode;
-        self
-    }
-
+    /// Specify that the SPI MISO/MOSI lines are swapped.
+    ///
+    /// Note:
+    /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
+    /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
     pub fn swap_mosi_miso(&mut self) -> &mut Self {
         self.swap_miso_mosi = true;
         self
     }
 
+    /// Specify a delay between CS assertion and the beginning of the SPI transaction.
+    ///
+    /// Note:
+    /// * This function introduces a delay on SCK from the initiation of the transaction. The delay
+    /// is specified as a number of SCK cycles, so the actual delay may vary.
+    ///
+    /// Arguments:
+    /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
+    /// register for the output pin. 
     pub fn cs_delay(&mut self, delay: f32) -> &mut Self {
         self.cs_delay = delay;
         self
     }
 
+    /// Specify the SPI transaction size.
+    ///
+    /// Arguments:
+    /// * `frame_size` - The size of each SPI transaction in bits.
     pub fn frame_size(&mut self, frame_size: u8) -> &mut Self {
         self.frame_size = frame_size;
         self
     }
 
+    /// Freeze the SPI configuration for use in initialization.
     pub fn freeze(&self) -> Self {
         *self
+    }
+}
+
+impl From<Mode> for Config {
+    fn from(mode: Mode) -> Self {
+        Self::new(mode).freeze()
     }
 }
 
