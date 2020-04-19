@@ -108,7 +108,7 @@ impl Config {
     ///
     /// Arguments:
     /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
-    /// register for the output pin. 
+    /// register for the output pin.
     pub fn cs_delay(&mut self, delay: f32) -> &mut Self {
         self.cs_delay = delay;
         self
@@ -292,16 +292,17 @@ pub struct Spi<SPI, PINS> {
 }
 
 pub trait SpiExt<SPI>: Sized {
-    fn spi<PINS, T>(
+    fn spi<PINS, T, C>(
         self,
         pins: PINS,
-        config: Config,
+        config: C,
         freq: T,
         ccdr: &Ccdr,
     ) -> Spi<SPI, PINS>
     where
         PINS: Pins<SPI>,
-        T: Into<Hertz>;
+        T: Into<Hertz>,
+        C: Into<Config>;
 }
 
 macro_rules! spi {
@@ -309,22 +310,25 @@ macro_rules! spi {
                      $spiXen:ident, $pclkX:ident),)+) => {
 	    $(
             impl<PINS> Spi<$SPIX, PINS> {
-                pub fn $spiX<T>(
+                pub fn $spiX<T, C>(
                     spi: $SPIX,
                     pins: PINS,
-                    config: Config,
+                    config: C,
                     freq: T,
                     ccdr: &Ccdr,
                 ) -> Self
                 where
                     PINS: Pins<$SPIX>,
                     T: Into<Hertz>,
+                    C: Into<Config>,
                 {
                     // Enable clock for SPI
                     ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
 
                     // Disable SS output
                     spi.cfg2.write(|w| w.ssoe().disabled());
+
+                    let config: Config = config.into();
 
                     let spi_freq = freq.into().0;
 	                let spi_ker_ck = match Self::kernel_clk(ccdr) {
@@ -466,14 +470,15 @@ macro_rules! spi {
             }
 
             impl SpiExt<$SPIX> for $SPIX {
-	            fn spi<PINS, T>(self,
+	            fn spi<PINS, T, C>(self,
                                 pins: PINS,
-                                config: Config,
+                                config: C,
                                 freq: T,
                                 ccdr: &Ccdr) -> Spi<$SPIX, PINS>
 	            where
 	                PINS: Pins<$SPIX>,
-	                T: Into<Hertz>
+	                T: Into<Hertz>,
+                    C: Into<Config>,
 	            {
 	                Spi::$spiX(self, pins, config, freq, ccdr)
 	            }
