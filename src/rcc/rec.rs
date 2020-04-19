@@ -4,7 +4,7 @@
 use core::marker::PhantomData;
 
 use super::Rcc;
-use crate::stm32::RCC;
+use crate::stm32::{rcc, RCC};
 use cortex_m::interrupt;
 
 /// A trait for Resetting, Enabling and Disabling a single peripheral
@@ -37,7 +37,9 @@ impl Rcc {
 }
 
 macro_rules! peripheral_reset_and_enable_control {
-    ($($AXBn:ident, $axb_doc:expr => [$($p:expr),*];)+) => {
+    ($($AXBn:ident, $axb_doc:expr => [
+        $( $p:ident $(kernel $ccip:ident $clk_doc:expr)* ),*
+    ];)+) => {
         paste::item! {
             /// Peripheral Reset and Enable Control
             #[non_exhaustive]
@@ -107,6 +109,35 @@ macro_rules! peripheral_reset_and_enable_control {
                             self
                         }
                     }
+                    impl $p {
+                        $(
+                            #[inline(always)]
+                            #[allow(unused)]
+                            /// Modify a kernel clock for this
+                            /// peripheral. See RM0433 Section 8.5.8.
+                            ///
+                            /// It is possible to switch this clock
+                            /// dynamically without generating spurs or
+                            /// timing violations. However, the user must
+                            /// ensure that both clocks are running. See
+                            /// RM0433 Section 8.5.10
+                            pub fn kernel_clk_mux(self, sel: [< $p ClkSel >]) -> Self {
+                                // unsafe: Owned exclusive access to this bitfield
+                                let ccip = unsafe {
+                                    &(*RCC::ptr()).[< $ccip r >]
+                                };
+                                ccip.modify(|_, w| w.
+                                            [< $p:lower sel >]().variant(sel));
+                                self
+                            }
+                        )*
+                    }
+
+                    $(
+                        #[doc=$clk_doc]
+                        pub type [< $p ClkSel >] =
+                            rcc::[< $ccip r >]::[< $p:upper SEL_A >];
+                    )*
                 )*
             )+
         }
@@ -116,25 +147,31 @@ macro_rules! peripheral_reset_and_enable_control {
 // Must only contain periperhals that are not used anywhere in this HAL
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
-        Eth1Mac, Dma2, Dma1
+        Eth1Mac, Art, Dma2, Dma1
     ];
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
         Sdmmc2, Hash, Crypt
     ];
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
-        Sdmmc1, Qspi, Fmc, Jpgdec, Dma2d, Mdma
+        Sdmmc1,
+        Qspi kernel d1ccip "QUADSPI kernel clock source selection",
+        Fmc kernel d1ccip "FMC kernel clock source selection",
+        Jpgdec, Dma2d, Mdma
     ];
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
         Hsem, Bdma, Crc
     ];
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        Dac12
+        Dac12, HdmiCec
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan, Mdios, Opamp, Swp, Crs
+        Fdcan kernel d2ccip1 "FDCAN kernel clock source selection",
+        Swp kernel d2ccip1 "SWPMI kernel clock source selection",
+        Crs, Mdios, Opamp
     ];
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Hrtim, Dfsdm1
+        Hrtim,
+        Dfsdm1 kernel d2ccip1 "DFSDM1 kernel Clk source selection"
     ];
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc

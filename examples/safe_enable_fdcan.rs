@@ -10,7 +10,7 @@ use stm32h7xx_hal::rcc::{rec, ResetEnable};
 use stm32h7xx_hal::{pac, prelude::*};
 
 fn enable_fdcan(rec: rec::Fdcan) {
-    rec.enable();
+    rec.enable().kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
 
     // rec is dropped here, and can never be changed again
 }
