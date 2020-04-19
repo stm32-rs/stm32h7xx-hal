@@ -80,37 +80,44 @@ macro_rules! peripheral_reset_and_enable_control {
                     pub struct $p {
                         _marker: PhantomData<*const ()>,
                     }
+                    unsafe impl Send for $p {}
                     impl ResetEnable for $p {
                         #[inline(always)]
                         fn enable(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
-                            let enr = unsafe {
-                                &(*RCC::ptr()).[< $AXBn:lower enr >]
-                            };
-                            enr.modify(|_, w| w.
-                                       [< $p:lower en >]().set_bit());
+                            interrupt::free(|_| {
+                                let enr = unsafe {
+                                    &(*RCC::ptr()).[< $AXBn:lower enr >]
+                                };
+                                enr.modify(|_, w| w.
+                                           [< $p:lower en >]().set_bit());
+                            });
                             self
                         }
                         #[inline(always)]
                         fn disable(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
-                            let enr = unsafe {
-                                &(*RCC::ptr()).[< $AXBn:lower enr >]
-                            };
-                            enr.modify(|_, w| w.
-                                       [< $p:lower en >]().clear_bit());
+                            interrupt::free(|_| {
+                                let enr = unsafe {
+                                    &(*RCC::ptr()).[< $AXBn:lower enr >]
+                                };
+                                enr.modify(|_, w| w.
+                                           [< $p:lower en >]().clear_bit());
+                            });
                             self
                         }
                         #[inline(always)]
                         fn reset(self) -> Self {
                             // unsafe: Owned exclusive access to this bitfield
-                            let rstr = unsafe {
-                                &(*RCC::ptr()).[< $AXBn:lower rstr >]
-                            };
-                            rstr.modify(|_, w| w.
-                                        [< $p:lower rst >]().set_bit());
-                            rstr.modify(|_, w| w.
-                                        [< $p:lower rst >]().clear_bit());
+                            interrupt::free(|_| {
+                                let rstr = unsafe {
+                                    &(*RCC::ptr()).[< $AXBn:lower rstr >]
+                                };
+                                rstr.modify(|_, w| w.
+                                            [< $p:lower rst >]().set_bit());
+                                rstr.modify(|_, w| w.
+                                            [< $p:lower rst >]().clear_bit());
+                            });
                             self
                         }
                     }
@@ -128,11 +135,13 @@ macro_rules! peripheral_reset_and_enable_control {
                             /// RM0433 Section 8.5.10
                             pub fn kernel_clk_mux(self, sel: [< $p ClkSel >]) -> Self {
                                 // unsafe: Owned exclusive access to this bitfield
-                                let ccip = unsafe {
-                                    &(*RCC::ptr()).[< $ccip r >]
-                                };
-                                ccip.modify(|_, w| w.
-                                            [< $p:lower sel >]().variant(sel));
+                                interrupt::free(|_| {
+                                    let ccip = unsafe {
+                                        &(*RCC::ptr()).[< $ccip r >]
+                                    };
+                                    ccip.modify(|_, w| w.
+                                                [< $p:lower sel >]().variant(sel));
+                                });
                                 self
                             }
                         )*
