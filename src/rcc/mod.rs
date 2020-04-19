@@ -186,7 +186,8 @@ pub struct Ccdr {
     //
     // TODO: Remove this once all permitted RCC register accesses
     // after freeze are enumerated in this struct
-    pub(crate) rb: RCC,
+    /// Raw register block of the RCC.
+    pub rb: RCC,
 }
 
 macro_rules! ahb_apb_generation {
@@ -198,14 +199,16 @@ macro_rules! ahb_apb_generation {
             }
 
             impl $AXBn {
+                /// Modify the ENR register.
                 #[allow(unused)]
-                pub (crate) fn enr(&mut self) -> &rcc::$AXBnENR {
+                pub fn enr(&mut self) -> &rcc::$AXBnENR {
                     // NOTE(unsafe) this proxy grants exclusive access to this register
                     unsafe { &(*RCC::ptr()).$axbnenr }
                 }
 
+                /// Modify the RSTR register.
                 #[allow(unused)]
-                pub (crate) fn rstr(&mut self) -> &rcc::$AXBnRSTR {
+                pub fn rstr(&mut self) -> &rcc::$AXBnRSTR {
                     // NOTE(unsafe) this proxy grants exclusive access to this register
                     unsafe { &(*RCC::ptr()).$axbnrstr }
                 }

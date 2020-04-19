@@ -55,6 +55,52 @@ where
 {
 }
 
+#[derive(Copy, Clone)]
+pub struct Config {
+    mode: Mode,
+    swap_miso_mosi: bool,
+    cs_delay: f32,
+    frame_size: u8,
+}
+
+impl Config {
+    pub fn new() -> Self {
+        Config {
+            mode: Mode{
+                polarity: Polarity::IdleHigh,
+                phase: Phase::CaptureOnSecondTransition
+            },
+            swap_miso_mosi: false,
+            cs_delay: 0.0,
+            frame_size: 8_u8,
+        }
+    }
+
+    pub fn set_mode(&mut self, mode: Mode) -> &mut Self {
+        self.mode = mode;
+        self
+    }
+
+    pub fn swap_mosi_miso(&mut self) -> &mut Self {
+        self.swap_miso_mosi = true;
+        self
+    }
+
+    pub fn cs_delay(&mut self, delay: f32) -> &mut Self {
+        self.cs_delay = delay;
+        self
+    }
+
+    pub fn frame_size(&mut self, frame_size: u8) -> &mut Self {
+        self.frame_size = frame_size;
+        self
+    }
+
+    pub fn freeze(&self) -> Self {
+        *self
+    }
+}
+
 /// A filler type for when the SCK pin is unnecessary
 pub struct NoSck;
 /// A filler type for when the Miso pin is unnecessary
@@ -207,7 +253,7 @@ pub enum Event {
 
 #[derive(Debug)]
 pub struct Spi<SPI, PINS> {
-    spi: SPI,
+    pub spi: SPI,
     pins: PINS,
 }
 
@@ -215,7 +261,7 @@ pub trait SpiExt<SPI>: Sized {
     fn spi<PINS, T>(
         self,
         pins: PINS,
-        mode: Mode,
+        config: Config,
         freq: T,
         ccdr: &Ccdr,
     ) -> Spi<SPI, PINS>
@@ -232,7 +278,7 @@ macro_rules! spi {
                 pub fn $spiX<T>(
                     spi: $SPIX,
                     pins: PINS,
-                    mode: Mode,
+                    config: Config,
                     freq: T,
                     ccdr: &Ccdr,
                 ) -> Self
@@ -266,11 +312,18 @@ macro_rules! spi {
                         w.mbr()
                             .variant(mbr) // master baud rate
                             .dsize()
-                            .bits(8 - 1) // 8 bit frames
+                            .bits(config.frame_size - 1)
                     });
 
                     // ssi: select slave = master mode
                     spi.cr1.write(|w| w.ssi().slave_not_selected());
+
+                    // Calculate the CS->transaction cycle delay bits.
+                    let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
+
+                    if cycle_delay > 0xF {
+                        cycle_delay = 0xF;
+                    }
 
                     // mstr: master configuration
                     // lsbfrst: MSB first
@@ -279,16 +332,18 @@ macro_rules! spi {
                     // comm: full-duplex
                     spi.cfg2.write(|w| {
                         w.cpha()
-                            .bit(mode.phase ==
+                            .bit(config.mode.phase ==
                                  Phase::CaptureOnSecondTransition)
                             .cpol()
-                            .bit(mode.polarity == Polarity::IdleHigh)
+                            .bit(config.mode.polarity == Polarity::IdleHigh)
                             .master()
                             .master()
                             .lsbfrst()
                             .msbfirst()
                             .ssm()
                             .enabled()
+                            .mssi().bits(cycle_delay as u8)
+                            .ioswp().bit(config.swap_miso_mosi == true)
                             .comm()
                             .full_duplex()
                     });
@@ -379,22 +434,22 @@ macro_rules! spi {
             impl SpiExt<$SPIX> for $SPIX {
 	            fn spi<PINS, T>(self,
                                 pins: PINS,
-                                mode: Mode,
+                                config: Config,
                                 freq: T,
                                 ccdr: &Ccdr) -> Spi<$SPIX, PINS>
 	            where
 	                PINS: Pins<$SPIX>,
 	                T: Into<Hertz>
 	            {
-	                Spi::$spiX(self, pins, mode, freq, ccdr)
+	                Spi::$spiX(self, pins, config, freq, ccdr)
 	            }
 	        }
 
 
-            impl<PINS> hal::spi::FullDuplex<u8> for Spi<$SPIX, PINS> {
+            impl<PINS, T> hal::spi::FullDuplex<T> for Spi<$SPIX, PINS> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn read(&mut self) -> nb::Result<T, Error> {
                     let sr = self.spi.sr.read();
 
                     Err(if sr.ovr().is_overrun() {
@@ -409,7 +464,7 @@ macro_rules! spi {
                         // half-word)
                         return Ok(unsafe {
                             ptr::read_volatile(
-                                &self.spi.rxdr as *const _ as *const u8,
+                                &self.spi.rxdr as *const _ as *const T,
                             )
                         });
                     } else {
@@ -417,7 +472,7 @@ macro_rules! spi {
                     })
                 }
 
-                fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+                fn send(&mut self, byte: T) -> nb::Result<(), Error> {
                     let sr = self.spi.sr.read();
 
                     Err(if sr.ovr().is_overrun() {
@@ -430,7 +485,7 @@ macro_rules! spi {
                         // NOTE(write_volatile) see note above
                         unsafe {
                             ptr::write_volatile(
-                                &self.spi.txdr as *const _ as *mut u8,
+                                &self.spi.txdr as *const _ as *mut T,
                                 byte,
                             )
                         }
