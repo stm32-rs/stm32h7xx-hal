@@ -31,10 +31,10 @@ pub enum Error {
 }
 
 /// A trait to represent the SCL Pin of an I2C Port
-pub unsafe trait PinScl<I2C> {}
+pub trait PinScl<I2C> {}
 
 /// A trait to represent the SDL Pin of an I2C Port
-pub unsafe trait PinSda<I2C> {}
+pub trait PinSda<I2C> {}
 
 pub trait Pins<I2C> {}
 
@@ -122,14 +122,15 @@ macro_rules! i2c {
 
                     let i2cclk = ccdr.clocks.$pclkX().0;
 
-                    // Refer to RM0433 Rev 6 - Figure 539 for this:
                     // Clear PE bit in I2C_CR1
-                    unsafe { &(*I2C1::ptr()).cr1.modify(|_, w| w.pe().clear_bit())};
+                    i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
-                    // Enable the Analog Noise Filter by setting ANFOFF (Analog Noise Filter OFF) to 0
-                    // This is usually enabled by default but you never know
-                    unsafe { &(*I2C1::ptr()).cr1.modify(|_, w| w.anfoff().clear_bit())};
+                    // Enable the Analog Noise Filter by setting
+                    // ANFOFF (Analog Noise Filter OFF) to 0.  This is
+                    // usually enabled by default
+                    i2c.cr1.modify(|_, w| w.anfoff().clear_bit());
 
+                    // Refer to RM0433 Rev 6 - Figure 539 for setup and hold timing:
                     // TODO review compliance with the timing requirements of I2C
                     // t_I2CCLK = 1 / PCLK1
                     // t_PRESC  = (PRESC + 1) * t_I2CCLK
@@ -395,10 +396,10 @@ macro_rules! pins {
     ($($I2CX:ty: SCL: [$($SCL:ty),*] SDA: [$($SDA:ty),*])+) => {
         $(
             $(
-                unsafe impl PinScl<$I2CX> for $SCL {}
+                impl PinScl<$I2CX> for $SCL {}
             )*
             $(
-                unsafe impl PinSda<$I2CX> for $SDA {}
+                impl PinSda<$I2CX> for $SDA {}
             )*
         )+
     }
