@@ -163,10 +163,11 @@ macro_rules! peripheral_reset_and_enable_control {
     }
 }
 
-// Must only contain periperhals that are not used anywhere in this HAL
+// Must only contain peripherals that are not used anywhere in this HAL
+#[cfg(any(feature = "singlecore"))]
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
-        Eth1Mac, Art, Dma2, Dma1
+        Eth1Mac, Dma2, Dma1
     ];
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
         Sdmmc2, Hash, Crypt
@@ -181,7 +182,46 @@ peripheral_reset_and_enable_control! {
         Hsem, Bdma, Crc
     ];
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        Dac12, HdmiCec
+        Dac12, Cec
+    ];
+    APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
+        Fdcan kernel d2ccip1 "FDCAN kernel clock source selection",
+        Swp kernel d2ccip1 "SWPMI kernel clock source selection",
+        Crs, Mdios, Opamp
+    ];
+    APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
+        Hrtim,
+        Dfsdm1 kernel d2ccip1 "DFSDM1 kernel Clk source selection"
+    ];
+    APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
+        Ltdc
+    ];
+    APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
+        Vref, Comp12
+    ];
+}
+
+// Must only contain peripherals that are not used anywhere in this HAL
+#[cfg(any(feature = "dualcore"))]
+peripheral_reset_and_enable_control! {
+    AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
+        Eth1Mac, Dma2, Dma1, Art
+    ];
+    AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
+        Sdmmc2, Hash, Crypt
+    ];
+    AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
+        Sdmmc1,
+        Qspi kernel d1ccip "QUADSPI kernel clock source selection",
+        Fmc kernel d1ccip "FMC kernel clock source selection",
+        Jpgdec, Dma2d, Mdma
+    ];
+    AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
+        Hsem, Bdma, Crc
+    ];
+    APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
+        Dac12
+        // HdmiCec TODO
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
         Fdcan kernel d2ccip1 "FDCAN kernel clock source selection",
