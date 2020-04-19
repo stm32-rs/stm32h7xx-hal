@@ -25,12 +25,11 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let prec = rcc.take_peripherals().unwrap();
-    let _ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
 
-    enable_fdcan(prec.FDCAN);
+    enable_fdcan(ccdr.peripheral.FDCAN);
 
-    //prec.FDCAN.disable(); // Compile error
+    //ccdr.peripheral.FDCAN.disable(); // Compile error
 
     loop {}
 }

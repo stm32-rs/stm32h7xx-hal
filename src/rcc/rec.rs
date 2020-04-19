@@ -9,30 +9,32 @@ use cortex_m::interrupt;
 
 /// A trait for Resetting, Enabling and Disabling a single peripheral
 pub trait ResetEnable {
-    /// Enable this periperhal
+    /// Enable this peripheral
     fn enable(self) -> Self;
-    /// Disable this periperhal
+    /// Disable this peripheral
     fn disable(self) -> Self;
-    /// Reset this periperhal
+    /// Reset this peripheral
     fn reset(self) -> Self;
 }
 
-// NOTE `no_mangle` is used here to prevent linking different minor
-// versions of this crate as that would let you `take` more than once (one
-// per minor version)
-#[no_mangle]
-static mut RCC_PERIPHERALS_REC: bool = false;
 impl Rcc {
-    /// Returns all the peripherals resets / enables *once*
+    /// Returns all the peripherals resets / enables / kernel clocks.
+    ///
+    /// # Use case
+    ///
+    /// Allows peripherals to be reset / enabled before the calling
+    /// freeze. For example, the internal watchdog could be enabled to
+    /// issue a reset if the call the freeze hangs waiting for an external
+    /// clock that is stopped.
+    ///
+    /// # Safety
+    ///
+    /// If this method is called multiple times, or is called before the
+    /// [freeze](struct.Rcc.html#freeze), then multiple accesses to the
+    /// same memory exist.
     #[inline]
-    pub fn take_peripherals(&self) -> Option<PeripheralsREC> {
-        interrupt::free(|_| {
-            if unsafe { RCC_PERIPHERALS_REC } {
-                None
-            } else {
-                Some(unsafe { self.steal_periperhals() })
-            }
-        })
+    pub unsafe fn steal_peripheral_rec(&self) -> PeripheralREC {
+        PeripheralREC::new_singleton()
     }
 }
 
@@ -43,7 +45,7 @@ macro_rules! peripheral_reset_and_enable_control {
         paste::item! {
             /// Peripheral Reset and Enable Control
             #[allow(non_snake_case)]
-            pub struct PeripheralsREC {
+            pub struct PeripheralREC {
                 $(
                     $(
                         #[allow(missing_docs)]
@@ -56,13 +58,16 @@ macro_rules! peripheral_reset_and_enable_control {
                 // Rust versions.
                 _priv: (),
             }
-            impl Rcc {
-                /// Unchecked version of `PeripheralsREC::take`
-                #[inline]
-                pub unsafe fn steal_periperhals(&self) -> PeripheralsREC {
-                    RCC_PERIPHERALS_REC = true;
-
-                    PeripheralsREC {
+            impl PeripheralREC {
+                /// Return a new instance of the peripheral resets /
+                /// enables / kernel clocks
+                ///
+                /// # Safety
+                ///
+                /// If this method is called multiple times, then multiple
+                /// accesses to the same memory exist.
+                pub(super) unsafe fn new_singleton() -> PeripheralREC {
+                    PeripheralREC {
                         $(
                             $(
                                 [< $p:upper >]: $p {

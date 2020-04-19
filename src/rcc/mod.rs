@@ -182,6 +182,8 @@ pub struct Ccdr {
     pub apb4: APB4,
     /// RCC Domain 3 Kernel Clock Configuration Register
     pub d3ccipr: D3CCIPR,
+    /// Peripheral reset / enable / kernel clock control
+    pub peripheral: rec::PeripheralREC,
     // Yes, it lives (locally)! We retain the right to switch most
     // PKSUs on the fly, to fine-tune PLL frequencies, and to enable /
     // reset peripherals.
@@ -845,6 +847,11 @@ impl Rcc {
                 c_ck: Hertz(sys_d1cpre_ck),
             },
             d3ccipr: D3CCIPR { _0: () },
+            peripheral: unsafe {
+                // unsafe: we consume self which was a singleton, hence
+                // we can safely create a singleton here
+                rec::PeripheralREC::new_singleton()
+            },
             rb: self.rb,
         }
     }
