@@ -6,8 +6,8 @@
 #[macro_use]
 mod macros;
 pub mod mux;
-pub mod safe_transfer;
 pub mod stream;
+pub mod transfer;
 mod utils;
 
 use self::mux::request_gen::{
@@ -20,22 +20,20 @@ use self::mux::{
     RequestGenerator, RequestId, SyncDisabled, SyncED as ISyncED, SyncEnabled,
     SyncId, SyncOverrunInterrupt, SyncPolarity,
 };
-use self::safe_transfer::{
-    Config as TransferConfig, MemoryBuffer, Ongoing, Payload, PayloadSize,
-    PeripheralBuffer, Start, TransferState,
-};
 use self::stream::{
     BufferMode, BufferModeConf, CircularMode, CircularModeConf, Config,
-    CurrentTarget, DirectModeErrorInterrupt, Disabled, DoubleBufferConf,
-    Enabled, Error, Event, FifoConf, FifoErrorInterrupt, FifoThreshold,
-    FlowController, FlowControllerConf, HalfTransferInterrupt, IntoNum,
-    IsrCleared, IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst, MSize,
-    Minc, Ndt, NotM2MConf, PBurst, PBurstConf, PSize, Pa, Pinc, Pincos,
-    PriorityLevel, StreamIsr, TransferCompleteInterrupt, TransferDirection,
-    TransferDirectionConf, TransferErrorInterrupt, TransferMode,
-    TransferModeConf, ED as IED,
+    CurrentTarget, DirectConf, DirectModeErrorInterrupt, Disabled,
+    DoubleBufferConf, Enabled, Error, Event, FifoConf, FifoErrorInterrupt,
+    FifoThreshold, FlowController, FlowControllerConf, HalfTransferInterrupt,
+    IntoNum, IsrCleared, IsrState as IIsrState, IsrUncleared, M0a, M1a, MBurst,
+    MSize, Minc, Ndt, NotM2MConf, PBurst, PBurstConf, PSize, Pa, Pinc,
+    PincConf, Pincos, PriorityLevel, StreamIsr, TransferCompleteInterrupt,
+    TransferDirection, TransferDirectionConf, TransferErrorInterrupt,
+    TransferMode, TransferModeConf, ED as IED,
 };
-use crate::dma::safe_transfer::Buffer;
+use self::transfer::{
+    Config as TransferConfig, Ongoing, Payload, Start, TransferState,
+};
 use crate::nb::{self, Error as NbError};
 use crate::private;
 use crate::rcc::Ccdr;
@@ -47,7 +45,7 @@ use core::marker::PhantomData;
 use stm32h7::stm32h743::DMAMUX1;
 
 /// Marker Trait for DMA peripherals
-pub trait DmaPeripheral: Send + private::Sealed {}
+pub trait DmaPeripheral: private::Sealed {}
 impl DmaPeripheral for DMA1 {}
 impl DmaPeripheral for DMA2 {}
 
@@ -202,7 +200,6 @@ where
             transfer_error_interrupt: self.transfer_error_interrupt(),
             direct_mode_error_interrupt: self.direct_mode_error_interrupt(),
             fifo_error_interrupt: self.fifo_error_interrupt(),
-            pinc: self.pinc(),
             minc: self.minc(),
             priority_level: self.priority_level(),
             p_size: self.p_size(),
@@ -215,8 +212,11 @@ where
 
     fn transfer_direction_config(&self) -> TransferDirectionConf {
         match self.transfer_direction() {
-            TransferDirection::P2M | TransferDirection::M2P => {
-                TransferDirectionConf::NotM2M(self.not_m2m_config())
+            TransferDirection::P2M => {
+                TransferDirectionConf::P2M(self.not_m2m_config())
+            }
+            TransferDirection::M2P => {
+                TransferDirectionConf::M2P(self.not_m2m_config())
             }
             TransferDirection::M2M => {
                 TransferDirectionConf::M2M(self.fifo_config())
@@ -226,15 +226,16 @@ where
 
     fn not_m2m_config(&self) -> NotM2MConf {
         NotM2MConf {
-            transfer_dir: self.transfer_direction().try_into().unwrap(),
             transfer_mode: self.transfer_mode_config(),
-            flow: self.flow_controller_config(),
+            flow_controller: self.flow_controller_config(),
         }
     }
 
     fn transfer_mode_config(&self) -> TransferModeConf {
         match self.transfer_mode() {
-            TransferMode::Direct => TransferModeConf::Direct,
+            TransferMode::Direct => {
+                TransferModeConf::Direct(self.direct_conf())
+            }
             TransferMode::Fifo => TransferModeConf::Fifo(self.fifo_config()),
         }
     }
@@ -273,6 +274,10 @@ where
         }
     }
 
+    fn direct_conf(&self) -> DirectConf {
+        DirectConf { pinc: self.pinc() }
+    }
+
     fn fifo_config(&self) -> FifoConf {
         FifoConf {
             fifo_threshold: self.fifo_threshold().unwrap(),
@@ -284,10 +289,17 @@ where
 
     fn p_burst_config(&self) -> PBurstConf {
         match self.p_burst() {
-            PBurst::Single => PBurstConf::Single(self.pincos()),
-            PBurst::Incr4 => PBurstConf::Incr4,
-            PBurst::Incr8 => PBurstConf::Incr8,
-            PBurst::Incr16 => PBurstConf::Incr16,
+            PBurst::Single => PBurstConf::Single(self.pinc_conf()),
+            PBurst::Incr4 => PBurstConf::Incr4(self.pinc()),
+            PBurst::Incr8 => PBurstConf::Incr8(self.pinc()),
+            PBurst::Incr16 => PBurstConf::Incr16(self.pinc()),
+        }
+    }
+
+    fn pinc_conf(&self) -> PincConf {
+        match self.pinc() {
+            Pinc::Fixed => PincConf::Fixed,
+            Pinc::Incremented => PincConf::Incremented(self.pincos()),
         }
     }
 
@@ -510,7 +522,7 @@ where
             config.direct_mode_error_interrupt,
         );
         self.set_fifo_error_interrupt(config.fifo_error_interrupt);
-        self.set_pinc(config.pinc);
+        self.set_pinc(config.pinc());
         self.set_minc(config.minc);
         self.set_priority_level(config.priority_level);
         self.set_p_size(config.p_size);
@@ -530,7 +542,10 @@ where
         self.set_p_burst(config.p_burst());
         self.set_m_burst(config.m_burst());
         self.set_m_size(config.m_size());
-        self.set_pincos(config.pincos());
+
+        if let Some(pincos) = config.pincos() {
+            self.set_pincos(pincos);
+        }
 
         self.set_current_target(config.current_target());
         if let Some(m1a) = config.m1a() {
@@ -1607,7 +1622,7 @@ where
         Transfer {
             state: Ongoing {
                 stream: unsafe { stream.enable() },
-                buffers: self.state.conf.free(),
+                buffers: self.state.conf.free().free(),
             },
             _phantom: PhantomData,
         }
@@ -1618,45 +1633,8 @@ where
         stream: &mut Stream<CXX, Disabled, IsrCleared>,
     ) {
         let mut conf = stream.config();
-        conf.transfer_direction = self.state.conf.transfer_direction_conf();
 
-        // Configure ndt
-
-        let buffers = self.state.buffers().get();
-
-        match buffers.peripheral_buffer {
-            Buffer::Peripheral(PeripheralBuffer::Fixed(_))
-            | Buffer::Memory(MemoryBuffer::Fixed(_)) => {
-                match buffers.memory_buffer.m0a() {
-                    MemoryBuffer::Fixed(_) => {
-                        // NDT must be configured in advance
-                    }
-                    MemoryBuffer::Incremented(buffer) => {
-                        let p_size: usize =
-                            PayloadSize::from_payload::<Peripheral>().into();
-                        let m_size: usize =
-                            PayloadSize::from_payload::<Memory>().into();
-
-                        let memory_bytes = buffer.len() * m_size;
-
-                        if memory_bytes % p_size != 0 {
-                            panic!("Last transfer may be incomplete.");
-                        }
-
-                        let ndt = u16::try_from(memory_bytes / p_size).unwrap();
-                        conf.ndt = Ndt(ndt);
-                    }
-                }
-            }
-            Buffer::Peripheral(PeripheralBuffer::Incremented(buffer)) => {
-                let ndt = u16::try_from(buffer.len()).unwrap();
-                conf.ndt = Ndt(ndt);
-            }
-            Buffer::Memory(MemoryBuffer::Incremented(buffer)) => {
-                let ndt = u16::try_from(buffer.len()).unwrap();
-                conf.ndt = Ndt(ndt);
-            }
-        }
+        self.state.conf.stream_config(&mut conf);
 
         stream.apply_config(conf);
     }
@@ -1933,6 +1911,10 @@ impl Dma {
                 .cof7()
                 .set_bit()
         });
+    }
+
+    pub fn free(self) -> (DMA1, DMA2, DMAMUX1) {
+        (self._dma_1, self._dma_2, self._dma_mux)
     }
 }
 

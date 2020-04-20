@@ -5,12 +5,12 @@ use crate::dma::mux::request_ids::{
     Usart2TxDma, Usart3RxDma, Usart3TxDma, Usart6RxDma, Usart6TxDma,
 };
 use crate::dma::mux::{EgED as IEgED, SyncED as ISyncED};
-use crate::dma::safe_transfer::{
-    FixedBuffer, FixedBufferR, MemoryBufferStatic, Ongoing as TransferOngoing,
-    Payload, PeripheralBuffer, Start as TransferStart,
-};
 use crate::dma::stream::{
     Disabled as StreamDisabled, IsrCleared as StreamIsrCleared, StreamIsr,
+};
+use crate::dma::transfer::{
+    FixedBuffer, FixedBufferR, MemoryBufferStatic, Ongoing as TransferOngoing,
+    Payload, PeripheralBuffer, Start as TransferStart,
 };
 use crate::dma::{Channel, ChannelId, DmaMux, SafeTransfer};
 use crate::stm32::{UART4, UART5, UART7, UART8};

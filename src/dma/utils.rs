@@ -1,5 +1,5 @@
 use core::fmt;
 
-pub trait DefaultTraits: fmt::Debug + PartialEq + Eq + Clone + Copy {}
+pub trait DefaultTraits: Copy + Clone + PartialEq + Eq + fmt::Debug {}
 
-impl<T> DefaultTraits for T where T: fmt::Debug + PartialEq + Eq + Clone + Copy {}
+impl<T: Copy + Clone + PartialEq + Eq + fmt::Debug> DefaultTraits for T {}

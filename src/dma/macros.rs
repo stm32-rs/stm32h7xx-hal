@@ -2,10 +2,10 @@
 
 macro_rules! type_state {
     ($trait:ident, $($type_state:ident),*) => {
-        pub trait $trait: core::fmt::Debug + PartialEq + Eq + Clone + Copy + Send + Sync + crate::private::Sealed {}
+        pub trait $trait: Copy + Clone + PartialEq + Eq + core::fmt::Debug + crate::private::Sealed {}
 
         $(
-            #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+            #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
             pub struct $type_state;
 
             impl crate::private::Sealed for $type_state {}
