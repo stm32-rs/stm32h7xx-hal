@@ -40,7 +40,7 @@ impl Rcc {
 
 macro_rules! peripheral_reset_and_enable_control {
     ($($AXBn:ident, $axb_doc:expr => [
-        $( $p:ident $(kernel $ccip:ident $clk_doc:expr)* ),*
+        $( $p:ident $(kernel$(($Variant:ident))* $ccip:ident $clk_doc:expr)* ),*
     ];)+) => {
         paste::item! {
             /// Peripheral Reset and Enable Control
@@ -149,6 +149,19 @@ macro_rules! peripheral_reset_and_enable_control {
                                 });
                                 self
                             }
+
+                            #[inline(always)]
+                            #[allow(unused)]
+                            /// Return the current kernel clock selection
+                            pub fn get_kernel_clk_mux(&self) ->
+                                variant_return_type!([< $p ClkSel >] $(, $Variant)*)
+                            {
+                                // unsafe: We only read from this bitfield
+                                let ccip = unsafe {
+                                    &(*RCC::ptr()).[< $ccip r >]
+                                };
+                                ccip.read().[< $p:lower sel >]().variant()
+                            }
                         )*
                     }
 
@@ -161,6 +174,15 @@ macro_rules! peripheral_reset_and_enable_control {
             )+
         }
     }
+}
+
+// If the PAC does not fully specify a CCIP field (perhaps because one or
+// more values are reserved), then we use a different return type
+macro_rules! variant_return_type {
+    ($t:ty) => { $t };
+    ($t:ty, $Variant: ident) => {
+        stm32h7::Variant<u8, $t>
+    };
 }
 
 // Must only contain peripherals that are not used anywhere in this HAL
@@ -185,7 +207,7 @@ peripheral_reset_and_enable_control! {
         Dac12, Cec
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan kernel d2ccip1 "FDCAN kernel clock source selection",
+        Fdcan kernel(Variant) d2ccip1 "FDCAN kernel clock source selection",
         Swp kernel d2ccip1 "SWPMI kernel clock source selection",
         Crs, Mdios, Opamp
     ];
