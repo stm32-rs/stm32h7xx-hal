@@ -1,4 +1,25 @@
-//! Peripheral Reset and Enable Control
+//! Peripheral Reset and Enable Control (REC)
+//!
+//! This module contains safe accessors to the RCC functionality for each
+//! periperal.
+//!
+//! At a minimum each peripheral implements
+//! [ResetEnable](trait.ResetEnable.html). Additionally those peripherals
+//! that have a multiplexer in the PKSU may also have methods
+//! `kernel_clk_mux` and `get_kernel_clk_mux`. These set and get the state
+//! of the kernel clock multiplexer respectively.
+//!
+//! # Example
+//!
+//! ```
+//! // Constrain and Freeze power
+//! ...
+//! let rcc = dp.RCC.constrain();
+//! let ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
+//!
+//! // Enable the clock to a peripheral and reset it
+//! ccdr.peripheral.FDCAN.enable().reset();
+//! ```
 #![deny(missing_docs)]
 
 use core::marker::PhantomData;
