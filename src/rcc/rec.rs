@@ -40,7 +40,11 @@ impl Rcc {
 
 macro_rules! peripheral_reset_and_enable_control {
     ($($AXBn:ident, $axb_doc:expr => [
-        $( $p:ident $(kernel$(($Variant:ident))* $ccip:ident $clk_doc:expr)* ),*
+        $(
+            $( #[ $pmeta:meta ] )*
+                $p:ident
+            $( kernel$(($Variant:ident))* $ccip:ident $clk_doc:expr )*
+        ),*
     ];)+) => {
         paste::item! {
             /// Peripheral Reset and Enable Control
@@ -49,6 +53,7 @@ macro_rules! peripheral_reset_and_enable_control {
                 $(
                     $(
                         #[allow(missing_docs)]
+                        $( #[ $pmeta ] )*
                         pub [< $p:upper >]: $p,
                     )*
                 )+
@@ -70,6 +75,7 @@ macro_rules! peripheral_reset_and_enable_control {
                     PeripheralREC {
                         $(
                             $(
+                                $( #[ $pmeta ] )*
                                 [< $p:upper >]: $p {
                                     _marker: PhantomData,
                                 },
@@ -82,10 +88,13 @@ macro_rules! peripheral_reset_and_enable_control {
             $(
                 $(
                     /// Owned ability to Reset, Enable and Disable peripheral
+                    $( #[ $pmeta ] )*
                     pub struct $p {
                         _marker: PhantomData<*const ()>,
                     }
+                    $( #[ $pmeta ] )*
                     unsafe impl Send for $p {}
+                    $( #[ $pmeta ] )*
                     impl ResetEnable for $p {
                         #[inline(always)]
                         fn enable(self) -> Self {
@@ -126,6 +135,7 @@ macro_rules! peripheral_reset_and_enable_control {
                             self
                         }
                     }
+                    $( #[ $pmeta ] )*
                     impl $p {
                         $(
                             #[inline(always)]
@@ -186,10 +196,10 @@ macro_rules! variant_return_type {
 }
 
 // Must only contain peripherals that are not used anywhere in this HAL
-#[cfg(any(feature = "singlecore"))]
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
-        Eth1Mac, Dma2, Dma1
+        Eth1Mac, Dma2, Dma1,
+        #[cfg(any(feature = "dualcore"))] Art
     ];
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
         Sdmmc2, Hash, Crypt
@@ -204,49 +214,11 @@ peripheral_reset_and_enable_control! {
         Hsem, Bdma, Crc
     ];
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        Dac12, Cec
+        Dac12,
+        #[cfg(any(feature = "singlecore"))] Cec // TODO remove gate
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
         Fdcan kernel(Variant) d2ccip1 "FDCAN kernel clock source selection",
-        Swp kernel d2ccip1 "SWPMI kernel clock source selection",
-        Crs, Mdios, Opamp
-    ];
-    APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Hrtim,
-        Dfsdm1 kernel d2ccip1 "DFSDM1 kernel Clk source selection"
-    ];
-    APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
-        Ltdc
-    ];
-    APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
-        Vref, Comp12
-    ];
-}
-
-// Must only contain peripherals that are not used anywhere in this HAL
-#[cfg(any(feature = "dualcore"))]
-peripheral_reset_and_enable_control! {
-    AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
-        Eth1Mac, Dma2, Dma1, Art
-    ];
-    AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
-        Sdmmc2, Hash, Crypt
-    ];
-    AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
-        Sdmmc1,
-        Qspi kernel d1ccip "QUADSPI kernel clock source selection",
-        Fmc kernel d1ccip "FMC kernel clock source selection",
-        Jpgdec, Dma2d, Mdma
-    ];
-    AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
-        Hsem, Bdma, Crc
-    ];
-    APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        Dac12
-        // HdmiCec TODO
-    ];
-    APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan kernel d2ccip1 "FDCAN kernel clock source selection",
         Swp kernel d2ccip1 "SWPMI kernel clock source selection",
         Crs, Mdios, Opamp
     ];
