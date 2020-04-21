@@ -1,4 +1,46 @@
 //! Serial Peripheral Interface (SPI) bus
+//!
+//! This module implements the [embedded-hal](embedded-hal) traits for
+//! master mode SPI.
+//!
+//! # Usage
+//!
+//! In the simplest case, SPI can be initialised from the device
+//! peripheral and the GPIO pins.
+//!
+//! ```
+//! use stm32h7xx_hal::spi;
+//!
+//! let dp = ...;                   // Device peripherals
+//! let (sck, miso, mosi) = ...;    // GPIO pins
+//!
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! The GPIO pins should be supplied as a
+//! tuple in the following order:
+//!
+//! - Serial Clock (SCK)
+//! - Master In Slave Out (MISO)
+//! - Master Out Slave In (MOSI)
+//!
+//! If one of the pins is not required, explicitly pass one of the
+//! filler types instead:
+//!
+//! ```
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! ## Clocks
+//!
+//! The bitrate calculation is based upon the clock currently assigned
+//! in the RCC CCIP register. The default assignments are:
+//!
+//! - SPI1, SPI2, SPI3: __PLL1 Q CK__
+//! - SPI4, SPI5: __APB__
+//! - SPI6: __PCLK4__
+//!
+//! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;
 pub use crate::hal::spi::{
@@ -66,7 +108,6 @@ where
 ///
 /// let config = Config::new(Mode::MODE_0)
 ///     .frame_size(8)
-///     .freeze();
 /// ```
 #[derive(Copy, Clone)]
 pub struct Config {
@@ -74,6 +115,7 @@ pub struct Config {
     swap_miso_mosi: bool,
     cs_delay: f32,
     frame_size: u8,
+    managed_cs: bool,
 }
 
 impl Config {
@@ -87,6 +129,7 @@ impl Config {
             swap_miso_mosi: false,
             cs_delay: 0.0,
             frame_size: 8_u8,
+            managed_cs: false,
         }
     }
 
@@ -95,7 +138,7 @@ impl Config {
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
     /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
-    pub fn swap_mosi_miso(&mut self) -> &mut Self {
+    pub fn swap_mosi_miso(mut self) -> Self {
         self.swap_miso_mosi = true;
         self
     }
@@ -109,7 +152,7 @@ impl Config {
     /// Arguments:
     /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
     /// register for the output pin.
-    pub fn cs_delay(&mut self, delay: f32) -> &mut Self {
+    pub fn cs_delay(mut self, delay: f32) -> Self {
         self.cs_delay = delay;
         self
     }
@@ -118,20 +161,20 @@ impl Config {
     ///
     /// Arguments:
     /// * `frame_size` - The size of each SPI transaction in bits.
-    pub fn frame_size(&mut self, frame_size: u8) -> &mut Self {
+    pub fn frame_size(mut self, frame_size: u8) -> Self {
         self.frame_size = frame_size;
         self
     }
 
-    /// Freeze the SPI configuration for use in initialization.
-    pub fn freeze(&self) -> Self {
-        *self
+    pub fn manage_cs(mut self) -> Self {
+        self.managed_cs = true;
+        self
     }
 }
 
 impl From<Mode> for Config {
     fn from(mode: Mode) -> Self {
-        Self::new(mode).freeze()
+        Self::new(mode)
     }
 }
 
@@ -306,8 +349,7 @@ pub trait SpiExt<SPI>: Sized {
 }
 
 macro_rules! spi {
-	($($SPIX:ident: ($spiX:ident, $apbXenr:ident,
-                     $spiXen:ident, $pclkX:ident),)+) => {
+	($($SPIX:ident: ($spiX:ident, $apbXenr:ident, $spiXen:ident, $pclkX:ident),)+) => {
 	    $(
             impl<PINS> Spi<$SPIX, PINS> {
                 pub fn $spiX<T, CONFIG>(
@@ -357,7 +399,7 @@ macro_rules! spi {
                     spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                     // Calculate the CS->transaction cycle delay bits.
-                    let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
+                    let mut cycle_delay = (config.cs_delay * spi_freq as f32).ceil() as u32;
 
                     // The calculated cycle delay may not be more than 4 bits wide for the
                     // configuration register.
@@ -367,24 +409,23 @@ macro_rules! spi {
 
                     // mstr: master configuration
                     // lsbfrst: MSB first
-                    // ssm: enable software slave management (NSS pin
-                    // free for other uses)
                     // comm: full-duplex
                     spi.cfg2.write(|w| {
                         w.cpha()
-                            .bit(config.mode.phase ==
-                                 Phase::CaptureOnSecondTransition)
-                            .cpol()
+                            .bit(config.mode.phase == Phase::CaptureOnSecondTransition)
+                         .cpol()
                             .bit(config.mode.polarity == Polarity::IdleHigh)
+                         .master()
                             .master()
-                            .master()
-                            .lsbfrst()
+                         .lsbfrst()
                             .msbfirst()
-                            .ssm()
-                            .enabled()
-                            .mssi().bits(cycle_delay as u8)
-                            .ioswp().bit(config.swap_miso_mosi == true)
-                            .comm()
+                         .ssm()
+                            .bit(config.managed_cs == false)
+                         .mssi()
+                            .bits(cycle_delay as u8)
+                         .ioswp()
+                            .bit(config.swap_miso_mosi == true)
+                         .comm()
                             .full_duplex()
                     });
 
@@ -401,9 +442,9 @@ macro_rules! spi {
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().not_masked()),
+                                                          w.rxpie().not_masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().not_masked()),
+                                                          w.txpie().not_masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
                                 .not_masked()
@@ -424,9 +465,9 @@ macro_rules! spi {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().masked()),
+                                                          w.rxpie().masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().masked()),
+                                                          w.txpie().masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
                                 .masked()
@@ -486,7 +527,6 @@ macro_rules! spi {
 	            }
 	        }
 
-
             impl<PINS, T> hal::spi::FullDuplex<T> for Spi<$SPIX, PINS> {
                 type Error = Error;
 
@@ -539,8 +579,8 @@ macro_rules! spi {
                         nb::Error::WouldBlock
                     })
                 }
-            }
 
+            }
             impl<PINS> hal::blocking::spi::transfer::Default<u8>
                 for Spi<$SPIX, PINS> {}
 
