@@ -31,18 +31,6 @@
 //! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
 //! ```
 //!
-//! ## Word Sizes
-//!
-//! The word size used by the SPI controller must be indicated to the
-//! compiler. This can be done either using an explicit type
-//! annotation, or with a type hint. The possible word sizes are 8
-//! bits (`u8`) or 16 bits (`u16`).
-//!
-//! For example, an explict type annotation:
-//! ```
-//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
-//! ```
-//!
 //! ## Clocks
 //!
 //! The bitrate calculation is based upon the clock currently assigned
@@ -120,7 +108,6 @@ where
 ///
 /// let config = Config::new(Mode::MODE_0)
 ///     .frame_size(8)
-///     .freeze();
 /// ```
 #[derive(Copy, Clone)]
 pub struct Config {
@@ -128,7 +115,7 @@ pub struct Config {
     swap_miso_mosi: bool,
     cs_delay: f32,
     frame_size: u8,
-    cs_managed: bool,
+    managed_cs: bool,
 }
 
 impl Config {
@@ -142,7 +129,7 @@ impl Config {
             swap_miso_mosi: false,
             cs_delay: 0.0,
             frame_size: 8_u8,
-            cs_managed: false,
+            managed_cs: false,
         }
     }
 
@@ -151,7 +138,7 @@ impl Config {
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
     /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
-    pub fn swap_mosi_miso(&mut self) -> &mut Self {
+    pub fn swap_mosi_miso(mut self) -> Self {
         self.swap_miso_mosi = true;
         self
     }
@@ -165,7 +152,7 @@ impl Config {
     /// Arguments:
     /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
     /// register for the output pin.
-    pub fn cs_delay(&mut self, delay: f32) -> &mut Self {
+    pub fn cs_delay(mut self, delay: f32) -> Self {
         self.cs_delay = delay;
         self
     }
@@ -174,27 +161,21 @@ impl Config {
     ///
     /// Arguments:
     /// * `frame_size` - The size of each SPI transaction in bits.
-    pub fn frame_size(&mut self, frame_size: u8) -> &mut Self {
+    pub fn frame_size(mut self, frame_size: u8) -> Self {
         self.frame_size = frame_size;
         self
     }
 
-    /// Freeze the SPI configuration for use in initialization.
-    pub fn freeze(&self) -> Self {
-        *self
-    }
-
     /// CS pin is automatically managed by the SPI peripheral.
-    pub fn managed_cs(&mut self) -> &mut Self {
-        self.cs_managed = true;
+    pub fn manage_cs(mut self) -> Self {
+        self.managed_cs = true;
         self
     }
-
 }
 
 impl From<Mode> for Config {
     fn from(mode: Mode) -> Self {
-        Self::new(mode).freeze()
+        Self::new(mode)
     }
 }
 
@@ -378,18 +359,6 @@ pub trait SpiExt<SPI>: Sized {
 }
 
 macro_rules! spi {
-    (DSIZE, $spi:ident,  u8) => {
-        $spi.cfg1.modify(|_, w| {
-            w.dsize()
-                .bits(8 - 1) // 8 bit frames
-        });
-    };
-    (DSIZE, $spi:ident, u16) => {
-        $spi.cfg1.modify(|_, w| {
-            w.dsize()
-                .bits(16 - 1) // 16 bit frames
-        });
-    };
 	($($SPIX:ident: ($spiX:ident, $apbXenr:ident, $spiXen:ident,
                      $pclkX:ident) => ($($TY:ident),+),)+) => {
 	    $(
@@ -439,13 +408,22 @@ macro_rules! spi {
                     spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                     // Calculate the CS->transaction cycle delay bits.
-                    let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
+                    let cycle_delay: u8 = {
+                        let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
 
-                    // The calculated cycle delay may not be more than 4 bits wide for the
-                    // configuration register.
-                    if cycle_delay > 0xF {
-                        cycle_delay = 0xF;
-                    }
+                        // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                        // before truncation to an integer to ensure that we have at least as
+                        // many cycles as required.
+                        if config.cs_delay > 0.0_f32 {
+                            delay = delay + 1;
+                        }
+
+                        if delay > 0xF {
+                            delay = 0xF;
+                        }
+
+                        delay as u8
+                    };
 
                     // mstr: master configuration
                     // lsbfrst: MSB first
@@ -454,18 +432,20 @@ macro_rules! spi {
                     // comm: full-duplex
                     spi.cfg2.write(|w| {
                         w.cpha()
-                            .bit(config.mode.phase ==
-                                 Phase::CaptureOnSecondTransition)
-                            .cpol()
+                            .bit(config.mode.phase == Phase::CaptureOnSecondTransition)
+                         .cpol()
                             .bit(config.mode.polarity == Polarity::IdleHigh)
+                         .master()
                             .master()
-                            .master()
-                            .lsbfrst()
+                         .lsbfrst()
                             .msbfirst()
-                            .ssm().bit(config.cs_managed == false)
-                            .mssi().bits(cycle_delay as u8)
-                            .ioswp().bit(config.swap_miso_mosi == true)
-                            .comm()
+                         .ssm()
+                            .bit(config.managed_cs == false)
+                         .mssi()
+                            .bits(cycle_delay)
+                         .ioswp()
+                            .bit(config.swap_miso_mosi == true)
+                         .comm()
                             .full_duplex()
                     });
 
@@ -632,6 +612,7 @@ macro_rules! spi {
                 }
             }
 
+            // For each $TY
             $(
                 impl hal::blocking::spi::transfer::Default<$TY>
                     for Spi<$SPIX> {}
@@ -708,12 +689,12 @@ macro_rules! spi6sel {
 }
 
 spi! {
-    SPI1: (spi1, apb2enr,  spi1en, pclk2) => (u8, u16),
-    SPI2: (spi2, apb1lenr, spi2en, pclk1) => (u8, u16),
-    SPI3: (spi3, apb1lenr, spi3en, pclk1) => (u8, u16),
-    SPI4: (spi4, apb2enr,  spi4en, pclk2) => (u8, u16),
-    SPI5: (spi5, apb2enr,  spi5en, pclk2) => (u8, u16),
-    SPI6: (spi6, apb4enr,  spi6en, pclk2) => (u8, u16),
+    SPI1: (spi1, apb2enr,  spi1en, pclk2) => (u8, u16, u32),
+    SPI2: (spi2, apb1lenr, spi2en, pclk1) => (u8, u16, u32),
+    SPI3: (spi3, apb1lenr, spi3en, pclk1) => (u8, u16, u32),
+    SPI4: (spi4, apb2enr,  spi4en, pclk2) => (u8, u16, u32),
+    SPI5: (spi5, apb2enr,  spi5en, pclk2) => (u8, u16, u32),
+    SPI6: (spi6, apb4enr,  spi6en, pclk2) => (u8, u16, u32),
 }
 
 spi123sel! {
