@@ -351,247 +351,247 @@ pub trait SpiExt<SPI>: Sized {
 
 macro_rules! spi {
 	($($SPIX:ident: ($spiX:ident, $apbXenr:ident, $spiXen:ident,
-                   $pclkX:ident) => ($($TY:ident),+),)+) => {
+                     $pclkX:ident) => ($($TY:ident),+),)+) => {
         $(
-           impl<PINS> Spi<$SPIX, PINS> {
-               pub fn $spiX<T, CONFIG>(
-                   spi: $SPIX,
-                   pins: PINS,
-                   config: CONFIG,
-                   freq: T,
-                   ccdr: &Ccdr,
-               ) -> Self
-               where
-                   PINS: Pins<$SPIX>,
-                   T: Into<Hertz>,
-                   CONFIG: Into<Config>,
-               {
-                   // Enable clock for SPI
-                   ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
+            impl<PINS> Spi<$SPIX, PINS> {
+                pub fn $spiX<T, CONFIG>(
+                    spi: $SPIX,
+                    pins: PINS,
+                    config: CONFIG,
+                    freq: T,
+                    ccdr: &Ccdr,
+                ) -> Self
+                where
+                    PINS: Pins<$SPIX>,
+                    T: Into<Hertz>,
+                    CONFIG: Into<Config>,
+                {
+                    // Enable clock for SPI
+                    ccdr.rb.$apbXenr.modify(|_, w| w.$spiXen().enabled());
 
-                   // Disable SS output
-                   spi.cfg2.write(|w| w.ssoe().disabled());
+                    // Disable SS output
+                    spi.cfg2.write(|w| w.ssoe().disabled());
 
-                   let config: Config = config.into();
+                    let config: Config = config.into();
 
-                   let spi_freq = freq.into().0;
-	               let spi_ker_ck = match Self::kernel_clk(ccdr) {
-                       Some(ker_hz) => ker_hz.0,
-                       _ => panic!("$SPIX kernel clock not running!")
-                   };
-                   let mbr = match spi_ker_ck / spi_freq {
-                       0 => unreachable!(),
-                       1..=2 => MBR::DIV2,
-                       3..=5 => MBR::DIV4,
-                       6..=11 => MBR::DIV8,
-                       12..=23 => MBR::DIV16,
-                       24..=47 => MBR::DIV32,
-                       48..=95 => MBR::DIV64,
-                       96..=191 => MBR::DIV128,
-                       _ => MBR::DIV256,
-                   };
-                   spi.cfg1.modify(|_, w| {
-                       w.mbr()
-                           .variant(mbr) // master baud rate
-                           .dsize()
-                           .bits(config.frame_size - 1)
-                   });
+                    let spi_freq = freq.into().0;
+	                let spi_ker_ck = match Self::kernel_clk(ccdr) {
+                        Some(ker_hz) => ker_hz.0,
+                        _ => panic!("$SPIX kernel clock not running!")
+                    };
+                    let mbr = match spi_ker_ck / spi_freq {
+                        0 => unreachable!(),
+                        1..=2 => MBR::DIV2,
+                        3..=5 => MBR::DIV4,
+                        6..=11 => MBR::DIV8,
+                        12..=23 => MBR::DIV16,
+                        24..=47 => MBR::DIV32,
+                        48..=95 => MBR::DIV64,
+                        96..=191 => MBR::DIV128,
+                        _ => MBR::DIV256,
+                    };
+                    spi.cfg1.modify(|_, w| {
+                        w.mbr()
+                            .variant(mbr) // master baud rate
+                            .dsize()
+                            .bits(config.frame_size - 1)
+                    });
 
-                   // ssi: select slave = master mode
-                   spi.cr1.write(|w| w.ssi().slave_not_selected());
+                    // ssi: select slave = master mode
+                    spi.cr1.write(|w| w.ssi().slave_not_selected());
 
-                   // Calculate the CS->transaction cycle delay bits.
-                   let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
+                    // Calculate the CS->transaction cycle delay bits.
+                    let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
 
-                   // The calculated cycle delay may not be more than 4 bits wide for the
-                   // configuration register.
-                   if cycle_delay > 0xF {
-                       cycle_delay = 0xF;
-                   }
+                    // The calculated cycle delay may not be more than 4 bits wide for the
+                    // configuration register.
+                    if cycle_delay > 0xF {
+                        cycle_delay = 0xF;
+                    }
 
-                   // mstr: master configuration
-                   // lsbfrst: MSB first
-                   // comm: full-duplex
-                   spi.cfg2.write(|w| {
-                       w.cpha()
-                           .bit(config.mode.phase == Phase::CaptureOnSecondTransition)
-                        .cpol()
-                           .bit(config.mode.polarity == Polarity::IdleHigh)
-                        .master()
-                           .master()
-                        .lsbfrst()
-                           .msbfirst()
-                        .ssm()
-                           .bit(config.managed_cs == false)
-                        .mssi()
-                           .bits(cycle_delay as u8)
-                        .ioswp()
-                           .bit(config.swap_miso_mosi == true)
-                        .comm()
-                           .full_duplex()
-                   });
+                    // mstr: master configuration
+                    // lsbfrst: MSB first
+                    // comm: full-duplex
+                    spi.cfg2.write(|w| {
+                        w.cpha()
+                            .bit(config.mode.phase == Phase::CaptureOnSecondTransition)
+                         .cpol()
+                            .bit(config.mode.polarity == Polarity::IdleHigh)
+                         .master()
+                            .master()
+                         .lsbfrst()
+                            .msbfirst()
+                         .ssm()
+                            .bit(config.managed_cs == false)
+                         .mssi()
+                            .bits(cycle_delay as u8)
+                         .ioswp()
+                            .bit(config.swap_miso_mosi == true)
+                         .comm()
+                            .full_duplex()
+                    });
 
-                   // spe: enable the SPI bus
-                   spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    // spe: enable the SPI bus
+                    spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
-                   Spi { spi, pins }
-               }
+                    Spi { spi, pins }
+                }
 
-               /// Enable interrupts for the given `event`:
-               ///  - Received data ready to be read (RXP)
-               ///  - Transmit data register empty (TXP)
-               ///  - Error
-               pub fn listen(&mut self, event: Event) {
-                   match event {
-                       Event::Rxp => self.spi.ier.modify(|_, w|
-                                                         w.rxpie().not_masked()),
-                       Event::Txp => self.spi.ier.modify(|_, w|
-                                                         w.txpie().not_masked()),
-                       Event::Error => self.spi.ier.modify(|_, w| {
-                           w.udrie() // Underrun
-                               .not_masked()
-                               .ovrie() // Overrun
-                               .not_masked()
-                               .crceie() // CRC error
-                               .not_masked()
-                               .modfie() // Mode fault
-                               .not_masked()
-                       }),
-                   }
-               }
+                /// Enable interrupts for the given `event`:
+                ///  - Received data ready to be read (RXP)
+                ///  - Transmit data register empty (TXP)
+                ///  - Error
+                pub fn listen(&mut self, event: Event) {
+                    match event {
+                        Event::Rxp => self.spi.ier.modify(|_, w|
+                                                          w.rxpie().not_masked()),
+                        Event::Txp => self.spi.ier.modify(|_, w|
+                                                          w.txpie().not_masked()),
+                        Event::Error => self.spi.ier.modify(|_, w| {
+                            w.udrie() // Underrun
+                                .not_masked()
+                                .ovrie() // Overrun
+                                .not_masked()
+                                .crceie() // CRC error
+                                .not_masked()
+                                .modfie() // Mode fault
+                                .not_masked()
+                        }),
+                    }
+                }
 
-               /// Disable interrupts for the given `event`:
-               ///  - Received data ready to be read (RXP)
-               ///  - Transmit data register empty (TXP)
-               ///  - Error
-               pub fn unlisten(&mut self, event: Event) {
-                   match event {
-                       Event::Rxp => self.spi.ier.modify(|_, w|
-                                                         w.rxpie().masked()),
-                       Event::Txp => self.spi.ier.modify(|_, w|
-                                                         w.txpie().masked()),
-                       Event::Error => self.spi.ier.modify(|_, w| {
-                           w.udrie() // Underrun
-                               .masked()
-                               .ovrie() // Overrun
-                               .masked()
-                               .crceie() // CRC error
-                               .masked()
-                               .modfie() // Mode fault
-                               .masked()
-                       }),
-                   }
-               }
+                /// Disable interrupts for the given `event`:
+                ///  - Received data ready to be read (RXP)
+                ///  - Transmit data register empty (TXP)
+                ///  - Error
+                pub fn unlisten(&mut self, event: Event) {
+                    match event {
+                        Event::Rxp => self.spi.ier.modify(|_, w|
+                                                          w.rxpie().masked()),
+                        Event::Txp => self.spi.ier.modify(|_, w|
+                                                          w.txpie().masked()),
+                        Event::Error => self.spi.ier.modify(|_, w| {
+                            w.udrie() // Underrun
+                                .masked()
+                                .ovrie() // Overrun
+                                .masked()
+                                .crceie() // CRC error
+                                .masked()
+                                .modfie() // Mode fault
+                                .masked()
+                        }),
+                    }
+                }
 
-               /// Return `true` if the TXP flag is set, i.e. new
-               /// data to transmit can be written to the SPI.
-               pub fn is_txp(&self) -> bool {
-                   self.spi.sr.read().txp().is_not_full()
-               }
+                /// Return `true` if the TXP flag is set, i.e. new
+                /// data to transmit can be written to the SPI.
+                pub fn is_txp(&self) -> bool {
+                    self.spi.sr.read().txp().is_not_full()
+                }
 
-               /// Return `true` if the RXP flag is set, i.e. new
-               /// data has been received and can be read from the
-               /// SPI.
-               pub fn is_rxp(&self) -> bool {
-                   self.spi.sr.read().rxp().is_not_empty()
-               }
+                /// Return `true` if the RXP flag is set, i.e. new
+                /// data has been received and can be read from the
+                /// SPI.
+                pub fn is_rxp(&self) -> bool {
+                    self.spi.sr.read().rxp().is_not_empty()
+                }
 
-               /// Return `true` if the MODF flag is set, i.e. the
-               /// SPI has experienced a mode fault
-               pub fn is_modf(&self) -> bool {
-                   self.spi.sr.read().modf().is_fault()
-               }
+                /// Return `true` if the MODF flag is set, i.e. the
+                /// SPI has experienced a mode fault
+                pub fn is_modf(&self) -> bool {
+                    self.spi.sr.read().modf().is_fault()
+                }
 
-               /// Return `true` if the OVR flag is set, i.e. new
-               /// data has been received while the receive data
-               /// register was already filled.
-               pub fn is_ovr(&self) -> bool {
-                   self.spi.sr.read().ovr().is_overrun()
-               }
+                /// Return `true` if the OVR flag is set, i.e. new
+                /// data has been received while the receive data
+                /// register was already filled.
+                pub fn is_ovr(&self) -> bool {
+                    self.spi.sr.read().ovr().is_overrun()
+                }
 
-               pub fn free(self) -> ($SPIX, PINS) {
-                   (self.spi, self.pins)
-               }
-           }
+                pub fn free(self) -> ($SPIX, PINS) {
+                    (self.spi, self.pins)
+                }
+            }
 
-           impl SpiExt<$SPIX> for $SPIX {
-	           fn spi<PINS, T, CONFIG>(self,
-                               pins: PINS,
-                               config: CONFIG,
-                               freq: T,
-                               ccdr: &Ccdr) -> Spi<$SPIX, PINS>
-	           where
-	               PINS: Pins<$SPIX>,
-	               T: Into<Hertz>,
-                   CONFIG: Into<Config>,
-	           {
-	               Spi::$spiX(self, pins, config, freq, ccdr)
-	           }
-	       }
+            impl SpiExt<$SPIX> for $SPIX {
+	            fn spi<PINS, T, CONFIG>(self,
+                                pins: PINS,
+                                config: CONFIG,
+                                freq: T,
+                                ccdr: &Ccdr) -> Spi<$SPIX, PINS>
+	            where
+	                PINS: Pins<$SPIX>,
+	                T: Into<Hertz>,
+                    CONFIG: Into<Config>,
+	            {
+	                Spi::$spiX(self, pins, config, freq, ccdr)
+	            }
+	        }
 
-           impl<PINS, T> hal::spi::FullDuplex<T> for Spi<$SPIX, PINS> {
-               type Error = Error;
+            impl<PINS, T> hal::spi::FullDuplex<T> for Spi<$SPIX, PINS> {
+                type Error = Error;
 
-               fn read(&mut self) -> nb::Result<T, Error> {
-                   let sr = self.spi.sr.read();
+                fn read(&mut self) -> nb::Result<T, Error> {
+                    let sr = self.spi.sr.read();
 
-                   Err(if sr.ovr().is_overrun() {
-                       nb::Error::Other(Error::Overrun)
-                   } else if sr.modf().is_fault() {
-                       nb::Error::Other(Error::ModeFault)
-                   } else if sr.crce().is_error() {
-                       nb::Error::Other(Error::Crc)
-                   } else if sr.rxp().is_not_empty() {
-                       // NOTE(read_volatile) read only 1 byte (the
-                       // svd2rust API only allows reading a
-                       // half-word)
-                       return Ok(unsafe {
-                           ptr::read_volatile(
-                               &self.spi.rxdr as *const _ as *const T,
-                           )
-                       });
-                   } else {
-                       nb::Error::WouldBlock
-                   })
-               }
+                    Err(if sr.ovr().is_overrun() {
+                        nb::Error::Other(Error::Overrun)
+                    } else if sr.modf().is_fault() {
+                        nb::Error::Other(Error::ModeFault)
+                    } else if sr.crce().is_error() {
+                        nb::Error::Other(Error::Crc)
+                    } else if sr.rxp().is_not_empty() {
+                        // NOTE(read_volatile) read only 1 byte (the
+                        // svd2rust API only allows reading a
+                        // half-word)
+                        return Ok(unsafe {
+                            ptr::read_volatile(
+                                &self.spi.rxdr as *const _ as *const T,
+                            )
+                        });
+                    } else {
+                        nb::Error::WouldBlock
+                    })
+                }
 
-               fn send(&mut self, byte: T) -> nb::Result<(), Error> {
-                   let sr = self.spi.sr.read();
+                fn send(&mut self, byte: T) -> nb::Result<(), Error> {
+                    let sr = self.spi.sr.read();
 
-                   Err(if sr.ovr().is_overrun() {
-                       nb::Error::Other(Error::Overrun)
-                   } else if sr.modf().is_fault() {
-                       nb::Error::Other(Error::ModeFault)
-                   } else if sr.crce().is_error() {
-                       nb::Error::Other(Error::Crc)
-                   } else if sr.txp().is_not_full() {
-                       // NOTE(write_volatile) see note above
-                       unsafe {
-                           ptr::write_volatile(
-                               &self.spi.txdr as *const _ as *mut T,
-                               byte,
-                           )
-                       }
-                       // write CSTART to start a transaction in
-                       // master mode
-                       self.spi.cr1.modify(|_, w| w.cstart().started());
+                    Err(if sr.ovr().is_overrun() {
+                        nb::Error::Other(Error::Overrun)
+                    } else if sr.modf().is_fault() {
+                        nb::Error::Other(Error::ModeFault)
+                    } else if sr.crce().is_error() {
+                        nb::Error::Other(Error::Crc)
+                    } else if sr.txp().is_not_full() {
+                        // NOTE(write_volatile) see note above
+                        unsafe {
+                            ptr::write_volatile(
+                                &self.spi.txdr as *const _ as *mut T,
+                                byte,
+                            )
+                        }
+                        // write CSTART to start a transaction in
+                        // master mode
+                        self.spi.cr1.modify(|_, w| w.cstart().started());
 
-                       return Ok(());
-                   } else {
-                       nb::Error::WouldBlock
-                   })
-               }
+                        return Ok(());
+                    } else {
+                        nb::Error::WouldBlock
+                    })
+                }
 
-           }
+            }
 
-           // For each $TY
-           $(
-              impl<PINS> hal::blocking::spi::transfer::Default<$TY>
-                  for Spi<$SPIX, PINS> {}
+            // For each $TY
+            $(
+               impl<PINS> hal::blocking::spi::transfer::Default<$TY>
+                   for Spi<$SPIX, PINS> {}
 
-              impl<PINS> hal::blocking::spi::write::Default<$TY>
-                  for Spi<$SPIX, PINS> {}
-           )+
+               impl<PINS> hal::blocking::spi::write::Default<$TY>
+                   for Spi<$SPIX, PINS> {}
+            )+
         )+
 	}
 }
