@@ -46,15 +46,18 @@ where
 }
 
 #[derive(Debug)]
-pub struct I2c<I2C, PINS> {
+pub struct I2c<I2C> {
     i2c: I2C,
-    pins: PINS,
 }
 
 pub trait I2cExt<I2C>: Sized {
-    fn i2c<PINS, F>(self, pins: PINS, freq: F, ccdr: &Ccdr) -> I2c<I2C, PINS>
+    fn i2c<PINS, F>(self, _pins: PINS, freq: F, ccdr: &Ccdr) -> I2c<I2C>
     where
         PINS: Pins<I2C>,
+        F: Into<Hertz>;
+
+    fn i2c_unchecked<F>(self, freq: F, ccdr: &Ccdr) -> I2c<I2C>
+    where
         F: Into<Hertz>;
 }
 
@@ -101,16 +104,14 @@ macro_rules! busy_wait {
 macro_rules! i2c {
     ($($I2CX:ident: ($i2cX:ident, $i2cXen:ident, $i2cXrst:ident, $apbXenr:ident, $apbXrstr:ident, $pclkX:ident),)+) => {
         $(
-            impl<PINS> I2c<$I2CX, PINS> {
+            impl I2c<$I2CX> {
                 /// Basically a new function for an I2C peripheral
                 pub fn $i2cX<F> (
                     i2c: $I2CX,
-                    pins: PINS,
                     freq: F,
                     ccdr: &Ccdr
                 ) -> Self where
                     F: Into<Hertz>,
-                    PINS: Pins<$I2CX>,
                 {
                     ccdr.rb.$apbXenr.modify(|_, w| w.$i2cXen().set_bit());
                     ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().set_bit());
@@ -202,30 +203,33 @@ macro_rules! i2c {
                     // Enable the peripheral
                     i2c.cr1.write(|w| w.pe().set_bit());
 
-                    I2c { i2c, pins}
-
+                    I2c { i2c }
                 }
 
-                /// Releases the I2C peripheral and associated pins
-                pub fn free(self) -> ($I2CX, PINS) {
-                    (self.i2c, self.pins)
+                /// Releases the I2C peripheral
+                pub fn free(self) -> $I2CX {
+                    self.i2c
                 }
             }
 
             impl I2cExt<$I2CX> for $I2CX {
-                fn i2c<PINS, F>(self,
-                                pins:PINS,
-                                freq:F,
-                                ccdr: &Ccdr) -> I2c<$I2CX, PINS>
+                fn i2c<PINS, F>(self, _pins: PINS, freq: F, ccdr: &Ccdr) -> I2c<$I2CX>
                 where
                     PINS: Pins<$I2CX>,
                     F: Into<Hertz>
                 {
-                    I2c::$i2cX(self, pins, freq, ccdr)
+                    I2c::$i2cX(self, freq, ccdr)
+                }
+
+                fn i2c_unchecked<F>(self, freq: F, ccdr: &Ccdr) -> I2c<$I2CX>
+                where
+                    F: Into<Hertz>
+                {
+                    I2c::$i2cX(self, freq, ccdr)
                 }
             }
 
-            impl<PINS> Write for I2c<$I2CX, PINS> {
+            impl Write for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
@@ -269,7 +273,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl<PINS> WriteRead for I2c<$I2CX, PINS> {
+            impl WriteRead for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write_read(
@@ -344,7 +348,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl<PINS> Read for I2c<$I2CX, PINS> {
+            impl Read for I2c<$I2CX> {
             type Error = Error;
 
             fn read(

@@ -1,4 +1,58 @@
 //! Serial Peripheral Interface (SPI) bus
+//!
+//! This module implements the [embedded-hal](embedded-hal) traits for
+//! master mode SPI.
+//!
+//! # Usage
+//!
+//! In the simplest case, SPI can be initialised from the device
+//! peripheral and the GPIO pins.
+//!
+//! ```
+//! use stm32h7xx_hal::spi;
+//!
+//! let dp = ...;                   // Device peripherals
+//! let (sck, miso, mosi) = ...;    // GPIO pins
+//!
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! The GPIO pins should be supplied as a
+//! tuple in the following order:
+//!
+//! - Serial Clock (SCK)
+//! - Master In Slave Out (MISO)
+//! - Master Out Slave In (MOSI)
+//!
+//! If one of the pins is not required, explicitly pass one of the
+//! filler types instead:
+//!
+//! ```
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! ## Word Sizes
+//!
+//! The word size used by the SPI controller must be indicated to the
+//! compiler. This can be done either using an explicit type
+//! annotation, or with a type hint. The possible word sizes are 8
+//! bits (`u8`) or 16 bits (`u16`).
+//!
+//! For example, an explict type annotation:
+//! ```
+//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), &mut ccdr);
+//! ```
+//!
+//! ## Clocks
+//!
+//! The bitrate calculation is based upon the clock currently assigned
+//! in the RCC CCIP register. The default assignments are:
+//!
+//! - SPI1, SPI2, SPI3: __PLL1 Q CK__
+//! - SPI4, SPI5: __APB__
+//! - SPI6: __PCLK4__
+//!
+//! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;
 pub use crate::hal::spi::{
@@ -295,39 +349,58 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct Spi<SPI, PINS> {
-    pub spi: SPI,
-    pins: PINS,
+pub struct Spi<SPI> {
+    spi: SPI,
 }
 
 pub trait SpiExt<SPI>: Sized {
     fn spi<PINS, T, CONFIG>(
         self,
-        pins: PINS,
+        _pins: PINS,
         config: CONFIG,
         freq: T,
         ccdr: &Ccdr,
-    ) -> Spi<SPI, PINS>
+    ) -> Spi<SPI>
     where
         PINS: Pins<SPI>,
+        T: Into<Hertz>,
+        CONFIG: Into<Config>;
+
+    fn spi_unchecked<T, CONFIG>(
+        self,
+        config: CONFIG,
+        freq: T,
+        ccdr: &Ccdr,
+    ) -> Spi<SPI>
+    where
         T: Into<Hertz>,
         CONFIG: Into<Config>;
 }
 
 macro_rules! spi {
-	($($SPIX:ident: ($spiX:ident, $apbXenr:ident,
-                     $spiXen:ident, $pclkX:ident),)+) => {
+    (DSIZE, $spi:ident,  u8) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(8 - 1) // 8 bit frames
+        });
+    };
+    (DSIZE, $spi:ident, u16) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(16 - 1) // 16 bit frames
+        });
+    };
+	($($SPIX:ident: ($spiX:ident, $apbXenr:ident, $spiXen:ident,
+                     $pclkX:ident) => ($($TY:ident),+),)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl Spi<$SPIX> {
                 pub fn $spiX<T, CONFIG>(
                     spi: $SPIX,
-                    pins: PINS,
                     config: CONFIG,
                     freq: T,
                     ccdr: &Ccdr,
                 ) -> Self
                 where
-                    PINS: Pins<$SPIX>,
                     T: Into<Hertz>,
                     CONFIG: Into<Config>,
                 {
@@ -399,7 +472,7 @@ macro_rules! spi {
                     // spe: enable the SPI bus
                     spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
-                    Spi { spi, pins }
+                    Spi { spi }
                 }
 
                 /// Enable interrupts for the given `event`:
@@ -409,9 +482,9 @@ macro_rules! spi {
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().not_masked()),
+                                                          w.rxpie().not_masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().not_masked()),
+                                                          w.txpie().not_masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
                                 .not_masked()
@@ -432,9 +505,9 @@ macro_rules! spi {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxp => self.spi.ier.modify(|_, w|
-                                                w.rxpie().masked()),
+                                                          w.rxpie().masked()),
                         Event::Txp => self.spi.ier.modify(|_, w|
-                                                w.txpie().masked()),
+                                                          w.txpie().masked()),
                         Event::Error => self.spi.ier.modify(|_, w| {
                             w.udrie() // Underrun
                                 .masked()
@@ -474,28 +547,38 @@ macro_rules! spi {
                     self.spi.sr.read().ovr().is_overrun()
                 }
 
-                pub fn free(self) -> ($SPIX, PINS) {
-                    (self.spi, self.pins)
+                pub fn free(self) -> $SPIX {
+                    self.spi
                 }
             }
 
             impl SpiExt<$SPIX> for $SPIX {
 	            fn spi<PINS, T, CONFIG>(self,
-                                pins: PINS,
+                                _pins: PINS,
                                 config: CONFIG,
                                 freq: T,
-                                ccdr: &Ccdr) -> Spi<$SPIX, PINS>
+                                ccdr: &Ccdr) -> Spi<$SPIX>
 	            where
 	                PINS: Pins<$SPIX>,
 	                T: Into<Hertz>,
                     CONFIG: Into<Config>,
 	            {
-	                Spi::$spiX(self, pins, config, freq, ccdr)
+	                Spi::$spiX(self, config, freq, ccdr)
+	            }
+
+	            fn spi_unchecked<T, CONFIG>(self,
+                                config: CONFIG,
+                                freq: T,
+                                ccdr: &Ccdr) -> Spi<$SPIX>
+	            where
+	                T: Into<Hertz>,
+                    CONFIG: Into<Config>,
+	            {
+	                Spi::$spiX(self, config, freq, ccdr)
 	            }
 	        }
 
-
-            impl<PINS, T> hal::spi::FullDuplex<T> for Spi<$SPIX, PINS> {
+            impl<T> hal::spi::FullDuplex<T> for Spi<$SPIX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<T, Error> {
@@ -549,11 +632,13 @@ macro_rules! spi {
                 }
             }
 
-            impl<PINS> hal::blocking::spi::transfer::Default<u8>
-                for Spi<$SPIX, PINS> {}
+            $(
+                impl hal::blocking::spi::transfer::Default<$TY>
+                    for Spi<$SPIX> {}
 
-            impl<PINS> hal::blocking::spi::write::Default<u8>
-                for Spi<$SPIX, PINS> {}
+                impl hal::blocking::spi::write::Default<$TY>
+                    for Spi<$SPIX> {}
+            )+
         )+
 	}
 }
@@ -561,7 +646,7 @@ macro_rules! spi {
 macro_rules! spi123sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl Spi<$SPIX> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -582,7 +667,7 @@ macro_rules! spi123sel {
 macro_rules! spi45sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl Spi<$SPIX> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -603,7 +688,7 @@ macro_rules! spi45sel {
 macro_rules! spi6sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl Spi<$SPIX> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -623,12 +708,12 @@ macro_rules! spi6sel {
 }
 
 spi! {
-    SPI1: (spi1, apb2enr,  spi1en, pclk2),
-    SPI2: (spi2, apb1lenr, spi2en, pclk1),
-    SPI3: (spi3, apb1lenr, spi3en, pclk1),
-    SPI4: (spi4, apb2enr,  spi4en, pclk2),
-    SPI5: (spi5, apb2enr,  spi5en, pclk2),
-    SPI6: (spi6, apb4enr,  spi6en, pclk2),
+    SPI1: (spi1, apb2enr,  spi1en, pclk2) => (u8, u16),
+    SPI2: (spi2, apb1lenr, spi2en, pclk1) => (u8, u16),
+    SPI3: (spi3, apb1lenr, spi3en, pclk1) => (u8, u16),
+    SPI4: (spi4, apb2enr,  spi4en, pclk2) => (u8, u16),
+    SPI5: (spi5, apb2enr,  spi5en, pclk2) => (u8, u16),
+    SPI6: (spi6, apb4enr,  spi6en, pclk2) => (u8, u16),
 }
 
 spi123sel! {
