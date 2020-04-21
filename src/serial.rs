@@ -328,9 +328,8 @@ uart_pins! {
 }
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
+pub struct Serial<USART> {
     usart: USART,
-    pins: PINS,
 }
 
 /// Serial receiver
@@ -346,12 +345,18 @@ pub struct Tx<USART> {
 pub trait SerialExt<USART> {
     fn usart<PINS>(
         self,
-        pins: PINS,
+        _pins: PINS,
         config: config::Config,
         ccdr: &mut Ccdr,
-    ) -> Result<Serial<USART, PINS>, config::InvalidConfig>
+    ) -> Result<Serial<USART>, config::InvalidConfig>
     where
         PINS: Pins<USART>;
+
+    fn usart_unchecked(
+        self,
+        config: config::Config,
+        ccdr: &mut Ccdr,
+    ) -> Result<Serial<USART>, config::InvalidConfig>;
 }
 
 macro_rules! usart {
@@ -362,15 +367,12 @@ macro_rules! usart {
         $(
             /// Configures a USART peripheral to provide serial
             /// communication
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 pub fn $usartX(
                     usart: $USARTX,
-                    pins: PINS,
                     config: config::Config,
                     ccdr: &mut Ccdr,
                 ) -> Result<Self, config::InvalidConfig>
-                where
-                    PINS: Pins<$USARTX>,
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
                     use self::config::*;
@@ -446,7 +448,7 @@ macro_rules! usart {
                             })
                     });
 
-                    Ok(Serial { usart, pins })
+                    Ok(Serial { usart })
                 }
 
                 /// Starts listening for an interrupt event
@@ -504,28 +506,35 @@ macro_rules! usart {
                         },
                     )
                 }
-                /// Releases the USART peripheral and associated pins
-                pub fn release(self) -> ($USARTX, PINS) {
+                /// Releases the USART peripheral
+                pub fn release(self) -> $USARTX {
                     // Wait until both TXFIFO and shift register are empty
                     while self.usart.isr.read().tc().bit_is_clear() {}
 
-                    (self.usart, self.pins)
+                    self.usart
                 }
             }
 
             impl SerialExt<$USARTX> for $USARTX {
                 fn usart<PINS>(self,
-                               pins: PINS,
+                               _pins: PINS,
                                config: config::Config,
-                               ccdr: &mut Ccdr) -> Result<Serial<$USARTX, PINS>, config::InvalidConfig>
+                               ccdr: &mut Ccdr) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 where
                     PINS: Pins<$USARTX>
                 {
-                    Serial::$usartX(self, pins, config, ccdr)
+                    Serial::$usartX(self, config, ccdr)
+                }
+
+                fn usart_unchecked(self,
+                               config: config::Config,
+                               ccdr: &mut Ccdr) -> Result<Serial<$USARTX>, config::InvalidConfig>
+                {
+                    Serial::$usartX(self, config, ccdr)
                 }
             }
 
-            impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
+            impl serial::Read<u8> for Serial<$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -566,7 +575,7 @@ macro_rules! usart {
                 }
             }
 
-            impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
+            impl serial::Write<u8> for Serial<$USARTX> {
                 type Error = Never;
 
                 fn flush(&mut self) -> nb::Result<(), Never> {
@@ -584,7 +593,7 @@ macro_rules! usart {
                 }
             }
 
-            impl<PINS> serial_block::write::Default<u8> for Serial<$USARTX, PINS> {
+            impl serial_block::write::Default<u8> for Serial<$USARTX> {
                 //implement marker trait to opt-in to default blocking write implementation
             }
 
@@ -633,7 +642,7 @@ macro_rules! usart {
 macro_rules! usart16sel {
 	($($USARTX:ident,)+) => {
 	    $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock
                 /// for USART1 and 6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -654,7 +663,7 @@ macro_rules! usart16sel {
 macro_rules! usart234578sel {
 	($($USARTX:ident,)+) => {
 	    $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock
                 /// for USART2/3, UART4/5/7/8
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
