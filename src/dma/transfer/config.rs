@@ -38,6 +38,20 @@ where
         s
     }
 
+    pub fn from_stream_config(conf: StreamConfig, buffers: TransferBuffers<'wo, Peripheral, Memory>) -> Self {
+        let additional_config = conf.into();
+        let transfer_direction = match conf.transfer_direction {
+            TransferDirectionConf::P2M(_) => TransferDirection::P2M(PeripheralToMemory::new(buffers)),
+            TransferDirectionConf::M2P(_) => TransferDirection::M2P(MemoryToPeripheral::new(buffers)),
+            TransferDirectionConf::M2M(_) => TransferDirection::M2M(MemoryToMemory::new(buffers)),
+        };
+
+        Self {
+            transfer_direction,
+            additional_config,
+        }
+    }
+
     pub fn additional_config(&self) -> AdditionalConfig {
         self.additional_config
     }
@@ -528,6 +542,25 @@ where
 pub struct AdditionalConfig {
     pub transfer_mode: TransferModeTransferConf,
     pub flow_controller: FlowControllerTransferConf,
+}
+
+impl From<StreamConfig> for AdditionalConfig {
+    fn from(x: StreamConfig) -> Self {
+        match x.transfer_direction {
+            TransferDirectionConf::P2M(conf) | TransferDirectionConf::M2P(conf) => {
+                Self {
+                    transfer_mode: conf.transfer_mode.into(),
+                    flow_controller: conf.flow_controller.into()
+                }
+            }
+            TransferDirectionConf::M2M(conf) => {
+                Self {
+                    transfer_mode: TransferModeTransferConf::Fifo(conf.into()),
+                    flow_controller: FlowControllerTransferConf::Dma(CircularModeTransferConf::Disabled),
+                }
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

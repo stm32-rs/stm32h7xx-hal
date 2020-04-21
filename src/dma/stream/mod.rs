@@ -532,10 +532,14 @@ where
 {
     /// Sets the Memory-0 Address on the fly
     ///
+    /// # Safety
+    ///
+    /// Aliasing rules aren't enforced.
+    ///
     /// # Panic
     ///
     /// This panics if the stream is not in Double Buffer Mode.
-    pub fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), Infallible> {
+    pub unsafe fn set_m0a(&mut self, m0a: M0a) -> nb::Result<(), Infallible> {
         self.check_double_buffer();
 
         if self.current_target() == CurrentTarget::M0a && self.is_enabled() {
@@ -549,10 +553,14 @@ where
 
     /// Sets the Memory-1 Address on the fly
     ///
+    /// # Safety
+    ///
+    /// Aliasing rules aren't enforced.
+    ///
     /// # Panic
     ///
     /// This panics if the stream is not in Double Buffer Mode.
-    pub fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), Infallible> {
+    pub unsafe fn set_m1a(&mut self, m1a: M1a) -> nb::Result<(), Infallible> {
         self.check_double_buffer();
 
         if self.current_target() == CurrentTarget::M1a && self.is_enabled() {
