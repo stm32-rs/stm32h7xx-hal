@@ -166,6 +166,7 @@ impl Config {
         self
     }
 
+    /// CS pin is automatically managed by the SPI peripheral.
     pub fn manage_cs(mut self) -> Self {
         self.managed_cs = true;
         self
