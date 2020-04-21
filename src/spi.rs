@@ -74,6 +74,7 @@ pub struct Config {
     swap_miso_mosi: bool,
     cs_delay: f32,
     frame_size: u8,
+    cs_managed: bool,
 }
 
 impl Config {
@@ -87,6 +88,7 @@ impl Config {
             swap_miso_mosi: false,
             cs_delay: 0.0,
             frame_size: 8_u8,
+            cs_managed: false,
         }
     }
 
@@ -127,6 +129,13 @@ impl Config {
     pub fn freeze(&self) -> Self {
         *self
     }
+
+    /// CS pin is automatically managed by the SPI peripheral.
+    pub fn managed_cs(&mut self) -> &mut Self {
+        self.cs_managed = true;
+        self
+    }
+
 }
 
 impl From<Mode> for Config {
@@ -287,7 +296,7 @@ pub enum Event {
 
 #[derive(Debug)]
 pub struct Spi<SPI, PINS> {
-    spi: SPI,
+    pub spi: SPI,
     pins: PINS,
 }
 
@@ -380,8 +389,7 @@ macro_rules! spi {
                             .master()
                             .lsbfrst()
                             .msbfirst()
-                            .ssm()
-                            .enabled()
+                            .ssm().bit(config.cs_managed == false)
                             .mssi().bits(cycle_delay as u8)
                             .ioswp().bit(config.swap_miso_mosi == true)
                             .comm()

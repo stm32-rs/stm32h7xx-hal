@@ -256,7 +256,7 @@ macro_rules! hal {
                             self.tim.dier.modify(|_, w| w.uie().clear_bit());
                         },
                         Event::DmaRequest => {
-                            self.tim.dier.modify(|_, w| w.ude().set_bit());
+                            self.tim.dier.modify(|_, w| w.ude().clear_bit());
                         }
                     }
                 }
