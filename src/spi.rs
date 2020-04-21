@@ -401,13 +401,25 @@ macro_rules! spi {
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                         // Calculate the CS->transaction cycle delay bits.
-                        let mut cycle_delay = (config.cs_delay * spi_freq as f32) as u32;
+                        let cycle_delay: u8 = {
+                            let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+
+                            // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                            // before truncation to an integer to ensure that we have at least as
+                            // many cycles as required.
+                            if config.cs_delay > 0.0_f32 {
+                                delay = delay + 1;
+                            }
+
+                            if delay > 0xF {
+                                delay = 0xF;
+                            }
+
+                            delay as u8
+                        };
 
                         // The calculated cycle delay may not be more than 4 bits wide for the
                         // configuration register.
-                        if cycle_delay > 0xF {
-                            cycle_delay = 0xF;
-                        }
 
                         // mstr: master configuration
                         // lsbfrst: MSB first
@@ -424,7 +436,7 @@ macro_rules! spi {
                              .ssm()
                                 .bit(config.managed_cs == false)
                              .mssi()
-                                .bits(cycle_delay as u8)
+                                .bits(cycle_delay)
                              .ioswp()
                                 .bit(config.swap_miso_mosi == true)
                              .comm()
