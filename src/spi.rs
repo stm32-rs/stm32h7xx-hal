@@ -331,7 +331,7 @@ pub enum Event {
 
 #[derive(Debug)]
 pub struct Spi<SPI> {
-    pub spi: SPI,
+    spi: SPI,
 }
 
 pub trait SpiExt<SPI>: Sized {
