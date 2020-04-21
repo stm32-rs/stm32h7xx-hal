@@ -2,21 +2,337 @@
 
 pub mod request_gen;
 
-use self::request_gen::{
-    Disabled as GenDisabled, Enabled as GenEnabled, GNbReq, GPol, GenId,
-    RequestGenIsr, SigId, TriggerOverrunError, TriggerOverrunInterrupt,
-    ED as GenED,
-};
-use crate::stm32::dmamux1::{CFR, CSR, RGCR};
-use core::convert::TryInto;
+use self::request_gen::RequestGenIsr;
+use self::request_ids::{ReqNone, RequestId as IRequestId, RequestIdSome};
+use super::ChannelId;
+use crate::stm32::dmamux1::{CCR, CFR, CSR};
+use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 
-type_state! {
-    SyncED, SyncDisabled, SyncEnabled
+pub use self::request_gen::RequestGenerator;
+
+/// DMA Mux
+pub struct Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+    /// This field *must not* be mutated using shared references
+    rb: &'static mut CCR,
+    req_id: ReqId,
+    _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
+}
+
+impl<CXX> Mux<CXX, ReqNone, SyncDisabled, EgDisabled>
+where
+    CXX: ChannelId,
+{
+    /// Creates an instance of a DMA Mux in initial state.
+    ///
+    /// Should only be called after RCC-reset of the DMA.
+    pub(super) fn after_reset(rb: &'static mut CCR) -> Self {
+        Mux {
+            rb,
+            req_id: ReqNone,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<CXX, ReqId, SyncED, EgED> Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+    /// Returns the id of the DMA Mux
+    pub fn id(&self) -> usize {
+        CXX::MUX_ID
+    }
+
+    /// Returns the request id assigned to this Mux
+    pub fn request_id(&self) -> RequestId {
+        debug_assert_eq!(
+            ReqId::REQUEST_ID,
+            RequestId::try_from(self.rb.read().dmareq_id().bits()).unwrap(),
+            "DmaMux is in invalid state, because \
+            `ReqId::REQUEST_ID` ({:?}) != Volatile request id ({:?})",
+            ReqId::REQUEST_ID,
+            RequestId::try_from(self.rb.read().dmareq_id().bits()).unwrap(),
+        );
+
+        ReqId::REQUEST_ID
+    }
+
+    /// Returns the Sync Overrun Interrupt config flag
+    pub fn sync_overrun_interrupt(&self) -> SyncOverrunInterrupt {
+        self.rb.read().soie().bit().into()
+    }
+
+    /// Sets the Sync Overrun Interrupt config flag
+    pub fn set_sync_overrun_interrupt(
+        &mut self,
+        sync_overrun_intrpt: SyncOverrunInterrupt,
+    ) {
+        self.rb
+            .modify(|_, w| w.soie().bit(sync_overrun_intrpt.into()));
+    }
+
+    /// Returns the Synchronization Polarity
+    pub fn sync_polarity(&self) -> SyncPolarity {
+        self.rb.read().spol().bits().try_into().unwrap()
+    }
+
+    /// Sets the Synchronization Polarity
+    pub fn set_sync_polarity(&mut self, sync_polarity: SyncPolarity) {
+        self.rb.modify(|_, w| w.spol().bits(sync_polarity.into()));
+    }
+
+    /// Returns the number of requests
+    pub fn nbreq(&self) -> NbReq {
+        self.rb.read().nbreq().bits().try_into().unwrap()
+    }
+
+    /// Returns the Synchronization ID
+    pub fn sync_id(&self) -> SyncId {
+        self.rb.read().sync_id().bits().try_into().unwrap()
+    }
+
+    /// Sets the Synchronization ID
+    pub fn set_sync_id(&mut self, sync_id: SyncId) {
+        unsafe {
+            self.rb.modify(|_, w| w.sync_id().bits(sync_id.into()));
+        }
+    }
+
+    /// Performs the request id write
+    fn set_req_id_impl(&mut self, request_id: RequestId) {
+        unsafe {
+            self.rb.modify(|_, w| w.dmareq_id().bits(request_id.into()));
+        }
+    }
+
+    /// Transmutes the state of the DMA Mux
+    fn transmute<NewSyncED, NewEgED>(
+        self,
+    ) -> Mux<CXX, ReqId, NewSyncED, NewEgED>
+    where
+        NewSyncED: ISyncED,
+        NewEgED: IEgED,
+    {
+        Mux {
+            rb: self.rb,
+            req_id: self.req_id,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<CXX, ReqId> Mux<CXX, ReqId, SyncDisabled, EgDisabled>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+{
+    /// Sets the number of requests
+    pub fn set_nbreq(&mut self, nbreq: NbReq) {
+        self.rb.modify(|_, w| w.nbreq().bits(nbreq.into()));
+    }
+}
+
+impl<CXX, ReqId, EgED> Mux<CXX, ReqId, SyncDisabled, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    EgED: IEgED,
+{
+    /// Enables synchronization
+    pub fn enable_sync(self) -> Mux<CXX, ReqId, SyncEnabled, EgED> {
+        self.rb.modify(|_, w| w.se().set_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, EgED> Mux<CXX, ReqId, SyncEnabled, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    EgED: IEgED,
+{
+    /// Disables synchronization
+    pub fn disable_sync(self) -> Mux<CXX, ReqId, SyncDisabled, EgED> {
+        self.rb.modify(|_, w| w.se().clear_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, SyncED> Mux<CXX, ReqId, SyncED, EgDisabled>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+{
+    /// Enables event generation
+    pub fn enable_event_gen(self) -> Mux<CXX, ReqId, SyncED, EgEnabled> {
+        self.rb.modify(|_, w| w.ege().set_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, ReqId, SyncED> Mux<CXX, ReqId, SyncED, EgEnabled>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+{
+    /// Disables event generation
+    pub fn disable_event_gen(self) -> Mux<CXX, ReqId, SyncED, EgDisabled> {
+        self.rb.modify(|_, w| w.ege().clear_bit());
+
+        self.transmute()
+    }
+}
+
+impl<CXX, SyncED, EgED> Mux<CXX, ReqNone, SyncED, EgED>
+where
+    CXX: ChannelId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+    /// Sets request id
+    pub fn set_req_id<NewReqId>(
+        mut self,
+        req_id: NewReqId,
+    ) -> Mux<CXX, NewReqId, SyncED, EgED>
+    where
+        NewReqId: RequestIdSome,
+    {
+        self.set_req_id_impl(NewReqId::REQUEST_ID);
+
+        Mux {
+            req_id,
+            rb: self.rb,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<CXX, ReqId, SyncED, EgED> Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: RequestIdSome,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+    /// Unsets request id, defaulting to `ReqNone` and returning the old one
+    pub fn unset_req_id(mut self) -> (Mux<CXX, ReqNone, SyncED, EgED>, ReqId) {
+        self.set_req_id_impl(ReqNone::REQUEST_ID);
+
+        let old_req_id = self.req_id;
+        let new_dma_mux = Mux {
+            rb: self.rb,
+            req_id: ReqNone,
+            _phantom_data: PhantomData,
+        };
+
+        (new_dma_mux, old_req_id)
+    }
+
+    /// Replaces the request id
+    pub fn replace_req_id<NewReqId>(
+        mut self,
+        req_id: NewReqId,
+    ) -> (Mux<CXX, NewReqId, SyncED, EgED>, ReqId)
+    where
+        NewReqId: RequestIdSome,
+    {
+        self.set_req_id_impl(NewReqId::REQUEST_ID);
+
+        let old_req_id = self.req_id;
+        let new_dma_mux = Mux {
+            req_id,
+            rb: self.rb,
+            _phantom_data: PhantomData,
+        };
+
+        (new_dma_mux, old_req_id)
+    }
+}
+
+impl<CXX, ReqId, SyncED, EgED> Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+    /// Checks the ISR for errors
+    pub fn check_isr(&self, mux_isr: &MuxIsr) -> Result<(), OverrunError> {
+        if self.is_sync_overrun(mux_isr) {
+            Err(OverrunError)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Returns the Sync Overrun flag
+    pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
+        mux_isr.csr.read().sof0().bit_is_set()
+    }
+
+    /// Clears the ISR
+    pub fn clear_isr(&self, mux_isr: &mut MuxIsr) {
+        match self.id() {
+            0 => mux_isr.cfr.write(|w| w.csof0().set_bit()),
+            1 => mux_isr.cfr.write(|w| w.csof1().set_bit()),
+            2 => mux_isr.cfr.write(|w| w.csof2().set_bit()),
+            3 => mux_isr.cfr.write(|w| w.csof3().set_bit()),
+            4 => mux_isr.cfr.write(|w| w.csof4().set_bit()),
+            5 => mux_isr.cfr.write(|w| w.csof5().set_bit()),
+            6 => mux_isr.cfr.write(|w| w.csof6().set_bit()),
+            7 => mux_isr.cfr.write(|w| w.csof7().set_bit()),
+            8 => mux_isr.cfr.write(|w| w.csof8().set_bit()),
+            9 => mux_isr.cfr.write(|w| w.csof9().set_bit()),
+            10 => mux_isr.cfr.write(|w| w.csof10().set_bit()),
+            11 => mux_isr.cfr.write(|w| w.csof11().set_bit()),
+            12 => mux_isr.cfr.write(|w| w.csof12().set_bit()),
+            13 => mux_isr.cfr.write(|w| w.csof13().set_bit()),
+            14 => mux_isr.cfr.write(|w| w.csof14().set_bit()),
+            15 => mux_isr.cfr.write(|w| w.csof15().set_bit()),
+            _ => unreachable!(),
+        }
+    }
+}
+
+unsafe impl<CXX, ReqId, SyncED, EgED> Send for Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
+}
+
+unsafe impl<CXX, ReqId, SyncED, EgED> Sync for Mux<CXX, ReqId, SyncED, EgED>
+where
+    CXX: ChannelId,
+    ReqId: IRequestId,
+    SyncED: ISyncED,
+    EgED: IEgED,
+{
 }
 
 type_state! {
-    EgED, EgDisabled, EgEnabled
+    ISyncED, SyncDisabled, SyncEnabled
+}
+
+type_state! {
+    IEgED, EgDisabled, EgEnabled
 }
 
 bool_enum! {
@@ -260,164 +576,18 @@ impl MuxShared {
 }
 
 pub struct MuxIsr {
-    pub(super) csr: &'static CSR,
+    csr: &'static CSR,
     /// This field *must not* be mutated using shared references
-    pub(super) cfr: &'static CFR,
+    cfr: &'static mut CFR,
+}
+
+impl MuxIsr {
+    pub(super) fn new(csr: &'static CSR, cfr: &'static mut CFR) -> Self {
+        Self { csr, cfr }
+    }
 }
 
 unsafe impl Send for MuxIsr {}
 unsafe impl Sync for MuxIsr {}
 
 pub struct OverrunError;
-
-pub struct RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
-{
-    /// This field *must not* be mutated using shared references
-    rb: &'static RGCR,
-    _phantom_data: PhantomData<(GXX, ED)>,
-}
-
-impl<GXX> RequestGenerator<GXX, GenDisabled>
-where
-    GXX: GenId,
-{
-    pub(super) fn after_reset(rb: &'static RGCR) -> Self {
-        RequestGenerator {
-            rb,
-            _phantom_data: PhantomData,
-        }
-    }
-}
-
-impl<GXX, ED> RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
-{
-    pub fn id(&self) -> usize {
-        GXX::ID
-    }
-
-    pub fn sig_id(&self) -> SigId {
-        self.rb.read().sig_id().bits().try_into().unwrap()
-    }
-
-    pub fn set_sig_id(&mut self, sig_id: SigId) {
-        unsafe {
-            self.rb.modify(|_, w| w.sig_id().bits(sig_id.into()));
-        }
-    }
-
-    pub fn overrun_interrupt(&self) -> TriggerOverrunInterrupt {
-        self.rb.read().oie().bit().into()
-    }
-
-    pub fn set_trigger_overrun_interrupt(
-        &mut self,
-        overrun_intrpt: TriggerOverrunInterrupt,
-    ) {
-        self.rb.modify(|_, w| w.oie().bit(overrun_intrpt.into()));
-    }
-
-    pub fn gpol(&self) -> GPol {
-        self.rb.read().gpol().bits().try_into().unwrap()
-    }
-
-    pub fn set_gpol(&mut self, gpol: GPol) {
-        self.rb.modify(|_, w| w.gpol().bits(gpol.into()));
-    }
-
-    pub fn gnbreq(&self) -> GNbReq {
-        self.rb.read().gnbreq().bits().try_into().unwrap()
-    }
-
-    fn transmute<NewED>(self) -> RequestGenerator<GXX, NewED>
-    where
-        NewED: GenED,
-    {
-        RequestGenerator {
-            rb: self.rb,
-            _phantom_data: PhantomData,
-        }
-    }
-}
-
-impl<GXX> RequestGenerator<GXX, GenDisabled>
-where
-    GXX: GenId,
-{
-    pub fn set_gnbreq(&mut self, gnbreq: GNbReq) {
-        self.rb.modify(|_, w| w.gnbreq().bits(gnbreq.into()));
-    }
-
-    pub fn enable(self) -> RequestGenerator<GXX, GenEnabled> {
-        self.rb.modify(|_, w| w.ge().set_bit());
-
-        self.transmute()
-    }
-}
-
-impl<GXX> RequestGenerator<GXX, GenEnabled>
-where
-    GXX: GenId,
-{
-    pub fn disable(self) -> RequestGenerator<GXX, GenDisabled> {
-        self.rb.modify(|_, w| w.ge().clear_bit());
-
-        self.transmute()
-    }
-}
-
-impl<GXX, ED> RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
-{
-    pub fn check_isr(
-        &self,
-        isr: &RequestGenIsr,
-    ) -> Result<(), TriggerOverrunError> {
-        if self.trigger_overrun_flag(isr) {
-            Err(TriggerOverrunError)
-        } else {
-            Ok(())
-        }
-    }
-    pub fn trigger_overrun_flag(&self, isr: &RequestGenIsr) -> bool {
-        match self.id() {
-            0 => isr.rgsr.read().of0().bit_is_set(),
-            1 => isr.rgsr.read().of1().bit_is_set(),
-            2 => isr.rgsr.read().of2().bit_is_set(),
-            3 => isr.rgsr.read().of3().bit_is_set(),
-            4 => isr.rgsr.read().of4().bit_is_set(),
-            5 => isr.rgsr.read().of5().bit_is_set(),
-            6 => isr.rgsr.read().of6().bit_is_set(),
-            7 => isr.rgsr.read().of7().bit_is_set(),
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn clear_isr(&self, isr: &mut RequestGenIsr) {
-        match self.id() {
-            0 => isr.rgcfr.write(|w| w.cof0().set_bit()),
-            1 => isr.rgcfr.write(|w| w.cof1().set_bit()),
-            2 => isr.rgcfr.write(|w| w.cof2().set_bit()),
-            3 => isr.rgcfr.write(|w| w.cof3().set_bit()),
-            4 => isr.rgcfr.write(|w| w.cof4().set_bit()),
-            5 => isr.rgcfr.write(|w| w.cof5().set_bit()),
-            6 => isr.rgcfr.write(|w| w.cof6().set_bit()),
-            7 => isr.rgcfr.write(|w| w.cof7().set_bit()),
-            _ => unreachable!(),
-        }
-    }
-}
-
-unsafe impl<GXX, ED> Sync for RequestGenerator<GXX, ED>
-where
-    GXX: GenId,
-    ED: GenED,
-{
-}

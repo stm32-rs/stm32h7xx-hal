@@ -12,7 +12,7 @@ use crate::dma::transfer::{
     FixedBuffer, FixedBufferR, MemoryBufferStatic, Ongoing as TransferOngoing,
     Payload, PeripheralBuffer, Start as TransferStart,
 };
-use crate::dma::{Channel, ChannelId, DmaMux, SafeTransfer};
+use crate::dma::{Channel, ChannelId, Mux, SafeTransfer};
 use crate::stm32::{UART4, UART5, UART7, UART8};
 use crate::stm32::{USART1, USART2, USART3, USART6};
 use core::ops::Deref;
@@ -119,7 +119,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    mux: DmaMux<CXX, ReqId, SyncED, EgED>,
+    mux: Mux<CXX, ReqId, SyncED, EgED>,
     transfer: SafeTransfer<'static, Peripheral, Memory, TransferOngoing<CXX>>,
 }
 
@@ -306,7 +306,7 @@ where
         &mut self.state.transfer
     }
 
-    pub fn mux(&self) -> &DmaMux<CXX, USART::Rx, SyncED, EgED> {
+    pub fn mux(&self) -> &Mux<CXX, USART::Rx, SyncED, EgED> {
         &self.state.mux
     }
 
