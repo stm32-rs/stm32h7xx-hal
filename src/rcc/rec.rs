@@ -70,6 +70,7 @@ macro_rules! peripheral_reset_and_enable_control {
         paste::item! {
             /// Peripheral Reset and Enable Control
             #[allow(non_snake_case)]
+            #[non_exhaustive]
             pub struct PeripheralREC {
                 $(
                     $(
@@ -78,11 +79,6 @@ macro_rules! peripheral_reset_and_enable_control {
                         pub [< $p:upper >]: $p,
                     )*
                 )+
-
-                // Private field making `Peripherals` non-exhaustive. We
-                // don't use `#[non_exhaustive]` so we can support older
-                // Rust versions.
-                _priv: (),
             }
             impl PeripheralREC {
                 /// Return a new instance of the peripheral resets /
@@ -102,7 +98,6 @@ macro_rules! peripheral_reset_and_enable_control {
                                 },
                             )*
                         )+
-                            _priv: (),
                     }
                 }
             }
