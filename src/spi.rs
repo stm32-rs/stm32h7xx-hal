@@ -404,6 +404,9 @@ macro_rules! spi {
                             .bits(config.frame_size - 1)
                     });
 
+                    // Each transaction is 1 word in size.
+                    spi.cr2.write(|w| w.tsize().bits(1));
+
                     // ssi: select slave = master mode
                     spi.cr1.write(|w| w.ssi().slave_not_selected());
 
@@ -439,6 +442,8 @@ macro_rules! spi {
                             .master()
                          .lsbfrst()
                             .msbfirst()
+                         .ssoe()
+                            .bit(config.managed_cs == true)
                          .ssm()
                             .bit(config.managed_cs == false)
                          .mssi()
