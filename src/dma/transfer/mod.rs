@@ -4,7 +4,7 @@ pub mod buffer;
 pub mod config;
 
 use self::buffer::MemoryBufferType;
-use super::stream::config::{MSize, PSize, TransferDirectionConf};
+use super::stream::config::{MSize, PSize};
 use super::stream::{
     Disabled, Enabled, Error as StreamError, IsrCleared, IsrUncleared,
     StreamIsr,

@@ -55,10 +55,7 @@ where
             }
         };
 
-        Self {
-            transfer_direction,
-            additional_config,
-        }
+        Self::new(transfer_direction, additional_config)
     }
 
     pub fn additional_config(&self) -> AdditionalConfig {
