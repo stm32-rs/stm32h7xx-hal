@@ -135,23 +135,27 @@ pins! {
 }
 
 /// Hardware quadrature encoder interface peripheral
-pub struct Qei<TIM, PINS> {
+pub struct Qei<TIM> {
     tim: TIM,
-    pins: PINS,
+}
+
+pub trait QeiExt<TIM> {
+    fn qei<PINS>(self, _pins: PINS, ccdr: &mut Ccdr) -> Qei<TIM>
+    where
+        PINS: Pins<TIM>;
+
+    fn qei_unchecked(self, ccdr: &mut Ccdr) -> Qei<TIM>;
 }
 
 macro_rules! tim_hal {
     ($($TIM:ident: ($tim:ident, $apb:ident, $timXen:ident, $timXrst:ident, $bits:ident),)+) => {
         $(
-            impl<PINS> Qei<$TIM, PINS> {
+            impl Qei<$TIM> {
                 /// Configures a TIM peripheral as a quadrature
                 /// encoder interface input
                 pub fn $tim(tim: $TIM,
-                            pins: PINS,
                             ccdr: &mut Ccdr,
                 ) -> Self
-                where
-                    PINS: Pins<$TIM>
                 {
                     // enable and reset peripheral to a clean slate
                     // state
@@ -186,16 +190,26 @@ macro_rules! tim_hal {
                     tim.arr.write(|w| unsafe { w.bits(core::u32::MAX) });
                     tim.cr1.write(|w| w.cen().set_bit());
 
-                    Qei { tim, pins }
+                    Qei { tim }
                 }
 
-                /// Releases the TIM peripheral and QEI pins
-                pub fn release(self) -> ($TIM, PINS) {
-                    (self.tim, self.pins)
+                /// Releases the TIM peripheral
+                pub fn release(self) -> $TIM {
+                    self.tim
                 }
             }
 
-            impl<PINS> hal::Qei for Qei<$TIM, PINS> {
+            impl QeiExt<$TIM> for $TIM {
+                fn qei<PINS>(self, _pins: PINS, ccdr: &mut Ccdr) -> Qei<$TIM> {
+                    Qei::$tim(self, ccdr)
+                }
+
+                fn qei_unchecked(self, ccdr: &mut Ccdr) -> Qei<$TIM> {
+                    Qei::$tim(self, ccdr)
+                }
+            }
+
+            impl hal::Qei for Qei<$TIM> {
                 type Count = $bits;
 
                 fn count(&self) -> $bits {
