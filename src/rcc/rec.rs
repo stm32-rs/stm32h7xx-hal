@@ -64,7 +64,7 @@ macro_rules! peripheral_reset_and_enable_control {
         $(
             $( #[ $pmeta:meta ] )*
                 $p:ident
-            $( kernel$(($Variant:ident))* $ccip:ident $clk_doc:expr )*
+            $( kernel_clk: $(($Variant:ident))* $ccip:ident $clk_doc:expr )*
         ),*
     ];)+) => {
         paste::item! {
@@ -227,8 +227,8 @@ peripheral_reset_and_enable_control! {
     ];
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
         Sdmmc1,
-        Qspi kernel d1ccip "QUADSPI kernel clock source selection",
-        Fmc kernel d1ccip "FMC kernel clock source selection",
+        Qspi kernel_clk: d1ccip "QUADSPI kernel clock source selection",
+        Fmc kernel_clk: d1ccip "FMC kernel clock source selection",
         Jpgdec, Dma2d, Mdma
     ];
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
@@ -239,13 +239,13 @@ peripheral_reset_and_enable_control! {
         #[cfg(any(feature = "singlecore"))] Cec // TODO remove gate
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan kernel(Variant) d2ccip1 "FDCAN kernel clock source selection",
-        Swp kernel d2ccip1 "SWPMI kernel clock source selection",
+        Fdcan kernel_clk: (Variant) d2ccip1 "FDCAN kernel clock source selection",
+        Swp kernel_clk: d2ccip1 "SWPMI kernel clock source selection",
         Crs, Mdios, Opamp
     ];
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
         Hrtim,
-        Dfsdm1 kernel d2ccip1 "DFSDM1 kernel Clk source selection"
+        Dfsdm1 kernel_clk: d2ccip1 "DFSDM1 kernel Clk source selection"
     ];
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc
