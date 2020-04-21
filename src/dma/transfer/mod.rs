@@ -5,7 +5,10 @@ pub mod config;
 
 use self::buffer::MemoryBufferType;
 use super::stream::config::{MSize, PSize, TransferDirectionConf};
-use super::stream::{Disabled, Enabled, IsrCleared, IsrUncleared, StreamIsr, Error as StreamError};
+use super::stream::{
+    Disabled, Enabled, Error as StreamError, IsrCleared, IsrUncleared,
+    StreamIsr,
+};
 use super::{ChannelId, Stream};
 use crate::{nb, private};
 use core::fmt::Debug;
@@ -64,7 +67,8 @@ where
     }
 }
 
-impl<'wo, Peripheral, Memory, CXX> Transfer<'wo, Ongoing<'wo, Peripheral, Memory, CXX>>
+impl<'wo, Peripheral, Memory, CXX>
+    Transfer<'wo, Ongoing<'wo, Peripheral, Memory, CXX>>
 where
     Peripheral: Payload,
     Memory: Payload,
@@ -78,34 +82,58 @@ where
         &mut self.state.stream
     }
 
-    pub fn wait_until_completed(&self, isr: &StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_completed(
+        &self,
+        isr: &StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_completed(isr)
     }
 
-    pub fn wait_until_completed_clear(&self, isr: &mut StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_completed_clear(
+        &self,
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_completed_clear(isr)
     }
 
-    pub fn wait_until_half_transfer(&self, isr: &StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_half_transfer(
+        &self,
+        isr: &StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_half_transfer(isr)
     }
 
-    pub fn wait_until_half_transfer_clear(&self, isr: &mut StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_half_transfer_clear(
+        &self,
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_half_transfer_clear(isr)
     }
 
-    pub fn wait_until_next_half(&self, isr: &StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_next_half(
+        &self,
+        isr: &StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_next_half(isr)
     }
 
-    pub fn wait_until_next_half_clear(&self, isr: &mut StreamIsr<CXX::DMA>) -> nb::Result<(), StreamError> {
+    pub fn wait_until_next_half_clear(
+        &self,
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> nb::Result<(), StreamError> {
         self.state.stream.wait_until_next_half_clear(isr)
     }
 
-    pub fn stop(self) -> (Transfer<'wo, Start<'wo, Peripheral, Memory>>, Stream<CXX, Disabled, IsrUncleared>) {
+    pub fn stop(
+        self,
+    ) -> (
+        Transfer<'wo, Start<'wo, Peripheral, Memory>>,
+        Stream<CXX, Disabled, IsrUncleared>,
+    ) {
         let stream = self.state.stream.disable();
 
-        let conf = Config::from_stream_config(stream.config(), self.state.buffers);
+        let conf =
+            Config::from_stream_config(stream.config(), self.state.buffers);
         let transfer = Transfer {
             state: Start { conf },
             _phantom: PhantomData,
@@ -362,10 +390,6 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    /// # Args
-    ///
-    /// * `peripheral_buffer`: Usually `Buffer::Peripheral`, except for `M2M`-transfers (Memory to Memory), where the source buffer is `Buffer::Memory`.
-    /// * `memory_buffer`: The `MemoryBuffer` of the transfer.
     pub fn new(buffers: Buffers<'wo, Peripheral, Memory>) -> Self {
         let s = Self { buffers };
 
