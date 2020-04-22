@@ -98,6 +98,14 @@ where
 {
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum CommunicationMode {
+    FullDuplex = 0,
+    Transmitter = 1,
+    Receiver = 2,
+    HalfDuplex = 3,
+}
+
 /// A structure for specifying SPI configuration.
 ///
 /// This structure uses builder semantics to generate the configuration.
@@ -116,6 +124,7 @@ pub struct Config {
     cs_delay: f32,
     frame_size: u8,
     managed_cs: bool,
+    communication_mode: CommunicationMode,
 }
 
 impl Config {
@@ -130,6 +139,7 @@ impl Config {
             cs_delay: 0.0,
             frame_size: 8_u8,
             managed_cs: false,
+            communication_mode: CommunicationMode::FullDuplex,
         }
     }
 
@@ -169,6 +179,11 @@ impl Config {
     /// CS pin is automatically managed by the SPI peripheral.
     pub fn manage_cs(mut self) -> Self {
         self.managed_cs = true;
+        self
+    }
+
+    pub fn communication_mode(mut self, comms: CommunicationMode) -> Self {
+        self.communication_mode = comms;
         self
     }
 }
@@ -331,7 +346,7 @@ pub enum Event {
 
 #[derive(Debug)]
 pub struct Spi<SPI> {
-    spi: SPI,
+    pub spi: SPI,
 }
 
 pub trait SpiExt<SPI>: Sized {
@@ -451,7 +466,7 @@ macro_rules! spi {
                          .ioswp()
                             .bit(config.swap_miso_mosi == true)
                          .comm()
-                            .full_duplex()
+                            .bits(config.communication_mode as u8)
                     });
 
                     // spe: enable the SPI bus

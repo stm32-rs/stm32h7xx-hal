@@ -146,6 +146,8 @@ macro_rules! hal {
                     // Set PSC and ARR
                     self.set_freq(timeout);
 
+                    self.tim.egr.write(|w| w.ug().set_bit());
+
                     // Start counter
                     self.resume()
                 }
