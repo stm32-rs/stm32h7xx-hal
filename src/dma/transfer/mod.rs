@@ -6,7 +6,7 @@ pub mod config;
 use self::buffer::MemoryBufferType;
 use super::stream::config::{MSize, PSize};
 use super::stream::{
-    Disabled, Enabled, Error as StreamError, IsrCleared, IsrUncleared,
+    Disabled, Enabled, Error as StreamError, Event, IsrCleared, IsrUncleared,
     StreamIsr,
 };
 use super::{ChannelId, Stream};
@@ -82,6 +82,13 @@ where
         &mut self.state.stream
     }
 
+    pub fn check_isr(
+        &self,
+        isr: &StreamIsr<CXX::DMA>,
+    ) -> Result<Option<Event>, StreamError> {
+        self.state.stream.check_isr(isr)
+    }
+
     pub fn wait_until_completed(
         &self,
         isr: &StreamIsr<CXX::DMA>,
@@ -124,6 +131,50 @@ where
         self.state.stream.wait_until_next_half_clear(isr)
     }
 
+    pub fn current_peripheral_index_(&self) -> Option<usize> {
+        match &self.state.buffers.peripheral_buffer {
+            Buffer::Fixed(_) => None,
+            Buffer::Incremented(buffer) => {
+                let ndt = u16::from(self.state.stream.ndt()) as usize;
+
+                if ndt == 0 {
+                    None
+                } else {
+                    Some(buffer.len() - ndt)
+                }
+            }
+        }
+    }
+
+    pub fn current_memory_index(&self) -> Option<usize> {
+        match &self.state.buffers.memory_buffer.m0a().get() {
+            Buffer::Fixed(_) => None,
+            Buffer::Incremented(buffer) => {
+                let ndt = u16::from(self.state.stream.ndt()) as usize;
+                let p_size: usize =
+                    PayloadSize::from_payload::<Peripheral>().into();
+                let m_size: usize =
+                    PayloadSize::from_payload::<Memory>().into();
+
+                let ndt_bytes = ndt * p_size;
+
+                let remaining_memory_items;
+
+                if ndt_bytes % m_size == 0 {
+                    remaining_memory_items = ndt_bytes / m_size;
+                } else {
+                    remaining_memory_items = ndt_bytes / m_size + 1;
+                }
+
+                if ndt == 0 {
+                    None
+                } else {
+                    Some(buffer.len() - remaining_memory_items)
+                }
+            }
+        }
+    }
+
     pub fn stop(
         self,
     ) -> (
@@ -140,6 +191,29 @@ where
         };
 
         (transfer, stream)
+    }
+}
+
+impl<'wo, State> Transfer<'wo, State>
+where
+    State: TransferState<'wo>,
+{
+    pub fn buffers(&self) -> &Buffers<'wo, State::Peripheral, State::Memory> {
+        self.state.buffers()
+    }
+
+    pub fn buffers_mut<F>(&mut self, op: F)
+    where
+        for<'a> F:
+            FnOnce(&'a mut Buffers<'wo, State::Peripheral, State::Memory>),
+    {
+        self.state.buffers_mut(op);
+    }
+
+    pub unsafe fn buffers_mut_unchecked(
+        &mut self,
+    ) -> &mut Buffers<'wo, State::Peripheral, State::Memory> {
+        self.state.buffers_mut_unchecked()
     }
 }
 
