@@ -131,7 +131,7 @@ where
         self.state.stream.wait_until_next_half_clear(isr)
     }
 
-    pub fn current_peripheral_index_(&self) -> Option<usize> {
+    pub fn current_peripheral_index(&self) -> Option<usize> {
         match &self.state.buffers.peripheral_buffer {
             Buffer::Fixed(_) => None,
             Buffer::Incremented(buffer) => {
@@ -151,6 +151,11 @@ where
             Buffer::Fixed(_) => None,
             Buffer::Incremented(buffer) => {
                 let ndt = u16::from(self.state.stream.ndt()) as usize;
+
+                if ndt == 0 {
+                    return None;
+                }
+
                 let p_size: usize =
                     PayloadSize::from_payload::<Peripheral>().into();
                 let m_size: usize =
@@ -166,11 +171,7 @@ where
                     remaining_memory_items = ndt_bytes / m_size + 1;
                 }
 
-                if ndt == 0 {
-                    None
-                } else {
-                    Some(buffer.len() - remaining_memory_items)
-                }
+                Some(buffer.len() - remaining_memory_items)
             }
         }
     }
