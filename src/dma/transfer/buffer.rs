@@ -609,6 +609,18 @@ where
     }
 }
 
+impl<Memory: Payload> AsRef<Buffer<'static, Memory>> for MemoryBuffer<Memory> {
+    fn as_ref(&self) -> &Buffer<'static, Memory> {
+        &self.buffer
+    }
+}
+
+impl<Memory: Payload> From<MemoryBuffer<Memory>> for Buffer<'static, Memory> {
+    fn from(x: MemoryBuffer<Memory>) -> Self {
+        x.buffer
+    }
+}
+
 #[derive(Debug, EnumAsInner)]
 pub enum MemoryBufferType<Memory>
 where

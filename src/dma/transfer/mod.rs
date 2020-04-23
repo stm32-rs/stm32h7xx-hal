@@ -147,17 +147,15 @@ pub trait TransferState<'wo>: Send + Sync + private::Sealed {
     type Peripheral: Payload;
     type Memory: Payload;
 
-    fn buffers(&self) -> &TransferBuffers<'wo, Self::Peripheral, Self::Memory>;
+    fn buffers(&self) -> &Buffers<'wo, Self::Peripheral, Self::Memory>;
 
     fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(
-            &'a mut TransferBuffers<'wo, Self::Peripheral, Self::Memory>,
-        );
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Self::Peripheral, Self::Memory>);
 
     unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Self::Peripheral, Self::Memory>;
+    ) -> &mut Buffers<'wo, Self::Peripheral, Self::Memory>;
 }
 
 pub struct Start<'wo, Peripheral, Memory>
@@ -184,20 +182,20 @@ where
     type Peripheral = Peripheral;
     type Memory = Memory;
 
-    fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         self.conf.transfer_direction().buffers()
     }
 
     fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         self.conf.transfer_direction_mut(|t| t.buffers_mut(op));
     }
 
     unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         self.conf
             .transfer_direction_mut_unchecked()
             .buffers_mut_unchecked()
@@ -211,7 +209,7 @@ where
     CXX: ChannelId,
 {
     stream: Stream<CXX, Enabled, IsrUncleared>,
-    buffers: TransferBuffers<'wo, Peripheral, Memory>,
+    buffers: Buffers<'wo, Peripheral, Memory>,
 }
 
 impl<Peripheral, Memory, CXX> private::Sealed
@@ -233,20 +231,20 @@ where
     type Peripheral = Peripheral;
     type Memory = Memory;
 
-    fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         &self.buffers
     }
 
     fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         op(&mut self.buffers)
     }
 
     unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         &mut self.buffers
     }
 }
@@ -374,59 +372,6 @@ where
 {
     pub peripheral_buffer: Buffer<'wo, Peripheral>,
     pub memory_buffer: MemoryBufferType<Memory>,
-}
-
-#[derive(Debug)]
-pub struct TransferBuffers<'wo, Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    buffers: Buffers<'wo, Peripheral, Memory>,
-}
-
-impl<'wo, Peripheral, Memory> TransferBuffers<'wo, Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    pub fn new(buffers: Buffers<'wo, Peripheral, Memory>) -> Self {
-        let s = Self { buffers };
-
-        s.check_self();
-
-        s
-    }
-
-    pub fn get(&self) -> &Buffers<'wo, Peripheral, Memory> {
-        &self.buffers
-    }
-
-    pub fn get_mut<F>(&mut self, op: F)
-    where
-        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
-    {
-        op(&mut self.buffers);
-
-        self.check_self();
-    }
-
-    pub unsafe fn get_mut_unchecked(
-        &mut self,
-    ) -> &mut Buffers<'wo, Peripheral, Memory> {
-        &mut self.buffers
-    }
-
-    pub fn free(self) -> Buffers<'wo, Peripheral, Memory> {
-        self.buffers
-    }
-
-    fn check_self(&self) {
-        assert_ne!(
-            self.buffers.peripheral_buffer.is_read(),
-            self.buffers.memory_buffer.is_read()
-        );
-    }
 }
 
 #[derive(Copy, Clone, Debug, EnumAsInner)]

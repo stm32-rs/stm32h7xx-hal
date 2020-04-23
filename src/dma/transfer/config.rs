@@ -5,7 +5,7 @@ use super::super::stream::config::{
     PincConf, Pincos, TransferDirectionConf, TransferModeConf,
 };
 use super::buffer::{IncrementedBuffer, MemoryBuffer, MemoryBufferType};
-use super::{Buffer, IPayloadSize, Payload, PayloadSize, TransferBuffers};
+use super::{Buffer, Buffers, IPayloadSize, Payload, PayloadSize};
 use core::convert::TryFrom;
 use enum_as_inner::EnumAsInner;
 
@@ -40,7 +40,7 @@ where
 
     pub fn from_stream_config(
         conf: StreamConfig,
-        buffers: TransferBuffers<'wo, Peripheral, Memory>,
+        buffers: Buffers<'wo, Peripheral, Memory>,
     ) -> Self {
         let additional_config = conf.into();
         let transfer_direction = match conf.transfer_direction {
@@ -119,7 +119,7 @@ where
     }
 
     fn pinc(&self) -> Pinc {
-        let buffers = self.buffers().get();
+        let buffers = self.buffers();
 
         if buffers.peripheral_buffer.is_fixed() {
             Pinc::Fixed
@@ -129,7 +129,7 @@ where
     }
 
     fn pincos(&self) -> Option<Pincos> {
-        let buffers = self.buffers().get();
+        let buffers = self.buffers();
 
         match &buffers.peripheral_buffer {
             Buffer::Fixed(_) => None,
@@ -141,7 +141,7 @@ where
     }
 
     fn minc(&self) -> Minc {
-        let buffers = self.buffers().get();
+        let buffers = self.buffers();
 
         match &buffers.memory_buffer.m0a().get() {
             Buffer::Fixed(_) => Minc::Fixed,
@@ -168,11 +168,11 @@ where
     }
 
     pub fn pa(&self) -> Pa {
-        Pa(self.buffers().get().peripheral_buffer.as_ptr(Some(0)) as u32)
+        Pa(self.buffers().peripheral_buffer.as_ptr(Some(0)) as u32)
     }
 
     pub fn m0a(&self) -> M0a {
-        match &self.buffers().get().memory_buffer {
+        match &self.buffers().memory_buffer {
             MemoryBufferType::SingleBuffer(memory) => {
                 M0a(memory.get().as_ptr(Some(0)) as u32)
             }
@@ -184,7 +184,7 @@ where
 
     pub fn m1a(&self) -> Option<M1a> {
         if let MemoryBufferType::DoubleBuffer(buffer) =
-            &self.buffers().get().memory_buffer
+            &self.buffers().memory_buffer
         {
             Some(M1a(buffer.memories()[1].get().as_ptr(Some(0)) as u32))
         } else {
@@ -195,7 +195,7 @@ where
     pub fn stream_config(&self, conf: &mut StreamConfig) {
         conf.transfer_direction = self.transfer_direction_conf();
 
-        let buffers = self.buffers().get();
+        let buffers = self.buffers();
 
         // Configure ndt
 
@@ -240,13 +240,13 @@ where
         conf.minc = self.minc();
     }
 
-    pub fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         self.transfer_direction.buffers()
     }
 
     pub fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         self.transfer_direction.buffers_mut(op);
 
@@ -255,7 +255,7 @@ where
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         self.transfer_direction.buffers_mut_unchecked()
     }
 
@@ -264,7 +264,7 @@ where
     }
 
     fn check_self(&self) {
-        let buffers = self.buffers().get();
+        let buffers = self.buffers();
         // Check Buffer Mode
 
         if matches!(
@@ -324,7 +324,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    pub fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         match self {
             TransferDirection::P2M(p2m) => p2m.buffers(),
             TransferDirection::M2P(m2p) => m2p.buffers(),
@@ -334,7 +334,7 @@ where
 
     pub fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         match self {
             TransferDirection::P2M(p2m) => p2m.buffers_mut(op),
@@ -345,7 +345,7 @@ where
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         match self {
             TransferDirection::P2M(p2m) => p2m.buffers_mut_unchecked(),
             TransferDirection::M2P(m2p) => m2p.buffers_mut_unchecked(),
@@ -353,7 +353,7 @@ where
         }
     }
 
-    pub fn free(self) -> TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn free(self) -> Buffers<'wo, Peripheral, Memory> {
         match self {
             TransferDirection::P2M(p2m) => p2m.free(),
             TransferDirection::M2P(m2p) => m2p.free(),
@@ -368,7 +368,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    buffers: TransferBuffers<'wo, Peripheral, Memory>,
+    buffers: Buffers<'wo, Peripheral, Memory>,
 }
 
 impl<'wo, Peripheral, Memory> PeripheralToMemory<'wo, Peripheral, Memory>
@@ -376,7 +376,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    pub fn new(buffers: TransferBuffers<'wo, Peripheral, Memory>) -> Self {
+    pub fn new(buffers: Buffers<'wo, Peripheral, Memory>) -> Self {
         let s = Self { buffers };
 
         s.check_self();
@@ -384,13 +384,13 @@ where
         s
     }
 
-    pub fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         &self.buffers
     }
 
     pub fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         op(&mut self.buffers);
 
@@ -399,17 +399,17 @@ where
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         &mut self.buffers
     }
 
-    pub fn free(self) -> TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn free(self) -> Buffers<'wo, Peripheral, Memory> {
         self.buffers
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.get().peripheral_buffer.is_read());
-        assert!(self.buffers.get().memory_buffer.is_read());
+        assert!(self.buffers.peripheral_buffer.is_read());
+        assert!(self.buffers.memory_buffer.is_read());
     }
 }
 
@@ -419,7 +419,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    buffers: TransferBuffers<'wo, Peripheral, Memory>,
+    buffers: Buffers<'wo, Peripheral, Memory>,
 }
 
 impl<'wo, Peripheral, Memory> MemoryToPeripheral<'wo, Peripheral, Memory>
@@ -427,7 +427,7 @@ where
     Peripheral: Payload,
     Memory: Payload,
 {
-    pub fn new(buffers: TransferBuffers<'wo, Peripheral, Memory>) -> Self {
+    pub fn new(buffers: Buffers<'wo, Peripheral, Memory>) -> Self {
         let s = Self { buffers };
 
         s.check_self();
@@ -435,13 +435,13 @@ where
         s
     }
 
-    pub fn buffers(&self) -> &TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         &self.buffers
     }
 
     pub fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Peripheral, Memory>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
     {
         op(&mut self.buffers);
 
@@ -450,17 +450,17 @@ where
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Peripheral, Memory> {
+    ) -> &mut Buffers<'wo, Peripheral, Memory> {
         &mut self.buffers
     }
 
-    pub fn free(self) -> TransferBuffers<'wo, Peripheral, Memory> {
+    pub fn free(self) -> Buffers<'wo, Peripheral, Memory> {
         self.buffers
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.get().peripheral_buffer.is_write());
-        assert!(self.buffers.get().memory_buffer.is_read());
+        assert!(self.buffers.peripheral_buffer.is_write());
+        assert!(self.buffers.memory_buffer.is_read());
     }
 }
 
@@ -470,7 +470,7 @@ where
     Source: Payload,
     Dest: Payload,
 {
-    buffers: TransferBuffers<'wo, Source, Dest>,
+    buffers: Buffers<'wo, Source, Dest>,
 }
 
 impl<'wo, Source, Dest> MemoryToMemory<'wo, Source, Dest>
@@ -478,7 +478,7 @@ where
     Source: Payload,
     Dest: Payload,
 {
-    pub fn new(buffers: TransferBuffers<'wo, Source, Dest>) -> Self {
+    pub fn new(buffers: Buffers<'wo, Source, Dest>) -> Self {
         let s = Self { buffers };
 
         s.check_self();
@@ -486,13 +486,13 @@ where
         s
     }
 
-    pub fn buffers(&self) -> &TransferBuffers<'wo, Source, Dest> {
+    pub fn buffers(&self) -> &Buffers<'wo, Source, Dest> {
         &self.buffers
     }
 
     pub fn buffers_mut<F>(&mut self, op: F)
     where
-        for<'a> F: FnOnce(&'a mut TransferBuffers<'wo, Source, Dest>),
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Source, Dest>),
     {
         op(&mut self.buffers);
 
@@ -501,23 +501,23 @@ where
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut TransferBuffers<'wo, Source, Dest> {
+    ) -> &mut Buffers<'wo, Source, Dest> {
         &mut self.buffers
     }
 
     pub fn source_buffer(&self) -> &Buffer<'wo, Source> {
-        &self.buffers.get().peripheral_buffer
+        &self.buffers.peripheral_buffer
     }
 
     pub fn dest_buffer(&self) -> &MemoryBuffer<Dest> {
-        &self.buffers.get().memory_buffer.as_single_buffer().unwrap()
+        &self.buffers.memory_buffer.as_single_buffer().unwrap()
     }
 
     pub fn dest_buffer_mut<F>(&mut self, op: F)
     where
         for<'a> F: FnOnce(&'a mut MemoryBuffer<Dest>),
     {
-        self.buffers.get_mut(move |b| {
+        self.buffers_mut(move |b| {
             op(&mut b.memory_buffer.as_single_buffer_mut().unwrap())
         });
     }
@@ -525,22 +525,18 @@ where
     pub unsafe fn dest_buffer_mut_unchecked(
         &mut self,
     ) -> &mut MemoryBuffer<Dest> {
-        self.buffers
-            .get_mut_unchecked()
-            .memory_buffer
-            .as_single_buffer_mut()
-            .unwrap()
+        self.buffers.memory_buffer.as_single_buffer_mut().unwrap()
     }
 
-    pub fn free(self) -> TransferBuffers<'wo, Source, Dest> {
+    pub fn free(self) -> Buffers<'wo, Source, Dest> {
         self.buffers
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.get().peripheral_buffer.is_read());
-        assert!(self.buffers.get().memory_buffer.is_write());
+        assert!(self.buffers.peripheral_buffer.is_read());
+        assert!(self.buffers.memory_buffer.is_write());
 
-        assert!(self.buffers.get().memory_buffer.is_single_buffer());
+        assert!(self.buffers.memory_buffer.is_single_buffer());
     }
 }
 
