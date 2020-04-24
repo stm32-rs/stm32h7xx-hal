@@ -19,19 +19,26 @@ use enum_as_inner::EnumAsInner;
 pub use self::buffer::Buffer;
 pub use self::config::Config;
 
-pub struct Transfer<'wo, State: TransferState<'wo>> {
+pub struct Transfer<'wo, Peripheral, Memory, State>
+where
+    Peripheral: Payload,
+    Memory: Payload,
+    State: TransferState,
+{
+    conf: Config<'wo, Peripheral, Memory>,
     state: State,
     _phantom: PhantomData<&'wo ()>,
 }
 
-impl<'wo, Peripheral, Memory> Transfer<'wo, Start<'wo, Peripheral, Memory>>
+impl<'wo, Peripheral, Memory> Transfer<'wo, Peripheral, Memory, Start>
 where
     Peripheral: Payload,
     Memory: Payload,
 {
     pub fn new(conf: Config<'wo, Peripheral, Memory>) -> Self {
         Self {
-            state: Start { conf },
+            conf,
+            state: Start,
             _phantom: PhantomData,
         }
     }
@@ -39,13 +46,13 @@ where
     pub fn start<CXX: ChannelId>(
         self,
         mut stream: Stream<CXX, Disabled, IsrCleared>,
-    ) -> Transfer<'wo, Ongoing<'wo, Peripheral, Memory, CXX>> {
+    ) -> Transfer<'wo, Peripheral, Memory, Ongoing<CXX>> {
         self.configure_stream(&mut stream);
 
         Transfer {
+            conf: self.conf,
             state: Ongoing {
                 stream: unsafe { stream.enable() },
-                buffers: self.state.conf.free().free(),
             },
             _phantom: PhantomData,
         }
@@ -57,18 +64,25 @@ where
     ) {
         let mut conf = stream.config();
 
-        self.state.conf.stream_config(&mut conf);
+        self.conf.stream_config(&mut conf);
 
         stream.apply_config(conf);
     }
 
+    pub fn buffers_mut<F>(&mut self, op: F)
+    where
+        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
+    {
+        self.conf.buffers_mut(op);
+    }
+
     pub fn free(self) -> Config<'wo, Peripheral, Memory> {
-        self.state.conf
+        self.conf
     }
 }
 
 impl<'wo, Peripheral, Memory, CXX>
-    Transfer<'wo, Ongoing<'wo, Peripheral, Memory, CXX>>
+    Transfer<'wo, Peripheral, Memory, Ongoing<CXX>>
 where
     Peripheral: Payload,
     Memory: Payload,
@@ -132,7 +146,7 @@ where
     }
 
     pub fn current_peripheral_index(&self) -> Option<usize> {
-        match &self.state.buffers.peripheral_buffer {
+        match &self.conf.buffers().peripheral_buffer {
             Buffer::Fixed(_) => None,
             Buffer::Incremented(buffer) => {
                 let ndt = u16::from(self.state.stream.ndt()) as usize;
@@ -147,7 +161,7 @@ where
     }
 
     pub fn current_memory_index(&self) -> Option<usize> {
-        match &self.state.buffers.memory_buffer.m0a().get() {
+        match self.conf.buffers().memory_buffer.m0a().get() {
             Buffer::Fixed(_) => None,
             Buffer::Incremented(buffer) => {
                 let ndt = u16::from(self.state.stream.ndt()) as usize;
@@ -179,15 +193,14 @@ where
     pub fn stop(
         self,
     ) -> (
-        Transfer<'wo, Start<'wo, Peripheral, Memory>>,
+        Transfer<'wo, Peripheral, Memory, Start>,
         Stream<CXX, Disabled, IsrUncleared>,
     ) {
         let stream = self.state.stream.disable();
 
-        let conf =
-            Config::from_stream_config(stream.config(), self.state.buffers);
         let transfer = Transfer {
-            state: Start { conf },
+            conf: self.conf,
+            state: Start,
             _phantom: PhantomData,
         };
 
@@ -195,134 +208,38 @@ where
     }
 }
 
-impl<'wo, State> Transfer<'wo, State>
+impl<'wo, Peripheral, Memory, State> Transfer<'wo, Peripheral, Memory, State>
 where
-    State: TransferState<'wo>,
+    Peripheral: Payload,
+    Memory: Payload,
+    State: TransferState,
 {
-    pub fn buffers(&self) -> &Buffers<'wo, State::Peripheral, State::Memory> {
-        self.state.buffers()
-    }
-
-    pub fn buffers_mut<F>(&mut self, op: F)
-    where
-        for<'a> F:
-            FnOnce(&'a mut Buffers<'wo, State::Peripheral, State::Memory>),
-    {
-        self.state.buffers_mut(op);
+    pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
+        self.conf.buffers()
     }
 
     pub unsafe fn buffers_mut_unchecked(
         &mut self,
-    ) -> &mut Buffers<'wo, State::Peripheral, State::Memory> {
-        self.state.buffers_mut_unchecked()
-    }
-}
-
-pub trait TransferState<'wo>: Send + Sync + private::Sealed {
-    type Peripheral: Payload;
-    type Memory: Payload;
-
-    fn buffers(&self) -> &Buffers<'wo, Self::Peripheral, Self::Memory>;
-
-    fn buffers_mut<F>(&mut self, op: F)
-    where
-        for<'a> F: FnOnce(&'a mut Buffers<'wo, Self::Peripheral, Self::Memory>);
-
-    unsafe fn buffers_mut_unchecked(
-        &mut self,
-    ) -> &mut Buffers<'wo, Self::Peripheral, Self::Memory>;
-}
-
-pub struct Start<'wo, Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    conf: Config<'wo, Peripheral, Memory>,
-}
-
-impl<Peripheral, Memory> private::Sealed for Start<'_, Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-}
-
-impl<'wo, Peripheral, Memory> TransferState<'wo>
-    for Start<'wo, Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    type Peripheral = Peripheral;
-    type Memory = Memory;
-
-    fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
-        self.conf.transfer_direction().buffers()
-    }
-
-    fn buffers_mut<F>(&mut self, op: F)
-    where
-        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
-    {
-        self.conf.transfer_direction_mut(|t| t.buffers_mut(op));
-    }
-
-    unsafe fn buffers_mut_unchecked(
-        &mut self,
     ) -> &mut Buffers<'wo, Peripheral, Memory> {
-        self.conf
-            .transfer_direction_mut_unchecked()
-            .buffers_mut_unchecked()
+        self.conf.buffers_mut_unchecked()
     }
 }
 
-pub struct Ongoing<'wo, Peripheral, Memory, CXX>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    CXX: ChannelId,
-{
+pub trait TransferState: Send + Sync + private::Sealed {}
+
+pub struct Start;
+
+impl private::Sealed for Start {}
+
+impl TransferState for Start {}
+
+pub struct Ongoing<CXX: ChannelId> {
     stream: Stream<CXX, Enabled, IsrUncleared>,
-    buffers: Buffers<'wo, Peripheral, Memory>,
 }
 
-impl<Peripheral, Memory, CXX> private::Sealed
-    for Ongoing<'_, Peripheral, Memory, CXX>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    CXX: ChannelId,
-{
-}
+impl<CXX: ChannelId> private::Sealed for Ongoing<CXX> {}
 
-impl<'wo, Peripheral, Memory, CXX> TransferState<'wo>
-    for Ongoing<'wo, Peripheral, Memory, CXX>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-    CXX: ChannelId,
-{
-    type Peripheral = Peripheral;
-    type Memory = Memory;
-
-    fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
-        &self.buffers
-    }
-
-    fn buffers_mut<F>(&mut self, op: F)
-    where
-        for<'a> F: FnOnce(&'a mut Buffers<'wo, Peripheral, Memory>),
-    {
-        op(&mut self.buffers)
-    }
-
-    unsafe fn buffers_mut_unchecked(
-        &mut self,
-    ) -> &mut Buffers<'wo, Peripheral, Memory> {
-        &mut self.buffers
-    }
-}
+impl<CXX: ChannelId> TransferState for Ongoing<CXX> {}
 
 /// # Safety
 ///

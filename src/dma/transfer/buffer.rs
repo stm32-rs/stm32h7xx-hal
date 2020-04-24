@@ -319,6 +319,10 @@ where
             slice.len()
         }
     }
+
+    pub fn inner(&self) -> *const [P] {
+        self.0
+    }
 }
 
 unsafe impl<P> Send for RegularOffsetBufferR<P> where P: Payload {}
@@ -375,6 +379,10 @@ where
             let slice = &*self.0;
             slice.len()
         }
+    }
+
+    pub fn inner(&self) -> *mut [P] {
+        self.0
     }
 }
 
@@ -456,7 +464,7 @@ where
     pub fn new(buffer: &'wo [&'static P]) -> Self {
         check_buffer_not_empty(buffer);
 
-        let buffer = unsafe { &*(buffer as *const _ as *const _) };
+        let buffer = unsafe { &*(buffer as *const _ as *const [*const P]) };
 
         check_word_offset(buffer);
 
@@ -473,6 +481,10 @@ where
 
     pub fn len(self) -> usize {
         self.0.len()
+    }
+
+    pub fn inner(&self) -> &'wo [*const P] {
+        self.0
     }
 }
 
@@ -494,9 +506,9 @@ where
         check_buffer_not_empty(buffer);
 
         unsafe {
-            check_word_offset::<P>(&*(buffer as *const _ as *const _));
+            check_word_offset::<P>(&*(buffer as *const _ as *const [*const P]));
 
-            WordOffsetBufferW(&mut *(buffer as *mut _ as *mut _))
+            WordOffsetBufferW(&mut *(buffer as *mut _ as *mut [*mut P]))
         }
     }
 
@@ -524,6 +536,10 @@ where
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn inner(&self) -> &[*mut P] {
+        &*self.0
     }
 }
 
