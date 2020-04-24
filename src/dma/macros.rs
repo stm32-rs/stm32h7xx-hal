@@ -1,8 +1,14 @@
 //! Macros
 
 macro_rules! type_state {
-    ($trait:ident, $($type_state:ident),*) => {
-        pub trait $trait: Copy + Clone + PartialEq + Eq + core::fmt::Debug + crate::private::Sealed {}
+    ($trait:ident $({$($item_def:item),*})?, $($type_state:ident $({$($item_impl:item),*})?),*) => {
+        pub trait $trait: Copy + Clone + PartialEq + Eq + core::fmt::Debug + crate::private::Sealed {
+            $(
+                $(
+                    $item_def
+                )*
+            )?
+        }
 
         $(
             #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
@@ -10,7 +16,13 @@ macro_rules! type_state {
 
             impl crate::private::Sealed for $type_state {}
 
-            impl $trait for $type_state {}
+            impl $trait for $type_state {
+                $(
+                    $(
+                        $item_impl
+                    )*
+                )?
+            }
         )*
     };
 }

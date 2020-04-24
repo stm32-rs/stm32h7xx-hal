@@ -2,6 +2,144 @@
 // CONFIG
 /////////////////////////////////////////////////////////////////////////
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct CheckedConfig {
+    config: Config,
+}
+
+impl CheckedConfig {
+    pub fn new(config: Config) -> Self {
+        let s = Self { config };
+
+        s.check_config();
+
+        s
+    }
+
+    pub unsafe fn new_unchecked(config: Config) -> Self {
+        Self { config }
+    }
+
+    pub fn config(&self) -> Config {
+        self.config
+    }
+
+    /// Checks the config for data integrity
+    fn check_config(&self) {
+        if self.config.circular_mode() == CircularMode::Enabled {
+            self.check_config_circular();
+        }
+
+        if self.config.transfer_mode() == TransferMode::Fifo {
+            self.check_config_fifo();
+        }
+
+        self.check_ndt();
+    }
+
+    /// Checks the circular config.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.10
+    fn check_config_circular(&self) {
+        // Check invariants
+        if self.config.transfer_mode() == TransferMode::Fifo {
+            let ndt = self.config.ndt.value() as usize;
+            let m_burst = self.config.m_burst().into_num();
+            let p_burst = self.config.p_burst().into_num();
+            let m_size = self.config.m_size().into_num();
+            let p_size = self.config.p_size.into_num();
+
+            if self.config.m_burst() != MBurst::Single
+                && ndt % (m_burst * m_size / p_size) != 0
+            {
+                panic!(
+                    "Data integrity not guaranteed, because \
+                    `num_data_items != Multiple of (m_burst * (m_size / p_size))`"
+                );
+            }
+
+            if ndt % (p_burst * p_size) != 0 {
+                panic!(
+                    "Data integrity not guaranteed, because \
+                     `num_data_items != Multiple of (p_burst * p_size)`"
+                );
+            }
+        } else {
+            let ndt = self.config.ndt.value() as usize;
+            let p_size = self.config.p_size.into_num();
+
+            if ndt % p_size != 0 {
+                panic!(
+                    "Data integrity not guaranteed, because \
+                     `num_data_items != Multiple of (p_size)`"
+                );
+            }
+        }
+    }
+
+    /// Checks the fifo config.
+    fn check_config_fifo(&self) {
+        if self.config.m_burst() != MBurst::Single {
+            self.check_config_fifo_m_burst();
+        }
+
+        if self.config.p_burst() != PBurst::Single {
+            self.check_config_fifo_p_burst();
+        }
+    }
+
+    /// Checks the memory config of fifo stream.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.14
+    fn check_config_fifo_m_burst(&self) {
+        let m_size = self.config.m_size().into_num();
+        let m_burst = self.config.m_burst().into_num();
+        // Fifo Size in bytes
+        let fifo_size = self.config.fifo_threshold().unwrap().into_num() * 4;
+
+        if m_size * m_burst > fifo_size {
+            panic!("FIFO configuration invalid, because `msize * mburst > fifo_size`");
+        }
+
+        if fifo_size % (m_size * m_burst) != 0 {
+            panic!("FIFO configuration invalid, because `fifo_size % (msize * mburst) != 0`");
+        }
+    }
+
+    /// Checks the peripheral config of fifio stream.
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.14
+    fn check_config_fifo_p_burst(&self) {
+        let p_burst = self.config.p_burst().into_num();
+        let p_size = self.config.p_size.into_num();
+        // 4 Words = 16 Bytes
+        const FULL_FIFO_BYTES: usize = 16;
+
+        if p_burst * p_size == FULL_FIFO_BYTES
+            && self.config.fifo_threshold().unwrap() == FifoThreshold::F3_4
+        {
+            panic!(
+                "FIFO configuration invalid, because \
+                 `pburst * psize == FULL_FIFO_SIZE` and \
+                 `fifo_threshold == 3/4`"
+            );
+        }
+    }
+
+    /// Checks the NDT register
+    //
+    // Reference: RM0433 Rev 6 - Chapter 15.3.12
+    fn check_ndt(&self) {
+        let m_size = self.config.m_size().into_num();
+        let p_size = self.config.p_size.into_num();
+        let ndt = self.config.ndt.value() as usize;
+
+        if m_size > p_size && ndt % (m_size / p_size) != 0 {
+            panic!("`NDT` must be a multiple of (`m_size / p_size`).");
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Config {
     pub transfer_complete_interrupt: TransferCompleteInterrupt,
@@ -19,6 +157,10 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn check(&self) -> CheckedConfig {
+        CheckedConfig::new(*self)
+    }
+
     pub fn transfer_direction(self) -> TransferDirection {
         self.transfer_direction.into()
     }

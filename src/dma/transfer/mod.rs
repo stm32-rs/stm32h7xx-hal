@@ -4,10 +4,13 @@ pub mod buffer;
 pub mod config;
 
 use self::buffer::MemoryBufferType;
-use super::stream::config::{MSize, PSize};
+use super::stream::config::{
+    DirectModeErrorInterrupt, FifoErrorInterrupt, HalfTransferInterrupt, MSize,
+    PSize, TransferCompleteInterrupt, TransferErrorInterrupt,
+};
 use super::stream::{
-    Disabled, Enabled, Error as StreamError, Event, IsrCleared, IsrUncleared,
-    StreamIsr,
+    CheckedConfig, Disabled, Enabled, Error as StreamError, Event, IsrCleared,
+    IsrUncleared, StreamIsr,
 };
 use super::{ChannelId, Stream};
 use crate::{nb, private};
@@ -62,11 +65,15 @@ where
         &self,
         stream: &mut Stream<CXX, Disabled, IsrCleared>,
     ) {
-        let mut conf = stream.config();
+        let mut conf = stream.config().config();
 
         self.conf.stream_config(&mut conf);
 
-        stream.apply_config(conf);
+        stream.apply_config(CheckedConfig::new(conf));
+    }
+
+    pub fn config_mut(&mut self) -> &mut Config<'wo, Peripheral, Memory> {
+        &mut self.conf
     }
 
     pub fn buffers_mut<F>(&mut self, op: F)
@@ -92,8 +99,30 @@ where
         &self.state.stream
     }
 
-    pub fn stream_mut(&mut self) -> &mut Stream<CXX, Enabled, IsrUncleared> {
-        &mut self.state.stream
+    pub fn set_transfer_complete_interrupt(
+        &mut self,
+        tc: TransferCompleteInterrupt,
+    ) {
+        self.state.stream.set_transfer_complete_interrupt(tc);
+    }
+
+    pub fn set_half_transfer_interrupt(&mut self, ht: HalfTransferInterrupt) {
+        self.state.stream.set_half_transfer_interrupt(ht);
+    }
+
+    pub fn set_transfer_error_interrupt(&mut self, te: TransferErrorInterrupt) {
+        self.state.stream.set_transfer_error_interrupt(te);
+    }
+
+    pub fn set_direct_mode_error_interrupt(
+        &mut self,
+        dme: DirectModeErrorInterrupt,
+    ) {
+        self.state.stream.set_direct_mode_error_interrupt(dme);
+    }
+
+    pub fn set_fifo_error_interrupt(&mut self, fe: FifoErrorInterrupt) {
+        self.state.stream.set_fifo_error_interrupt(fe);
     }
 
     pub fn check_isr(
@@ -214,6 +243,16 @@ where
     Memory: Payload,
     State: TransferState,
 {
+    pub fn config(&self) -> &Config<'wo, Peripheral, Memory> {
+        &self.conf
+    }
+
+    pub unsafe fn config_mut_unchecked(
+        &mut self,
+    ) -> &mut Config<'wo, Peripheral, Memory> {
+        &mut self.conf
+    }
+
     pub fn buffers(&self) -> &Buffers<'wo, Peripheral, Memory> {
         self.conf.buffers()
     }

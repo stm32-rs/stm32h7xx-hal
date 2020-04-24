@@ -6,11 +6,10 @@ use self::config::{
     BufferMode, BufferModeConf, CircularMode, CircularModeConf, CurrentTarget,
     DirectConf, DirectModeErrorInterrupt, DoubleBufferConf, FifoConf,
     FifoErrorInterrupt, FifoThreshold, FlowController, FlowControllerConf,
-    HalfTransferInterrupt, IntoNum, M0a, M1a, MBurst, MSize, Minc, Ndt,
-    NotM2MConf, PBurst, PBurstConf, PSize, Pa, Pinc, PincConf, Pincos,
-    PriorityLevel, TransferCompleteInterrupt, TransferDirection,
-    TransferDirectionConf, TransferErrorInterrupt, TransferMode,
-    TransferModeConf,
+    HalfTransferInterrupt, M0a, M1a, MBurst, MSize, Minc, Ndt, NotM2MConf,
+    PBurst, PBurstConf, PSize, Pa, Pinc, PincConf, Pincos, PriorityLevel,
+    TransferCompleteInterrupt, TransferDirection, TransferDirectionConf,
+    TransferErrorInterrupt, TransferMode, TransferModeConf,
 };
 use super::{ChannelId, DmaPeripheral};
 use crate::nb::Error as NbError;
@@ -18,7 +17,7 @@ use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR, ST};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
 
-pub use self::config::Config;
+pub use self::config::{CheckedConfig, Config};
 
 /// DMA Stream
 pub struct Stream<CXX, ED, IsrState>
@@ -55,8 +54,8 @@ where
     ED: IED,
     IsrState: IIsrState,
 {
-    pub fn config(&self) -> Config {
-        Config {
+    pub fn config(&self) -> CheckedConfig {
+        let conf = Config {
             transfer_complete_interrupt: self.transfer_complete_interrupt(),
             half_transfer_interrupt: self.half_transfer_interrupt(),
             transfer_error_interrupt: self.transfer_error_interrupt(),
@@ -69,7 +68,9 @@ where
             pa: self.pa(),
             m0a: self.m0a(),
             transfer_direction: self.transfer_direction_config(),
-        }
+        };
+
+        unsafe { CheckedConfig::new_unchecked(conf) }
     }
 
     fn transfer_direction_config(&self) -> TransferDirectionConf {
@@ -181,7 +182,7 @@ where
     }
 
     /// Sets the Transfer Complete Interrupt config flag
-    fn set_transfer_complete_interrupt(
+    pub fn set_transfer_complete_interrupt(
         &mut self,
         tc_intrpt: TransferCompleteInterrupt,
     ) {
@@ -194,7 +195,7 @@ where
     }
 
     /// Sets the Half Transfer Interrupt config flag
-    fn set_half_transfer_interrupt(
+    pub fn set_half_transfer_interrupt(
         &mut self,
         ht_intrpt: HalfTransferInterrupt,
     ) {
@@ -207,7 +208,7 @@ where
     }
 
     /// Sets the Transfer Error Interrupt config flag
-    fn set_transfer_error_interrupt(
+    pub fn set_transfer_error_interrupt(
         &mut self,
         te_intrpt: TransferErrorInterrupt,
     ) {
@@ -220,7 +221,7 @@ where
     }
 
     /// Sets the Direct Mode Error Interrupt config flag
-    fn set_direct_mode_error_interrupt(
+    pub fn set_direct_mode_error_interrupt(
         &mut self,
         dme_intrpt: DirectModeErrorInterrupt,
     ) {
@@ -233,7 +234,7 @@ where
     }
 
     /// Sets the Fifo Error Interrupt config flag
-    fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
+    pub fn set_fifo_error_interrupt(&mut self, fe_intrpt: FifoErrorInterrupt) {
         self.rb.fcr.modify(|_, w| w.feie().bit(fe_intrpt.into()));
     }
 
@@ -374,7 +375,9 @@ where
     CXX: ChannelId,
     IsrState: IIsrState,
 {
-    pub fn apply_config(&mut self, config: Config) {
+    pub fn apply_config(&mut self, config: CheckedConfig) {
+        let config = config.config();
+
         self.set_transfer_complete_interrupt(
             config.transfer_complete_interrupt,
         );
@@ -590,145 +593,9 @@ where
     ///
     /// Aliasing rules aren't enforced.
     pub unsafe fn enable(self) -> Stream<CXX, Enabled, IsrUncleared> {
-        self.check_config();
-
-        self.enable_unchecked()
-    }
-
-    /// Enables the stream without checking the config
-    ///
-    /// Consider using the checked version instead (`enable`).
-    ///
-    /// # Safety
-    ///
-    /// - Aliasing rules aren't enforced
-    /// - Config is not checked for guaranteeing data integrity
-    pub unsafe fn enable_unchecked(self) -> Stream<CXX, Enabled, IsrUncleared> {
         self.rb.cr.modify(|_, w| w.en().set_bit());
 
         self.transmute()
-    }
-
-    /// Checks the config for data integrity
-    fn check_config(&self) {
-        if self.circular_mode() == CircularMode::Enabled {
-            self.check_config_circular();
-        }
-
-        if self.transfer_mode() == TransferMode::Fifo {
-            self.check_config_fifo();
-        }
-
-        self.check_ndt();
-    }
-
-    /// Checks the circular config.
-    //
-    // Reference: RM0433 Rev 6 - Chapter 15.3.10
-    fn check_config_circular(&self) {
-        // Check for clashing config values
-        if self.transfer_direction() == TransferDirection::M2M
-            || self.flow_controller() == FlowController::Peripheral
-        {
-            panic!("For circular streams, the transfer direction must not be `M2M` and the FlowController must not be `Peripheral`.");
-        }
-
-        // Check invariants
-        if self.transfer_mode() == TransferMode::Fifo {
-            let ndt = self.ndt().value() as usize;
-            let m_burst = self.m_burst().into_num();
-            let p_burst = self.p_burst().into_num();
-            let m_size = self.m_size().into_num();
-            let p_size = self.p_size().into_num();
-
-            if self.m_burst() != MBurst::Single
-                && ndt % (m_burst * m_size / p_size) != 0
-            {
-                panic!(
-                    "Data integrity not guaranteed, because \
-                    `num_data_items != Multiple of (m_burst * (m_size / p_size))`"
-                );
-            }
-
-            if ndt % (p_burst * p_size) != 0 {
-                panic!(
-                    "Data integrity not guaranteed, because \
-                     `num_data_items != Multiple of (p_burst * p_size)`"
-                );
-            }
-        } else {
-            let ndt = self.ndt().value() as usize;
-            let p_size = self.p_size().into_num();
-
-            if ndt % p_size != 0 {
-                panic!(
-                    "Data integrity not guaranteed, because \
-                     `num_data_items != Multiple of (p_size)`"
-                );
-            }
-        }
-    }
-
-    /// Checks the fifo config.
-    fn check_config_fifo(&self) {
-        if self.m_burst() != MBurst::Single {
-            self.check_config_fifo_m_burst();
-        }
-
-        if self.p_burst() != PBurst::Single {
-            self.check_config_fifo_p_burst();
-        }
-    }
-
-    /// Checks the memory config of fifo stream.
-    //
-    // Reference: RM0433 Rev 6 - Chapter 15.3.14
-    fn check_config_fifo_m_burst(&self) {
-        let m_size = self.m_size().into_num();
-        let m_burst = self.m_burst().into_num();
-        // Fifo Size in bytes
-        let fifo_size = self.fifo_threshold().unwrap().into_num() * 4;
-
-        if m_size * m_burst > fifo_size {
-            panic!("FIFO configuration invalid, because `msize * mburst > fifo_size`");
-        }
-
-        if fifo_size % (m_size * m_burst) != 0 {
-            panic!("FIFO configuration invalid, because `fifo_size % (msize * mburst) != 0`");
-        }
-    }
-
-    /// Checks the peripheral config of fifio stream.
-    //
-    // Reference: RM0433 Rev 6 - Chapter 15.3.14
-    fn check_config_fifo_p_burst(&self) {
-        let p_burst = self.p_burst().into_num();
-        let p_size = self.p_size().into_num();
-        // 4 Words = 16 Bytes
-        const FULL_FIFO_BYTES: usize = 16;
-
-        if p_burst * p_size == FULL_FIFO_BYTES
-            && self.fifo_threshold().unwrap() == FifoThreshold::F3_4
-        {
-            panic!(
-                "FIFO configuration invalid, because \
-                 `pburst * psize == FULL_FIFO_SIZE` and \
-                 `fifo_threshhold == 3/4`"
-            );
-        }
-    }
-
-    /// Checks the NDT register
-    //
-    // Reference: RM0433 Rev 6 - Chapter 15.3.12
-    fn check_ndt(&self) {
-        let m_size = self.m_size().into_num();
-        let p_size = self.p_size().into_num();
-        let ndt = self.config_ndt.value() as usize;
-
-        if m_size > p_size && ndt % (m_size / p_size) != 0 {
-            panic!("`NDT` must be a multiple of (`m_size / p_size`).");
-        }
     }
 }
 
@@ -772,19 +639,43 @@ where
             None
         };
 
-        let crashed = !self.is_enabled() && self.ndt().value() != 0;
-
         if transfer_error || direct_mode_error || fifo_error {
             Err(Error {
                 transfer_error,
                 direct_mode_error,
                 fifo_error,
                 event,
-                crashed,
+                crashed: self.is_crashed(),
             })
         } else {
             Ok(event)
         }
+    }
+
+    /// Checks if the stream crashed
+    ///
+    /// Returns `None` if the stream is disabled and in disabled state (as stream could have been halted).
+    fn is_crashed(&self) -> Option<bool> {
+        // If the stream has been correctly disabled, no statement can be made.
+        if !ED::IS_ENABLED {
+            return None;
+        }
+
+        // Check if stream is still enabled
+        if self.is_enabled() {
+            return Some(false);
+        }
+
+        // If Circular-Mode is enabled, the stream wouldn't disable itself
+        // -> Stream crashed
+        if self.circular_mode() == CircularMode::Enabled {
+            return Some(true);
+        }
+
+        // Else, if `ndt` has reached 0, the stream disabled itself automatically
+        // -> No crash
+        // Otherwise, the stream has crashed
+        Some(self.ndt().value() != 0)
     }
 
     /// Returns the Transfer Complete flag
@@ -1149,7 +1040,7 @@ where
 }
 
 type_state! {
-    IED, Disabled, Enabled
+    IED { const IS_ENABLED: bool; }, Disabled { const IS_ENABLED: bool = false; }, Enabled { const IS_ENABLED: bool = true; }
 }
 
 type_state! {
@@ -1204,5 +1095,5 @@ pub struct Error {
     pub direct_mode_error: bool,
     pub fifo_error: bool,
     pub event: Option<Event>,
-    pub crashed: bool,
+    pub crashed: Option<bool>,
 }
