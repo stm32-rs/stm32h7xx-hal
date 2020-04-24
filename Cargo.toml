@@ -31,6 +31,8 @@ cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"
 # FIXME: Change to crates.io when next version (> 0.3.2) gets released
 enum-as-inner = { git = "https://github.com/bluejekyll/enum-as-inner", rev = "9670594f29ade6feba581ee746736087e335210b" }
+paste = "0.1.10"
+
 [dependencies.bare-metal]
 version = "0.2.4"
 features = ["const-fn"]

@@ -92,7 +92,7 @@ Board | Manufacturer | BSP / Examples?
 Minimum supported Rust version
 ------------------------------
 
-The minimum supported Rust version at the moment is **1.39.0**. Older
+The minimum supported Rust version at the moment is **1.40.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 
