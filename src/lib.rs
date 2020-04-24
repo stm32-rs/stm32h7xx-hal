@@ -1,6 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
 
+extern crate paste;
+
 #[derive(Debug)]
 pub enum Never {}
 
@@ -50,6 +52,7 @@ pub use stm32h7::stm32h753v as stm32;
 pub use stm32h7::stm32h747cm7 as stm32;
 #[cfg(any(feature = "stm32h757cm7",))]
 pub use stm32h7::stm32h757cm7 as stm32;
+// TODO(dualcore): soundness of PeripheralREC macro in rcc/rec.rs
 
 #[cfg(all(feature = "singlecore", feature = "dualcore"))]
 compile_error!("Cannot not select both singlecore and dualcore");

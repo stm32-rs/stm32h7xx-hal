@@ -14,8 +14,9 @@
 //!
 //! # Usage
 //!
-//! This peripheral is must be used alongside the `PWR` peripheral to
-//! freeze voltage scaling of the device.
+//! This peripheral is must be used alongside the
+//! [`PWR`](../pwr/index.html) peripheral to freeze voltage scaling of the
+//! device.
 //!
 //! A builder pattern is used to specify the state and frequency of
 //! possible clocks. The `freeze` method configures the RCC peripheral
@@ -33,16 +34,17 @@
 //!
 //! * `use_hse(a)` implies `sys_ck(a)`
 //!
-//! * `sys_ck(b)` implies `pll1_p_ck(b)` unless `b` equals HSI or `a`
+//! * `sys_ck(b)` implies `pll1_p_ck(b)` unless `b` equals HSI or
+//! `use_hse(b)` was specified
 //!
 //! * `pll1_p_ck(c)` implies `pll1_r_ck(c/2)`, including when
 //! `pll1_p_ck` was implied by `sys_ck(c)`.
 //!
 //! Implied clock specifications can always be overridden by explicitly
-//! specifying that clock. If this results in a configuration that
-//! cannot be achieved by hardware, `freeze` will panic.
+//! specifying that clock. If this results in a configuration that cannot
+//! be achieved by hardware, `freeze` will panic.
 //!
-//! # Example
+//! # Configuration Example
 //!
 //! A simple example:
 //!
@@ -76,6 +78,65 @@
 //!         .freeze(vos, &dp.SYSCFG);
 //! ```
 //!
+//! A much more complex example, indicative of real usage with a
+//! significant fraction of the STM32H7's capabilities.
+//!
+//! ```rust
+//!     let dp = pac::Peripherals::take().unwrap();
+//!
+//!     let pwr = dp.PWR.constrain();
+//!     let vos = pwr.freeze();
+//!
+//!     let rcc = dp.RCC.constrain();
+//!     let mut ccdr = rcc
+//!         .use_hse(25.mhz()) // XTAL X1
+//!         .sys_ck(400.mhz())
+//!         .pll1_r_ck(100.mhz()) // for TRACECK
+//!         .pll1_q_ck(200.mhz())
+//!         .hclk(200.mhz())
+//!         .pll3_strategy(PllConfigStrategy::Iterative)
+//!         .pll3_p_ck(240.mhz()) // for LTDC
+//!         .pll3_q_ck(48.mhz()) // for LTDC
+//!         .pll3_r_ck(26_666_667.hz()) // Pixel clock for LTDC
+//!         .freeze(vos, &dp.SYSCFG);
+//!```
+//!
+//! # Peripherals
+//!
+//! The `freeze()` method returns a [Core Clocks Distribution and Reset
+//! (CCDR)](struct.Ccdr.html) object. This singleton tells you how the core
+//! clocks were actually configured (in
+//! [CoreClocks](struct.CoreClocks.html)) and allows you to configure the
+//! remaining peripherals (see [PeripheralREC](struct.PeripheralREC.html)).
+//!
+//!```rust
+//! let ccdr = ...; // Returned by `freeze()`, see examples above
+//!
+//! // Runtime confirmation that hclk really is 200MHz
+//! assert_eq!(ccdr.clocks.hclk().0, 200_000_000);
+//!
+//! // Panics if pll1_q_ck is not running
+//! let _ = ccdr.clocks.pll1_q_ck().unwrap();
+//!
+//! // Enable the clock to a peripheral and reset it
+//! ccdr.peripheral.FDCAN.enable().reset();
+//!```
+//!
+//! The [PeripheralREC](struct.PeripheralREC.html) members implement move
+//! semantics, so once you have passed them to a constructor they cannot be
+//! modified again in safe Rust.
+//!
+//!```rust
+//! // Constructor for custom FDCAN driver
+//! my_fdcan(dp.FDCAN,
+//!          &ccdr.clocks,         // Immutable reference to core clock state
+//!          ccdr.peripheral.FDCAN // Ownership of reset + enable control
+//! );
+//!
+//! // Compile error, value was moved ^^
+//! ccdr.peripheral.FDCAN.disable();
+//!```
+//!
 #![deny(missing_docs)]
 
 use crate::pwr::VoltageScale as Voltage;
@@ -89,9 +150,11 @@ use crate::time::Hertz;
 
 mod core_clocks;
 mod pll;
+pub mod rec;
 
 pub use core_clocks::CoreClocks;
 pub use pll::{PllConfig, PllConfigStrategy};
+pub use rec::{PeripheralREC, ResetEnable};
 
 /// Configuration of the core clocks
 pub struct Config {
@@ -180,6 +243,8 @@ pub struct Ccdr {
     pub apb4: APB4,
     /// RCC Domain 3 Kernel Clock Configuration Register
     pub d3ccipr: D3CCIPR,
+    /// Peripheral reset / enable / kernel clock control
+    pub peripheral: PeripheralREC,
     // Yes, it lives (locally)! We retain the right to switch most
     // PKSUs on the fly, to fine-tune PLL frequencies, and to enable /
     // reset peripherals.
@@ -843,6 +908,11 @@ impl Rcc {
                 c_ck: Hertz(sys_d1cpre_ck),
             },
             d3ccipr: D3CCIPR { _0: () },
+            peripheral: unsafe {
+                // unsafe: we consume self which was a singleton, hence
+                // we can safely create a singleton here
+                PeripheralREC::new_singleton()
+            },
             rb: self.rb,
         }
     }
