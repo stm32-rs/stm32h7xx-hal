@@ -169,7 +169,9 @@ pub trait GenId: Send + private::Sealed {
 macro_rules! gen_ids {
     ($($name:ident => $id:tt),*) => {
         $(
-            pub struct $name;
+            pub struct $name {
+                _private: (),
+            }
 
             impl private::Sealed for $name {}
             impl GenId for $name {

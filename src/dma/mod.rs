@@ -46,7 +46,9 @@ pub trait ChannelId: Send + private::Sealed {
 macro_rules! channels {
     ($($channel:ident => [$stream:tt, $mux:tt, $dma:ident]),*) => {
         $(
-            pub struct $channel;
+            pub struct $channel {
+                _private: (),
+            }
 
             impl crate::private::Sealed for $channel {}
 
