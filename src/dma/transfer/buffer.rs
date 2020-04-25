@@ -29,17 +29,17 @@ where
         }
     }
 
-    pub fn is_read(&self) -> bool {
+    pub fn is_ref(&self) -> bool {
         match self {
-            Buffer::Fixed(buffer) => buffer.is_read(),
-            Buffer::Incremented(buffer) => buffer.is_read(),
+            Buffer::Fixed(buffer) => buffer.is_ref(),
+            Buffer::Incremented(buffer) => buffer.is_ref(),
         }
     }
 
-    pub fn is_write(&self) -> bool {
+    pub fn is_mut(&self) -> bool {
         match self {
-            Buffer::Fixed(buffer) => buffer.is_write(),
-            Buffer::Incremented(buffer) => buffer.is_write(),
+            Buffer::Fixed(buffer) => buffer.is_mut(),
+            Buffer::Incremented(buffer) => buffer.is_mut(),
         }
     }
 
@@ -111,17 +111,17 @@ where
         }
     }
 
-    pub fn is_read(&self) -> bool {
+    pub fn is_ref(&self) -> bool {
         match self {
-            IncrementedBuffer::RegularOffset(buffer) => buffer.is_read(),
-            IncrementedBuffer::WordOffset(buffer) => buffer.is_read(),
+            IncrementedBuffer::RegularOffset(buffer) => buffer.is_ref(),
+            IncrementedBuffer::WordOffset(buffer) => buffer.is_ref(),
         }
     }
 
-    pub fn is_write(&self) -> bool {
+    pub fn is_mut(&self) -> bool {
         match self {
-            IncrementedBuffer::RegularOffset(buffer) => buffer.is_write(),
-            IncrementedBuffer::WordOffset(buffer) => buffer.is_write(),
+            IncrementedBuffer::RegularOffset(buffer) => buffer.is_mut(),
+            IncrementedBuffer::WordOffset(buffer) => buffer.is_mut(),
         }
     }
 }
@@ -131,54 +131,54 @@ pub enum FixedBuffer<P>
 where
     P: Payload,
 {
-    Read(FixedBufferR<P>),
-    Write(FixedBufferW<P>),
+    Ref(FixedBufferRef<P>),
+    Mut(FixedBufferMut<P>),
 }
 
 impl<P> FixedBuffer<P>
 where
     P: Payload,
 {
-    pub fn is_read(&self) -> bool {
+    pub fn is_ref(&self) -> bool {
         match self {
-            FixedBuffer::Read(_) => true,
-            FixedBuffer::Write(_) => false,
+            FixedBuffer::Ref(_) => true,
+            FixedBuffer::Mut(_) => false,
         }
     }
 
-    pub fn is_write(&self) -> bool {
+    pub fn is_mut(&self) -> bool {
         match self {
-            FixedBuffer::Write(_) => true,
-            FixedBuffer::Read(_) => false,
+            FixedBuffer::Mut(_) => true,
+            FixedBuffer::Ref(_) => false,
         }
     }
 
     pub unsafe fn get(&self) -> P {
         match self {
-            FixedBuffer::Read(buffer) => buffer.get(),
-            FixedBuffer::Write(buffer) => buffer.get(),
+            FixedBuffer::Ref(buffer) => buffer.get(),
+            FixedBuffer::Mut(buffer) => buffer.get(),
         }
     }
 
     pub fn as_ptr(&self) -> *const P {
         match self {
-            FixedBuffer::Read(buffer) => buffer.as_ptr(),
-            FixedBuffer::Write(buffer) => buffer.as_ptr(),
+            FixedBuffer::Ref(buffer) => buffer.as_ptr(),
+            FixedBuffer::Mut(buffer) => buffer.as_ptr(),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FixedBufferR<P>(*const P)
+pub struct FixedBufferRef<P>(*const P)
 where
     P: Payload;
 
-impl<P> FixedBufferR<P>
+impl<P> FixedBufferRef<P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'static P) -> Self {
-        FixedBufferR(buffer)
+        FixedBufferRef(buffer)
     }
 
     pub fn get(self) -> P {
@@ -190,21 +190,21 @@ where
     }
 }
 
-unsafe impl<P> Send for FixedBufferR<P> where P: Payload {}
+unsafe impl<P> Send for FixedBufferRef<P> where P: Payload {}
 
-unsafe impl<P> Sync for FixedBufferR<P> where P: Payload {}
+unsafe impl<P> Sync for FixedBufferRef<P> where P: Payload {}
 
 #[derive(Debug)]
-pub struct FixedBufferW<P>(*mut P)
+pub struct FixedBufferMut<P>(*mut P)
 where
     P: Payload;
 
-impl<P> FixedBufferW<P>
+impl<P> FixedBufferMut<P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'static mut P) -> Self {
-        FixedBufferW(buffer)
+        FixedBufferMut(buffer)
     }
 
     /// # Safety
@@ -230,17 +230,17 @@ where
     }
 }
 
-unsafe impl<P> Send for FixedBufferW<P> where P: Payload {}
+unsafe impl<P> Send for FixedBufferMut<P> where P: Payload {}
 
-unsafe impl<P> Sync for FixedBufferW<P> where P: Payload {}
+unsafe impl<P> Sync for FixedBufferMut<P> where P: Payload {}
 
 #[derive(Debug, EnumAsInner)]
 pub enum RegularOffsetBuffer<P>
 where
     P: Payload,
 {
-    Read(RegularOffsetBufferR<P>),
-    Write(RegularOffsetBufferW<P>),
+    Ref(RegularOffsetBufferRef<P>),
+    Mut(RegularOffsetBufferMut<P>),
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -248,17 +248,17 @@ impl<P> RegularOffsetBuffer<P>
 where
     P: Payload,
 {
-    pub fn is_read(&self) -> bool {
+    pub fn is_ref(&self) -> bool {
         match self {
-            RegularOffsetBuffer::Read(_) => true,
-            RegularOffsetBuffer::Write(_) => false,
+            RegularOffsetBuffer::Ref(_) => true,
+            RegularOffsetBuffer::Mut(_) => false,
         }
     }
 
-    pub fn is_write(&self) -> bool {
+    pub fn is_mut(&self) -> bool {
         match self {
-            RegularOffsetBuffer::Write(_) => true,
-            RegularOffsetBuffer::Read(_) => false,
+            RegularOffsetBuffer::Mut(_) => true,
+            RegularOffsetBuffer::Ref(_) => false,
         }
     }
 
@@ -266,40 +266,40 @@ where
 
     pub unsafe fn get(&self, index: usize) -> P {
         match self {
-            RegularOffsetBuffer::Read(buffer) => buffer.get(index),
-            RegularOffsetBuffer::Write(buffer) => buffer.get(index),
+            RegularOffsetBuffer::Ref(buffer) => buffer.get(index),
+            RegularOffsetBuffer::Mut(buffer) => buffer.get(index),
         }
     }
 
     pub fn as_ptr(&self, index: usize) -> *const P {
         match self {
-            RegularOffsetBuffer::Read(buffer) => buffer.as_ptr(index),
-            RegularOffsetBuffer::Write(buffer) => buffer.as_ptr(index),
+            RegularOffsetBuffer::Ref(buffer) => buffer.as_ptr(index),
+            RegularOffsetBuffer::Mut(buffer) => buffer.as_ptr(index),
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            RegularOffsetBuffer::Read(buffer) => buffer.len(),
-            RegularOffsetBuffer::Write(buffer) => buffer.len(),
+            RegularOffsetBuffer::Ref(buffer) => buffer.len(),
+            RegularOffsetBuffer::Mut(buffer) => buffer.len(),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct RegularOffsetBufferR<P>(*const [P])
+pub struct RegularOffsetBufferRef<P>(*const [P])
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<P> RegularOffsetBufferR<P>
+impl<P> RegularOffsetBufferRef<P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'static [P]) -> Self {
         check_buffer_not_empty(buffer);
 
-        RegularOffsetBufferR(buffer)
+        RegularOffsetBufferRef(buffer)
     }
 
     pub fn get(self, index: usize) -> P {
@@ -320,29 +320,29 @@ where
         }
     }
 
-    pub fn inner(&self) -> *const [P] {
+    pub fn inner(self) -> *const [P] {
         self.0
     }
 }
 
-unsafe impl<P> Send for RegularOffsetBufferR<P> where P: Payload {}
+unsafe impl<P> Send for RegularOffsetBufferRef<P> where P: Payload {}
 
-unsafe impl<P> Sync for RegularOffsetBufferR<P> where P: Payload {}
+unsafe impl<P> Sync for RegularOffsetBufferRef<P> where P: Payload {}
 
 #[derive(Debug)]
-pub struct RegularOffsetBufferW<P>(*mut [P])
+pub struct RegularOffsetBufferMut<P>(*mut [P])
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<P> RegularOffsetBufferW<P>
+impl<P> RegularOffsetBufferMut<P>
 where
     P: Payload,
 {
     pub fn new(buffer: &'static mut [P]) -> Self {
         check_buffer_not_empty(buffer);
 
-        RegularOffsetBufferW(buffer)
+        RegularOffsetBufferMut(buffer)
     }
 
     /// # Safety
@@ -386,9 +386,9 @@ where
     }
 }
 
-unsafe impl<P> Send for RegularOffsetBufferW<P> where P: Payload {}
+unsafe impl<P> Send for RegularOffsetBufferMut<P> where P: Payload {}
 
-unsafe impl<P> Sync for RegularOffsetBufferW<P> where P: Payload {}
+unsafe impl<P> Sync for RegularOffsetBufferMut<P> where P: Payload {}
 
 unsafe fn read_volatile_slice_buffer<P>(
     slice_ptr: *const [P],
@@ -406,8 +406,8 @@ pub enum WordOffsetBuffer<'wo, P>
 where
     P: Payload,
 {
-    Read(WordOffsetBufferR<'wo, P>),
-    Write(WordOffsetBufferW<'wo, P>),
+    Ref(WordOffsetBufferRef<'wo, P>),
+    Mut(WordOffsetBufferMut<'wo, P>),
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -415,49 +415,49 @@ impl<'wo, P> WordOffsetBuffer<'wo, P>
 where
     P: Payload,
 {
-    pub fn is_read(&self) -> bool {
+    pub fn is_ref(&self) -> bool {
         match self {
-            WordOffsetBuffer::Read(_) => true,
-            WordOffsetBuffer::Write(_) => false,
+            WordOffsetBuffer::Ref(_) => true,
+            WordOffsetBuffer::Mut(_) => false,
         }
     }
 
-    pub fn is_write(&self) -> bool {
+    pub fn is_mut(&self) -> bool {
         match self {
-            WordOffsetBuffer::Write(_) => true,
-            WordOffsetBuffer::Read(_) => false,
+            WordOffsetBuffer::Mut(_) => true,
+            WordOffsetBuffer::Ref(_) => false,
         }
     }
 
     pub unsafe fn get(&self, index: usize) -> P {
         match self {
-            WordOffsetBuffer::Read(buffer) => buffer.get(index),
-            WordOffsetBuffer::Write(buffer) => buffer.get(index),
+            WordOffsetBuffer::Ref(buffer) => buffer.get(index),
+            WordOffsetBuffer::Mut(buffer) => buffer.get(index),
         }
     }
 
     pub fn as_ptr(&self, index: usize) -> *const P {
         match self {
-            WordOffsetBuffer::Read(buffer) => buffer.as_ptr(index),
-            WordOffsetBuffer::Write(buffer) => buffer.as_ptr(index),
+            WordOffsetBuffer::Ref(buffer) => buffer.as_ptr(index),
+            WordOffsetBuffer::Mut(buffer) => buffer.as_ptr(index),
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            WordOffsetBuffer::Read(buffer) => buffer.len(),
-            WordOffsetBuffer::Write(buffer) => buffer.len(),
+            WordOffsetBuffer::Ref(buffer) => buffer.len(),
+            WordOffsetBuffer::Mut(buffer) => buffer.len(),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct WordOffsetBufferR<'wo, P>(&'wo [*const P])
+pub struct WordOffsetBufferRef<'wo, P>(&'wo [*const P])
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'wo, P> WordOffsetBufferR<'wo, P>
+impl<'wo, P> WordOffsetBufferRef<'wo, P>
 where
     P: Payload,
 {
@@ -468,7 +468,7 @@ where
 
         check_word_offset(buffer);
 
-        WordOffsetBufferR(buffer)
+        WordOffsetBufferRef(buffer)
     }
 
     pub fn get(self, index: usize) -> P {
@@ -483,22 +483,22 @@ where
         self.0.len()
     }
 
-    pub fn inner(&self) -> &'wo [*const P] {
+    pub fn inner(self) -> &'wo [*const P] {
         self.0
     }
 }
 
-unsafe impl<P> Send for WordOffsetBufferR<'_, P> where P: Payload {}
+unsafe impl<P> Send for WordOffsetBufferRef<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for WordOffsetBufferR<'_, P> where P: Payload {}
+unsafe impl<P> Sync for WordOffsetBufferRef<'_, P> where P: Payload {}
 
 #[derive(Debug)]
-pub struct WordOffsetBufferW<'wo, P>(&'wo mut [*mut P])
+pub struct WordOffsetBufferMut<'wo, P>(&'wo mut [*mut P])
 where
     P: Payload;
 
 #[allow(clippy::len_without_is_empty)]
-impl<'wo, P> WordOffsetBufferW<'wo, P>
+impl<'wo, P> WordOffsetBufferMut<'wo, P>
 where
     P: Payload,
 {
@@ -508,7 +508,7 @@ where
         unsafe {
             check_word_offset::<P>(&*(buffer as *const _ as *const [*const P]));
 
-            WordOffsetBufferW(&mut *(buffer as *mut _ as *mut [*mut P]))
+            WordOffsetBufferMut(&mut *(buffer as *mut _ as *mut [*mut P]))
         }
     }
 
@@ -543,9 +543,9 @@ where
     }
 }
 
-unsafe impl<P> Send for WordOffsetBufferW<'_, P> where P: Payload {}
+unsafe impl<P> Send for WordOffsetBufferMut<'_, P> where P: Payload {}
 
-unsafe impl<P> Sync for WordOffsetBufferW<'_, P> where P: Payload {}
+unsafe impl<P> Sync for WordOffsetBufferMut<'_, P> where P: Payload {}
 
 fn check_buffer_not_empty<P>(buffer: &[P]) {
     if buffer.is_empty() {
@@ -658,17 +658,20 @@ where
         self.as_double_buffer().is_some()
     }
 
-    pub fn is_read(&self) -> bool {
-        match self {
-            MemoryBufferType::SingleBuffer(buffer) => buffer.get().is_read(),
-            MemoryBufferType::DoubleBuffer(buffer) => {
-                buffer.memories[0].get().is_read()
-            }
-        }
+    pub fn is_ref(&self) -> bool {
+        self.m0a().get().is_ref()
     }
 
-    pub fn is_write(&self) -> bool {
-        !self.is_read()
+    pub fn is_mut(&self) -> bool {
+        self.m0a().get().is_mut()
+    }
+
+    pub fn is_fixed(&self) -> bool {
+        self.m0a().get().is_fixed()
+    }
+
+    pub fn is_incremented(&self) -> bool {
+        self.m0a().get().is_incremented()
     }
 
     pub fn m0a(&self) -> &MemoryBuffer<Memory> {
@@ -739,8 +742,8 @@ where
 
     fn check_self(&self) {
         assert_eq!(
-            self.memories[0].get().is_read(),
-            self.memories[1].get().is_read()
+            self.memories[0].get().is_ref(),
+            self.memories[1].get().is_ref()
         );
         assert_eq!(
             self.memories[0].get().is_fixed(),

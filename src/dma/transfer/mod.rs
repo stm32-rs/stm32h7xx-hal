@@ -3,21 +3,24 @@
 pub mod buffer;
 pub mod config;
 
-use self::buffer::MemoryBufferType;
+use self::buffer::{MemoryBuffer, MemoryBufferType};
 use super::stream::config::{
-    DirectModeErrorInterrupt, FifoErrorInterrupt, HalfTransferInterrupt, MSize,
-    PSize, TransferCompleteInterrupt, TransferErrorInterrupt,
+    DirectModeErrorInterrupt, FifoErrorInterrupt, HalfTransferInterrupt, M0a,
+    M1a, MSize, PSize, TransferCompleteInterrupt, TransferErrorInterrupt,
 };
 use super::stream::{
-    CheckedConfig, Disabled, Enabled, Error as StreamError, Event, IsrCleared,
-    IsrUncleared, StreamIsr,
+    Disabled, Enabled, Error as StreamError, Event, IsrCleared, IsrUncleared,
+    StreamIsr,
 };
 use super::{ChannelId, Stream};
 use crate::{nb, private};
 use core::fmt::Debug;
+use core::hint;
 use core::marker::PhantomData;
 use core::mem;
 use enum_as_inner::EnumAsInner;
+
+use nb::block;
 
 pub use self::buffer::Buffer;
 pub use self::config::Config;
@@ -69,7 +72,7 @@ where
 
         self.conf.stream_config(&mut conf);
 
-        stream.apply_config(CheckedConfig::new(conf));
+        stream.apply_config(conf.check());
     }
 
     pub fn config_mut(&mut self) -> &mut Config<'wo, Peripheral, Memory> {
@@ -206,17 +209,69 @@ where
 
                 let ndt_bytes = ndt * p_size;
 
-                let remaining_memory_items;
-
-                if ndt_bytes % m_size == 0 {
-                    remaining_memory_items = ndt_bytes / m_size;
+                let remaining_memory_items = if ndt_bytes % m_size == 0 {
+                    ndt_bytes / m_size
                 } else {
-                    remaining_memory_items = ndt_bytes / m_size + 1;
-                }
+                    ndt_bytes / m_size + 1
+                };
 
                 Some(buffer.len() - remaining_memory_items)
             }
         }
+    }
+
+    pub fn replace_m0a(
+        &mut self,
+        memory_buffer: MemoryBuffer<Memory>,
+    ) -> MemoryBuffer<Memory> {
+        unsafe {
+            block!(self
+                .state
+                .stream
+                .set_m0a(M0a(memory_buffer.get().as_ptr(Some(0)) as u32)))
+        }
+        .unwrap();
+
+        let mut x = None;
+        self.conf.buffers_mut(|b| match &mut b.memory_buffer {
+            MemoryBufferType::SingleBuffer(_) => panic!(
+                "Cannot replace memory buffer on the fly for single buffer."
+            ),
+            MemoryBufferType::DoubleBuffer(buffer) => {
+                buffer.memories_mut(|b| {
+                    x = Some(mem::replace(&mut b[0], memory_buffer))
+                })
+            }
+        });
+
+        x.unwrap_or_else(|| unsafe { hint::unreachable_unchecked() })
+    }
+
+    pub fn replace_m1a(
+        &mut self,
+        memory_buffer: MemoryBuffer<Memory>,
+    ) -> MemoryBuffer<Memory> {
+        unsafe {
+            block!(self
+                .state
+                .stream
+                .set_m1a(M1a(memory_buffer.get().as_ptr(Some(0)) as u32)))
+        }
+        .unwrap();
+
+        let mut x = None;
+        self.conf.buffers_mut(|b| match &mut b.memory_buffer {
+            MemoryBufferType::SingleBuffer(_) => panic!(
+                "Cannot replace memory buffer on the fly for single buffer."
+            ),
+            MemoryBufferType::DoubleBuffer(buffer) => {
+                buffer.memories_mut(|b| {
+                    x = Some(mem::replace(&mut b[1], memory_buffer))
+                })
+            }
+        });
+
+        x.unwrap_or_else(|| unsafe { hint::unreachable_unchecked() })
     }
 
     pub fn stop(
@@ -403,24 +458,4 @@ where
 {
     pub peripheral_buffer: Buffer<'wo, Peripheral>,
     pub memory_buffer: MemoryBufferType<Memory>,
-}
-
-#[derive(Copy, Clone, Debug, EnumAsInner)]
-pub enum PayloadPort<Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    Peripheral(Peripheral),
-    Memory(Memory),
-}
-
-#[derive(Debug, EnumAsInner)]
-pub enum PointerPort<Peripheral, Memory>
-where
-    Peripheral: Payload,
-    Memory: Payload,
-{
-    Peripheral(*mut Peripheral),
-    Memory(*mut Memory),
 }

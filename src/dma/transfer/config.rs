@@ -4,7 +4,7 @@ use super::super::stream::config::{
     M0a, M1a, MBurst, MSize, Minc, Ndt, NotM2MConf, PBurstConf, Pa, Pinc,
     PincConf, Pincos, TransferDirectionConf, TransferModeConf,
 };
-use super::buffer::{IncrementedBuffer, MemoryBuffer, MemoryBufferType};
+use super::buffer::{IncrementedBuffer, MemoryBufferType};
 use super::{Buffer, Buffers, IPayloadSize, Payload, PayloadSize};
 use core::convert::TryFrom;
 use enum_as_inner::EnumAsInner;
@@ -408,8 +408,7 @@ where
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.peripheral_buffer.is_read());
-        assert!(self.buffers.memory_buffer.is_read());
+        assert!(self.buffers.memory_buffer.is_mut());
     }
 }
 
@@ -459,8 +458,7 @@ where
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.peripheral_buffer.is_write());
-        assert!(self.buffers.memory_buffer.is_read());
+        assert!(self.buffers.peripheral_buffer.is_mut());
     }
 }
 
@@ -505,36 +503,12 @@ where
         &mut self.buffers
     }
 
-    pub fn source_buffer(&self) -> &Buffer<'wo, Source> {
-        &self.buffers.peripheral_buffer
-    }
-
-    pub fn dest_buffer(&self) -> &MemoryBuffer<Dest> {
-        &self.buffers.memory_buffer.as_single_buffer().unwrap()
-    }
-
-    pub fn dest_buffer_mut<F>(&mut self, op: F)
-    where
-        for<'a> F: FnOnce(&'a mut MemoryBuffer<Dest>),
-    {
-        self.buffers_mut(move |b| {
-            op(&mut b.memory_buffer.as_single_buffer_mut().unwrap())
-        });
-    }
-
-    pub unsafe fn dest_buffer_mut_unchecked(
-        &mut self,
-    ) -> &mut MemoryBuffer<Dest> {
-        self.buffers.memory_buffer.as_single_buffer_mut().unwrap()
-    }
-
     pub fn free(self) -> Buffers<'wo, Source, Dest> {
         self.buffers
     }
 
     fn check_self(&self) {
-        assert!(self.buffers.peripheral_buffer.is_read());
-        assert!(self.buffers.memory_buffer.is_write());
+        assert!(self.buffers.memory_buffer.is_mut());
 
         assert!(self.buffers.memory_buffer.is_single_buffer());
     }
