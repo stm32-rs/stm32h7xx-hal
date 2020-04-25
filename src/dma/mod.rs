@@ -507,6 +507,8 @@ impl Dma {
     }
 }
 
+unsafe impl Sync for Dma {}
+
 pub trait DmaExt: DmaPeripheral {
     type Other: DmaPeripheral;
 

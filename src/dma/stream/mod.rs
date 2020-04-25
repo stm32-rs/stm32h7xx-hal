@@ -18,6 +18,7 @@ use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
 
 pub use self::config::{CheckedConfig, Config};
+use crate::dma::stream::config::IntoNum;
 
 /// DMA Stream
 pub struct Stream<CXX, ED, IsrState>
@@ -29,6 +30,7 @@ where
     /// This field *must not* be mutated using shared references
     rb: &'static mut ST,
     config_ndt: Ndt,
+    config_ct: CurrentTarget,
     _phantom_data: PhantomData<(CXX, ED, IsrState)>,
 }
 
@@ -43,6 +45,7 @@ where
         Stream {
             rb,
             config_ndt: Ndt::default(),
+            config_ct: CurrentTarget::default(),
             _phantom_data: PhantomData,
         }
     }
@@ -64,7 +67,7 @@ where
             minc: self.minc(),
             priority_level: self.priority_level(),
             p_size: self.p_size(),
-            ndt: self.ndt(),
+            ndt: self.config_ndt,
             pa: self.pa(),
             m0a: self.m0a(),
             transfer_direction: self.transfer_direction_config(),
@@ -132,7 +135,7 @@ where
 
     fn double_buffer_config(&self) -> DoubleBufferConf {
         DoubleBufferConf {
-            current_target: self.current_target(),
+            current_target: self.config_ct,
             m1a: self.m1a().unwrap(),
         }
     }
@@ -289,6 +292,9 @@ where
     }
 
     /// Returns the Current Target
+    ///
+    /// Note: This performs a *volatile* read, so the value returned may differ from
+    /// the configured value
     pub fn current_target(&self) -> CurrentTarget {
         self.rb.cr.read().ct().bit().into()
     }
@@ -304,6 +310,9 @@ where
     }
 
     /// Returns the content of the NDT register
+    ///
+    /// Note: This performs a *volatile* read, so the value returned may differ from
+    /// the configured value
     pub fn ndt(&self) -> Ndt {
         self.rb.ndtr.read().ndt().bits().into()
     }
@@ -365,6 +374,7 @@ where
         Stream {
             rb: self.rb,
             config_ndt: self.config_ndt,
+            config_ct: self.config_ct,
             _phantom_data: PhantomData,
         }
     }
@@ -478,6 +488,8 @@ where
 
     /// Sets the Current Target
     fn set_current_target(&mut self, current_target: CurrentTarget) {
+        self.config_ct = current_target;
+
         self.rb.cr.modify(|_, w| w.ct().bit(current_target.into()));
     }
 
@@ -605,7 +617,71 @@ where
     IsrState: IIsrState,
 {
     /// Disables the stream
+    ///
+    /// Original config will be reloaded, especially
+    /// * `NDT` (Number of Data Items to Transfer)
+    /// * `CT` (Current Target)
     pub fn disable(self) -> Stream<CXX, Disabled, IsrState> {
+        let mut stream = self.impl_disable();
+
+        // Reload original config into stream
+        // Values that may have changed are:
+        // * NDT (reloads automatically, as documented in RM 433 Rev 7 - Chapter 15.5.6)
+        // * CT (automatic reload is not clearly documented)
+
+        // TODO: Find out if necessary
+        stream.set_current_target(stream.config_ct);
+
+        stream
+    }
+
+    /// Halts the stream for later continuation.
+    ///
+    /// Current `NDT` and `CT` values will be written into the config,
+    /// and the address pointers will be adjusted, too.
+    ///
+    /// This returns the halted stream, and the original config.
+    pub fn halt(self) -> (Stream<CXX, Disabled, IsrState>, CheckedConfig) {
+        let old_conf = self.config();
+
+        let current_ndt = self.ndt();
+        let current_ct = self.current_target();
+
+        let mut stream = self.impl_disable();
+
+        stream.set_ndt(current_ndt);
+        stream.set_current_target(current_ct);
+
+        let new_pa;
+        let new_m0a;
+        let new_m1a;
+
+        {
+            let pa = stream.pa().0;
+            let m0a = stream.m0a().0;
+            let m1a = stream.m1a().map(|m1a| m1a.0);
+
+            let p_size = stream.p_size().into_num() as u32;
+            let m_size = stream.m_size().into_num() as u32;
+
+            let num_transferred_items = stream.config_ndt.0 as u32;
+
+            new_pa = pa + num_transferred_items * p_size;
+            new_m0a = m0a + num_transferred_items * m_size;
+            new_m1a = m1a.map(|m1a| m1a + num_transferred_items * m_size);
+        }
+
+        stream.set_pa(Pa(new_pa));
+        stream.set_m0a(M0a(new_m0a));
+
+        if let Some(new_m1a) = new_m1a {
+            stream.set_m1a(M1a(new_m1a));
+        }
+
+        (stream, old_conf)
+    }
+
+    fn impl_disable(self) -> Stream<CXX, Disabled, IsrState> {
         self.rb.cr.modify(|_, w| w.en().clear_bit());
 
         while self.rb.cr.read().en().bit_is_set() {}

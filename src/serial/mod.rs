@@ -1,7 +1,8 @@
 //! Serial
 
-#[cfg(all(test, feature = "dma"))]
+/*
 pub mod dma;
+*/
 
 use core::fmt;
 use core::marker::PhantomData;

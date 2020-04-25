@@ -18,7 +18,6 @@ use core::fmt::Debug;
 use core::hint;
 use core::marker::PhantomData;
 use core::mem;
-use enum_as_inner::EnumAsInner;
 
 use nb::block;
 
@@ -274,6 +273,16 @@ where
         x.unwrap_or_else(|| unsafe { hint::unreachable_unchecked() })
     }
 
+    pub fn halt(self) -> Transfer<'wo, Peripheral, Memory, Halted<CXX>> {
+        let (stream, _) = self.state.stream.halt();
+
+        Transfer {
+            conf: self.conf,
+            state: Halted { stream },
+            _phantom: PhantomData,
+        }
+    }
+
     pub fn stop(
         self,
     ) -> (
@@ -319,6 +328,42 @@ where
     }
 }
 
+impl<'wo, Peripheral, Memory, CXX>
+    Transfer<'wo, Peripheral, Memory, Halted<CXX>>
+where
+    Peripheral: Payload,
+    Memory: Payload,
+    CXX: ChannelId,
+{
+    pub fn resume(
+        self,
+        isr: &mut StreamIsr<CXX::DMA>,
+    ) -> Transfer<'wo, Peripheral, Memory, Ongoing<CXX>> {
+        let stream = unsafe { self.state.stream.clear_isr(isr).enable() };
+
+        Transfer {
+            conf: self.conf,
+            state: Ongoing { stream },
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn stop(
+        self,
+    ) -> (
+        Transfer<'wo, Peripheral, Memory, Start>,
+        Stream<CXX, Disabled, IsrUncleared>,
+    ) {
+        let transfer = Transfer {
+            conf: self.conf,
+            state: Start,
+            _phantom: PhantomData,
+        };
+
+        (transfer, self.state.stream)
+    }
+}
+
 pub trait TransferState: Send + Sync + private::Sealed {}
 
 pub struct Start;
@@ -334,6 +379,14 @@ pub struct Ongoing<CXX: ChannelId> {
 impl<CXX: ChannelId> private::Sealed for Ongoing<CXX> {}
 
 impl<CXX: ChannelId> TransferState for Ongoing<CXX> {}
+
+pub struct Halted<CXX: ChannelId> {
+    stream: Stream<CXX, Disabled, IsrUncleared>,
+}
+
+impl<CXX: ChannelId> private::Sealed for Halted<CXX> {}
+
+impl<CXX: ChannelId> TransferState for Halted<CXX> {}
 
 /// # Safety
 ///
