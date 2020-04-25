@@ -43,7 +43,7 @@ where
     pub fn new(conf: Config<'wo, Peripheral, Memory>) -> Self {
         Self {
             conf,
-            state: Start,
+            state: Start { _private: () },
             _phantom: PhantomData,
         }
     }
@@ -293,7 +293,7 @@ where
 
         let transfer = Transfer {
             conf: self.conf,
-            state: Start,
+            state: Start { _private: () },
             _phantom: PhantomData,
         };
 
@@ -356,7 +356,7 @@ where
     ) {
         let transfer = Transfer {
             conf: self.conf,
-            state: Start,
+            state: Start { _private: () },
             _phantom: PhantomData,
         };
 
@@ -366,7 +366,9 @@ where
 
 pub trait TransferState: Send + Sync + private::Sealed {}
 
-pub struct Start;
+pub struct Start {
+    _private: (),
+}
 
 impl private::Sealed for Start {}
 
@@ -461,9 +463,15 @@ pub trait IPayloadSize {
     const SIZE: PayloadSize;
 }
 
-pub struct Byte;
-pub struct HalfWord;
-pub struct Word;
+pub struct Byte {
+    _private: (),
+}
+pub struct HalfWord {
+    _private: (),
+}
+pub struct Word {
+    _private: (),
+}
 
 impl IPayloadSize for Byte {
     const SIZE: PayloadSize = PayloadSize::Byte;

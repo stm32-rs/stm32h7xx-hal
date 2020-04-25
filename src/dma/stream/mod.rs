@@ -11,6 +11,7 @@ use self::config::{
     TransferCompleteInterrupt, TransferDirection, TransferDirectionConf,
     TransferErrorInterrupt, TransferMode, TransferModeConf,
 };
+use super::utils::UniqueRef;
 use super::{ChannelId, DmaPeripheral};
 use crate::nb::Error as NbError;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR, ST};
@@ -28,7 +29,7 @@ where
     IsrState: IIsrState,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut ST,
+    rb: UniqueRef<'static, ST>,
     config_ndt: Ndt,
     config_ct: CurrentTarget,
     _phantom_data: PhantomData<(CXX, ED, IsrState)>,
@@ -41,7 +42,7 @@ where
     /// Creates an instance of a Stream in initial state.
     ///
     /// Should only be called after RCC-Reset of the DMA.
-    pub(super) fn after_reset(rb: &'static mut ST) -> Self {
+    pub(super) fn after_reset(rb: UniqueRef<'static, ST>) -> Self {
         Stream {
             rb,
             config_ndt: Ndt::default(),
@@ -1130,9 +1131,9 @@ where
     lisr: &'static LISR,
     hisr: &'static HISR,
     /// This field *must not* be mutated using shared references
-    lifcr: &'static mut LIFCR,
+    lifcr: UniqueRef<'static, LIFCR>,
     /// This field *must not* be mutated using shared references
-    hifcr: &'static mut HIFCR,
+    hifcr: UniqueRef<'static, HIFCR>,
     _phantom_data: PhantomData<DMA>,
 }
 
@@ -1143,8 +1144,8 @@ where
     pub(super) fn new(
         lisr: &'static LISR,
         hisr: &'static HISR,
-        lifcr: &'static mut LIFCR,
-        hifcr: &'static mut HIFCR,
+        lifcr: UniqueRef<'static, LIFCR>,
+        hifcr: UniqueRef<'static, HIFCR>,
     ) -> Self {
         StreamIsr {
             lisr,

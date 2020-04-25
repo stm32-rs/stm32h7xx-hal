@@ -4,6 +4,7 @@ pub mod request_gen;
 
 use self::request_gen::RequestGenIsr;
 use self::request_ids::{ReqNone, RequestId as IRequestId, RequestIdSome};
+use super::utils::UniqueRef;
 use super::ChannelId;
 use crate::stm32::dmamux1::{CCR, CFR, CSR};
 use core::convert::{TryFrom, TryInto};
@@ -20,7 +21,7 @@ where
     EgED: IEgED,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut CCR,
+    rb: UniqueRef<'static, CCR>,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
 }
@@ -32,7 +33,7 @@ where
     /// Creates an instance of a DMA Mux in initial state.
     ///
     /// Should only be called after RCC-reset of the DMA.
-    pub(super) fn after_reset(rb: &'static mut CCR) -> Self {
+    pub(super) fn after_reset(rb: UniqueRef<'static, CCR>) -> Self {
         Mux {
             rb,
             req_id: ReqNone,
@@ -578,11 +579,11 @@ impl MuxShared {
 pub struct MuxIsr {
     csr: &'static CSR,
     /// This field *must not* be mutated using shared references
-    cfr: &'static mut CFR,
+    cfr: UniqueRef<'static, CFR>,
 }
 
 impl MuxIsr {
-    pub(super) fn new(csr: &'static CSR, cfr: &'static mut CFR) -> Self {
+    pub(super) fn new(csr: &'static CSR, cfr: UniqueRef<'static, CFR>) -> Self {
         Self { csr, cfr }
     }
 }

@@ -1,5 +1,6 @@
 //! DMA Request Generator
 
+use super::super::utils::UniqueRef;
 use crate::private;
 use crate::stm32::dmamux1::{RGCFR, RGCR, RGSR};
 use core::convert::TryInto;
@@ -11,7 +12,7 @@ where
     ED: IED,
 {
     /// This field *must not* be mutated using shared references
-    rb: &'static mut RGCR,
+    rb: UniqueRef<'static, RGCR>,
     _phantom_data: PhantomData<(GXX, ED)>,
 }
 
@@ -19,7 +20,7 @@ impl<GXX> RequestGenerator<GXX, Disabled>
 where
     GXX: GenId,
 {
-    pub(in super::super) fn after_reset(rb: &'static mut RGCR) -> Self {
+    pub(in super::super) fn after_reset(rb: UniqueRef<'static, RGCR>) -> Self {
         RequestGenerator {
             rb,
             _phantom_data: PhantomData,
@@ -225,13 +226,13 @@ pub struct TriggerOverrunError;
 pub struct RequestGenIsr {
     rgsr: &'static RGSR,
     /// This field *must not* be mutated using shared references
-    rgcfr: &'static mut RGCFR,
+    rgcfr: UniqueRef<'static, RGCFR>,
 }
 
 impl RequestGenIsr {
     pub(in super::super) fn new(
         rgsr: &'static RGSR,
-        rgcfr: &'static mut RGCFR,
+        rgcfr: UniqueRef<'static, RGCFR>,
     ) -> Self {
         RequestGenIsr { rgsr, rgcfr }
     }

@@ -12,7 +12,9 @@ macro_rules! type_state {
 
         $(
             #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-            pub struct $type_state;
+            pub struct $type_state {
+                _private: (),
+            }
 
             impl crate::private::Sealed for $type_state {}
 

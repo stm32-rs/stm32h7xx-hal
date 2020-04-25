@@ -22,12 +22,14 @@ use self::mux::{
 use self::stream::{Disabled, IIsrState, IsrCleared, StreamIsr, IED};
 use crate::private;
 use crate::rcc::Ccdr;
-use crate::stm32::{dma1, dmamux1, DMA1, DMA2, RCC};
+use crate::stm32::{DMA1, DMA2, RCC};
 use stm32h7::stm32h743::DMAMUX1;
 
 pub use self::mux::Mux;
 pub use self::stream::Stream;
 pub use self::transfer::Transfer;
+
+use self::utils::UniqueRef;
 
 /// Marker Trait for DMA peripherals
 pub trait DmaPeripheral: private::Sealed {}
@@ -214,29 +216,29 @@ impl Dma {
 
         Dma::reset_mux(&mut dma_mux);
 
-        let dma1_rb: &mut dma1::RegisterBlock =
-            unsafe { &mut *(DMA1::ptr() as *mut _) };
-        let dma2_rb: &mut dma1::RegisterBlock =
-            unsafe { &mut *(DMA2::ptr() as *mut _) };
-        let dma_mux_rb: &mut dmamux1::RegisterBlock =
-            unsafe { &mut *(DMAMUX1::ptr() as *mut _) };
+        let dma1_rb = unsafe { &*DMA1::ptr() };
+        let dma2_rb = unsafe { &*DMA2::ptr() };
+        let dma_mux_rb = unsafe { &*DMAMUX1::ptr() };
 
         let stream_isr_dma_1 = StreamIsr::new(
             &dma1_rb.lisr,
             &dma1_rb.hisr,
-            &mut dma1_rb.lifcr,
-            &mut dma1_rb.hifcr,
+            unsafe { UniqueRef::new_unchecked(&dma1_rb.lifcr) },
+            unsafe { UniqueRef::new_unchecked(&dma1_rb.hifcr) },
         );
         let stream_isr_dma_2 = StreamIsr::new(
             &dma2_rb.lisr,
             &dma2_rb.hisr,
-            &mut dma2_rb.lifcr,
-            &mut dma2_rb.hifcr,
+            unsafe { UniqueRef::new_unchecked(&dma2_rb.lifcr) },
+            unsafe { UniqueRef::new_unchecked(&dma2_rb.hifcr) },
         );
 
-        let mux_isr = MuxIsr::new(&dma_mux_rb.csr, &mut dma_mux_rb.cfr);
-        let req_gen_isr =
-            RequestGenIsr::new(&dma_mux_rb.rgsr, &mut dma_mux_rb.rgcfr);
+        let mux_isr = MuxIsr::new(&dma_mux_rb.csr, unsafe {
+            UniqueRef::new_unchecked(&dma_mux_rb.cfr)
+        });
+        let req_gen_isr = RequestGenIsr::new(&dma_mux_rb.rgsr, unsafe {
+            UniqueRef::new_unchecked(&dma_mux_rb.rgcfr)
+        });
         let mux_shared = MuxShared::new(mux_isr, req_gen_isr);
 
         let dma_shared = DmaShared {
@@ -248,68 +250,68 @@ impl Dma {
         let channels_dma_1 = unsafe {
             (
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[0] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[0] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[0],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[0],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[1] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[1] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[1],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[1],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[2] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[2] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[2],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[2],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[3] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[3] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[3],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[3],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[4] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[4] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[4],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[4],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[5] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[5] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[5],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[5],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[6] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[6] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[6],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[6],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma1_rb.st[7] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[7] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[7],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[7],
+                    )),
                 },
             )
         };
@@ -317,98 +319,98 @@ impl Dma {
         let channels_dma_2 = unsafe {
             (
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[0] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[8] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[0],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[8],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[1] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[9] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[1],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[9],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[2] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[10] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[2],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[10],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[3] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[11] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[3],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[11],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[4] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[12] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[4],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[12],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[5] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[13] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[5],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[13],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[6] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[14] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[6],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[14],
+                    )),
                 },
                 Channel {
-                    stream: Stream::after_reset(
-                        &mut *(&mut dma2_rb.st[7] as *mut _),
-                    ),
-                    mux: Mux::after_reset(
-                        &mut *(&mut dma_mux_rb.ccr[15] as *mut _),
-                    ),
+                    stream: Stream::after_reset(UniqueRef::new_unchecked(
+                        &dma1_rb.st[7],
+                    )),
+                    mux: Mux::after_reset(UniqueRef::new_unchecked(
+                        &dma_mux_rb.ccr[15],
+                    )),
                 },
             )
         };
 
         let request_generators = unsafe {
             (
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[0] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[1] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[2] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[3] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[4] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[5] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[6] as *mut _),
-                ),
-                RequestGenerator::after_reset(
-                    &mut *(&mut dma_mux_rb.rgcr[7] as *mut _),
-                ),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[0],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[1],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[2],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[3],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[4],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[5],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[6],
+                )),
+                RequestGenerator::after_reset(UniqueRef::new_unchecked(
+                    &dma_mux_rb.rgcr[7],
+                )),
             )
         };
 
