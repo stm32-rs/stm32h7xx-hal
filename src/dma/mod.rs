@@ -17,9 +17,10 @@ use self::mux::request_gen::{
 use self::mux::request_ids::{ReqNone, RequestId as IRequestId};
 use self::mux::MuxIsr;
 use self::mux::{
-    EgDisabled, IEgED, ISyncED, MuxShared, RequestGenerator, SyncDisabled,
+    EgDisabled, IEgED, ISyncED, MuxId, MuxShared, RequestGenerator,
+    SyncDisabled,
 };
-use self::stream::{Disabled, IIsrState, IsrCleared, StreamIsr, IED};
+use self::stream::{Disabled, IIsrState, IsrCleared, StreamId, StreamIsr, IED};
 use crate::private;
 use crate::rcc::Ccdr;
 use crate::stm32::{DMA1, DMA2, RCC};
@@ -37,8 +38,8 @@ impl DmaPeripheral for DMA1 {}
 impl DmaPeripheral for DMA2 {}
 
 pub trait ChannelId: Send + private::Sealed {
-    const STREAM_ID: usize;
-    const MUX_ID: usize;
+    const STREAM_ID: StreamId;
+    const MUX_ID: MuxId;
 
     type DMA: DmaPeripheral;
 }
@@ -53,8 +54,8 @@ macro_rules! channels {
             impl crate::private::Sealed for $channel {}
 
             impl ChannelId for $channel {
-                const STREAM_ID: usize = $stream;
-                const MUX_ID: usize = $mux;
+                const STREAM_ID: StreamId = StreamId::$stream;
+                const MUX_ID: MuxId = MuxId::$mux;
 
                 type DMA = $dma;
             }
@@ -63,22 +64,22 @@ macro_rules! channels {
 }
 
 channels! {
-    C0 => [0, 0, DMA1],
-    C1 => [1, 1, DMA1],
-    C2 => [2, 2, DMA1],
-    C3 => [3, 3, DMA1],
-    C4 => [4, 4, DMA1],
-    C5 => [5, 5, DMA1],
-    C6 => [6, 6, DMA1],
-    C7 => [7, 7, DMA1],
-    C8 => [0, 8, DMA2],
-    C9 => [1, 9, DMA2],
-    C10 => [2, 10, DMA2],
-    C11 => [3, 11, DMA2],
-    C12 => [4, 12, DMA2],
-    C13 => [5, 13, DMA2],
-    C14 => [6, 14, DMA2],
-    C15 => [7, 15, DMA2]
+    C0 => [S_0, M_0, DMA1],
+    C1 => [S_1, M_1, DMA1],
+    C2 => [S_2, M_2, DMA1],
+    C3 => [S_3, M_3, DMA1],
+    C4 => [S_4, M_4, DMA1],
+    C5 => [S_5, M_5, DMA1],
+    C6 => [S_6, M_6, DMA1],
+    C7 => [S_7, M_7, DMA1],
+    C8 => [S_0, M_8, DMA2],
+    C9 => [S_1, M_9, DMA2],
+    C10 => [S_2, M_10, DMA2],
+    C11 => [S_3, M_11, DMA2],
+    C12 => [S_4, M_12, DMA2],
+    C13 => [S_5, M_13, DMA2],
+    C14 => [S_6, M_14, DMA2],
+    C15 => [S_7, M_15, DMA2]
 }
 
 /// DMA Channel

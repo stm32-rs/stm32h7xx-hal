@@ -21,6 +21,33 @@ use core::marker::PhantomData;
 pub use self::config::{CheckedConfig, Config};
 use crate::dma::stream::config::IntoNum;
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+pub enum StreamId {
+    S_0,
+    S_1,
+    S_2,
+    S_3,
+    S_4,
+    S_5,
+    S_6,
+    S_7,
+}
+
+impl From<StreamId> for usize {
+    fn from(x: StreamId) -> usize {
+        match x {
+            StreamId::S_0 => 0,
+            StreamId::S_1 => 1,
+            StreamId::S_2 => 2,
+            StreamId::S_3 => 3,
+            StreamId::S_4 => 4,
+            StreamId::S_5 => 5,
+            StreamId::S_6 => 6,
+            StreamId::S_7 => 7,
+        }
+    }
+}
+
 /// DMA Stream
 pub struct Stream<CXX, ED, IsrState>
 where
@@ -29,7 +56,7 @@ where
     IsrState: IIsrState,
 {
     /// This field *must not* be mutated using shared references
-    rb: UniqueRef<'static, ST>,
+    rb: &'static ST,
     config_ndt: Ndt,
     config_ct: CurrentTarget,
     _phantom_data: PhantomData<(CXX, ED, IsrState)>,
@@ -44,7 +71,7 @@ where
     /// Should only be called after RCC-Reset of the DMA.
     pub(super) fn after_reset(rb: UniqueRef<'static, ST>) -> Self {
         Stream {
-            rb,
+            rb: rb.into_inner(),
             config_ndt: Ndt::default(),
             config_ct: CurrentTarget::default(),
             _phantom_data: PhantomData,
@@ -171,7 +198,7 @@ where
     }
 
     /// Returns the id of the Stream
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> StreamId {
         CXX::STREAM_ID
     }
 
@@ -757,241 +784,56 @@ where
 
     /// Returns the Transfer Complete flag
     pub fn transfer_complete_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
-        match self.id() {
-            0 => isr.lisr.read().tcif0().bit_is_set(),
-            1 => isr.lisr.read().tcif1().bit_is_set(),
-            2 => isr.lisr.read().tcif2().bit_is_set(),
-            3 => isr.lisr.read().tcif3().bit_is_set(),
-            4 => isr.hisr.read().tcif4().bit_is_set(),
-            5 => isr.hisr.read().tcif5().bit_is_set(),
-            6 => isr.hisr.read().tcif6().bit_is_set(),
-            7 => isr.hisr.read().tcif7().bit_is_set(),
-            _ => unreachable!(),
-        }
+        isr.transfer_complete_flag(self.id())
     }
 
     /// Returns the Half Transfer flag
     pub fn half_transfer_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
-        match self.id() {
-            0 => isr.lisr.read().htif0().bit_is_set(),
-            1 => isr.lisr.read().htif1().bit_is_set(),
-            2 => isr.lisr.read().htif2().bit_is_set(),
-            3 => isr.lisr.read().htif3().bit_is_set(),
-            4 => isr.hisr.read().htif4().bit_is_set(),
-            5 => isr.hisr.read().htif5().bit_is_set(),
-            6 => isr.hisr.read().htif6().bit_is_set(),
-            7 => isr.hisr.read().htif7().bit_is_set(),
-            _ => unreachable!(),
-        }
+        isr.half_transfer_flag(self.id())
     }
 
     /// Returns the Transfer Error flag
     pub fn transfer_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
-        match self.id() {
-            0 => isr.lisr.read().teif0().bit_is_set(),
-            1 => isr.lisr.read().teif1().bit_is_set(),
-            2 => isr.lisr.read().teif2().bit_is_set(),
-            3 => isr.lisr.read().teif3().bit_is_set(),
-            4 => isr.hisr.read().teif4().bit_is_set(),
-            5 => isr.hisr.read().teif5().bit_is_set(),
-            6 => isr.hisr.read().teif6().bit_is_set(),
-            7 => isr.hisr.read().teif7().bit_is_set(),
-            _ => unreachable!(),
-        }
+        isr.transfer_error_flag(self.id())
     }
 
     /// Returns the Direct Mode Error flag
     pub fn direct_mode_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
-        match self.id() {
-            0 => isr.lisr.read().dmeif0().bit_is_set(),
-            1 => isr.lisr.read().dmeif1().bit_is_set(),
-            2 => isr.lisr.read().dmeif2().bit_is_set(),
-            3 => isr.lisr.read().dmeif3().bit_is_set(),
-            4 => isr.hisr.read().dmeif4().bit_is_set(),
-            5 => isr.hisr.read().dmeif5().bit_is_set(),
-            6 => isr.hisr.read().dmeif6().bit_is_set(),
-            7 => isr.hisr.read().dmeif7().bit_is_set(),
-            _ => unreachable!(),
-        }
+        isr.direct_mode_error_flag(self.id())
     }
 
     /// Returns the Fifo Error flag
     pub fn fifo_error_flag(&self, isr: &StreamIsr<CXX::DMA>) -> bool {
-        match self.id() {
-            0 => isr.lisr.read().feif0().bit_is_set(),
-            1 => isr.lisr.read().feif1().bit_is_set(),
-            2 => isr.lisr.read().feif2().bit_is_set(),
-            3 => isr.lisr.read().feif3().bit_is_set(),
-            4 => isr.hisr.read().feif4().bit_is_set(),
-            5 => isr.hisr.read().feif5().bit_is_set(),
-            6 => isr.hisr.read().feif6().bit_is_set(),
-            7 => isr.hisr.read().feif7().bit_is_set(),
-            _ => unreachable!(),
-        }
-    }
-
-    /// Performs the ISR clear
-    fn clear_isr_impl(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        self.clear_transfer_complete(isr);
-        self.clear_half_transfer(isr);
-        self.clear_transfer_error(isr);
-        self.clear_direct_mode_error(isr);
-        self.clear_fifo_error(isr);
+        isr.fifo_error_flag(self.id())
     }
 
     /// Clears the Transfer Complete flag
     pub fn clear_transfer_complete(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        match self.id() {
-            0 => {
-                isr.lifcr.write(|w| w.ctcif0().set_bit());
-            }
-            1 => {
-                isr.lifcr.write(|w| w.ctcif1().set_bit());
-            }
-            2 => {
-                isr.lifcr.write(|w| w.ctcif2().set_bit());
-            }
-            3 => {
-                isr.lifcr.write(|w| w.ctcif3().set_bit());
-            }
-            4 => {
-                isr.hifcr.write(|w| w.ctcif4().set_bit());
-            }
-            5 => {
-                isr.hifcr.write(|w| w.ctcif5().set_bit());
-            }
-            6 => {
-                isr.hifcr.write(|w| w.ctcif6().set_bit());
-            }
-            7 => {
-                isr.hifcr.write(|w| w.ctcif7().set_bit());
-            }
-            _ => unreachable!(),
-        }
+        isr.clear_transfer_complete(self.id());
     }
 
     /// Clears the Half Transfer flag
     pub fn clear_half_transfer(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        match self.id() {
-            0 => {
-                isr.lifcr.write(|w| w.chtif0().set_bit());
-            }
-            1 => {
-                isr.lifcr.write(|w| w.chtif1().set_bit());
-            }
-            2 => {
-                isr.lifcr.write(|w| w.chtif2().set_bit());
-            }
-            3 => {
-                isr.lifcr.write(|w| w.chtif3().set_bit());
-            }
-            4 => {
-                isr.hifcr.write(|w| w.chtif4().set_bit());
-            }
-            5 => {
-                isr.hifcr.write(|w| w.chtif5().set_bit());
-            }
-            6 => {
-                isr.hifcr.write(|w| w.chtif6().set_bit());
-            }
-            7 => {
-                isr.hifcr.write(|w| w.chtif7().set_bit());
-            }
-            _ => unreachable!(),
-        }
+        isr.clear_half_transfer(self.id());
     }
 
     /// Clears the Transfer Error flag
     pub fn clear_transfer_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        match self.id() {
-            0 => {
-                isr.lifcr.write(|w| w.cteif0().set_bit());
-            }
-            1 => {
-                isr.lifcr.write(|w| w.cteif1().set_bit());
-            }
-            2 => {
-                isr.lifcr.write(|w| w.cteif2().set_bit());
-            }
-            3 => {
-                isr.lifcr.write(|w| w.cteif3().set_bit());
-            }
-            4 => {
-                isr.hifcr.write(|w| w.cteif4().set_bit());
-            }
-            5 => {
-                isr.hifcr.write(|w| w.cteif5().set_bit());
-            }
-            6 => {
-                isr.hifcr.write(|w| w.cteif6().set_bit());
-            }
-            7 => {
-                isr.hifcr.write(|w| w.cteif7().set_bit());
-            }
-            _ => unreachable!(),
-        }
+        isr.clear_transfer_error(self.id());
     }
 
     /// Clears the Direct Mode Error flag
     pub fn clear_direct_mode_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        match self.id() {
-            0 => {
-                isr.lifcr.write(|w| w.cdmeif0().set_bit());
-            }
-            1 => {
-                isr.lifcr.write(|w| w.cdmeif1().set_bit());
-            }
-            2 => {
-                isr.lifcr.write(|w| w.cdmeif2().set_bit());
-            }
-            3 => {
-                isr.lifcr.write(|w| w.cdmeif3().set_bit());
-            }
-            4 => {
-                isr.hifcr.write(|w| w.cdmeif4().set_bit());
-            }
-            5 => {
-                isr.hifcr.write(|w| w.cdmeif5().set_bit());
-            }
-            6 => {
-                isr.hifcr.write(|w| w.cdmeif6().set_bit());
-            }
-            7 => {
-                isr.hifcr.write(|w| w.cdmeif7().set_bit());
-            }
-            _ => unreachable!(),
-        }
+        isr.clear_direct_mode_error(self.id());
     }
 
     /// Clears the Fifo Error flag
     pub fn clear_fifo_error(&self, isr: &mut StreamIsr<CXX::DMA>) {
-        match self.id() {
-            0 => {
-                isr.lifcr.write(|w| w.cfeif0().set_bit());
-            }
-            1 => {
-                isr.lifcr.write(|w| w.cfeif1().set_bit());
-            }
-            2 => {
-                isr.lifcr.write(|w| w.cfeif2().set_bit());
-            }
-            3 => {
-                isr.lifcr.write(|w| w.cfeif3().set_bit());
-            }
-            4 => {
-                isr.hifcr.write(|w| w.cfeif4().set_bit());
-            }
-            5 => {
-                isr.hifcr.write(|w| w.cfeif5().set_bit());
-            }
-            6 => {
-                isr.hifcr.write(|w| w.cfeif6().set_bit());
-            }
-            7 => {
-                isr.hifcr.write(|w| w.cfeif7().set_bit());
-            }
-            _ => unreachable!(),
-        }
+        isr.clear_fifo_error(self.id());
+    }
+
+    fn clear_isr_impl(&self, isr: &mut StreamIsr<CXX::DMA>) {
+        isr.clear_isr(self.id());
     }
 }
 
@@ -1131,9 +973,9 @@ where
     lisr: &'static LISR,
     hisr: &'static HISR,
     /// This field *must not* be mutated using shared references
-    lifcr: UniqueRef<'static, LIFCR>,
+    lifcr: &'static LIFCR,
     /// This field *must not* be mutated using shared references
-    hifcr: UniqueRef<'static, HIFCR>,
+    hifcr: &'static HIFCR,
     _phantom_data: PhantomData<DMA>,
 }
 
@@ -1150,9 +992,237 @@ where
         StreamIsr {
             lisr,
             hisr,
-            lifcr,
-            hifcr,
+            lifcr: lifcr.into_inner(),
+            hifcr: hifcr.into_inner(),
             _phantom_data: PhantomData,
+        }
+    }
+
+    /// Returns the Transfer Complete flag
+    pub fn transfer_complete_flag(&self, id: StreamId) -> bool {
+        match id {
+            StreamId::S_0 => self.lisr.read().tcif0().bit_is_set(),
+            StreamId::S_1 => self.lisr.read().tcif1().bit_is_set(),
+            StreamId::S_2 => self.lisr.read().tcif2().bit_is_set(),
+            StreamId::S_3 => self.lisr.read().tcif3().bit_is_set(),
+            StreamId::S_4 => self.hisr.read().tcif4().bit_is_set(),
+            StreamId::S_5 => self.hisr.read().tcif5().bit_is_set(),
+            StreamId::S_6 => self.hisr.read().tcif6().bit_is_set(),
+            StreamId::S_7 => self.hisr.read().tcif7().bit_is_set(),
+        }
+    }
+
+    /// Returns the Half Transfer flag
+    pub fn half_transfer_flag(&self, id: StreamId) -> bool {
+        match id {
+            StreamId::S_0 => self.lisr.read().htif0().bit_is_set(),
+            StreamId::S_1 => self.lisr.read().htif1().bit_is_set(),
+            StreamId::S_2 => self.lisr.read().htif2().bit_is_set(),
+            StreamId::S_3 => self.lisr.read().htif3().bit_is_set(),
+            StreamId::S_4 => self.hisr.read().htif4().bit_is_set(),
+            StreamId::S_5 => self.hisr.read().htif5().bit_is_set(),
+            StreamId::S_6 => self.hisr.read().htif6().bit_is_set(),
+            StreamId::S_7 => self.hisr.read().htif7().bit_is_set(),
+        }
+    }
+
+    /// Returns the Transfer Error flag
+    pub fn transfer_error_flag(&self, id: StreamId) -> bool {
+        match id {
+            StreamId::S_0 => self.lisr.read().teif0().bit_is_set(),
+            StreamId::S_1 => self.lisr.read().teif1().bit_is_set(),
+            StreamId::S_2 => self.lisr.read().teif2().bit_is_set(),
+            StreamId::S_3 => self.lisr.read().teif3().bit_is_set(),
+            StreamId::S_4 => self.hisr.read().teif4().bit_is_set(),
+            StreamId::S_5 => self.hisr.read().teif5().bit_is_set(),
+            StreamId::S_6 => self.hisr.read().teif6().bit_is_set(),
+            StreamId::S_7 => self.hisr.read().teif7().bit_is_set(),
+        }
+    }
+
+    /// Returns the Direct Mode Error flag
+    pub fn direct_mode_error_flag(&self, id: StreamId) -> bool {
+        match id {
+            StreamId::S_0 => self.lisr.read().dmeif0().bit_is_set(),
+            StreamId::S_1 => self.lisr.read().dmeif1().bit_is_set(),
+            StreamId::S_2 => self.lisr.read().dmeif2().bit_is_set(),
+            StreamId::S_3 => self.lisr.read().dmeif3().bit_is_set(),
+            StreamId::S_4 => self.hisr.read().dmeif4().bit_is_set(),
+            StreamId::S_5 => self.hisr.read().dmeif5().bit_is_set(),
+            StreamId::S_6 => self.hisr.read().dmeif6().bit_is_set(),
+            StreamId::S_7 => self.hisr.read().dmeif7().bit_is_set(),
+        }
+    }
+
+    /// Returns the Fifo Error flag
+    pub fn fifo_error_flag(&self, id: StreamId) -> bool {
+        match id {
+            StreamId::S_0 => self.lisr.read().feif0().bit_is_set(),
+            StreamId::S_1 => self.lisr.read().feif1().bit_is_set(),
+            StreamId::S_2 => self.lisr.read().feif2().bit_is_set(),
+            StreamId::S_3 => self.lisr.read().feif3().bit_is_set(),
+            StreamId::S_4 => self.hisr.read().feif4().bit_is_set(),
+            StreamId::S_5 => self.hisr.read().feif5().bit_is_set(),
+            StreamId::S_6 => self.hisr.read().feif6().bit_is_set(),
+            StreamId::S_7 => self.hisr.read().feif7().bit_is_set(),
+        }
+    }
+
+    pub fn clear_isr(&mut self, id: StreamId) {
+        self.clear_transfer_complete(id);
+        self.clear_half_transfer(id);
+        self.clear_transfer_error(id);
+        self.clear_direct_mode_error(id);
+        self.clear_fifo_error(id);
+    }
+
+    /// Clears the Transfer Complete flag
+    pub fn clear_transfer_complete(&mut self, id: StreamId) {
+        match id {
+            StreamId::S_0 => {
+                self.lifcr.write(|w| w.ctcif0().set_bit());
+            }
+            StreamId::S_1 => {
+                self.lifcr.write(|w| w.ctcif1().set_bit());
+            }
+            StreamId::S_2 => {
+                self.lifcr.write(|w| w.ctcif2().set_bit());
+            }
+            StreamId::S_3 => {
+                self.lifcr.write(|w| w.ctcif3().set_bit());
+            }
+            StreamId::S_4 => {
+                self.hifcr.write(|w| w.ctcif4().set_bit());
+            }
+            StreamId::S_5 => {
+                self.hifcr.write(|w| w.ctcif5().set_bit());
+            }
+            StreamId::S_6 => {
+                self.hifcr.write(|w| w.ctcif6().set_bit());
+            }
+            StreamId::S_7 => {
+                self.hifcr.write(|w| w.ctcif7().set_bit());
+            }
+        }
+    }
+
+    /// Clears the Half Transfer flag
+    pub fn clear_half_transfer(&mut self, id: StreamId) {
+        match id {
+            StreamId::S_0 => {
+                self.lifcr.write(|w| w.chtif0().set_bit());
+            }
+            StreamId::S_1 => {
+                self.lifcr.write(|w| w.chtif1().set_bit());
+            }
+            StreamId::S_2 => {
+                self.lifcr.write(|w| w.chtif2().set_bit());
+            }
+            StreamId::S_3 => {
+                self.lifcr.write(|w| w.chtif3().set_bit());
+            }
+            StreamId::S_4 => {
+                self.hifcr.write(|w| w.chtif4().set_bit());
+            }
+            StreamId::S_5 => {
+                self.hifcr.write(|w| w.chtif5().set_bit());
+            }
+            StreamId::S_6 => {
+                self.hifcr.write(|w| w.chtif6().set_bit());
+            }
+            StreamId::S_7 => {
+                self.hifcr.write(|w| w.chtif7().set_bit());
+            }
+        }
+    }
+
+    /// Clears the Transfer Error flag
+    pub fn clear_transfer_error(&mut self, id: StreamId) {
+        match id {
+            StreamId::S_0 => {
+                self.lifcr.write(|w| w.cteif0().set_bit());
+            }
+            StreamId::S_1 => {
+                self.lifcr.write(|w| w.cteif1().set_bit());
+            }
+            StreamId::S_2 => {
+                self.lifcr.write(|w| w.cteif2().set_bit());
+            }
+            StreamId::S_3 => {
+                self.lifcr.write(|w| w.cteif3().set_bit());
+            }
+            StreamId::S_4 => {
+                self.hifcr.write(|w| w.cteif4().set_bit());
+            }
+            StreamId::S_5 => {
+                self.hifcr.write(|w| w.cteif5().set_bit());
+            }
+            StreamId::S_6 => {
+                self.hifcr.write(|w| w.cteif6().set_bit());
+            }
+            StreamId::S_7 => {
+                self.hifcr.write(|w| w.cteif7().set_bit());
+            }
+        }
+    }
+
+    /// Clears the Direct Mode Error flag
+    pub fn clear_direct_mode_error(&mut self, id: StreamId) {
+        match id {
+            StreamId::S_0 => {
+                self.lifcr.write(|w| w.cdmeif0().set_bit());
+            }
+            StreamId::S_1 => {
+                self.lifcr.write(|w| w.cdmeif1().set_bit());
+            }
+            StreamId::S_2 => {
+                self.lifcr.write(|w| w.cdmeif2().set_bit());
+            }
+            StreamId::S_3 => {
+                self.lifcr.write(|w| w.cdmeif3().set_bit());
+            }
+            StreamId::S_4 => {
+                self.hifcr.write(|w| w.cdmeif4().set_bit());
+            }
+            StreamId::S_5 => {
+                self.hifcr.write(|w| w.cdmeif5().set_bit());
+            }
+            StreamId::S_6 => {
+                self.hifcr.write(|w| w.cdmeif6().set_bit());
+            }
+            StreamId::S_7 => {
+                self.hifcr.write(|w| w.cdmeif7().set_bit());
+            }
+        }
+    }
+
+    /// Clears the Fifo Error flag
+    pub fn clear_fifo_error(&mut self, id: StreamId) {
+        match id {
+            StreamId::S_0 => {
+                self.lifcr.write(|w| w.cfeif0().set_bit());
+            }
+            StreamId::S_1 => {
+                self.lifcr.write(|w| w.cfeif1().set_bit());
+            }
+            StreamId::S_2 => {
+                self.lifcr.write(|w| w.cfeif2().set_bit());
+            }
+            StreamId::S_3 => {
+                self.lifcr.write(|w| w.cfeif3().set_bit());
+            }
+            StreamId::S_4 => {
+                self.hifcr.write(|w| w.cfeif4().set_bit());
+            }
+            StreamId::S_5 => {
+                self.hifcr.write(|w| w.cfeif5().set_bit());
+            }
+            StreamId::S_6 => {
+                self.hifcr.write(|w| w.cfeif6().set_bit());
+            }
+            StreamId::S_7 => {
+                self.hifcr.write(|w| w.cfeif7().set_bit());
+            }
         }
     }
 }

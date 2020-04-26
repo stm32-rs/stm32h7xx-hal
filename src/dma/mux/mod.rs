@@ -12,6 +12,49 @@ use core::marker::PhantomData;
 
 pub use self::request_gen::RequestGenerator;
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+pub enum MuxId {
+    M_0,
+    M_1,
+    M_2,
+    M_3,
+    M_4,
+    M_5,
+    M_6,
+    M_7,
+    M_8,
+    M_9,
+    M_10,
+    M_11,
+    M_12,
+    M_13,
+    M_14,
+    M_15,
+}
+
+impl From<MuxId> for usize {
+    fn from(x: MuxId) -> usize {
+        match x {
+            MuxId::M_0 => 0,
+            MuxId::M_1 => 1,
+            MuxId::M_2 => 2,
+            MuxId::M_3 => 3,
+            MuxId::M_4 => 4,
+            MuxId::M_5 => 5,
+            MuxId::M_6 => 6,
+            MuxId::M_7 => 7,
+            MuxId::M_8 => 8,
+            MuxId::M_9 => 9,
+            MuxId::M_10 => 10,
+            MuxId::M_11 => 11,
+            MuxId::M_12 => 12,
+            MuxId::M_13 => 13,
+            MuxId::M_14 => 14,
+            MuxId::M_15 => 15,
+        }
+    }
+}
+
 /// DMA Mux
 pub struct Mux<CXX, ReqId, SyncED, EgED>
 where
@@ -21,7 +64,7 @@ where
     EgED: IEgED,
 {
     /// This field *must not* be mutated using shared references
-    rb: UniqueRef<'static, CCR>,
+    rb: &'static CCR,
     req_id: ReqId,
     _phantom_data: PhantomData<(CXX, SyncED, EgED)>,
 }
@@ -35,7 +78,7 @@ where
     /// Should only be called after RCC-reset of the DMA.
     pub(super) fn after_reset(rb: UniqueRef<'static, CCR>) -> Self {
         Mux {
-            rb,
+            rb: rb.into_inner(),
             req_id: ReqNone,
             _phantom_data: PhantomData,
         }
@@ -50,7 +93,7 @@ where
     EgED: IEgED,
 {
     /// Returns the id of the DMA Mux
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> MuxId {
         CXX::MUX_ID
     }
 
@@ -283,30 +326,12 @@ where
 
     /// Returns the Sync Overrun flag
     pub fn is_sync_overrun(&self, mux_isr: &MuxIsr) -> bool {
-        mux_isr.csr.read().sof0().bit_is_set()
+        mux_isr.is_sync_overrun(self.id())
     }
 
     /// Clears the ISR
     pub fn clear_isr(&self, mux_isr: &mut MuxIsr) {
-        match self.id() {
-            0 => mux_isr.cfr.write(|w| w.csof0().set_bit()),
-            1 => mux_isr.cfr.write(|w| w.csof1().set_bit()),
-            2 => mux_isr.cfr.write(|w| w.csof2().set_bit()),
-            3 => mux_isr.cfr.write(|w| w.csof3().set_bit()),
-            4 => mux_isr.cfr.write(|w| w.csof4().set_bit()),
-            5 => mux_isr.cfr.write(|w| w.csof5().set_bit()),
-            6 => mux_isr.cfr.write(|w| w.csof6().set_bit()),
-            7 => mux_isr.cfr.write(|w| w.csof7().set_bit()),
-            8 => mux_isr.cfr.write(|w| w.csof8().set_bit()),
-            9 => mux_isr.cfr.write(|w| w.csof9().set_bit()),
-            10 => mux_isr.cfr.write(|w| w.csof10().set_bit()),
-            11 => mux_isr.cfr.write(|w| w.csof11().set_bit()),
-            12 => mux_isr.cfr.write(|w| w.csof12().set_bit()),
-            13 => mux_isr.cfr.write(|w| w.csof13().set_bit()),
-            14 => mux_isr.cfr.write(|w| w.csof14().set_bit()),
-            15 => mux_isr.cfr.write(|w| w.csof15().set_bit()),
-            _ => unreachable!(),
-        }
+        mux_isr.clear_isr(self.id());
     }
 }
 
@@ -579,12 +604,59 @@ impl MuxShared {
 pub struct MuxIsr {
     csr: &'static CSR,
     /// This field *must not* be mutated using shared references
-    cfr: UniqueRef<'static, CFR>,
+    cfr: &'static CFR,
 }
 
 impl MuxIsr {
     pub(super) fn new(csr: &'static CSR, cfr: UniqueRef<'static, CFR>) -> Self {
-        Self { csr, cfr }
+        Self {
+            csr,
+            cfr: cfr.into_inner(),
+        }
+    }
+
+    /// Returns the Sync Overrun flag
+    pub fn is_sync_overrun(&self, id: MuxId) -> bool {
+        match id {
+            MuxId::M_0 => self.csr.read().sof0().bit_is_set(),
+            MuxId::M_1 => self.csr.read().sof1().bit_is_set(),
+            MuxId::M_2 => self.csr.read().sof2().bit_is_set(),
+            MuxId::M_3 => self.csr.read().sof3().bit_is_set(),
+            MuxId::M_4 => self.csr.read().sof4().bit_is_set(),
+            MuxId::M_5 => self.csr.read().sof5().bit_is_set(),
+            MuxId::M_6 => self.csr.read().sof6().bit_is_set(),
+            MuxId::M_7 => self.csr.read().sof7().bit_is_set(),
+            MuxId::M_8 => self.csr.read().sof8().bit_is_set(),
+            MuxId::M_9 => self.csr.read().sof9().bit_is_set(),
+            MuxId::M_10 => self.csr.read().sof10().bit_is_set(),
+            MuxId::M_11 => self.csr.read().sof11().bit_is_set(),
+            MuxId::M_12 => self.csr.read().sof12().bit_is_set(),
+            MuxId::M_13 => self.csr.read().sof13().bit_is_set(),
+            MuxId::M_14 => self.csr.read().sof14().bit_is_set(),
+            MuxId::M_15 => self.csr.read().sof15().bit_is_set(),
+        }
+    }
+
+    /// Clears the ISR
+    pub fn clear_isr(&mut self, id: MuxId) {
+        match id {
+            MuxId::M_0 => self.cfr.write(|w| w.csof0().set_bit()),
+            MuxId::M_1 => self.cfr.write(|w| w.csof1().set_bit()),
+            MuxId::M_2 => self.cfr.write(|w| w.csof2().set_bit()),
+            MuxId::M_3 => self.cfr.write(|w| w.csof3().set_bit()),
+            MuxId::M_4 => self.cfr.write(|w| w.csof4().set_bit()),
+            MuxId::M_5 => self.cfr.write(|w| w.csof5().set_bit()),
+            MuxId::M_6 => self.cfr.write(|w| w.csof6().set_bit()),
+            MuxId::M_7 => self.cfr.write(|w| w.csof7().set_bit()),
+            MuxId::M_8 => self.cfr.write(|w| w.csof8().set_bit()),
+            MuxId::M_9 => self.cfr.write(|w| w.csof9().set_bit()),
+            MuxId::M_10 => self.cfr.write(|w| w.csof10().set_bit()),
+            MuxId::M_11 => self.cfr.write(|w| w.csof11().set_bit()),
+            MuxId::M_12 => self.cfr.write(|w| w.csof12().set_bit()),
+            MuxId::M_13 => self.cfr.write(|w| w.csof13().set_bit()),
+            MuxId::M_14 => self.cfr.write(|w| w.csof14().set_bit()),
+            MuxId::M_15 => self.cfr.write(|w| w.csof15().set_bit()),
+        }
     }
 }
 

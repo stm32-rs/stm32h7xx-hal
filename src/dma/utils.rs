@@ -1,6 +1,4 @@
 use core::fmt;
-use core::ops::Deref;
-
 pub trait DefaultTraits: Copy + Clone + PartialEq + Eq + fmt::Debug {}
 
 impl<T: Copy + Clone + PartialEq + Eq + fmt::Debug> DefaultTraits for T {}
@@ -13,22 +11,27 @@ impl<T: Copy + Clone + PartialEq + Eq + fmt::Debug> DefaultTraits for T {}
 /// # use core::cell::Cell;
 ///
 /// pub struct ShallBeSync<'a> {
-///     cell: UniqueRef<'a, Cell<u8>>,
+///     cell: &'a Cell<u8>,
 /// }
 ///
 /// impl<'a> ShallBeSync<'a> {
-///     // Some sync-compliant methods
+///     pub fn new(cell: UniqueRef<'a, Cell<u8>>) -> Self {
+///         Self {
+///             cell: cell.into_inner(),
+///         }
+///     }
 /// }
 ///
-/// // This wouldn't be safe if multiple references to `cell` would coexist
+/// // This wouldn't be safe if multiple references to `cell` could coexist upon initialization
 /// unsafe impl Sync for ShallBeSync<'_> {}
 /// ```
+#[derive(Debug)]
 pub struct UniqueRef<'a, T> {
     inner: &'a T,
 }
 
+#[allow(dead_code)]
 impl<'a, T> UniqueRef<'a, T> {
-    #[allow(dead_code)]
     pub fn new(x: &'a mut T) -> Self {
         Self { inner: x }
     }
@@ -36,12 +39,17 @@ impl<'a, T> UniqueRef<'a, T> {
     pub unsafe fn new_unchecked(x: &'a T) -> Self {
         Self { inner: x }
     }
-}
 
-impl<T> Deref for UniqueRef<'_, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
+    pub fn get(&mut self) -> &T {
         &self.inner
+    }
+
+    pub unsafe fn get_unchecked(&self) -> &T {
+        &*self.inner
+    }
+
+    /// Releases the inner reference. After this call, the reference may be duplicated again.
+    pub fn into_inner(self) -> &'a T {
+        self.inner
     }
 }

@@ -6,13 +6,40 @@ use crate::stm32::dmamux1::{RGCFR, RGCR, RGSR};
 use core::convert::TryInto;
 use core::marker::PhantomData;
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+pub enum RequestGenId {
+    G_0,
+    G_1,
+    G_2,
+    G_3,
+    G_4,
+    G_5,
+    G_6,
+    G_7,
+}
+
+impl From<RequestGenId> for usize {
+    fn from(x: RequestGenId) -> usize {
+        match x {
+            RequestGenId::G_0 => 0,
+            RequestGenId::G_1 => 1,
+            RequestGenId::G_2 => 2,
+            RequestGenId::G_3 => 3,
+            RequestGenId::G_4 => 4,
+            RequestGenId::G_5 => 5,
+            RequestGenId::G_6 => 6,
+            RequestGenId::G_7 => 7,
+        }
+    }
+}
+
 pub struct RequestGenerator<GXX, ED>
 where
     GXX: GenId,
     ED: IED,
 {
     /// This field *must not* be mutated using shared references
-    rb: UniqueRef<'static, RGCR>,
+    rb: &'static RGCR,
     _phantom_data: PhantomData<(GXX, ED)>,
 }
 
@@ -22,7 +49,7 @@ where
 {
     pub(in super::super) fn after_reset(rb: UniqueRef<'static, RGCR>) -> Self {
         RequestGenerator {
-            rb,
+            rb: rb.into_inner(),
             _phantom_data: PhantomData,
         }
     }
@@ -33,7 +60,7 @@ where
     GXX: GenId,
     ED: IED,
 {
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> RequestGenId {
         GXX::ID
     }
 
@@ -122,32 +149,13 @@ where
             Ok(())
         }
     }
+
     pub fn trigger_overrun_flag(&self, isr: &RequestGenIsr) -> bool {
-        match self.id() {
-            0 => isr.rgsr.read().of0().bit_is_set(),
-            1 => isr.rgsr.read().of1().bit_is_set(),
-            2 => isr.rgsr.read().of2().bit_is_set(),
-            3 => isr.rgsr.read().of3().bit_is_set(),
-            4 => isr.rgsr.read().of4().bit_is_set(),
-            5 => isr.rgsr.read().of5().bit_is_set(),
-            6 => isr.rgsr.read().of6().bit_is_set(),
-            7 => isr.rgsr.read().of7().bit_is_set(),
-            _ => unreachable!(),
-        }
+        isr.trigger_overrun_flag(self.id())
     }
 
     pub fn clear_isr(&self, isr: &mut RequestGenIsr) {
-        match self.id() {
-            0 => isr.rgcfr.write(|w| w.cof0().set_bit()),
-            1 => isr.rgcfr.write(|w| w.cof1().set_bit()),
-            2 => isr.rgcfr.write(|w| w.cof2().set_bit()),
-            3 => isr.rgcfr.write(|w| w.cof3().set_bit()),
-            4 => isr.rgcfr.write(|w| w.cof4().set_bit()),
-            5 => isr.rgcfr.write(|w| w.cof5().set_bit()),
-            6 => isr.rgcfr.write(|w| w.cof6().set_bit()),
-            7 => isr.rgcfr.write(|w| w.cof7().set_bit()),
-            _ => unreachable!(),
-        }
+        isr.clear_isr(self.id());
     }
 }
 
@@ -163,7 +171,7 @@ type_state! {
 }
 
 pub trait GenId: Send + private::Sealed {
-    const ID: usize;
+    const ID: RequestGenId;
 }
 
 macro_rules! gen_ids {
@@ -175,21 +183,21 @@ macro_rules! gen_ids {
 
             impl private::Sealed for $name {}
             impl GenId for $name {
-                const ID:usize = $id;
+                const ID: RequestGenId = RequestGenId::$id;
             }
         )*
     };
 }
 
 gen_ids! {
-    G0 => 0,
-    G1 => 1,
-    G2 => 2,
-    G3 => 3,
-    G4 => 4,
-    G5 => 5,
-    G6 => 6,
-    G7 => 7
+    G0 => G_0,
+    G1 => G_1,
+    G2 => G_2,
+    G3 => G_3,
+    G4 => G_4,
+    G5 => G_5,
+    G6 => G_6,
+    G7 => G_7
 }
 
 int_enum! {
@@ -222,13 +230,13 @@ int_struct! {
     GNbReq, u8, 5, "Number of DMA Requests to be generated (minus 1)", 0
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Copy, Clone, Debug)]
 pub struct TriggerOverrunError;
 
 pub struct RequestGenIsr {
     rgsr: &'static RGSR,
     /// This field *must not* be mutated using shared references
-    rgcfr: UniqueRef<'static, RGCFR>,
+    rgcfr: &'static RGCFR,
 }
 
 impl RequestGenIsr {
@@ -236,7 +244,36 @@ impl RequestGenIsr {
         rgsr: &'static RGSR,
         rgcfr: UniqueRef<'static, RGCFR>,
     ) -> Self {
-        RequestGenIsr { rgsr, rgcfr }
+        RequestGenIsr {
+            rgsr,
+            rgcfr: rgcfr.into_inner(),
+        }
+    }
+
+    pub fn trigger_overrun_flag(&self, id: RequestGenId) -> bool {
+        match id {
+            RequestGenId::G_0 => self.rgsr.read().of0().bit_is_set(),
+            RequestGenId::G_1 => self.rgsr.read().of1().bit_is_set(),
+            RequestGenId::G_2 => self.rgsr.read().of2().bit_is_set(),
+            RequestGenId::G_3 => self.rgsr.read().of3().bit_is_set(),
+            RequestGenId::G_4 => self.rgsr.read().of4().bit_is_set(),
+            RequestGenId::G_5 => self.rgsr.read().of5().bit_is_set(),
+            RequestGenId::G_6 => self.rgsr.read().of6().bit_is_set(),
+            RequestGenId::G_7 => self.rgsr.read().of7().bit_is_set(),
+        }
+    }
+
+    pub fn clear_isr(&mut self, id: RequestGenId) {
+        match id {
+            RequestGenId::G_0 => self.rgcfr.write(|w| w.cof0().set_bit()),
+            RequestGenId::G_1 => self.rgcfr.write(|w| w.cof1().set_bit()),
+            RequestGenId::G_2 => self.rgcfr.write(|w| w.cof2().set_bit()),
+            RequestGenId::G_3 => self.rgcfr.write(|w| w.cof3().set_bit()),
+            RequestGenId::G_4 => self.rgcfr.write(|w| w.cof4().set_bit()),
+            RequestGenId::G_5 => self.rgcfr.write(|w| w.cof5().set_bit()),
+            RequestGenId::G_6 => self.rgcfr.write(|w| w.cof6().set_bit()),
+            RequestGenId::G_7 => self.rgcfr.write(|w| w.cof7().set_bit()),
+        }
     }
 }
 
