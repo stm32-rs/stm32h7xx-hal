@@ -1,8 +1,7 @@
 //! Serial
 
-/*
+#[cfg(feature = "dma")]
 pub mod dma;
-*/
 
 use core::fmt;
 use core::marker::PhantomData;
@@ -385,7 +384,7 @@ macro_rules! usart {
                     ccdr.$apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
                     // Get kernel clock
-	                let usart_ker_ck = match Self::kernel_clk(ccdr) {
+                    let usart_ker_ck = match Self::kernel_clk(ccdr) {
                         Some(ker_hz) => ker_hz.0,
                         _ => panic!("$USARTX kernel clock not running!")
                     };
