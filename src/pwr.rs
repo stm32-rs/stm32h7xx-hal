@@ -4,6 +4,10 @@
 //! `VCORE`. The voltage scaling mode is fixed at VOS1 (High
 //! Performance).
 //!
+//! When the system starts up, it is in Run* mode. After the call to
+//! `freeze`, it will be in Run mode. See RM0433 Rev 7 Section 6.6.1
+//! "System/D3 domain modes".
+//!
 //! # Example
 //!
 //! ```rust
@@ -28,17 +32,14 @@
 //! - SMPS Output at 1.8V, then LDO [smps_1v8_feeds_ldo](Pwr#smps_1v8_feeds_ldo)
 //! - SMPS Output at 2.5V, then LDO [smps_2v5_feeds_ldo](Pwr#smps_2v5_feeds_ldo)
 //!
-//! Note that these methods are highly `unsafe`! Specifying
-//! the wrong mode for your hardware may cut the power to the
-//! core.
+//! **Note**: Specifying the wrong mode for your hardware will cause
+//! undefined results.
 //!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = unsafe {
-//!         pwr.smps().freeze();
-//!     }
+//!     let vos = pwr.smps().freeze();
 //!
 //!     assert_eq!(vos, VoltageScale::Scale1);
 //! ```
@@ -88,7 +89,7 @@ pub enum VoltageScale {
 
 /// SMPS Supply Configuration - Dual Core parts
 ///
-/// Refer to RM0399 Rev 2 Table 31.
+/// Refer to RM0399 Rev 3 Table 32.
 #[cfg(any(feature = "dualcore"))]
 enum SupplyConfiguration {
     Default = 0,
@@ -105,7 +106,7 @@ macro_rules! supply_configuration_setter {
     ($($config:ident: $name:ident, $doc:expr,)*) => {
         $(
             #[doc=$doc]
-            pub unsafe fn $name(mut self) -> Self {
+            pub fn $name(mut self) -> Self {
                 self.supply_configuration = SupplyConfiguration::$config;
                 self
             }
@@ -174,7 +175,7 @@ impl Pwr {
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), error);
                 assert!(self.rb.cr3.read().bypass().bit_is_set(), error);
             }
-            _ => {} // Default configuration is NOT verified
+            Default => {} // Default configuration is NOT verified
         }
     }
 
@@ -206,22 +207,28 @@ impl Pwr {
                 Bypass => {
                     w.sden().clear_bit().ldoen().clear_bit().bypass().set_bit()
                 }
-                _ => {
-                    // Default configuration. Depending on the circuit
-                    // layout, this
-                    w.sden().set_bit().ldoen().set_bit()
+                Default => {
+                    // Default configuration. The actual reset value of
+                    // CR3 varies between packages (See RM0399 Section
+                    // 7.8.4 Footnote 2). Therefore we do not modify
+                    // anything here.
+                    w
                 }
             }
         });
+        // Verify supply configuration, panics if these values read
+        // from CR3 do not match those written.
         #[cfg(any(feature = "dualcore"))]
         self.verify_supply_configuration();
 
-        // Validate the supply configuration. If you are stuck here,
-        // it is because the voltages on your board do not match those
-        // specified in the VOS and SDLEVEL fields. By default after
-        // reset VOS = Scale 3, so check that the voltage on the VCAP
-        // pins = 1.0V.
+        // Validate the supply configuration. If you are stuck here, it is
+        // because the voltages on your board do not match those specified
+        // in the D3CR.VOS and CR3.SDLEVEL fields.  By default after reset
+        // VOS = Scale 3, so check that the voltage on the VCAP pins =
+        // 1.0V.
         while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+
+        // We have now entered Run mode. See RM0433 Rev 7 Section 6.6.1
 
         // go to VOS1 voltage scale for high performance
         self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
