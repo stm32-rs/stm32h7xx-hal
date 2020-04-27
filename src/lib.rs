@@ -94,6 +94,8 @@ pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod rng;
 #[cfg(feature = "device-selected")]
+pub mod sai;
+#[cfg(feature = "device-selected")]
 pub mod serial;
 #[cfg(feature = "device-selected")]
 pub mod signature;
