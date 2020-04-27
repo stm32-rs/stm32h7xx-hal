@@ -183,8 +183,9 @@ where
         USART: Deref<Target = RegisterBlock>,
     {
         let ptr = &serial.usart.tdr as *const _ as *const Peripheral;
-        let peripheral_buffer =
-            Buffer::Fixed(FixedBuffer::Mut(FixedBufferMut::with_ref(UniqueRef::new_unchecked(&*ptr))));
+        let peripheral_buffer = Buffer::Fixed(FixedBuffer::Mut(
+            FixedBufferMut::with_ref(UniqueRef::new_unchecked(&*ptr)),
+        ));
         let buffers = Buffers {
             peripheral_buffer,
             memory_buffer,

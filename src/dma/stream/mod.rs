@@ -11,10 +11,10 @@ use self::config::{
     TransferCompleteInterrupt, TransferDirection, TransferDirectionConf,
     TransferErrorInterrupt, TransferMode, TransferModeConf,
 };
-use crate::utils::UniqueRef;
 use super::{ChannelId, DmaPeripheral};
 use crate::nb::Error as NbError;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR, ST};
+use crate::utils::UniqueRef;
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
 

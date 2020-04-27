@@ -1,7 +1,7 @@
 use super::Payload;
+use crate::utils::UniqueRef;
 use core::ptr;
 use enum_as_inner::EnumAsInner;
-use crate::utils::UniqueRef;
 
 #[derive(Debug, EnumAsInner)]
 pub enum Buffer<'wo, P>

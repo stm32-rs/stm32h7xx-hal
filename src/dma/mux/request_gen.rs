@@ -1,8 +1,8 @@
 //! DMA Request Generator
 
-use crate::utils::UniqueRef;
 use crate::private;
 use crate::stm32::dmamux1::{RGCFR, RGCR, RGSR};
+use crate::utils::UniqueRef;
 use core::convert::TryInto;
 use core::marker::PhantomData;
 
