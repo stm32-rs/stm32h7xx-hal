@@ -4,7 +4,7 @@ pub mod request_gen;
 
 use self::request_gen::RequestGenIsr;
 use self::request_ids::{ReqNone, RequestId as IRequestId, RequestIdSome};
-use super::utils::UniqueRef;
+use crate::utils::UniqueRef;
 use super::ChannelId;
 use crate::stm32::dmamux1::{CCR, CFR, CSR};
 use core::convert::{TryFrom, TryInto};

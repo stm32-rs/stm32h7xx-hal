@@ -11,7 +11,7 @@ use self::config::{
     TransferCompleteInterrupt, TransferDirection, TransferDirectionConf,
     TransferErrorInterrupt, TransferMode, TransferModeConf,
 };
-use super::utils::UniqueRef;
+use crate::utils::UniqueRef;
 use super::{ChannelId, DmaPeripheral};
 use crate::nb::Error as NbError;
 use crate::stm32::dma1::{HIFCR, HISR, LIFCR, LISR, ST};

@@ -1,6 +1,6 @@
 //! DMA Request Generator
 
-use super::super::utils::UniqueRef;
+use crate::utils::UniqueRef;
 use crate::private;
 use crate::stm32::dmamux1::{RGCFR, RGCR, RGSR};
 use core::convert::TryInto;

@@ -30,7 +30,7 @@ pub use self::mux::Mux;
 pub use self::stream::Stream;
 pub use self::transfer::Transfer;
 
-use self::utils::UniqueRef;
+use crate::utils::UniqueRef;
 
 /// Marker Trait for DMA peripherals
 pub trait DmaPeripheral: private::Sealed {}

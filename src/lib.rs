@@ -82,6 +82,7 @@ pub use crate::stm32 as device;
 pub use crate::stm32::interrupt;
 
 mod private;
+mod utils;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;

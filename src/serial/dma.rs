@@ -15,8 +15,8 @@ use crate::private;
 use crate::stm32::usart1::RegisterBlock;
 use crate::stm32::{UART4, UART5, UART7, UART8};
 use crate::stm32::{USART1, USART2, USART3, USART6};
+use crate::utils::UniqueRef;
 
-use core::cell::UnsafeCell;
 use core::marker::PhantomData;
 use core::ops::Deref;
 
@@ -137,6 +137,10 @@ where
     Peripheral: Payload<Size = Byte>,
     Memory: Payload,
 {
+    /// # Safety
+    ///
+    /// The peripheral buffer is aliasing the `RDR` register,
+    /// without the borrowchecker knowing.
     #[doc(hidden)]
     unsafe fn transfer_direction<USART, PINS>(
         serial: &Serial<USART, PINS>,
@@ -162,6 +166,14 @@ where
     Peripheral: Payload<Size = Byte>,
     Memory: Payload,
 {
+    /// # Safety
+    ///
+    /// The peripheral buffer is mutably aliasing the `TDR` register,
+    /// without the borrowchecker knowing, so the caller must ensure
+    ///
+    /// * that `TDR` is not aliased when calling this method, and
+    /// * after calling this method, either `TDR` or peripheral buffer
+    /// are mutably aliased OR not mutably aliased at the same time
     #[doc(hidden)]
     unsafe fn transfer_direction<USART, PINS>(
         serial: &Serial<USART, PINS>,
@@ -170,12 +182,9 @@ where
     where
         USART: Deref<Target = RegisterBlock>,
     {
-        let reg_cell =
-            &*(&serial.usart.tdr as *const _ as *const UnsafeCell<u32>);
-        let ptr = reg_cell.get() as *mut Peripheral;
-
+        let ptr = &serial.usart.tdr as *const _ as *const Peripheral;
         let peripheral_buffer =
-            Buffer::Fixed(FixedBuffer::Mut(FixedBufferMut::new(&mut *ptr)));
+            Buffer::Fixed(FixedBuffer::Mut(FixedBufferMut::with_ref(UniqueRef::new_unchecked(&*ptr))));
         let buffers = Buffers {
             peripheral_buffer,
             memory_buffer,

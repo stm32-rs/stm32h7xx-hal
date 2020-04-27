@@ -1,6 +1,7 @@
 use super::Payload;
 use core::ptr;
 use enum_as_inner::EnumAsInner;
+use crate::utils::UniqueRef;
 
 #[derive(Debug, EnumAsInner)]
 pub enum Buffer<'wo, P>
@@ -207,6 +208,13 @@ where
         FixedBufferMut(buffer)
     }
 
+    pub fn with_ref(buffer: UniqueRef<'static, P>) -> Self {
+        let p = buffer.into_inner();
+        let mut_ptr = p as *const _ as *mut P;
+
+        Self::new(unsafe { &mut *mut_ptr })
+    }
+
     /// # Safety
     ///
     /// - The caller must ensure, that the DMA is currently not writing this address.
@@ -343,6 +351,13 @@ where
         check_buffer_not_empty(buffer);
 
         RegularOffsetBufferMut(buffer)
+    }
+
+    pub fn with_ref(buffer: UniqueRef<'static, [P]>) -> Self {
+        let p = buffer.into_inner();
+        let mut_ptr = p as *const _ as *mut [P];
+
+        Self::new(unsafe { &mut *mut_ptr })
     }
 
     /// # Safety
@@ -510,6 +525,12 @@ where
 
             WordOffsetBufferMut(&mut *(buffer as *mut _ as *mut [*mut P]))
         }
+    }
+
+    pub fn with_ref(buffer: &'wo mut [UniqueRef<'static, P>]) -> Self {
+        let mut_ptr = buffer as *mut _ as *mut [&'static mut P];
+
+        Self::new(unsafe { &mut *mut_ptr })
     }
 
     /// # Safety
