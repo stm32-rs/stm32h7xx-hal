@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [v0.5.0] 2020-04-27
+
+* pac: Upgrade to stm32-rs v0.11.0
+* pwr: Remove need for unsafe, add documentation describing Run* mode
+* rcc: Add a safe interface for the user and other crates to access the RCC
+* spi: 16-bit word support
+* i2c: Remove reference to I2C1 in macro generic for all I2Cs
+* Add HAL for Serial Audio Interface, PDM mode
+* Implement default blocking write for serial
+
 ## [v0.4.0] 2020-03-20
 
 * pac: Upgrade to stm32-rs v0.10.0
@@ -26,6 +36,7 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.2.1...v0.3.0
