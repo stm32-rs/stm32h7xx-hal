@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -25,10 +25,12 @@ targets = ["thumbv7em-none-eabihf"]
 embedded-hal = "0.2.3"
 cortex-m = "^0.6.0"
 cortex-m-rt = "0.6.10"
-stm32h7 = "0.10.0"
+stm32h7 = "0.11.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"
+paste = "0.1.10"
+
 [dependencies.bare-metal]
 version = "0.2.4"
 features = ["const-fn"]

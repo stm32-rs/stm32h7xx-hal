@@ -59,7 +59,7 @@ target device feature must be specified in the `Cargo.toml` file:
 [dependencies]
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
-stm32h7xx-hal = {version = "0.4", features = ["stm32h743v","rt"]}
+stm32h7xx-hal = {version = "0.5", features = ["stm32h743v","rt"]}
 ```
 
 If you are unfamiliar with embedded development using Rust, there are
@@ -92,7 +92,7 @@ Board | Manufacturer | BSP / Examples?
 Minimum supported Rust version
 ------------------------------
 
-The minimum supported Rust version at the moment is **1.39.0**. Older
+The minimum supported Rust version at the moment is **1.40.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 
