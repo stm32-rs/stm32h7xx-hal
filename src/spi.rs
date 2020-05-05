@@ -261,22 +261,30 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct Spi<SPI, PINS, WORD = u8> {
+pub struct Spi<SPI, WORD = u8> {
     spi: SPI,
-    pins: PINS,
     _word: PhantomData<WORD>,
 }
 
 pub trait SpiExt<SPI, WORD>: Sized {
     fn spi<PINS, T>(
         self,
-        pins: PINS,
+        _pins: PINS,
         mode: Mode,
         freq: T,
         ccdr: &Ccdr,
-    ) -> Spi<SPI, PINS, WORD>
+    ) -> Spi<SPI, WORD>
     where
         PINS: Pins<SPI>,
+        T: Into<Hertz>;
+
+    fn spi_unchecked<T>(
+        self,
+        mode: Mode,
+        freq: T,
+        ccdr: &Ccdr,
+    ) -> Spi<SPI, WORD>
+    where
         T: Into<Hertz>;
 }
 
@@ -298,16 +306,14 @@ macro_rules! spi {
 	    $(
             // For each $TY
             $(
-                impl<PINS> Spi<$SPIX, PINS, $TY> {
+                impl Spi<$SPIX, $TY> {
                     pub fn $spiX<T>(
                         spi: $SPIX,
-                        pins: PINS,
                         mode: Mode,
                         freq: T,
                         ccdr: &Ccdr,
                     ) -> Self
                     where
-                        PINS: Pins<$SPIX>,
                         T: Into<Hertz>,
                     {
                         // Enable clock for SPI
@@ -365,7 +371,7 @@ macro_rules! spi {
                         // spe: enable the SPI bus
                         spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
-                        Spi { spi, pins, _word: PhantomData }
+                        Spi { spi, _word: PhantomData }
                     }
 
                     /// Enable interrupts for the given `event`:
@@ -440,26 +446,36 @@ macro_rules! spi {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
-                    pub fn free(self) -> ($SPIX, PINS) {
-                        (self.spi, self.pins)
+                    pub fn free(self) -> $SPIX {
+                        self.spi
                     }
                 }
 
                 impl SpiExt<$SPIX, $TY> for $SPIX {
 	                fn spi<PINS, T>(self,
-                                    pins: PINS,
+                                    _pins: PINS,
                                     mode: Mode,
                                     freq: T,
-                                    ccdr: &Ccdr) -> Spi<$SPIX, PINS, $TY>
+                                    ccdr: &Ccdr) -> Spi<$SPIX, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
 	                    T: Into<Hertz>
 	                {
-	                    Spi::<$SPIX, _, $TY>::$spiX(self, pins, mode, freq, ccdr)
+	                    Spi::<$SPIX, $TY>::$spiX(self, mode, freq, ccdr)
+	                }
+
+	                fn spi_unchecked<T>(self,
+                                    mode: Mode,
+                                    freq: T,
+                                    ccdr: &Ccdr) -> Spi<$SPIX, $TY>
+	                where
+	                    T: Into<Hertz>
+	                {
+	                    Spi::<$SPIX, $TY>::$spiX(self, mode, freq, ccdr)
 	                }
 	            }
 
-                impl<PINS> hal::spi::FullDuplex<$TY> for Spi<$SPIX, PINS, $TY> {
+                impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, $TY> {
                     type Error = Error;
 
                     fn read(&mut self) -> nb::Result<$TY, Error> {
@@ -513,11 +529,11 @@ macro_rules! spi {
                     }
                 }
 
-                impl<PINS> hal::blocking::spi::transfer::Default<$TY>
-                    for Spi<$SPIX, PINS, $TY> {}
+                impl hal::blocking::spi::transfer::Default<$TY>
+                    for Spi<$SPIX, $TY> {}
 
-                impl<PINS> hal::blocking::spi::write::Default<$TY>
-                    for Spi<$SPIX, PINS, $TY> {}
+                impl hal::blocking::spi::write::Default<$TY>
+                    for Spi<$SPIX, $TY> {}
             )+
         )+
 	}
@@ -526,7 +542,7 @@ macro_rules! spi {
 macro_rules! spi123sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
+            impl<WORD> Spi<$SPIX, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -547,7 +563,7 @@ macro_rules! spi123sel {
 macro_rules! spi45sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
+            impl<WORD> Spi<$SPIX, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
@@ -568,7 +584,7 @@ macro_rules! spi45sel {
 macro_rules! spi6sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<PINS, WORD> Spi<$SPIX, PINS, WORD> {
+            impl<WORD> Spi<$SPIX, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
