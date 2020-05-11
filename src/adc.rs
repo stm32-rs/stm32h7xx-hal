@@ -587,6 +587,12 @@ macro_rules! adc_hal {
             }
 
             impl<ED> Adc<$ADC, ED> {
+
+                /// Releases the ADC peripheral
+                pub fn free(self) -> $ADC {
+                    self.rb
+                }
+
                 /// Save current ADC config
                 pub fn save_cfg(&mut self) -> StoredConfig {
                     StoredConfig(self.get_sample_time(), self.get_resolution(), self.get_lshift())
