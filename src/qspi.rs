@@ -46,6 +46,8 @@ impl Qspi {
         regs.cr.write(|w| {
             w.en().clear_bit()
         });
+        
+        while regs.sr.read().busy().bit_is_set() {}
 
         // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
         // flash size violation may still trigger.
@@ -68,6 +70,8 @@ impl Qspi {
             .fmode().bits(0)
             .dmode().bits(0b01)
             .imode().bits(0b01)
+            .admode().bits(0)
+            .dcyc().bits(0)
         });
 
         let spi_frequency = frequency.into().0;
@@ -86,6 +90,9 @@ impl Qspi {
              .fsel().set_bit()
         });
 
+        // Enable ther peripheral
+        //regs.cr.modify(|_, w| {w.en().set_bit()});
+
         Ok(Qspi{rb: regs})
     }
 
@@ -103,7 +110,7 @@ impl Qspi {
     }
 
     pub fn configure_mode(&mut self, mode: QspiMode) -> Result<(), QspiError> {
-        if self.rb.sr.read().busy().bit_is_set() {
+        if self.is_busy() {
             return Err(QspiError::Busy);
         }
 
