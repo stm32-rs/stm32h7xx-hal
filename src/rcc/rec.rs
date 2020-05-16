@@ -64,7 +64,8 @@ macro_rules! peripheral_reset_and_enable_control {
         $(
             $( #[ $pmeta:meta ] )*
                 $p:ident
-                $( $kernel_clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr )*
+                $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
+                $([ group clk: $pk_g:ident $(($Variant_g:ident))* $ccip_g:ident $($clk_doc_g:expr)* ])*
         ),*
     ];)+) => {
         paste::item! {
@@ -153,7 +154,7 @@ macro_rules! peripheral_reset_and_enable_control {
                     }
                     $( #[ $pmeta ] )*
                     impl $p {
-                        $(
+                        $(      // Individual kernel clocks
                             #[inline(always)]
                             #[allow(unused)]
                             /// Modify a kernel clock for this
@@ -164,7 +165,7 @@ macro_rules! peripheral_reset_and_enable_control {
                             /// timing violations. However, the user must
                             /// ensure that both clocks are running. See
                             /// RM0433 Section 8.5.10
-                            pub fn [< $kernel_clk _mux >](self, sel: [< $pk ClkSel >]) -> Self {
+                            pub fn [< kernel_ $clk _mux >](self, sel: [< $pk ClkSel >]) -> Self {
                                 // unsafe: Owned exclusive access to this bitfield
                                 interrupt::free(|_| {
                                     let ccip = unsafe {
@@ -179,7 +180,7 @@ macro_rules! peripheral_reset_and_enable_control {
                             #[inline(always)]
                             #[allow(unused)]
                             /// Return the current kernel clock selection
-                            pub fn [< get_ $kernel_clk _mux>](&self) ->
+                            pub fn [< get_kernel_ $clk _mux>](&self) ->
                                 variant_return_type!([< $pk ClkSel >] $(, $Variant)*)
                             {
                                 // unsafe: We only read from this bitfield
@@ -189,12 +190,35 @@ macro_rules! peripheral_reset_and_enable_control {
                                 ccip.read().[< $pk:lower sel >]().variant()
                             }
                         )*
+                        $(      // Group kernel clocks
+                            #[inline(always)]
+                            #[allow(unused)]
+                            /// Return the current kernel clock selection
+                            pub fn get_kernel_clk_mux(&self) ->
+                                variant_return_type!([< $pk_g ClkSel >] $(, $Variant_g)*)
+                            {
+                                // unsafe: We only read from this bitfield
+                                let ccip = unsafe {
+                                    &(*RCC::ptr()).[< $ccip_g r >]
+                                };
+                                ccip.read().[< $pk_g:lower sel >]().variant()
+                            }
+                        )*
                     }
 
-                    $(
+                    $(          // Individual kernel clocks
                         #[doc=$clk_doc]
+                        /// kernel clock source selection
                         pub type [< $pk ClkSel >] =
                             rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
+                    )*
+                    $(          // Group kernel clocks
+                        $(
+                            #[doc=$clk_doc_g]
+                            /// kernel clock source selection
+                            pub type [< $pk_g ClkSel >] =
+                                rcc::[< $ccip_g r >]::[< $pk_g:upper SEL_A >];
+                        )*
                     )*
                 )*
             )+
@@ -211,7 +235,7 @@ macro_rules! variant_return_type {
     };
 }
 
-// Must only contain peripherals that are not used anywhere in this HAL
+// Enumerate all peripherals and optional clock multiplexers
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
         Eth1Mac, Dma2, Dma1,
@@ -220,14 +244,15 @@ peripheral_reset_and_enable_control! {
     ];
 
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
-        Sdmmc2, Hash, Crypt,
-        Rng kernel_clk: Rng d2ccip2 "RNG kernel clock source selection"
+        Hash, Crypt,
+        Rng [kernel clk: Rng d2ccip2 "RNG"],
+        Sdmmc2 [group clk: Sdmmc d1ccip]
     ];
 
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
-        Sdmmc1,
-        Qspi kernel_clk: Qspi d1ccip "QUADSPI kernel clock source selection",
-        Fmc kernel_clk: Fmc d1ccip "FMC kernel clock source selection",
+        Sdmmc1 [group clk: Sdmmc d1ccip "SDMMC"],
+        Qspi [kernel clk: Qspi d1ccip "QUADSPI"],
+        Fmc [kernel clk: Fmc d1ccip "FMC"],
         Jpgdec, Dma2d, Mdma
     ];
 
@@ -238,28 +263,48 @@ peripheral_reset_and_enable_control! {
 
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
         Dac12,
-        Cec,
-        Lptim1,
-        I2c1, I2c2, I2c3,
-        Spi2, Spi3,
+        I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
+        I2c2 [group clk: I2c123 d2ccip2],
+        I2c3 [group clk: I2c123 d2ccip2],
+
+        Cec [kernel clk: Cec(Variant) d2ccip2 "CEC"],
+        Lptim1 [kernel clk: Lptim1(Variant) d2ccip2 "LPTIM1"],
+
+        Spi2 [group clk: Spi123(Variant) d2ccip1],
+        Spi3 [group clk: Spi123(Variant) d2ccip1],
+
         Tim2, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14,
-        Usart2, Usart3, Uart4, Uart5, Uart7, Uart8
+
+        Usart2 [group clk: Usart234578(Variant) d2ccip2 "USART2/3/4/5/7/8"],
+        Usart3 [group clk: Usart234578(Variant) d2ccip2],
+        Uart4 [group clk: Usart234578(Variant) d2ccip2],
+        Uart5 [group clk: Usart234578(Variant) d2ccip2],
+        Uart7 [group clk: Usart234578(Variant) d2ccip2],
+        Uart8 [group clk: Usart234578(Variant) d2ccip2]
     ];
 
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan kernel_clk: Fdcan(Variant) d2ccip1 "FDCAN kernel clock source selection",
-        Swp kernel_clk: Swp d2ccip1 "SWPMI kernel clock source selection",
+        Fdcan [kernel clk: Fdcan(Variant) d2ccip1 "FDCAN"],
+        Swp [kernel clk: Swp d2ccip1 "SWPMI"],
         Crs, Mdios, Opamp
     ];
 
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
         Hrtim,
-        Dfsdm1 kernel_clk: Dfsdm1 d2ccip1 "DFSDM1 kernel Clk source selection",
-        Sai1 kernel_clk: Sai1(Variant) d2ccip1 "SAI1 kernel clock source selection",
-        Sai2, Sai3,
-        Spi1, Spi4, Spi5,
+        Dfsdm1 [kernel clk: Dfsdm1 d2ccip1 "DFSDM1"],
+
+        Sai1 [kernel clk: Sai1(Variant) d2ccip1 "SAI1"],
+        Sai2 [group clk: Sai23(Variant) d2ccip1 "SAI2/3"],
+        Sai3 [group clk: Sai23(Variant) d2ccip1],
+
+        Spi1 [group clk: Spi123(Variant) d2ccip1 "SPI1/2/3"],
+        Spi4 [group clk: Spi45(Variant) d2ccip1 "SPI4/5"],
+        Spi5 [group clk: Spi45(Variant) d2ccip1],
+
         Tim1, Tim8, Tim15, Tim16, Tim17,
-        Usart1, Usart6
+
+        Usart1 [group clk: Usart16(Variant) d2ccip2 "USART1/6"],
+        Usart6 [group clk: Usart16(Variant) d2ccip2]
     ];
 
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
@@ -268,13 +313,16 @@ peripheral_reset_and_enable_control! {
 
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
         Vref, Comp12,
-        Lptim2, Lptim3, Lptim4, Lptim5,
-        I2c4,
-        Spi6,
 
-        Sai4 kernel_clk_a: Sai4A(Variant) d3ccip
-            "Sub-Block A of SAI4 kernel clock source selection"
-            kernel_clk_b: Sai4B(Variant) d3ccip
-            "Sub-Block B of SAI4 kernel clock source selection"
+        Lptim2 [kernel clk: Lptim2(Variant) d3ccip "LPTIM2"],
+        Lptim3 [group clk: Lptim345(Variant) d3ccip "LPTIM3/4/5"],
+        Lptim4 [group clk: Lptim345(Variant) d3ccip],
+        Lptim5 [group clk: Lptim345(Variant) d3ccip],
+        I2c4 [kernel clk: I2c4 d3ccip "I2C4"],
+        Spi6 [kernel clk: Spi6(Variant) d3ccip "SPI6"],
+        Sai4 [kernel clk_a: Sai4A(Variant) d3ccip
+            "Sub-Block A of SAI4"]
+            [kernel clk_b: Sai4B(Variant) d3ccip
+            "Sub-Block B of SAI4"]
     ];
 }
