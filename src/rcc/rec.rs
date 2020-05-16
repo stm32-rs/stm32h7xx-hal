@@ -240,6 +240,8 @@ peripheral_reset_and_enable_control! {
         Dac12,
         Cec,
         Lptim1,
+        I2c1, I2c2, I2c3,
+        Spi2, Spi3,
         Tim2, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14,
         Usart2, Usart3, Uart4, Uart5, Uart7, Uart8
     ];
@@ -255,6 +257,7 @@ peripheral_reset_and_enable_control! {
         Dfsdm1 kernel_clk: Dfsdm1 d2ccip1 "DFSDM1 kernel Clk source selection",
         Sai1 kernel_clk: Sai1(Variant) d2ccip1 "SAI1 kernel clock source selection",
         Sai2, Sai3,
+        Spi1, Spi4, Spi5,
         Tim1, Tim8, Tim15, Tim16, Tim17,
         Usart1, Usart6
     ];
@@ -266,6 +269,8 @@ peripheral_reset_and_enable_control! {
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
         Vref, Comp12,
         Lptim2, Lptim3, Lptim4, Lptim5,
+        I2c4,
+        Spi6,
 
         Sai4 kernel_clk_a: Sai4A(Variant) d3ccip
             "Sub-Block A of SAI4 kernel clock source selection"
