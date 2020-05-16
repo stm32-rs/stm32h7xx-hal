@@ -64,7 +64,7 @@ macro_rules! peripheral_reset_and_enable_control {
         $(
             $( #[ $pmeta:meta ] )*
                 $p:ident
-            $( kernel_clk: $(($Variant:ident))* $ccip:ident $clk_doc:expr )*
+                $( $kernel_clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr )*
         ),*
     ];)+) => {
         paste::item! {
@@ -164,14 +164,14 @@ macro_rules! peripheral_reset_and_enable_control {
                             /// timing violations. However, the user must
                             /// ensure that both clocks are running. See
                             /// RM0433 Section 8.5.10
-                            pub fn kernel_clk_mux(self, sel: [< $p ClkSel >]) -> Self {
+                            pub fn [< $kernel_clk _mux >](self, sel: [< $pk ClkSel >]) -> Self {
                                 // unsafe: Owned exclusive access to this bitfield
                                 interrupt::free(|_| {
                                     let ccip = unsafe {
                                         &(*RCC::ptr()).[< $ccip r >]
                                     };
                                     ccip.modify(|_, w| w.
-                                                [< $p:lower sel >]().variant(sel));
+                                                [< $pk:lower sel >]().variant(sel));
                                 });
                                 self
                             }
@@ -179,22 +179,22 @@ macro_rules! peripheral_reset_and_enable_control {
                             #[inline(always)]
                             #[allow(unused)]
                             /// Return the current kernel clock selection
-                            pub fn get_kernel_clk_mux(&self) ->
-                                variant_return_type!([< $p ClkSel >] $(, $Variant)*)
+                            pub fn [< get_ $kernel_clk _mux>](&self) ->
+                                variant_return_type!([< $pk ClkSel >] $(, $Variant)*)
                             {
                                 // unsafe: We only read from this bitfield
                                 let ccip = unsafe {
                                     &(*RCC::ptr()).[< $ccip r >]
                                 };
-                                ccip.read().[< $p:lower sel >]().variant()
+                                ccip.read().[< $pk:lower sel >]().variant()
                             }
                         )*
                     }
 
                     $(
                         #[doc=$clk_doc]
-                        pub type [< $p ClkSel >] =
-                            rcc::[< $ccip r >]::[< $p:upper SEL_A >];
+                        pub type [< $pk ClkSel >] =
+                            rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
                     )*
                 )*
             )+
@@ -215,37 +215,61 @@ macro_rules! variant_return_type {
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
         Eth1Mac, Dma2, Dma1,
-        #[cfg(any(feature = "dualcore"))] Art
+        #[cfg(any(feature = "dualcore"))] Art,
+        Adc12
     ];
+
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
-        Sdmmc2, Hash, Crypt
+        Sdmmc2, Hash, Crypt,
+        Rng kernel_clk: Rng d2ccip2 "RNG kernel clock source selection"
     ];
+
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
         Sdmmc1,
-        Qspi kernel_clk: d1ccip "QUADSPI kernel clock source selection",
-        Fmc kernel_clk: d1ccip "FMC kernel clock source selection",
+        Qspi kernel_clk: Qspi d1ccip "QUADSPI kernel clock source selection",
+        Fmc kernel_clk: Fmc d1ccip "FMC kernel clock source selection",
         Jpgdec, Dma2d, Mdma
     ];
+
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
-        Hsem, Bdma, Crc
+        Hsem, Bdma, Crc, Adc3,
+        Gpioa, Gpiob, Gpioc, Gpiod, Gpioe, Gpiof, Gpiog, Gpioh, Gpioi, Gpioj, Gpiok
     ];
+
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
         Dac12,
-        #[cfg(any(feature = "singlecore"))] Cec // TODO remove gate
+        Cec,
+        Lptim1,
+        Tim2, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14,
+        Usart2, Usart3, Uart4, Uart5, Uart7, Uart8
     ];
+
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
-        Fdcan kernel_clk: (Variant) d2ccip1 "FDCAN kernel clock source selection",
-        Swp kernel_clk: d2ccip1 "SWPMI kernel clock source selection",
+        Fdcan kernel_clk: Fdcan(Variant) d2ccip1 "FDCAN kernel clock source selection",
+        Swp kernel_clk: Swp d2ccip1 "SWPMI kernel clock source selection",
         Crs, Mdios, Opamp
     ];
+
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
         Hrtim,
-        Dfsdm1 kernel_clk: d2ccip1 "DFSDM1 kernel Clk source selection"
+        Dfsdm1 kernel_clk: Dfsdm1 d2ccip1 "DFSDM1 kernel Clk source selection",
+        Sai1 kernel_clk: Sai1(Variant) d2ccip1 "SAI1 kernel clock source selection",
+        Sai2, Sai3,
+        Tim1, Tim8, Tim15, Tim16, Tim17,
+        Usart1, Usart6
     ];
+
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc
     ];
+
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
-        Vref, Comp12
+        Vref, Comp12,
+        Lptim2, Lptim3, Lptim4, Lptim5,
+
+        Sai4 kernel_clk_a: Sai4A(Variant) d3ccip
+            "Sub-Block A of SAI4 kernel clock source selection"
+            kernel_clk_b: Sai4B(Variant) d3ccip
+            "Sub-Block B of SAI4 kernel clock source selection"
     ];
 }

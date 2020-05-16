@@ -2,8 +2,7 @@
 
 use core::marker::PhantomData;
 
-use crate::rcc::AHB4;
-
+use crate::rcc::ResetEnable;
 use crate::stm32::{EXTI, SYSCFG};
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
@@ -11,8 +10,11 @@ pub trait GpioExt {
     /// The parts to split the GPIO into
     type Parts;
 
+    /// The Reset and Enable control block for this GPIO block
+    type Rec: ResetEnable;
+
     /// Splits the GPIO block into independent pins and registers
-    fn split(self, ahb4: &mut AHB4) -> Self::Parts;
+    fn split(self, prec: Self::Rec) -> Self::Parts;
 }
 
 pub struct Alternate<MODE> {
@@ -101,7 +103,7 @@ pub trait ExtiPin {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, $extigpionr:expr, [
+    ($GPIOX:ident, $gpiox:ident, $Rec:ident, $PXx:ident, $extigpionr:expr, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $exticri:ident),)+
     ]) => {
         /// GPIO
@@ -111,7 +113,7 @@ macro_rules! gpio {
             use embedded_hal::digital::v2::{InputPin, OutputPin,
                                             StatefulOutputPin, toggleable};
 
-            use crate::rcc::AHB4;
+            use crate::rcc::{rec, ResetEnable};
             use crate::stm32::$GPIOX;
             use crate::stm32::{EXTI, SYSCFG};
             use super::{
@@ -132,11 +134,10 @@ macro_rules! gpio {
 
             impl GpioExt for $GPIOX {
                 type Parts = Parts;
+                type Rec = rec::$Rec;
 
-                fn split(self, ahb: &mut AHB4) -> Parts {
-                    ahb.enr().modify(|_, w| w.$iopxenr().set_bit());
-                    ahb.rstr().modify(|_, w| w.$iopxrst().set_bit());
-                    ahb.rstr().modify(|_, w| w.$iopxrst().clear_bit());
+                fn split(self, prec: rec::$Rec) -> Parts {
+                    prec.enable().reset();
 
                     Parts {
                         $(
@@ -758,7 +759,7 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, gpioaen, gpioarst, PA, 0, [
+gpio!(GPIOA, gpioa, Gpioa, PA, 0, [
     PA0: (pa0, 0, Analog, exticr1),
     PA1: (pa1, 1, Analog, exticr1),
     PA2: (pa2, 2, Analog, exticr1),
@@ -777,7 +778,7 @@ gpio!(GPIOA, gpioa, gpioaen, gpioarst, PA, 0, [
     PA15: (pa15, 15, Alternate<AF0>, exticr4), // JTDI
 ]);
 
-gpio!(GPIOB, gpiob, gpioben, gpiobrst, PB, 1, [
+gpio!(GPIOB, gpiob, Gpiob, PB, 1, [
     PB0: (pb0, 0, Analog, exticr1),
     PB1: (pb1, 1, Analog, exticr1),
     PB2: (pb2, 2, Analog, exticr1),
@@ -796,7 +797,7 @@ gpio!(GPIOB, gpiob, gpioben, gpiobrst, PB, 1, [
     PB15: (pb15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, gpiocen, gpiocrst, PC, 2, [
+gpio!(GPIOC, gpioc, Gpioc, PC, 2, [
     PC0: (pc0, 0, Analog, exticr1),
     PC1: (pc1, 1, Analog, exticr1),
     PC2: (pc2, 2, Analog, exticr1),
@@ -815,7 +816,7 @@ gpio!(GPIOC, gpioc, gpiocen, gpiocrst, PC, 2, [
     PC15: (pc15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, gpioden, gpiodrst, PD, 3, [
+gpio!(GPIOD, gpiod, Gpiod, PD, 3, [
     PD0: (pd0, 0, Analog, exticr1),
     PD1: (pd1, 1, Analog, exticr1),
     PD2: (pd2, 2, Analog, exticr1),
@@ -834,7 +835,7 @@ gpio!(GPIOD, gpiod, gpioden, gpiodrst, PD, 3, [
     PD15: (pd15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, gpioeen, gpioerst, PE, 4, [
+gpio!(GPIOE, gpioe, Gpioe, PE, 4, [
     PE0: (pe0, 0, Analog, exticr1),
     PE1: (pe1, 1, Analog, exticr1),
     PE2: (pe2, 2, Analog, exticr1),
@@ -853,7 +854,7 @@ gpio!(GPIOE, gpioe, gpioeen, gpioerst, PE, 4, [
     PE15: (pe15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOF, gpiof, gpiofen, gpiofrst, PF, 5, [
+gpio!(GPIOF, gpiof, Gpiof, PF, 5, [
     PF0: (pf0, 0, Analog, exticr1),
     PF1: (pf1, 1, Analog, exticr1),
     PF2: (pf2, 2, Analog, exticr1),
@@ -872,7 +873,7 @@ gpio!(GPIOF, gpiof, gpiofen, gpiofrst, PF, 5, [
     PF15: (pf15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOG, gpiog, gpiogen, gpiogrst, PG, 6, [
+gpio!(GPIOG, gpiog, Gpiog, PG, 6, [
     PG0: (pg0, 0, Analog, exticr1),
     PG1: (pg1, 1, Analog, exticr1),
     PG2: (pg2, 2, Analog, exticr1),
@@ -891,7 +892,7 @@ gpio!(GPIOG, gpiog, gpiogen, gpiogrst, PG, 6, [
     PG15: (pg15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOH, gpioh, gpiohen, gpiohrst, PH, 7, [
+gpio!(GPIOH, gpioh, Gpioh, PH, 7, [
     PH0: (ph0, 0, Analog, exticr1),
     PH1: (ph1, 1, Analog, exticr1),
     PH2: (ph2, 2, Analog, exticr1),
@@ -910,7 +911,7 @@ gpio!(GPIOH, gpioh, gpiohen, gpiohrst, PH, 7, [
     PH15: (ph15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOI, gpioi, gpioien, gpioirst, PI, 8, [
+gpio!(GPIOI, gpioi, Gpioi, PI, 8, [
     PI0: (pi0, 0, Analog, exticr1),
     PI1: (pi1, 1, Analog, exticr1),
     PI2: (pi2, 2, Analog, exticr1),
@@ -929,7 +930,7 @@ gpio!(GPIOI, gpioi, gpioien, gpioirst, PI, 8, [
     PI15: (pi15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOJ, gpioj, gpiojen, gpiojrst, PJ, 9, [
+gpio!(GPIOJ, gpioj, Gpioj, PJ, 9, [
     PJ0: (pj0, 0, Analog, exticr1),
     PJ1: (pj1, 1, Analog, exticr1),
     PJ2: (pj2, 2, Analog, exticr1),
@@ -948,7 +949,7 @@ gpio!(GPIOJ, gpioj, gpiojen, gpiojrst, PJ, 9, [
     PJ15: (pj15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOK, gpiok, gpioken, gpiokrst, PK, 10, [
+gpio!(GPIOK, gpiok, Gpiok, PK, 10, [
     PK0: (pk0, 0, Analog, exticr1),
     PK1: (pk1, 1, Analog, exticr1),
     PK2: (pk2, 2, Analog, exticr1),
