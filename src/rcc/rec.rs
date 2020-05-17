@@ -4,12 +4,17 @@
 //! periperal.
 //!
 //! At a minimum each peripheral implements
-//! [ResetEnable](trait.ResetEnable.html). Additionally those peripherals
-//! that have a multiplexer in the PKSU may also have methods
+//! [ResetEnable](trait.ResetEnable.html). Peripherals that have an
+//! individual clock multiplexer in the PKSU also have methods
 //! `kernel_clk_mux` and `get_kernel_clk_mux`. These set and get the state
 //! of the kernel clock multiplexer respectively.
 //!
-//! # Example
+//! Peripherals that share a clock multiplexer in the PKSU with other
+//! peripherals implement a trait with a `get_kernel_clk_mux` method that
+//! returns the current kernel clock state. There is currently no safe API
+//! for setting these shared multiplexers.
+//!
+//! # Reset/Enable Example
 //!
 //! ```
 //! // Constrain and Freeze power
@@ -19,6 +24,18 @@
 //!
 //! // Enable the clock to a peripheral and reset it
 //! ccdr.peripheral.FDCAN.enable().reset();
+//! ```
+//!
+//! # Kernel Clock Example
+//! ```
+//! let ccdr = ...; // Returned by `freeze()`, see example above
+//!
+//! let cec_mux_state = ccdr.peripheral.CEC.kernel_clk_mux(CecClkSel::LSI).get_kernel_clk_mux();
+//!
+//! assert_eq!(cec_mux_state, CecClkSel::LSI);
+//!
+//! // Can't set this mux because it would also affect I2C2 and I2C3
+//! let i2c_mux_state = ccdr.peripheral.I2C1.get_kernel_clk_mux();
 //! ```
 #![deny(missing_docs)]
 
@@ -65,7 +82,7 @@ macro_rules! peripheral_reset_and_enable_control {
             $( #[ $pmeta:meta ] )*
                 $p:ident
                 $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
-                $([ group clk: $pk_g:ident $(($Variant_g:ident))* $ccip_g:ident $($clk_doc_g:expr)* ])*
+                $([ group clk: $pk_g:ident $( $(($Variant_g:ident))* $ccip_g:ident $clk_doc_g:expr )* ])*
         ),*
     ];)+) => {
         paste::item! {
@@ -190,21 +207,10 @@ macro_rules! peripheral_reset_and_enable_control {
                                 ccip.read().[< $pk:lower sel >]().variant()
                             }
                         )*
-                        $(      // Group kernel clocks
-                            #[inline(always)]
-                            #[allow(unused)]
-                            /// Return the current kernel clock selection
-                            pub fn get_kernel_clk_mux(&self) ->
-                                variant_return_type!([< $pk_g ClkSel >] $(, $Variant_g)*)
-                            {
-                                // unsafe: We only read from this bitfield
-                                let ccip = unsafe {
-                                    &(*RCC::ptr()).[< $ccip_g r >]
-                                };
-                                ccip.read().[< $pk_g:lower sel >]().variant()
-                            }
-                        )*
                     }
+                    $(      // Group kernel clocks
+                        impl [< $pk_g ClkSelGetter >] for $p {}
+                    )*
 
                     $(          // Individual kernel clocks
                         #[doc=$clk_doc]
@@ -218,6 +224,26 @@ macro_rules! peripheral_reset_and_enable_control {
                             /// kernel clock source selection
                             pub type [< $pk_g ClkSel >] =
                                 rcc::[< $ccip_g r >]::[< $pk_g:upper SEL_A >];
+
+                            /// Can return
+                            #[doc=$clk_doc_g]
+                            /// kernel clock source selection
+                            pub trait [< $pk_g ClkSelGetter >] {
+                                #[inline(always)]
+                                #[allow(unused)]
+                                /// Return the
+                                #[doc=$clk_doc_g]
+                                /// kernel clock selection
+                                fn get_kernel_clk_mux(&self) ->
+                                    variant_return_type!([< $pk_g ClkSel >] $(, $Variant_g)*)
+                                {
+                                    // unsafe: We only read from this bitfield
+                                    let ccip = unsafe {
+                                        &(*RCC::ptr()).[< $ccip_g r >]
+                                    };
+                                    ccip.read().[< $pk_g:lower sel >]().variant()
+                                }
+                            }
                         )*
                     )*
                 )*
@@ -246,7 +272,7 @@ peripheral_reset_and_enable_control! {
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
         Hash, Crypt,
         Rng [kernel clk: Rng d2ccip2 "RNG"],
-        Sdmmc2 [group clk: Sdmmc d1ccip]
+        Sdmmc2 [group clk: Sdmmc]
     ];
 
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
@@ -264,23 +290,23 @@ peripheral_reset_and_enable_control! {
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
         Dac12,
         I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
-        I2c2 [group clk: I2c123 d2ccip2],
-        I2c3 [group clk: I2c123 d2ccip2],
+        I2c2 [group clk: I2c123],
+        I2c3 [group clk: I2c123],
 
         Cec [kernel clk: Cec(Variant) d2ccip2 "CEC"],
         Lptim1 [kernel clk: Lptim1(Variant) d2ccip2 "LPTIM1"],
 
-        Spi2 [group clk: Spi123(Variant) d2ccip1],
-        Spi3 [group clk: Spi123(Variant) d2ccip1],
+        Spi2 [group clk: Spi123],
+        Spi3 [group clk: Spi123],
 
         Tim2, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14,
 
         Usart2 [group clk: Usart234578(Variant) d2ccip2 "USART2/3/4/5/7/8"],
-        Usart3 [group clk: Usart234578(Variant) d2ccip2],
-        Uart4 [group clk: Usart234578(Variant) d2ccip2],
-        Uart5 [group clk: Usart234578(Variant) d2ccip2],
-        Uart7 [group clk: Usart234578(Variant) d2ccip2],
-        Uart8 [group clk: Usart234578(Variant) d2ccip2]
+        Usart3 [group clk: Usart234578],
+        Uart4 [group clk: Usart234578],
+        Uart5 [group clk: Usart234578],
+        Uart7 [group clk: Usart234578],
+        Uart8 [group clk: Usart234578]
     ];
 
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
@@ -295,16 +321,16 @@ peripheral_reset_and_enable_control! {
 
         Sai1 [kernel clk: Sai1(Variant) d2ccip1 "SAI1"],
         Sai2 [group clk: Sai23(Variant) d2ccip1 "SAI2/3"],
-        Sai3 [group clk: Sai23(Variant) d2ccip1],
+        Sai3 [group clk: Sai23],
 
         Spi1 [group clk: Spi123(Variant) d2ccip1 "SPI1/2/3"],
         Spi4 [group clk: Spi45(Variant) d2ccip1 "SPI4/5"],
-        Spi5 [group clk: Spi45(Variant) d2ccip1],
+        Spi5 [group clk: Spi45],
 
         Tim1, Tim8, Tim15, Tim16, Tim17,
 
         Usart1 [group clk: Usart16(Variant) d2ccip2 "USART1/6"],
-        Usart6 [group clk: Usart16(Variant) d2ccip2]
+        Usart6 [group clk: Usart16]
     ];
 
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
@@ -316,8 +342,8 @@ peripheral_reset_and_enable_control! {
 
         Lptim2 [kernel clk: Lptim2(Variant) d3ccip "LPTIM2"],
         Lptim3 [group clk: Lptim345(Variant) d3ccip "LPTIM3/4/5"],
-        Lptim4 [group clk: Lptim345(Variant) d3ccip],
-        Lptim5 [group clk: Lptim345(Variant) d3ccip],
+        Lptim4 [group clk: Lptim345],
+        Lptim5 [group clk: Lptim345],
         I2c4 [kernel clk: I2c4 d3ccip "I2C4"],
         Spi6 [kernel clk: Spi6(Variant) d3ccip "SPI6"],
         Sai4 [kernel clk_a: Sai4A(Variant) d3ccip
