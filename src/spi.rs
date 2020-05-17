@@ -452,8 +452,8 @@ macro_rules! spi {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
-                    pub fn free(self) -> $SPIX {
-                        self.spi
+                    pub fn free(self) -> ($SPIX, rec::$Rec) {
+                        (self.spi, rec::$Rec { _marker: PhantomData })
                     }
                 }
 

@@ -1,5 +1,7 @@
 //! # Serial Audio Interface
 
+use core::marker::PhantomData;
+
 use crate::stm32::sai4::CH;
 use crate::stm32::{SAI1, SAI4};
 
@@ -151,7 +153,7 @@ macro_rules! sai_hal {
                 }
 
                 /// Releases the SAI peripheral
-                pub fn free(self) -> $SAIX {
+                pub fn free(self) -> ($SAIX, rec::$Rec) {
                     // Refer to RM0433 Rev 7 51.4.15 Disabling the SAI
 
                     // Master: Clear SAIEN
@@ -175,7 +177,8 @@ macro_rules! sai_hal {
                         ch.cr1.read().saien().bit_is_set()
                     }).unwrap_or(false) {}
 
-                    self.rb
+
+                    (self.rb, rec::$Rec { _marker: PhantomData })
                 }
             }
         )+

@@ -1,5 +1,7 @@
 //! Inter Integrated Circuit implementation
 
+use core::marker::PhantomData;
+
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
@@ -219,8 +221,8 @@ macro_rules! i2c {
                 }
 
                 /// Releases the I2C peripheral
-                pub fn free(self) -> $I2CX {
-                    self.i2c
+                pub fn free(self) -> ($I2CX, rec::$Rec) {
+                    (self.i2c, rec::$Rec { _marker: PhantomData })
                 }
             }
 

@@ -571,8 +571,8 @@ macro_rules! adc_hal {
             impl<ED> Adc<$ADC, ED> {
 
                 /// Releases the ADC peripheral
-                pub fn free(self) -> $ADC {
-                    self.rb
+                pub fn free(self) -> ($ADC, rec::$Rec) {
+                    (self.rb, rec::$Rec { _marker: PhantomData })
                 }
 
                 /// Save current ADC config

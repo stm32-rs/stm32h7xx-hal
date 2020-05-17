@@ -3,6 +3,8 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
+use core::marker::PhantomData;
+
 use crate::hal::timer::{CountDown, Periodic};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
 use crate::stm32::{
@@ -282,10 +284,11 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn free(mut self) -> $TIMX {
+                pub fn free(mut self) -> ($TIMX, rec::$Rec) {
                     // pause counter
                     self.pause();
-                    self.tim
+
+                    (self.tim, rec::$Rec { _marker: PhantomData })
                 }
             }
         )+

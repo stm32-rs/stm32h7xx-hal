@@ -107,7 +107,7 @@ macro_rules! peripheral_reset_and_enable_control {
                     /// Owned ability to Reset, Enable and Disable peripheral
                     $( #[ $pmeta ] )*
                     pub struct $p {
-                        _marker: PhantomData<*const ()>,
+                        pub(crate) _marker: PhantomData<*const ()>,
                     }
                     $( #[ $pmeta ] )*
                     unsafe impl Send for $p {}
