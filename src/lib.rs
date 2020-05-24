@@ -74,6 +74,8 @@ pub mod adc;
 #[cfg(feature = "device-selected")]
 pub mod delay;
 #[cfg(feature = "device-selected")]
+pub mod dfsdm;
+#[cfg(feature = "device-selected")]
 pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
