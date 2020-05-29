@@ -31,6 +31,7 @@ pub struct C2<ED> {
     _enabled: PhantomData<ED>,
 }
 
+/// Trait for GPIO pins that can be converted to DAC output pins
 pub trait Pins<DAC> {
     type Output;
 }
@@ -90,6 +91,17 @@ macro_rules! dac {
         }
 
         impl<ED> $CX<ED> {
+            /// Calibrate the DAC output buffer by performing a "User
+            /// trimming" operation. It is useful when the VDDA/VREF+
+            /// voltage or temperature differ from the factory trimming
+            /// conditions.
+            ///
+            /// The calibration is only valid when the DAC channel is
+            /// operating with the buffer enabled. If applied in other
+            /// modes it has no effect.
+            ///
+            /// After the calibration operation, the DAC channel is
+            /// disabled.
             pub fn calibrate<T>(self, delay: &mut T) -> $CX<Disabled>
             where
                 T: DelayUs<u32>,
@@ -113,8 +125,19 @@ macro_rules! dac {
                     _enabled: PhantomData,
                 }
             }
+
+            /// Disable the DAC channel
+            pub fn disable(self) -> $CX<Disabled> {
+                let dac = unsafe { &(*DAC::ptr()) };
+                dac.cr.modify(|_, w| w.$en().clear_bit());
+
+                $CX {
+                    _enabled: PhantomData,
+                }
+            }
         }
 
+        /// DacOut implementation available in any Enabled/Disabled state
         impl<ED> DacOut<u16> for $CX<ED> {
             fn set_value(&mut self, val: u16) {
                 let dac = unsafe { &(*DAC::ptr()) };
