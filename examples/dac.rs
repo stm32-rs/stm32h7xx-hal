@@ -11,8 +11,7 @@ use cortex_m_rt::entry;
 use stm32h7xx_hal::hal::Direction;
 use stm32h7xx_hal::{pac, prelude::*};
 
-use stm32h7xx_hal::dac::DacOut;
-use stm32h7xx_hal::traits::DacPin;
+use stm32h7xx_hal::traits::DacOut;
 
 use cortex_m_log::println;
 use cortex_m_log::{
@@ -38,10 +37,10 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     let gpioa = dp.GPIOA.split(&mut ccdr.ahb4);
-    let mut dac = dp.DAC.dac(gpioa.pa4, &mut ccdr);
+    let dac = dp.DAC.dac(gpioa.pa4, &mut ccdr);
 
-    dac.calibrate(&mut delay);
-    dac.enable();
+    // Calibrate output buffer then enable DAC channel
+    let mut dac = dac.calibrate(&mut delay).enable();
 
     let mut dir = Direction::Upcounting;
     let mut val = 0;

@@ -1,11 +1,9 @@
-use crate::hal::blocking::delay::DelayUs;
+//! DAC Traits
 
-/// A single DAC channel.
+/// A single DAC output channel.
 ///
 /// This is the same trait definition as found in some other stm32 HALs.
-pub trait DacPin {
-    fn enable(&mut self);
-    fn calibrate<T>(&mut self, delay: &mut T)
-    where
-        T: DelayUs<u32>;
+pub trait DacOut<V> {
+    fn set_value(&mut self, val: V);
+    fn get_value(&mut self) -> V;
 }

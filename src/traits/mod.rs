@@ -1,2 +1,2 @@
 mod dac;
-pub use dac::DacPin;
+pub use dac::DacOut;
