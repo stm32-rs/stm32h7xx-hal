@@ -71,6 +71,8 @@ macro_rules! dac {
         impl $CX<Disabled> {
             pub fn enable(self) -> $CX<Enabled> {
                 let dac = unsafe { &(*DAC::ptr()) };
+
+                dac.mcr.modify(|_, w| unsafe { w.$mode().bits(0) });
                 dac.cr.modify(|_, w| w.$en().set_bit());
 
                 $CX {
@@ -102,7 +104,7 @@ macro_rules! dac {
             ///
             /// After the calibration operation, the DAC channel is
             /// disabled.
-            pub fn calibrate<T>(self, delay: &mut T) -> $CX<Disabled>
+            pub fn calibrate_buffer<T>(self, delay: &mut T) -> $CX<Disabled>
             where
                 T: DelayUs<u32>,
             {
