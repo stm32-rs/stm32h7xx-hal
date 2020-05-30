@@ -40,7 +40,7 @@ fn main() -> ! {
     let dac = dp.DAC.dac(gpioa.pa4, &mut ccdr);
 
     // Calibrate output buffer then enable DAC channel
-    let mut dac = dac.calibrate(&mut delay).enable();
+    let mut dac = dac.calibrate_buffer(&mut delay).enable();
 
     let mut dir = Direction::Upcounting;
     let mut val = 0;
