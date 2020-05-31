@@ -29,13 +29,13 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - Blinky");
     println!(log, "");
 
-    let gpioe = dp.GPIOE.split(&mut ccdr.ahb4);
+    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
     // Configure PE1 as output.
     let mut led = gpioe.pe1.into_push_pull_output();

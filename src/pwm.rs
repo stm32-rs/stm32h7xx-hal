@@ -49,7 +49,7 @@ use crate::stm32::{
     TIM8,
 };
 
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 use crate::timer::GetClk;
 
@@ -430,11 +430,14 @@ pins! {
 
 // PwmExt trait
 pub trait PwmExt: Sized {
+    type Rec: ResetEnable;
+
     fn pwm<PINS, T>(
         self,
         _pins: PINS,
         frequency: T,
-        ccdr: &mut Ccdr,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
     ) -> PINS::Channel
     where
         PINS: Pins<Self>,
@@ -443,19 +446,22 @@ pub trait PwmExt: Sized {
 
 // Implement PwmExt trait for timer
 macro_rules! pwm_ext_hal {
-    ($TIMX:ident: $timX:ident) => {
+    ($TIMX:ident: $timX:ident, $Rec:ident) => {
         impl PwmExt for $TIMX {
+            type Rec = rec::$Rec;
+
             fn pwm<PINS, T>(
                 self,
                 pins: PINS,
                 frequency: T,
-                ccdr: &mut Ccdr,
+                prec: rec::$Rec,
+                clocks: &CoreClocks,
             ) -> PINS::Channel
             where
                 PINS: Pins<Self>,
                 T: Into<Hertz>,
             {
-                $timX(self, pins, frequency.into(), ccdr)
+                $timX(self, pins, frequency.into(), prec, clocks)
             }
         }
     };
@@ -463,27 +469,25 @@ macro_rules! pwm_ext_hal {
 
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
-    ($($TIMX:ident: ($timX:ident, $apb:ident,
-                     $timXen:ident, $timXrst:ident,
+    ($($TIMX:ident: ($timX:ident, $Rec:ident,
                      $typ:ty, $bits:expr $(,$bdtr:ident)*),)+) => {
         $(
-            pwm_ext_hal!($TIMX: $timX);
+            pwm_ext_hal!($TIMX: $timX, $Rec);
 
             /// Configures PWM
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
-                ccdr: &mut Ccdr,
+                prec: rec::$Rec,
+                clocks: &CoreClocks,
             ) -> PINS::Channel
             where
                 PINS: Pins<$TIMX>,
             {
-                ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
-                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                prec.enable().reset();
 
-                let clk = $TIMX::get_clk(&ccdr)
+                let clk = $TIMX::get_clk(clocks)
                     .expect("Timer input clock not running!").0;
                 let freq = freq.0;
                 let reload : u32 = clk / freq; // u32
@@ -524,22 +528,22 @@ macro_rules! tim_hal {
     }
 }
 tim_hal! {
-    TIM1: (tim1, apb2, tim1en, tim1rst, u16, 16, bdtr),
-    TIM2: (tim2, apb1l, tim2en, tim2rst, u32, 32),
-    TIM3: (tim3, apb1l, tim3en, tim3rst, u16, 16),
-    TIM4: (tim4, apb1l, tim4en, tim4rst, u16, 16),
-    TIM5: (tim5, apb1l, tim5en, tim5rst, u32, 32),
-    TIM8: (tim8, apb2, tim8en, tim8rst, u16, 16, bdtr),
+    TIM1: (tim1, Tim1, u16, 16, bdtr),
+    TIM2: (tim2, Tim2, u32, 32),
+    TIM3: (tim3, Tim3, u16, 16),
+    TIM4: (tim4, Tim4, u16, 16),
+    TIM5: (tim5, Tim5, u32, 32),
+    TIM8: (tim8, Tim8, u16, 16, bdtr),
 }
 tim_hal! {
-    TIM12: (tim12, apb1l, tim12en, tim12rst, u16, 16),
-    TIM13: (tim13, apb1l, tim13en, tim13rst, u16, 16),
-    TIM14: (tim14, apb1l, tim14en, tim14rst, u16, 16),
+    TIM12: (tim12, Tim12, u16, 16),
+    TIM13: (tim13, Tim13, u16, 16),
+    TIM14: (tim14, Tim14, u16, 16),
 }
 tim_hal! {
-    TIM15: (tim15, apb2, tim15en, tim15rst, u16, 16),
-    TIM16: (tim16, apb2, tim16en, tim16rst, u16, 16),
-    TIM17: (tim17, apb2, tim17en, tim17rst, u16, 16),
+    TIM15: (tim15, Tim15, u16, 16),
+    TIM16: (tim16, Tim16, u16, 16),
+    TIM17: (tim17, Tim17, u16, 16),
 }
 
 // Implement PwmPin for timer
@@ -633,25 +637,24 @@ tim_pin_hal! {
 
 // Low-power timers
 macro_rules! lptim_hal {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $timXen:ident, $timXrst:ident, $timXpac:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $Rec:ident, $timXpac:ident),)+) => {
         $(
-            pwm_ext_hal!($TIMX: $timX);
+            pwm_ext_hal!($TIMX: $timX, $Rec);
 
             /// Configures PWM signal on the LPTIM OUT pin.
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
-                ccdr: &mut Ccdr,
+                prec: rec::$Rec,
+                clocks: &CoreClocks,
             ) -> PINS::Channel
             where
                 PINS: Pins<$TIMX>,
             {
-                ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
-                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                prec.enable().reset();
 
-                let clk = $TIMX::get_clk(&ccdr).unwrap().0;
+                let clk = $TIMX::get_clk(clocks).unwrap().0;
                 let freq = freq.0;
                 let reload = clk / freq;
                 assert!(reload < 128 * (1 << 16));
@@ -736,9 +739,9 @@ macro_rules! lptim_hal {
 }
 
 lptim_hal! {
-    LPTIM1: (lptim1, apb1l, lptim1en, lptim1rst, lptim1),
-    LPTIM2: (lptim2, apb4, lptim2en, lptim2rst, lptim1),
-    LPTIM3: (lptim3, apb4, lptim3en, lptim3rst, lptim3),
-    LPTIM4: (lptim4, apb4, lptim4en, lptim4rst, lptim3),
-    LPTIM5: (lptim5, apb4, lptim5en, lptim5rst, lptim3),
+    LPTIM1: (lptim1, Lptim1, lptim1),
+    LPTIM2: (lptim2, Lptim2, lptim1),
+    LPTIM3: (lptim3, Lptim3, lptim3),
+    LPTIM4: (lptim4, Lptim4, lptim3),
+    LPTIM5: (lptim5, Lptim5, lptim3),
 }

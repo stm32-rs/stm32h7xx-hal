@@ -30,15 +30,15 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc
+    let ccdr = rcc
         .sys_ck(100.mhz())
         .pll1_q_ck(20_480.khz()) // SAI1 clock source
         .freeze(vos, &dp.SYSCFG);
 
     // Acquire GPIO peripherals. This also enables the clock for each
     // GPIO in the RCC register.
-    let gpioc = dp.GPIOC.split(&mut ccdr.ahb4);
-    let gpioe = dp.GPIOE.split(&mut ccdr.ahb4);
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
+    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
     let d1 = gpioc.pc1.into_alternate_af2();
     let ck1 = gpioe.pe2.into_alternate_af2();
@@ -49,7 +49,9 @@ fn main() -> ! {
     println!(log, "");
 
     // Configure SAI for PDM mode
-    let mut sai = dp.SAI1.pdm(pins, 1_024.khz(), &mut ccdr);
+    let mut sai =
+        dp.SAI1
+            .pdm(pins, 1_024.khz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 
     loop {
         println!(log, "0x{:04x}", 0xFFFF & block!(sai.read_data()).unwrap());

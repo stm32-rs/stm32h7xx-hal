@@ -55,7 +55,7 @@
 //!     let vos = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
-//!     let mut ccdr = rcc
+//!     let ccdr = rcc
 //!         .sys_ck(96.mhz())
 //!         .pclk1(48.mhz())
 //!         .freeze(vos, &dp.SYSCFG);
@@ -70,7 +70,7 @@
 //!     let vos = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
-//!     let mut ccdr = rcc
+//!     let ccdr = rcc
 //!         .sys_ck(200.mhz()) // Implies pll1_p_ck
 //!         // For non-integer values, round up. `freeze` will never
 //!         // configure a clock faster than that specified.
@@ -88,7 +88,7 @@
 //!     let vos = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
-//!     let mut ccdr = rcc
+//!     let ccdr = rcc
 //!         .use_hse(25.mhz()) // XTAL X1
 //!         .sys_ck(400.mhz())
 //!         .pll1_r_ck(100.mhz()) // for TRACECK
@@ -145,7 +145,7 @@ use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
-use crate::stm32::{rcc, RCC, SYSCFG};
+use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
 
 mod core_clocks;
@@ -223,28 +223,10 @@ pub struct Rcc {
 pub struct Ccdr {
     /// A record of the frozen core clock frequencies
     pub clocks: CoreClocks,
-    /// AMBA High-performance Bus (AHB1) registers
-    pub ahb1: AHB1,
-    /// AMBA High-performance Bus (AHB2) registers
-    pub ahb2: AHB2,
-    /// AMBA High-performance Bus (AHB3) registers
-    pub ahb3: AHB3,
-    /// AMBA High-performance Bus (AHB4) registers
-    pub ahb4: AHB4,
-    /// Advanced Peripheral Bus 1L (APB1L) registers
-    pub apb1l: APB1L,
-    /// Advanced Peripheral Bus 1H (APB1H) registers
-    pub apb1h: APB1H,
-    /// Advanced Peripheral Bus 2 (APB2) registers
-    pub apb2: APB2,
-    /// Advanced Peripheral Bus 3 (APB3) registers
-    pub apb3: APB3,
-    /// Advanced Peripheral Bus 4 (APB4) registers
-    pub apb4: APB4,
-    /// RCC Domain 3 Kernel Clock Configuration Register
-    pub d3ccipr: D3CCIPR,
+
     /// Peripheral reset / enable / kernel clock control
     pub peripheral: PeripheralREC,
+
     // Yes, it lives (locally)! We retain the right to switch most
     // PKSUs on the fly, to fine-tune PLL frequencies, and to enable /
     // reset peripherals.
@@ -252,117 +234,6 @@ pub struct Ccdr {
     // TODO: Remove this once all permitted RCC register accesses
     // after freeze are enumerated in this struct
     pub(crate) rb: RCC,
-}
-
-macro_rules! ahb_apb_generation {
-    ($(($AXBn:ident, $AXBnENR:ident, $axbnenr:ident, $AXBnRSTR:ident, $axbnrstr:ident, $doc:expr)),+) => {
-        $(
-            #[doc=$doc]
-            pub struct $AXBn {
-                _0: (),
-            }
-
-            impl $AXBn {
-                #[allow(unused)]
-                pub (crate) fn enr(&mut self) -> &rcc::$AXBnENR {
-                    // NOTE(unsafe) this proxy grants exclusive access to this register
-                    unsafe { &(*RCC::ptr()).$axbnenr }
-                }
-
-                #[allow(unused)]
-                pub (crate) fn rstr(&mut self) -> &rcc::$AXBnRSTR {
-                    // NOTE(unsafe) this proxy grants exclusive access to this register
-                    unsafe { &(*RCC::ptr()).$axbnrstr }
-                }
-            }
-        )+
-    }
-}
-
-ahb_apb_generation!(
-    (
-        AHB1,
-        AHB1ENR,
-        ahb1enr,
-        AHB1RSTR,
-        ahb1rstr,
-        "AMBA High-performance Bus (AHB1) registers"
-    ),
-    (
-        AHB2,
-        AHB2ENR,
-        ahb2enr,
-        AHB2RSTR,
-        ahb2rstr,
-        "AMBA High-performance Bus (AHB2) registers"
-    ),
-    (
-        AHB3,
-        AHB3ENR,
-        ahb3enr,
-        AHB3RSTR,
-        ahb3rstr,
-        "AMBA High-performance Bus (AHB3) registers"
-    ),
-    (
-        AHB4,
-        AHB4ENR,
-        ahb4enr,
-        AHB4RSTR,
-        ahb4rstr,
-        "AMBA High-performance Bus (AHB4) registers"
-    ),
-    (
-        APB1L,
-        APB1LENR,
-        apb1lenr,
-        APB1LRSTR,
-        apb1lrstr,
-        "Advanced Peripheral Bus 1L (APB1L) registers"
-    ),
-    (
-        APB1H,
-        APB1HENR,
-        apb1henr,
-        APB1HRSTR,
-        apb1hrstr,
-        "Advanced Peripheral Bus 1H (APB1H) registers"
-    ),
-    (
-        APB2,
-        APB2ENR,
-        apb2enr,
-        APB2RSTR,
-        apb2rstr,
-        "Advanced Peripheral Bus 2 (APB2) registers"
-    ),
-    (
-        APB3,
-        APB3ENR,
-        apb3enr,
-        APB3RSTR,
-        apb3rstr,
-        "Advanced Peripheral Bus 3 (APB3) registers"
-    ),
-    (
-        APB4,
-        APB4ENR,
-        apb4enr,
-        APB4RSTR,
-        apb4rstr,
-        "Advanced Peripheral Bus 4 (APB4) registers"
-    )
-);
-
-/// RCC Domain 3 Kernel Clock Configuration Register
-pub struct D3CCIPR {
-    _0: (),
-}
-
-impl D3CCIPR {
-    pub(crate) fn kernel_ccip(&mut self) -> &rcc::D3CCIPR {
-        unsafe { &(*RCC::ptr()).d3ccipr }
-    }
 }
 
 const HSI: u32 = 64_000_000; // Hz
@@ -869,15 +740,6 @@ impl Rcc {
 
         // Return frozen clock configuration
         Ccdr {
-            ahb1: AHB1 { _0: () },
-            ahb2: AHB2 { _0: () },
-            ahb3: AHB3 { _0: () },
-            ahb4: AHB4 { _0: () },
-            apb1l: APB1L { _0: () },
-            apb1h: APB1H { _0: () },
-            apb2: APB2 { _0: () },
-            apb3: APB3 { _0: () },
-            apb4: APB4 { _0: () },
             clocks: CoreClocks {
                 hclk: Hertz(rcc_hclk),
                 pclk1: Hertz(rcc_pclk1),
@@ -907,7 +769,6 @@ impl Rcc {
                 sys_ck,
                 c_ck: Hertz(sys_d1cpre_ck),
             },
-            d3ccipr: D3CCIPR { _0: () },
             peripheral: unsafe {
                 // unsafe: we consume self which was a singleton, hence
                 // we can safely create a singleton here

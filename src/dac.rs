@@ -8,7 +8,7 @@ use core::mem::MaybeUninit;
 use crate::gpio::gpioa::{PA4, PA5};
 use crate::gpio::Analog;
 use crate::hal::blocking::delay::DelayUs;
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, ResetEnable};
 use crate::stm32::DAC;
 use crate::traits::DacOut;
 
@@ -48,16 +48,12 @@ impl Pins<DAC> for (PA4<Analog>, PA5<Analog>) {
     type Output = (C1<Disabled>, C2<Disabled>);
 }
 
-pub fn dac<PINS>(_dac: DAC, _pins: PINS, ccdr: &mut Ccdr) -> PINS::Output
+pub fn dac<PINS>(_dac: DAC, _pins: PINS, prec: rec::Dac12) -> PINS::Output
 where
     PINS: Pins<DAC>,
 {
-    // Enable DAC clocks
-    ccdr.apb1l.enr().modify(|_, w| w.dac12en().set_bit());
-
-    // Reset DAC
-    ccdr.apb1l.rstr().modify(|_, w| w.dac12rst().set_bit());
-    ccdr.apb1l.rstr().modify(|_, w| w.dac12rst().clear_bit());
+    // Enable DAC clocks and reset
+    prec.enable().reset();
 
     #[allow(clippy::uninit_assumed_init)]
     unsafe {
@@ -155,17 +151,17 @@ macro_rules! dac {
 }
 
 pub trait DacExt {
-    fn dac<PINS>(self, pins: PINS, ccdr: &mut Ccdr) -> PINS::Output
+    fn dac<PINS>(self, pins: PINS, prec: rec::Dac12) -> PINS::Output
     where
         PINS: Pins<DAC>;
 }
 
 impl DacExt for DAC {
-    fn dac<PINS>(self, pins: PINS, ccdr: &mut Ccdr) -> PINS::Output
+    fn dac<PINS>(self, pins: PINS, prec: rec::Dac12) -> PINS::Output
     where
         PINS: Pins<DAC>,
     {
-        dac(self, pins, ccdr)
+        dac(self, pins, prec)
     }
 }
 

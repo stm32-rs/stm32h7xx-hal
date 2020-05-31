@@ -28,14 +28,14 @@ const APP: () = {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let mut ccdr = rcc
+        let ccdr = rcc
             .use_hse(25.mhz())
             .sys_ck(400.mhz())
             .freeze(vos, &ctx.device.SYSCFG);
 
         // GPIO
-        let gpioc = ctx.device.GPIOC.split(&mut ccdr.ahb4);
-        let gpioi = ctx.device.GPIOI.split(&mut ccdr.ahb4);
+        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
 
         // Button
         let mut button = gpioc.pc13.into_floating_input();

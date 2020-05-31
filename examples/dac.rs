@@ -32,12 +32,12 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(8.mhz()).freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.mhz()).freeze(vos, &dp.SYSCFG);
 
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
-    let gpioa = dp.GPIOA.split(&mut ccdr.ahb4);
-    let dac = dp.DAC.dac(gpioa.pa4, &mut ccdr);
+    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+    let dac = dp.DAC.dac(gpioa.pa4, ccdr.peripheral.DAC12);
 
     // Calibrate output buffer then enable DAC channel
     let mut dac = dac.calibrate_buffer(&mut delay).enable();

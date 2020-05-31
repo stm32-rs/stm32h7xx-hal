@@ -1,11 +1,12 @@
 //! # Serial Audio Interface
 
+use core::marker::PhantomData;
+
 use crate::stm32::sai4::CH;
-use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
+use crate::stm32::{SAI1, SAI4};
 
 // clocks
-use crate::rcc::Ccdr;
-use crate::stm32::rcc::{d2ccip1r, d3ccipr};
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
@@ -14,36 +15,40 @@ pub use pdm::SaiPdmExt;
 
 /// Trait for associating clocks with SAI instances
 pub trait GetClkSAI {
-    fn sai_a_ker_ck(ccdr: &Ccdr) -> Option<Hertz>;
-    fn sai_b_ker_ck(ccdr: &Ccdr) -> Option<Hertz>;
+    type Rec: ResetEnable;
+
+    fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz>;
+    fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz>;
 }
 
 // Return kernel clocks for this SAI
 macro_rules! impl_sai_ker_ck {
-    ($ccip:ident,
-       $fieldA:ident, $fieldB:ident, $ACCESS_A:ident, $ACCESS_B:ident:
+    ($Rec:ident,
+       $get_mux_A:ident, $get_mux_B:ident, $AccessA:ident, $AccessB:ident:
      $($SAIX:ident),+) => {
         $(
             impl GetClkSAI for $SAIX {
+                type Rec = rec::$Rec;
+
                 /// Current kernel clock - A
-                fn sai_a_ker_ck(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.$ccip.read().$fieldA().variant() {
-                        Val($ccip::$ACCESS_A::PLL1_Q) => ccdr.clocks.pll1_q_ck(),
-                        Val($ccip::$ACCESS_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
-                        Val($ccip::$ACCESS_A::PLL3_P) => ccdr.clocks.pll3_p_ck(),
-                        Val($ccip::$ACCESS_A::I2S_CKIN) => unimplemented!(),
-                        Val($ccip::$ACCESS_A::PER) => ccdr.clocks.per_ck(),
+                fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
+                    match prec.$get_mux_A() {
+                        Val(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
+                        Val(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
+                        Val(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
+                        Val(rec::$AccessA::I2S_CKIN) => unimplemented!(),
+                        Val(rec::$AccessA::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
                 /// Current kernel clock - B
-                fn sai_b_ker_ck(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.$ccip.read().$fieldB().variant() {
-                        Val($ccip::$ACCESS_B::PLL1_Q) => ccdr.clocks.pll1_q_ck(),
-                        Val($ccip::$ACCESS_B::PLL2_P) => ccdr.clocks.pll2_p_ck(),
-                        Val($ccip::$ACCESS_B::PLL3_P) => ccdr.clocks.pll3_p_ck(),
-                        Val($ccip::$ACCESS_B::I2S_CKIN) => unimplemented!(),
-                        Val($ccip::$ACCESS_B::PER) => ccdr.clocks.per_ck(),
+                fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
+                    match prec.$get_mux_B() {
+                        Val(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
+                        Val(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
+                        Val(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
+                        Val(rec::$AccessB::I2S_CKIN) => unimplemented!(),
+                        Val(rec::$AccessB::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -52,13 +57,13 @@ macro_rules! impl_sai_ker_ck {
     };
 }
 impl_sai_ker_ck! {
-    d2ccip1r, sai1sel, sai1sel, SAI1SEL_A, SAI1SEL_A: SAI1
+    Sai1, get_kernel_clk_mux, get_kernel_clk_mux, Sai1ClkSel, Sai1ClkSel: SAI1
 }
+// impl_sai_ker_ck! {
+//     d2ccip1r, get_kernel_clk_mux, get_kernel_clk_mux, SAI23SEL_A, SAI23SEL_A: SAI2, SAI3
+// }
 impl_sai_ker_ck! {
-    d2ccip1r, sai23sel, sai23sel, SAI23SEL_A, SAI23SEL_A: SAI2, SAI3
-}
-impl_sai_ker_ck! {
-    d3ccipr, sai4asel, sai4bsel, SAI4ASEL_A, SAI4BSEL_A: SAI4
+    Sai4, get_kernel_clk_a_mux, get_kernel_clk_b_mux, Sai4AClkSel, Sai4BClkSel: SAI4
 }
 
 pub trait INTERFACE {}
@@ -86,18 +91,14 @@ pub struct Sai<SAI, INTERFACE> {
 }
 
 macro_rules! sai_hal {
-    ($($SAIX:ident: ($saiX:ident,
-                     $apb:ident, $timXen:ident, $timXrst:ident),)+) => {
+    ($($SAIX:ident: ($saiX:ident, $Rec:ident),)+) => {
         $(
             // Common to all interfaces
             impl<INTERFACE> Sai<$SAIX, INTERFACE> {
                 /// Low level RCC initialisation
-                fn sai_rcc_init(&mut self, ccdr: &mut Ccdr)
+                fn sai_rcc_init(&mut self, prec: rec::$Rec)
                 {
-                    ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
-
+                    prec.enable().reset();
                 }
 
                 /// Access to the current master channel
@@ -152,7 +153,7 @@ macro_rules! sai_hal {
                 }
 
                 /// Releases the SAI peripheral
-                pub fn free(self) -> $SAIX {
+                pub fn free(self) -> ($SAIX, rec::$Rec) {
                     // Refer to RM0433 Rev 7 51.4.15 Disabling the SAI
 
                     // Master: Clear SAIEN
@@ -176,7 +177,8 @@ macro_rules! sai_hal {
                         ch.cr1.read().saien().bit_is_set()
                     }).unwrap_or(false) {}
 
-                    self.rb
+
+                    (self.rb, rec::$Rec { _marker: PhantomData })
                 }
             }
         )+
@@ -184,9 +186,9 @@ macro_rules! sai_hal {
 }
 
 sai_hal! {
-    SAI1: (sai1, apb2, sai1en, sai1rst),
+    SAI1: (sai1, Sai1),
     // Uncomment when an interface is implemented for these
-    // SAI2: (sai2, apb2, sai2en, sai2rst),
-    // SAI3: (sai3, apb2, sai3en, sai3rst),
-    SAI4: (sai4, apb4, sai4en, sai4rst),
+    // SAI2: (sai2, Sai2),
+    // SAI3: (sai3, Sai3),
+    SAI4: (sai4, Sai4),
 }

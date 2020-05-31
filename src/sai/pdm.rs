@@ -10,14 +10,14 @@
 //! let pins = (ck1, d1);
 //!
 //! // Configure SAI for PDM mode
-//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.khz(), &mut ccdr);
+//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.khz(), ccdr.periperhal.SAI1, &ccdr.clocks);
 //!
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
 
 use core::convert::TryInto;
 
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 use crate::stm32::{SAI1, SAI4};
 use crate::time::Hertz;
@@ -160,11 +160,14 @@ impl INTERFACE for PDM {}
 
 /// Trait to extend SAI periperhals
 pub trait SaiPdmExt<SAI>: Sized {
+    type Rec: ResetEnable;
+
     fn pdm<PINS, T>(
         self,
         _pins: PINS,
         clock: T,
-        ccdr: &mut Ccdr,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
     ) -> Sai<SAI, PDM>
     where
         PINS: PulseDensityPins<Self>,
@@ -172,20 +175,23 @@ pub trait SaiPdmExt<SAI>: Sized {
 }
 
 macro_rules! hal {
-    ($($SAIX:ident: ($pdm_saiX:ident)),+) => {
+    ($($SAIX:ident, $Rec:ident: ($pdm_saiX:ident)),+) => {
         $(
             impl SaiPdmExt<$SAIX> for $SAIX {
+                type Rec = rec::$Rec;
+
                 fn pdm<PINS, T>(
                     self,
                     _pins: PINS,
                     clock: T,
-                    ccdr: &mut Ccdr,
+                    prec: rec::$Rec,
+                    clocks: &CoreClocks,
                 ) -> Sai<Self, PDM>
                 where
                     PINS: PulseDensityPins<Self>,
                     T: Into<Hertz>,
                 {
-                    Sai::$pdm_saiX(self, _pins, clock.into(), ccdr)
+                    Sai::$pdm_saiX(self, _pins, clock.into(), prec, clocks)
                 }
             }
             impl Sai<$SAIX, PDM> {
@@ -214,7 +220,8 @@ macro_rules! hal {
                     sai: $SAIX,
                     _pins: PINS,
                     clock: Hertz,
-                    ccdr: &mut Ccdr,
+                    prec: rec::$Rec,
+                    clocks: &CoreClocks,
                 ) -> Self
                 where
                     PINS: PulseDensityPins<$SAIX>,
@@ -235,7 +242,7 @@ macro_rules! hal {
 
                     // Calculate divider
                     let ker_ck_a =
-                        $SAIX::sai_a_ker_ck(&ccdr).expect("SAI kernel clock must run!");
+                        $SAIX::sai_a_ker_ck(&prec, clocks).expect("SAI kernel clock must run!");
                     let kernel_clock_divider: u8 = (ker_ck_a.0 / mclk_a_hz)
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
@@ -251,7 +258,7 @@ macro_rules! hal {
                         },
                     };
                     // RCC enable, reset
-                    s.sai_rcc_init(ccdr);
+                    s.sai_rcc_init(prec);
 
                     // Configure block 1
                     let audio_ch_a = &s.rb.cha;
@@ -341,6 +348,6 @@ macro_rules! hal {
 }
 
 hal! {
-    SAI1: (pdm_sai1),
-    SAI4: (pdm_sai4)
+    SAI1, Sai1: (pdm_sai1),
+    SAI4, Sai4: (pdm_sai4)
 }

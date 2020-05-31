@@ -32,13 +32,13 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - Blinky timer");
     println!(log, "");
 
-    let gpioe = dp.GPIOE.split(&mut ccdr.ahb4);
+    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
     // Configure PE1 as output.
     let mut led = gpioe.pe1.into_push_pull_output();
@@ -48,7 +48,7 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     // Configure the timer.
-    let mut timer = dp.TIM2.timer(1.hz(), &mut ccdr);
+    let mut timer = dp.TIM2.timer(1.hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
 
     loop {
         for _ in 0..5 {

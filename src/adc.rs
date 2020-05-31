@@ -3,6 +3,7 @@ use crate::hal::blocking::delay::DelayUs;
 
 use core::marker::PhantomData;
 
+use crate::stm32;
 use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
 
 use crate::delay::Delay;
@@ -14,8 +15,7 @@ use crate::gpio::gpiof::{
 };
 use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
 use crate::gpio::Analog;
-use crate::rcc::Ccdr;
-use crate::rcc::D3CCIPR;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 
 #[cfg(not(feature = "revision_v"))]
 const ADC_KER_CK_MAX: u32 = 36_000_000;
@@ -271,53 +271,39 @@ adc_internal!(
 );
 
 pub trait AdcExt<ADC>: Sized {
-    fn adc(self, delay: &mut Delay, ccdr: &mut Ccdr) -> Adc<ADC, Disabled>;
+    type Rec: ResetEnable;
+
+    fn adc(
+        self,
+        delay: &mut Delay,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Adc<ADC, Disabled>;
 }
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
-impl Adc<ADC1, Disabled> {
-    /// Check the ADC periperal can be safely reset
-    fn is_safe_to_reset(ccdr: &mut Ccdr) -> bool {
-        // Not safe if shared enable with ADC2 already enabled
-        !ccdr.ahb1.enr().read().adc12en().bit_is_set()
-    }
-}
-impl Adc<ADC2, Disabled> {
-    /// Check the ADC periperal can be safely reset
-    fn is_safe_to_reset(ccdr: &mut Ccdr) -> bool {
-        // Not safe if shared enable with ADC1 already enabled
-        !ccdr.ahb1.enr().read().adc12en().bit_is_set()
-    }
-}
-impl Adc<ADC3, Disabled> {
-    /// Check the ADC periperal can be safely reset
-    fn is_safe_to_reset(_ccdr: &mut Ccdr) -> bool {
-        true // Always safe for ADC3
-    }
-}
-
 #[allow(unused_macros)]
 macro_rules! adc_hal {
     ($(
         $ADC:ident: (
             $adcX: ident,
-            $adcxen:ident,
-            $adcxrst:ident,
-            $AHB:ident,
-            $ahb:ident,
+            $Rec:ident,
             $COMMON:ident
         )
     ),+ $(,)*) => {
         $(
             impl AdcExt<$ADC> for $ADC {
+                type Rec = rec::$Rec;
+
 	            fn adc(self,
                        delay: &mut Delay,
-                       ccdr: &mut Ccdr) -> Adc<$ADC, Disabled>
+                       prec: rec::$Rec,
+                       clocks: &CoreClocks) -> Adc<$ADC, Disabled>
 	            {
-	                Adc::$adcX(self, delay, ccdr)
+	                Adc::$adcX(self, delay, prec, clocks)
 	            }
 	        }
 
@@ -326,7 +312,9 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adcX(adc: $ADC, delay: &mut Delay, ccdr: &mut Ccdr) -> Self {
+                pub fn $adcX(adc: $ADC, delay: &mut Delay,
+                             prec: rec::$Rec, clocks: &CoreClocks
+                ) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: AdcSampleTime::default(),
@@ -335,27 +323,19 @@ macro_rules! adc_hal {
                         _enabled: PhantomData,
                     };
 
-                    // Some ADCs are not safe to reset, as the ADC
-                    // reset line is shared
-                    let is_safe_to_reset = Self::is_safe_to_reset(ccdr);
-
                     // Select Kernel Clock
                     s.enable_clock(
-                        &mut ccdr.d3ccipr,
-                        ccdr.clocks.per_ck().expect("per_ck is not running!").0,
+                        clocks.per_ck().expect("per_ck is not running!").0
                     );
 
                     // Enable AHB clock
-                    ccdr.$ahb.enr().modify(|_, w| w.$adcxen().set_bit());
+                    let prec = prec.enable();
 
                     // Power Down
                     s.power_down();
 
-                    // Reset
-                    if is_safe_to_reset {
-                        ccdr.$ahb.rstr().modify(|_, w| w.$adcxrst().set_bit());
-                        ccdr.$ahb.rstr().modify(|_, w| w.$adcxrst().clear_bit());
-                    }
+                    // Reset periperal
+                    prec.reset();
 
                     // Power Up, Preconfigure and Calibrate
                     s.power_up(delay);
@@ -365,12 +345,14 @@ macro_rules! adc_hal {
                     s
                 }
 
-                fn enable_clock(&mut self, d3ccipr: &mut D3CCIPR, per_ck: u32) {
+                fn enable_clock(&mut self, per_ck: u32) {
                     // Set per_ck as adc clock, TODO: we might want to
                     // change this so we can also use other clocks as
                     // input for this
                     assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
-                    d3ccipr.kernel_ccip().modify(|_, w| unsafe { w.adcsel().bits(0b10) });
+                    let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
+
+                    d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
                 }
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
@@ -589,8 +571,8 @@ macro_rules! adc_hal {
             impl<ED> Adc<$ADC, ED> {
 
                 /// Releases the ADC peripheral
-                pub fn free(self) -> $ADC {
-                    self.rb
+                pub fn free(self) -> ($ADC, rec::$Rec) {
+                    (self.rb, rec::$Rec { _marker: PhantomData })
                 }
 
                 /// Save current ADC config
@@ -730,7 +712,7 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (adc1, adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
-    ADC2: (adc2, adc12en, adc12rst, AHB1, ahb1, ADC12_COMMON),
-    ADC3: (adc3, adc3en, adc3rst, AHB4, ahb4, ADC3_COMMON),
+    ADC1: (adc1, Adc12, ADC12_COMMON),
+    ADC2: (adc2, Adc12, ADC12_COMMON),
+    ADC3: (adc3, Adc3, ADC3_COMMON),
 );
