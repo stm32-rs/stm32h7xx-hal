@@ -153,6 +153,8 @@ pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
 #[cfg(feature = "device-selected")]
+pub mod ltdc;
+#[cfg(feature = "device-selected")]
 pub mod prelude;
 #[cfg(feature = "device-selected")]
 pub mod pwm;
