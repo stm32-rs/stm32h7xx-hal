@@ -47,6 +47,7 @@ device-selected = []
 revision_v = []
 singlecore = []
 dualcore = []
+dsi = []
 cm4 = []
 cm7 = []
 rt = ["stm32h7/rt"]
@@ -58,7 +59,7 @@ stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore
 stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
 stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v", "singlecore"]
 stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
-stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualcore", "cm7"]
+stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualcore", "cm7", "dsi"]
 
 
 [profile.dev]

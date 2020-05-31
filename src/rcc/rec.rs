@@ -334,7 +334,8 @@ peripheral_reset_and_enable_control! {
     ];
 
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
-        Ltdc
+        Ltdc,
+        #[cfg(any(feature = "dsi"))] Dsi
     ];
 
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [

@@ -23,6 +23,7 @@ compile_error!(
 );
 
 pub use embedded_hal as hal;
+pub mod traits;
 
 pub use nb;
 pub use nb::block;
@@ -71,6 +72,8 @@ pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
+#[cfg(feature = "device-selected")]
+pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod delay;
 #[cfg(feature = "device-selected")]
