@@ -231,7 +231,7 @@ peripheral_reset_and_enable_control! {
     ];
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
         Dac12,
-        #[cfg(any(feature = "singlecore"))] Cec // TODO remove gate
+        Cec
     ];
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
         Fdcan kernel_clk: (Variant) d2ccip1 "FDCAN kernel clock source selection",
@@ -243,7 +243,8 @@ peripheral_reset_and_enable_control! {
         Dfsdm1 kernel_clk: d2ccip1 "DFSDM1 kernel Clk source selection"
     ];
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
-        Ltdc
+        Ltdc,
+        #[cfg(any(feature = "dsi"))] Dsi
     ];
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
         Vref, Comp12
