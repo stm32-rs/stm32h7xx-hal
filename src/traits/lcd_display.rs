@@ -1,7 +1,7 @@
 //! Traits for an LCD-TFT display controller
 
 /// A word type for the display memory buffer
-pub trait PixelWord {}
+pub trait PixelWord: Copy {}
 impl PixelWord for u8 {}
 impl PixelWord for u16 {}
 impl PixelWord for u32 {}
