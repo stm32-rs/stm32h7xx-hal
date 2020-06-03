@@ -91,7 +91,7 @@ impl Qspi {
         });
 
         // Enable ther peripheral
-        //regs.cr.modify(|_, w| {w.en().set_bit()});
+        regs.cr.modify(|_, w| {w.en().set_bit()});
 
         Ok(Qspi{rb: regs})
     }
@@ -152,9 +152,6 @@ impl Qspi {
              .instruction().bits(addr)
         });
 
-        // Enable the transaction
-        self.rb.cr.modify(|_, w| {w.en().set_bit()});
-
         // Write data to the FIFO in a byte-wise manner.
         unsafe {
             for byte in data {
@@ -169,8 +166,6 @@ impl Qspi {
         if self.is_busy() {
             return Err(QspiError::FifoData);
         }
-
-        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
 
         // Clear the transfer complete flag.
         self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
@@ -196,9 +191,6 @@ impl Qspi {
             w.fmode().bits(0b01)
              .instruction().bits(addr)
         });
-
-        // Enable the transaction
-        self.rb.cr.modify(|_, w| {w.en().set_bit()});
 
         // Write the instruction bits to force the read to start. This has to be done after the
         // transaction is enabled to indicate to the peripheral that we are ready to start the
@@ -226,8 +218,6 @@ impl Qspi {
         if self.is_busy() {
             return Err(QspiError::FifoData);
         }
-
-        self.rb.cr.modify(|_, w| {w.en().clear_bit()});
 
         // Clear the transfer complete flag.
         self.rb.fcr.modify(|_ ,w| w.ctcf().set_bit());
