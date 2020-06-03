@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -25,10 +25,12 @@ targets = ["thumbv7em-none-eabihf"]
 embedded-hal = "0.2.3"
 cortex-m = "^0.6.0"
 cortex-m-rt = "0.6.10"
-stm32h7 = "0.10.0"
+stm32h7 = "0.11.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.2", default-features = false }
 nb = "0.1.2"
+paste = "0.1.10"
+
 [dependencies.bare-metal]
 version = "0.2.4"
 features = ["const-fn"]
@@ -45,6 +47,7 @@ device-selected = []
 revision_v = []
 singlecore = []
 dualcore = []
+dsi = []
 cm4 = []
 cm7 = []
 rt = ["stm32h7/rt"]
@@ -56,7 +59,7 @@ stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore
 stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
 stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v", "singlecore"]
 stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
-stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualcore", "cm7"]
+stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualcore", "cm7", "dsi"]
 
 
 [profile.dev]

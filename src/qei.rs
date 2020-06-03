@@ -1,6 +1,6 @@
 //! # Quadrature Encoder Interface
 use crate::hal::{self, Direction};
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, ResetEnable};
 
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA5, PA6, PA7, PA8, PA9};
 use crate::gpio::gpiob::{PB0, PB13, PB14, PB3, PB4, PB5, PB6, PB7};
@@ -135,30 +135,30 @@ pins! {
 }
 
 /// Hardware quadrature encoder interface peripheral
-pub struct Qei<TIM, PINS> {
+pub struct Qei<TIM> {
     tim: TIM,
-    pins: PINS,
+}
+
+pub trait QeiExt<TIM> {
+    type Rec: ResetEnable;
+
+    fn qei<PINS>(self, _pins: PINS, prec: Self::Rec) -> Qei<TIM>
+    where
+        PINS: Pins<TIM>;
+
+    fn qei_unchecked(self, prec: Self::Rec) -> Qei<TIM>;
 }
 
 macro_rules! tim_hal {
-    ($($TIM:ident: ($tim:ident, $apb:ident, $timXen:ident, $timXrst:ident, $bits:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $Rec:ident, $bits:ident),)+) => {
         $(
-            impl<PINS> Qei<$TIM, PINS> {
+            impl Qei<$TIM> {
                 /// Configures a TIM peripheral as a quadrature
                 /// encoder interface input
-                pub fn $tim(tim: $TIM,
-                            pins: PINS,
-                            ccdr: &mut Ccdr,
-                ) -> Self
-                where
-                    PINS: Pins<$TIM>
+                pub fn $tim(tim: $TIM, prec: rec::$Rec) -> Self
                 {
                     // enable and reset peripheral to a clean slate
-                    // state
-                    ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
-
+                    prec.enable().reset();
 
                     // Configure TxC1 and TxC2 as captures
                     tim.ccmr1_output().write(|w| unsafe {
@@ -186,16 +186,28 @@ macro_rules! tim_hal {
                     tim.arr.write(|w| unsafe { w.bits(core::u32::MAX) });
                     tim.cr1.write(|w| w.cen().set_bit());
 
-                    Qei { tim, pins }
+                    Qei { tim }
                 }
 
-                /// Releases the TIM peripheral and QEI pins
-                pub fn release(self) -> ($TIM, PINS) {
-                    (self.tim, self.pins)
+                /// Releases the TIM peripheral
+                pub fn release(self) -> $TIM {
+                    self.tim
                 }
             }
 
-            impl<PINS> hal::Qei for Qei<$TIM, PINS> {
+            impl QeiExt<$TIM> for $TIM {
+                type Rec = rec::$Rec;
+
+                fn qei<PINS>(self, _pins: PINS, prec: Self::Rec) -> Qei<$TIM> {
+                    Qei::$tim(self, prec)
+                }
+
+                fn qei_unchecked(self, prec: Self::Rec) -> Qei<$TIM> {
+                    Qei::$tim(self, prec)
+                }
+            }
+
+            impl hal::Qei for Qei<$TIM> {
                 type Count = $bits;
 
                 fn count(&self) -> $bits {
@@ -216,10 +228,10 @@ macro_rules! tim_hal {
 }
 
 tim_hal! {
-    TIM1: (tim1, apb2, tim1en, tim1rst, u16),
-    TIM8: (tim8, apb2, tim8en, tim8rst, u16),
-    TIM2: (tim2, apb1l, tim2en, tim2rst, u32),
-    TIM3: (tim3, apb1l, tim3en, tim3rst, u16),
-    TIM4: (tim4, apb1l, tim4en, tim4rst, u16),
-    TIM5: (tim5, apb1l, tim5en, tim5rst, u32),
+    TIM1: (tim1, Tim1, u16),
+    TIM8: (tim8, Tim8, u16),
+    TIM2: (tim2, Tim2, u32),
+    TIM3: (tim3, Tim3, u16),
+    TIM4: (tim4, Tim4, u16),
+    TIM5: (tim5, Tim5, u32),
 }

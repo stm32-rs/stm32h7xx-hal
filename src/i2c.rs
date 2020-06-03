@@ -1,5 +1,7 @@
 //! Inter Integrated Circuit implementation
 
+use core::marker::PhantomData;
+
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
@@ -8,7 +10,7 @@ use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
 use crate::gpio::gpioh::{PH11, PH12, PH4, PH5, PH7, PH8};
 use crate::gpio::{Alternate, AF4, AF6};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
 use cast::{u16, u8};
@@ -46,15 +48,31 @@ where
 }
 
 #[derive(Debug)]
-pub struct I2c<I2C, PINS> {
+pub struct I2c<I2C> {
     i2c: I2C,
-    pins: PINS,
 }
 
 pub trait I2cExt<I2C>: Sized {
-    fn i2c<PINS, F>(self, pins: PINS, freq: F, ccdr: &Ccdr) -> I2c<I2C, PINS>
+    type Rec: ResetEnable;
+
+    fn i2c<PINS, F>(
+        self,
+        _pins: PINS,
+        freq: F,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> I2c<I2C>
     where
         PINS: Pins<I2C>,
+        F: Into<Hertz>;
+
+    fn i2c_unchecked<F>(
+        self,
+        freq: F,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> I2c<I2C>
+    where
         F: Into<Hertz>;
 }
 
@@ -99,28 +117,25 @@ macro_rules! busy_wait {
 }
 
 macro_rules! i2c {
-    ($($I2CX:ident: ($i2cX:ident, $i2cXen:ident, $i2cXrst:ident, $apbXenr:ident, $apbXrstr:ident, $pclkX:ident),)+) => {
+    ($($I2CX:ident: ($i2cX:ident, $Rec:ident, $pclkX:ident),)+) => {
         $(
-            impl<PINS> I2c<$I2CX, PINS> {
+            impl I2c<$I2CX> {
                 /// Basically a new function for an I2C peripheral
                 pub fn $i2cX<F> (
                     i2c: $I2CX,
-                    pins: PINS,
                     freq: F,
-                    ccdr: &Ccdr
+                    prec: rec::$Rec,
+                    clocks: &CoreClocks
                 ) -> Self where
                     F: Into<Hertz>,
-                    PINS: Pins<$I2CX>,
                 {
-                    ccdr.rb.$apbXenr.modify(|_, w| w.$i2cXen().set_bit());
-                    ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().set_bit());
-                    ccdr.rb.$apbXrstr.modify(|_, w| w.$i2cXrst().clear_bit());
+                    prec.enable().reset();
 
                     let freq = freq.into().0;
 
                     assert!(freq <= 1_000_000);
 
-                    let i2cclk = ccdr.clocks.$pclkX().0;
+                    let i2cclk = clocks.$pclkX().0;
 
                     // Clear PE bit in I2C_CR1
                     i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -202,30 +217,39 @@ macro_rules! i2c {
                     // Enable the peripheral
                     i2c.cr1.write(|w| w.pe().set_bit());
 
-                    I2c { i2c, pins}
-
+                    I2c { i2c }
                 }
 
-                /// Releases the I2C peripheral and associated pins
-                pub fn free(self) -> ($I2CX, PINS) {
-                    (self.i2c, self.pins)
+                /// Releases the I2C peripheral
+                pub fn free(self) -> ($I2CX, rec::$Rec) {
+                    (self.i2c, rec::$Rec { _marker: PhantomData })
                 }
             }
 
             impl I2cExt<$I2CX> for $I2CX {
-                fn i2c<PINS, F>(self,
-                                pins:PINS,
-                                freq:F,
-                                ccdr: &Ccdr) -> I2c<$I2CX, PINS>
+                type Rec = rec::$Rec;
+
+                fn i2c<PINS, F>(self, _pins: PINS, freq: F,
+                                prec: rec::$Rec,
+                                clocks: &CoreClocks) -> I2c<$I2CX>
                 where
                     PINS: Pins<$I2CX>,
                     F: Into<Hertz>
                 {
-                    I2c::$i2cX(self, pins, freq, ccdr)
+                    I2c::$i2cX(self, freq, prec, clocks)
+                }
+
+                fn i2c_unchecked<F>(self, freq: F,
+                                    prec: rec::$Rec,
+                                    clocks: &CoreClocks) -> I2c<$I2CX>
+                where
+                    F: Into<Hertz>
+                {
+                    I2c::$i2cX(self, freq, prec, clocks)
                 }
             }
 
-            impl<PINS> Write for I2c<$I2CX, PINS> {
+            impl Write for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
@@ -269,7 +293,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl<PINS> WriteRead for I2c<$I2CX, PINS> {
+            impl WriteRead for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write_read(
@@ -344,7 +368,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl<PINS> Read for I2c<$I2CX, PINS> {
+            impl Read for I2c<$I2CX> {
             type Error = Error;
 
             fn read(
@@ -460,8 +484,8 @@ pins! {
 }
 
 i2c!(
-    I2C1: (i2c1, i2c1en, i2c1rst, apb1lenr, apb1lrstr, pclk1),
-    I2C2: (i2c2, i2c2en, i2c2rst, apb1lenr, apb1lrstr, pclk1),
-    I2C3: (i2c3, i2c3en, i2c3rst, apb1lenr, apb1lrstr, pclk1),
-    I2C4: (i2c4, i2c4en, i2c4rst, apb4enr, apb4rstr, pclk4),
+    I2C1: (i2c1, I2c1, pclk1),
+    I2C2: (i2c2, I2c2, pclk1),
+    I2C3: (i2c3, I2c3, pclk1),
+    I2C4: (i2c4, I2c4, pclk4),
 );

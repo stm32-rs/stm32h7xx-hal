@@ -3,6 +3,8 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
+use core::marker::PhantomData;
+
 use crate::hal::timer::{CountDown, Periodic};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
 use crate::stm32::{
@@ -14,14 +16,15 @@ use cast::{u16, u32};
 use nb;
 use void::Void;
 
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::stm32;
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
 /// Associate clocks with timers
 pub trait GetClk {
-    fn get_clk(ccdr: &Ccdr) -> Option<Hertz>;
+    fn get_clk(clocks: &CoreClocks) -> Option<Hertz>;
 }
 
 /// Timers with CK_INT derived from rcc_tim[xy]_ker_ck
@@ -30,8 +33,8 @@ macro_rules! impl_tim_ker_ck {
         $(
             $(
                 impl GetClk for $TIMX {
-                    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                        Some(ccdr.clocks.$ckX())
+                    fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                        Some(clocks.$ckX())
                     }
                 }
             )+
@@ -46,14 +49,17 @@ impl_tim_ker_ck! {
 /// LPTIM1 Kernel Clock
 impl GetClk for LPTIM1 {
     /// Current kernel clock
-    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d2ccip2r.read().lptim1sel().variant() {
-            Val(d2ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(ccdr.clocks.pclk1()),
-            Val(d2ccip2r::LPTIM1SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
-            Val(d2ccip2r::LPTIM1SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+    fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
+        // unsafe: read only
+        let d2ccip2r = &unsafe { &*stm32::RCC::ptr() }.d2ccip2r;
+
+        match d2ccip2r.read().lptim1sel().variant() {
+            Val(d2ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
+            Val(d2ccip2r::LPTIM1SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+            Val(d2ccip2r::LPTIM1SEL_A::PLL3_R) => clocks.pll3_r_ck(),
             Val(d2ccip2r::LPTIM1SEL_A::LSE) => unimplemented!(),
             Val(d2ccip2r::LPTIM1SEL_A::LSI) => unimplemented!(),
-            Val(d2ccip2r::LPTIM1SEL_A::PER) => ccdr.clocks.per_ck(),
+            Val(d2ccip2r::LPTIM1SEL_A::PER) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -61,14 +67,17 @@ impl GetClk for LPTIM1 {
 /// LPTIM2 Kernel Clock
 impl GetClk for LPTIM2 {
     /// Current kernel clock
-    fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d3ccipr.read().lptim2sel().variant() {
-            Val(d3ccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(ccdr.clocks.pclk4()),
-            Val(d3ccipr::LPTIM2SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
-            Val(d3ccipr::LPTIM2SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+    fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
+        // unsafe: read only
+        let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
+
+        match d3ccipr.read().lptim2sel().variant() {
+            Val(d3ccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+            Val(d3ccipr::LPTIM2SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+            Val(d3ccipr::LPTIM2SEL_A::PLL3_R) => clocks.pll3_r_ck(),
             Val(d3ccipr::LPTIM2SEL_A::LSE) => unimplemented!(),
             Val(d3ccipr::LPTIM2SEL_A::LSI) => unimplemented!(),
-            Val(d3ccipr::LPTIM2SEL_A::PER) => ccdr.clocks.per_ck(),
+            Val(d3ccipr::LPTIM2SEL_A::PER) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -79,14 +88,17 @@ macro_rules! impl_clk_lptim345 {
 	    $(
             impl GetClk for $TIMX {
                 /// Current kernel clock
-                fn get_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d3ccipr.read().lptim345sel().variant() {
-                        Val(d3ccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(ccdr.clocks.pclk4()),
-                        Val(d3ccipr::LPTIM345SEL_A::PLL2_P) => ccdr.clocks.pll2_p_ck(),
-                        Val(d3ccipr::LPTIM345SEL_A::PLL3_R) => ccdr.clocks.pll3_r_ck(),
+                fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                    // unsafe: read only
+                    let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
+
+                    match d3ccipr.read().lptim345sel().variant() {
+                        Val(d3ccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+                        Val(d3ccipr::LPTIM345SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+                        Val(d3ccipr::LPTIM345SEL_A::PLL3_R) => clocks.pll3_r_ck(),
                         Val(d3ccipr::LPTIM345SEL_A::LSE) => unimplemented!(),
                         Val(d3ccipr::LPTIM345SEL_A::LSI) => unimplemented!(),
-                        Val(d3ccipr::LPTIM345SEL_A::PER) => ccdr.clocks.per_ck(),
+                        Val(d3ccipr::LPTIM345SEL_A::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -98,7 +110,14 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
 /// External trait for hardware timers
 pub trait TimerExt<TIM> {
-    fn timer<T>(self, timeout: T, ccdr: &mut Ccdr) -> Timer<TIM>
+    type Rec: ResetEnable;
+
+    fn timer<T>(
+        self,
+        timeout: T,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Timer<TIM>
     where
         T: Into<Hertz>;
 }
@@ -119,7 +138,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $timXen:ident, $timXrst:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $Rec:ident),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
@@ -158,26 +177,30 @@ macro_rules! hal {
             }
 
             impl TimerExt<$TIMX> for $TIMX {
-                fn timer<T>(self, timeout: T, ccdr: &mut Ccdr) -> Timer<$TIMX>
+                type Rec = rec::$Rec;
+
+                fn timer<T>(self, timeout: T,
+                            prec: Self::Rec, clocks: &CoreClocks
+                ) -> Timer<$TIMX>
                     where
                         T: Into<Hertz>,
                 {
-                    Timer::$timX(self, timeout, ccdr)
+                    Timer::$timX(self, timeout, prec, clocks)
                 }
             }
 
             impl Timer<$TIMX> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $timX<T>(tim: $TIMX, timeout: T, ccdr: &mut Ccdr) -> Self
+                pub fn $timX<T>(tim: $TIMX, timeout: T,
+                                prec: rec::$Rec, clocks: &CoreClocks
+                ) -> Self
                 where
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean slate state
-                    ccdr.$apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    prec.enable().reset();
 
-                    let clk = $TIMX::get_clk(&ccdr)
+                    let clk = $TIMX::get_clk(clocks)
                         .expect("Timer input clock not running!").0;
 
                     let mut timer = Timer {
@@ -261,10 +284,11 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn free(mut self) -> $TIMX {
+                pub fn free(mut self) -> ($TIMX, rec::$Rec) {
                     // pause counter
                     self.pause();
-                    self.tim
+
+                    (self.tim, rec::$Rec { _marker: PhantomData })
                 }
             }
         )+
@@ -273,26 +297,26 @@ macro_rules! hal {
 
 hal! {
     // Advanced-control
-    TIM1: (tim1, apb2, tim1en, tim1rst),
-    TIM8: (tim8, apb2, tim8en, tim8rst),
+    TIM1: (tim1, Tim1),
+    TIM8: (tim8, Tim8),
 
     // General-purpose
-    TIM2: (tim2, apb1l, tim2en, tim2rst),
-    TIM3: (tim3, apb1l, tim3en, tim3rst),
-    TIM4: (tim4, apb1l, tim4en, tim4rst),
-    TIM5: (tim5, apb1l, tim5en, tim5rst),
+    TIM2: (tim2, Tim2),
+    TIM3: (tim3, Tim3),
+    TIM4: (tim4, Tim4),
+    TIM5: (tim5, Tim5),
 
     // Basic
-    TIM6: (tim6, apb1l, tim6en, tim6rst),
-    TIM7: (tim7, apb1l, tim7en, tim7rst),
+    TIM6: (tim6, Tim6),
+    TIM7: (tim7, Tim7),
 
     // General-purpose
-    TIM12: (tim12, apb1l, tim12en, tim12rst),
-    TIM13: (tim13, apb1l, tim13en, tim13rst),
-    TIM14: (tim14, apb1l, tim14en, tim14rst),
+    TIM12: (tim12, Tim12),
+    TIM13: (tim13, Tim13),
+    TIM14: (tim14, Tim14),
 
     // General-purpose
-    TIM15: (tim15, apb2, tim15en, tim15rst),
-    TIM16: (tim16, apb2, tim16en, tim16rst),
-    TIM17: (tim17, apb2, tim17en, tim17rst),
+    TIM15: (tim15, Tim15),
+    TIM16: (tim16, Tim16),
+    TIM17: (tim17, Tim17),
 }

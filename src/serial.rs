@@ -9,6 +9,7 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
+use crate::stm32;
 use crate::stm32::rcc::d2ccip2r;
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use stm32h7::Variant::Val;
@@ -32,7 +33,7 @@ use crate::gpio::gpioi::PI9;
 use crate::gpio::gpioj::{PJ8, PJ9};
 
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
-use crate::rcc::Ccdr;
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 
 use crate::Never;
@@ -328,9 +329,8 @@ uart_pins! {
 }
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
+pub struct Serial<USART> {
     usart: USART,
-    pins: PINS,
 }
 
 /// Serial receiver
@@ -344,44 +344,49 @@ pub struct Tx<USART> {
 }
 
 pub trait SerialExt<USART> {
+    type Rec: ResetEnable;
+
     fn usart<PINS>(
         self,
-        pins: PINS,
+        _pins: PINS,
         config: config::Config,
-        ccdr: &mut Ccdr,
-    ) -> Result<Serial<USART, PINS>, config::InvalidConfig>
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Result<Serial<USART>, config::InvalidConfig>
     where
         PINS: Pins<USART>;
+
+    fn usart_unchecked(
+        self,
+        config: config::Config,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Result<Serial<USART>, config::InvalidConfig>;
 }
 
 macro_rules! usart {
     ($(
-        $USARTX:ident: ($usartX:ident, $apb:ident, $usartXen:ident, $usartXrst:ident,
-                        $pclkX:ident),
+        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident),
     )+) => {
         $(
             /// Configures a USART peripheral to provide serial
             /// communication
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 pub fn $usartX(
                     usart: $USARTX,
-                    pins: PINS,
                     config: config::Config,
-                    ccdr: &mut Ccdr,
+                    prec: rec::$Rec,
+                    clocks: &CoreClocks
                 ) -> Result<Self, config::InvalidConfig>
-                where
-                    PINS: Pins<$USARTX>,
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
                     use self::config::*;
 
                     // Enable clock for USART and reset
-                    ccdr.$apb.enr().modify(|_, w| w.$usartXen().enabled());
-                    ccdr.$apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    ccdr.$apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    prec.enable().reset();
 
                     // Get kernel clock
-	                let usart_ker_ck = match Self::kernel_clk(ccdr) {
+	                let usart_ker_ck = match Self::kernel_clk(clocks) {
                         Some(ker_hz) => ker_hz.0,
                         _ => panic!("$USARTX kernel clock not running!")
                     };
@@ -446,7 +451,7 @@ macro_rules! usart {
                             })
                     });
 
-                    Ok(Serial { usart, pins })
+                    Ok(Serial { usart })
                 }
 
                 /// Starts listening for an interrupt event
@@ -504,28 +509,41 @@ macro_rules! usart {
                         },
                     )
                 }
-                /// Releases the USART peripheral and associated pins
-                pub fn release(self) -> ($USARTX, PINS) {
+                /// Releases the USART peripheral
+                pub fn release(self) -> $USARTX {
                     // Wait until both TXFIFO and shift register are empty
                     while self.usart.isr.read().tc().bit_is_clear() {}
 
-                    (self.usart, self.pins)
+                    self.usart
                 }
             }
 
             impl SerialExt<$USARTX> for $USARTX {
+                type Rec = rec::$Rec;
+
                 fn usart<PINS>(self,
-                               pins: PINS,
+                               _pins: PINS,
                                config: config::Config,
-                               ccdr: &mut Ccdr) -> Result<Serial<$USARTX, PINS>, config::InvalidConfig>
+                               prec: rec::$Rec,
+                               clocks: &CoreClocks
+                ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 where
                     PINS: Pins<$USARTX>
                 {
-                    Serial::$usartX(self, pins, config, ccdr)
+                    Serial::$usartX(self, config, prec, clocks)
+                }
+
+                fn usart_unchecked(self,
+                                   config: config::Config,
+                                   prec: rec::$Rec,
+                                   clocks: &CoreClocks
+                ) -> Result<Serial<$USARTX>, config::InvalidConfig>
+                {
+                    Serial::$usartX(self, config, prec, clocks)
                 }
             }
 
-            impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
+            impl serial::Read<u8> for Serial<$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -566,7 +584,7 @@ macro_rules! usart {
                 }
             }
 
-            impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
+            impl serial::Write<u8> for Serial<$USARTX> {
                 type Error = Never;
 
                 fn flush(&mut self) -> nb::Result<(), Never> {
@@ -584,7 +602,7 @@ macro_rules! usart {
                 }
             }
 
-            impl<PINS> serial_block::write::Default<u8> for Serial<$USARTX, PINS> {
+            impl serial_block::write::Default<u8> for Serial<$USARTX> {
                 //implement marker trait to opt-in to default blocking write implementation
             }
 
@@ -633,16 +651,19 @@ macro_rules! usart {
 macro_rules! usart16sel {
 	($($USARTX:ident,)+) => {
 	    $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock
                 /// for USART1 and 6
-                fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip2r.read().usart16sel().variant() {
-                        Val(d2ccip2r::USART16SEL_A::RCC_PCLK2) => Some(ccdr.clocks.pclk2()),
-                        Val(d2ccip2r::USART16SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
-                        Val(d2ccip2r::USART16SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
-                        Val(d2ccip2r::USART16SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
-                        Val(d2ccip2r::USART16SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                    // unsafe: read only
+                    let d2ccip2r = unsafe { (*stm32::RCC::ptr()).d2ccip2r.read() };
+
+                    match d2ccip2r.usart16sel().variant() {
+                        Val(d2ccip2r::USART16SEL_A::RCC_PCLK2) => Some(clocks.pclk2()),
+                        Val(d2ccip2r::USART16SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Val(d2ccip2r::USART16SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Val(d2ccip2r::USART16SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Val(d2ccip2r::USART16SEL_A::CSI_KER) => clocks.csi_ck(),
                         Val(d2ccip2r::USART16SEL_A::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
@@ -654,16 +675,19 @@ macro_rules! usart16sel {
 macro_rules! usart234578sel {
 	($($USARTX:ident,)+) => {
 	    $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock
                 /// for USART2/3, UART4/5/7/8
-                fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-                    match ccdr.rb.d2ccip2r.read().usart234578sel().variant() {
-                        Val(d2ccip2r::USART234578SEL_A::RCC_PCLK1) => Some(ccdr.clocks.pclk1()),
-                        Val(d2ccip2r::USART234578SEL_A::PLL2_Q) => ccdr.clocks.pll2_q_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::PLL3_Q) => ccdr.clocks.pll3_q_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::HSI_KER) => ccdr.clocks.hsi_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::CSI_KER) => ccdr.clocks.csi_ck(),
+                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                    // unsafe: read only
+                    let d2ccip2r = unsafe { (*stm32::RCC::ptr()).d2ccip2r.read() };
+
+                    match d2ccip2r.usart234578sel().variant() {
+                        Val(d2ccip2r::USART234578SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
+                        Val(d2ccip2r::USART234578SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Val(d2ccip2r::USART234578SEL_A::CSI_KER) => clocks.csi_ck(),
                         Val(d2ccip2r::USART234578SEL_A::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
@@ -674,15 +698,15 @@ macro_rules! usart234578sel {
 }
 
 usart! {
-    USART1: (usart1, apb2, usart1en, usart1rst, pclk2),
-    USART2: (usart2, apb1l, usart2en, usart2rst, pclk1),
-    USART3: (usart3, apb1l, usart3en, usart3rst, pclk1),
-    USART6: (usart6, apb2, usart6en, usart6rst, pclk2),
+    USART1: (usart1, Usart1, pclk2),
+    USART2: (usart2, Usart2, pclk1),
+    USART3: (usart3, Usart3, pclk1),
+    USART6: (usart6, Usart6, pclk2),
 
-    UART4: (uart4, apb1l, uart4en, uart4rst, pclk1),
-    UART5: (uart5, apb1l, uart5en, uart5rst, pclk1),
-    UART7: (uart7, apb1l, uart7en, uart7rst, pclk1),
-    UART8: (uart8, apb1l, uart8en, uart8rst, pclk1),
+    UART4: (uart4, Uart4, pclk1),
+    UART5: (uart5, Uart5, pclk1),
+    UART7: (uart7, Uart7, pclk1),
+    UART8: (uart8, Uart8, pclk1),
 }
 
 usart16sel! {

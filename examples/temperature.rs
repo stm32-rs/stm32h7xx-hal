@@ -35,7 +35,7 @@ fn main() -> ! {
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
-    let mut ccdr = rcc
+    let ccdr = rcc
         .sys_ck(100.mhz())
         .per_ck(4.mhz())
         .freeze(vos, &dp.SYSCFG);
@@ -47,7 +47,8 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     // Setup ADC
-    let mut adc3 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr);
+    let mut adc3 =
+        adc::Adc::adc3(dp.ADC3, &mut delay, ccdr.peripheral.ADC3, &ccdr.clocks);
     adc3.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup Temperature Sensor on the disabled ADC
