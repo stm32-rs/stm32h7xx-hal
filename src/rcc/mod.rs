@@ -469,11 +469,12 @@ impl Rcc {
         let srcclk = self.config.hse.unwrap_or(HSI); // Available clocks
         let sys_ck = self.config.sys_ck.unwrap_or(srcclk);
 
-        // The requested system clock is not the immediately available
-        // HSE/HSI clock. Perhaps there are other ways of obtaining
-        // the requested system clock (such as `HSIDIV`) but we will
-        // ignore those for now.
         if sys_ck != srcclk {
+            // The requested system clock is not the immediately available
+            // HSE/HSI clock. Perhaps there are other ways of obtaining
+            // the requested system clock (such as `HSIDIV`) but we will
+            // ignore those for now.
+            //
             // Therefore we must use pll1_p_ck
             let pll1_p_ck = match self.config.pll1.p_ck {
                 Some(p_ck) => {
