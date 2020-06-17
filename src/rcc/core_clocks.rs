@@ -55,9 +55,11 @@ macro_rules! pclk_ppre_getter {
 
 /// Getters for optional clocks
 macro_rules! optional_ck_getter {
-    ($($opt_ck:ident,)+) => {
+    ($($opt_ck:ident: $doc:expr,)+) => {
         $(
-            /// Returns the frequency of optional clock $opt_ck
+            /// Returns `Some(frequency)` if
+            #[doc=$doc]
+            /// is running, otherwise `None`
             pub fn $opt_ck(&self) -> Option<Hertz> {
                 self.$opt_ck
             }
@@ -69,7 +71,8 @@ macro_rules! optional_ck_getter {
 macro_rules! pll_getter {
     ($($pll_ck:ident,)+) => {
         $(
-            /// Returns the frequency of the PLLx output
+            /// Returns `Some(frequency)` if the PLLx output is running,
+            /// otherwise `None`
             pub fn $pll_ck(&self) -> Option<Hertz> {
                 self.$pll_ck
             }
@@ -96,11 +99,11 @@ impl CoreClocks {
     }
 
     optional_ck_getter! {
-        csi_ck,
-        hsi_ck,
-        hsi48_ck,
-        per_ck,
-        hse_ck,
+        csi_ck: "csi_ck",
+        hsi_ck: "hsi_ck",
+        hsi48_ck: "hsi48_ck",
+        per_ck: "per_ck",
+        hse_ck: "hse_ck",
     }
 
     pll_getter! {
