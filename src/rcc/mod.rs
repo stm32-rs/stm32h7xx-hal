@@ -464,7 +464,7 @@ impl Rcc {
 
     /// Setup sys_ck
     /// Returns sys_ck frequency, and a pll1_p_ck
-    fn sys_ck_setup(&self) -> (Hertz, Option<u32>, bool) {
+    fn sys_ck_setup(&mut self) -> (Hertz, bool) {
         // Compare available with wanted clocks
         let srcclk = self.config.hse.unwrap_or(HSI); // Available clocks
         let sys_ck = self.config.sys_ck.unwrap_or(srcclk);
@@ -484,33 +484,31 @@ impl Rcc {
                 }
                 None => Some(sys_ck),
             };
+            self.config.pll1.p_ck = pll1_p_ck;
 
-            (Hertz(sys_ck), pll1_p_ck, true)
+            (Hertz(sys_ck), true)
         } else {
             // sys_ck is derived directly from a source clock
             // (HSE/HSI). pll1_p_ck can be as requested
-            (Hertz(sys_ck), self.config.pll1.p_ck, false)
+            (Hertz(sys_ck), false)
         }
     }
 
     /// Setup traceclk
     /// Returns a pll1_r_ck
-    fn traceclk_setup(
-        &self,
-        sys_use_pll1_p: bool,
-        pll1_p_ck: Option<u32>,
-    ) -> Option<u32> {
-        match (sys_use_pll1_p, self.config.pll1.r_ck) {
+    fn traceclk_setup(&mut self, sys_use_pll1_p: bool) {
+        let pll1_r_ck = match (sys_use_pll1_p, self.config.pll1.r_ck) {
             // pll1_p_ck selected as system clock but pll1_r_ck not
             // set. The traceclk mux is synchronous with the system
             // clock mux, but has pll1_r_ck as an input. In order to
             // keep traceclk running, we force a pll1_r_ck.
-            (true, None) => Some(pll1_p_ck.unwrap() / 2),
+            (true, None) => Some(self.config.pll1.p_ck.unwrap() / 2),
             // Either pll1 not selected as system clock, free choice
             // of pll1_r_ck. Or pll1 is selected, assume user has set
             // a suitable pll1_r_ck frequency.
             _ => self.config.pll1.r_ck,
-        }
+        };
+        self.config.pll1.r_ck = pll1_r_ck;
     }
 
     /// Freeze the core clocks, returning a Core Clocks Distribution
@@ -531,27 +529,25 @@ impl Rcc {
     /// function may also panic if a clock specification can be
     /// achieved, but the mechanism for doing so is not yet
     /// implemented here.
-    pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
-        let rcc = &self.rb;
-
+    pub fn freeze(mut self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         // We do not reset RCC here. This routine must assert when
         // the previous state of the RCC peripheral is unacceptable.
 
+        // config modifications ----------------------------------------
+        // (required for self-consistency and usability)
+
         // sys_ck from PLL if needed, else HSE or HSI
-        let (sys_ck, pll1_p_ck, sys_use_pll1_p) = self.sys_ck_setup();
+        let (sys_ck, sys_use_pll1_p) = self.sys_ck_setup();
 
         // Configure traceclk from PLL if needed
-        let pll1_r_ck = self.traceclk_setup(sys_use_pll1_p, pll1_p_ck);
+        self.traceclk_setup(sys_use_pll1_p);
+
+        // self is now immutable ----------------------------------------
+        let rcc = &self.rb;
 
         // Configure PLL1
-        let pll1_config = PllConfig {
-            strategy: self.config.pll1.strategy,
-            p_ck: pll1_p_ck,
-            q_ck: self.config.pll1.q_ck,
-            r_ck: pll1_r_ck,
-        };
         let (pll1_p_ck, pll1_q_ck, pll1_r_ck) =
-            self.pll1_setup(rcc, &pll1_config);
+            self.pll1_setup(rcc, &self.config.pll1);
         // Configure PLL2
         let (pll2_p_ck, pll2_q_ck, pll2_r_ck) =
             self.pll2_setup(rcc, &self.config.pll2);
