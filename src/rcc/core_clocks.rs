@@ -22,6 +22,8 @@ pub struct CoreClocks {
     pub(super) hsi48_ck: Option<Hertz>,
     pub(super) per_ck: Option<Hertz>,
     pub(super) hse_ck: Option<Hertz>,
+    pub(super) mco1_ck: Option<Hertz>,
+    pub(super) mco2_ck: Option<Hertz>,
     pub(super) pll1_p_ck: Option<Hertz>,
     pub(super) pll1_q_ck: Option<Hertz>,
     pub(super) pll1_r_ck: Option<Hertz>,
@@ -104,6 +106,18 @@ impl CoreClocks {
         hsi48_ck: "hsi48_ck",
         per_ck: "per_ck",
         hse_ck: "hse_ck",
+    }
+
+    /// Returns `Some(frequency)` if the MCO1 output is running, otherwise
+    /// `None`
+    pub fn mco1_ck(&self) -> Option<Hertz> {
+        self.mco1_ck
+    }
+
+    /// Returns `Some(frequency)` if the MCO2 output is running, otherwise
+    /// `None`
+    pub fn mco2_ck(&self) -> Option<Hertz> {
+        self.mco2_ck
     }
 
     pll_getter! {
