@@ -1,3 +1,8 @@
-block_labels = [ "S-blocked" ]
+required_approvals = 1
+block_labels = ["wip"]
 delete_merged_branches = true
-status = [ "continuous-integration/travis-ci/push" ]
+status = [
+    "Rustfmt",
+    "ci (stable)",
+    "ci (1.40.0, stable)",
+]
