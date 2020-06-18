@@ -85,9 +85,13 @@ Board | Manufacturer | BSP / Examples?
 [STM32H743I-EVAL](https://www.st.com/en/evaluation-tools/stm32h743i-eval.html) | ST |
 [STM32H747I-EVAL](https://www.st.com/en/evaluation-tools/stm32h747i-eval.html) | ST |
 [STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html) | ST |
-[Portenta H7](https://store.arduino.cc/portenta-h7) | Arduino |
+[Portenta H7](https://store.arduino.cc/portenta-h7) ⚠️ | Arduino |
 [OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
 
+⚠️: Programming this board via its USB connector requires interacting with
+an unknown proprietary(?) bootloader. This bootloader may make it difficult
+or impossible for you to load binaries not approved by Arduino. Alternative
+programming interfaces are only available on the high density connectors.
 
 Minimum supported Rust version
 ------------------------------
