@@ -12,10 +12,8 @@ jobs:
       matrix:
         rust:
           - stable
-  #        - 1.40.0  # MSRV
-        include:
-          - rust: nightly
-            experimental: true
+        #  - nightly
+        #  - 1.40.0  # MSRV
         mcu:
           - stm32h743
           - stm32h753
@@ -29,7 +27,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: thumbv6m-none-eabi
+          target: thumbv7em-none-eabihf
           override: true
       - uses: actions-rs/cargo@v1
         with:
