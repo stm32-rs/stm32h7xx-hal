@@ -1,15 +1,15 @@
-//! Timers in RTFM. Tests TIM1, TIM2, TIM12, TIM17
+//! Timers in RTIC. Tests TIM1, TIM2, TIM12, TIM17
 #![deny(warnings)]
 #![deny(unsafe_code)]
 #![no_std]
 #![no_main]
 
 extern crate panic_itm;
-extern crate rtfm;
+extern crate rtic;
 
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 
-use rtfm::app;
+use rtic::app;
 use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
