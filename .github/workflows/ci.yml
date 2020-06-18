@@ -9,17 +9,20 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     strategy:
-      matrix:
+      matrix:                   # All permutations of {rust, mcu}
         rust:
+          - 1.40.0  # MSRV
           - stable
-        #  - nightly
-        #  - 1.40.0  # MSRV
         mcu:
           - stm32h743
           - stm32h753
           - stm32h743v
           - stm32h753v
           - stm32h747cm7
+        include:                # One additional job, as follows:
+          - rust: nightly
+            mcu: stm32h743v
+            experimental: true
 
     steps:
       - uses: actions/checkout@v2
