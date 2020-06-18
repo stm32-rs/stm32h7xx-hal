@@ -12,7 +12,7 @@ jobs:
       matrix:
         rust:
           - stable
-          - 1.40.0  # MSRV
+  #        - 1.40.0  # MSRV
         include:
           - rust: nightly
             experimental: true
@@ -36,8 +36,7 @@ jobs:
           use-cross: true
           command: build
           args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,${{ matrix.mcu }}
-      # - uses: actions-rs/cargo@v1
-      #   with:
-      #     use-cross: true
-      #     command: test
-      #     args: --lib --target x86_64-unknown-linux-gnu --features rt,${{ matrix.mcu }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,${{ matrix.mcu }}
