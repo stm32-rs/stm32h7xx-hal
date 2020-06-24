@@ -5,7 +5,7 @@ stm32h7xx-hal
 
 [![docs.rs](https://docs.rs/stm32h7xx-hal/badge.svg)](https://docs.rs/stm32h7xx-hal)
 [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/12691)
-[![Travis](https://travis-ci.com/stm32-rs/stm32h7xx-hal.svg?branch=master)](https://travis-ci.com/stm32-rs/stm32h7xx-hal)
+[![CI](https://github.com/stm32-rs/stm32h7xx-hal/workflows/Continuous%20integration/badge.svg)](https://github.com/stm32-rs/stm32h7xx-hal/actions)
 [![Crates.io](https://img.shields.io/crates/v/stm32h7xx-hal.svg)](https://crates.io/crates/stm32h7xx-hal)
 
 [_stm32h7xx-hal_](https://github.com/stm32-rs/stm32h7xx-hal) contains
@@ -96,7 +96,7 @@ programming interfaces are only available on the high density connectors.
 Minimum supported Rust version
 ------------------------------
 
-The minimum supported Rust version at the moment is **1.40.0**. Older
+The Minimum Supported Rust Version (MSRV) at the moment is **1.41.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 
