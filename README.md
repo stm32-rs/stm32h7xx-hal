@@ -44,6 +44,11 @@ gate ending in a __v__.
 #### Dual core parts (Cortex M7 + Cortex M4)
 On dual core parts, currently only the Cortex M7 core is supported.
 
+#### Flash memory size
+
+By default this crate assumes a 2Mbyte flash size. To set a smaller limit for
+linker errors, uncomment the correct `FLASH` section definition in memory.x
+
 Getting Started
 ---------------
 
@@ -57,9 +62,9 @@ To use stm32h7xx-hal as a dependency in a standalone project the
 target device feature must be specified in the `Cargo.toml` file:
 ```
 [dependencies]
-cortex-m = "0.6.0"
-cortex-m-rt = "0.6.10"
-stm32h7xx-hal = {version = "0.5", features = ["stm32h743v","rt"]}
+cortex-m = "0.6.2"
+cortex-m-rt = "0.6.12"
+stm32h7xx-hal = {version = "0.6.0", features = ["stm32h743v","rt"]}
 ```
 
 If you are unfamiliar with embedded development using Rust, there are
@@ -85,6 +90,7 @@ Board | Manufacturer | BSP / Examples?
 [STM32H743I-EVAL](https://www.st.com/en/evaluation-tools/stm32h743i-eval.html) | ST |
 [STM32H747I-EVAL](https://www.st.com/en/evaluation-tools/stm32h747i-eval.html) | ST |
 [STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html) | ST |
+[Daisy Seed](https://www.electro-smith.com/daisy/daisy) | Electrosmith |
 [Portenta H7](https://store.arduino.cc/portenta-h7) ⚠️ | Arduino |
 [OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
 
@@ -108,6 +114,8 @@ other core functionality. An incomplete list of additional peripheral
 support crates is given here:
 
 - [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
+- [stm32h7-ethernet](https://crates.io/crates/stm32h7-ethernet)
+- [stm32h7-sdmmc](https://crates.io/crates/stm32h7-sdmmc)
 - _[Search crates.io...](https://crates.io/search?q=stm32h7)_
 
 Changelog

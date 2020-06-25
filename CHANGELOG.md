@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [v0.6.0] 2020-06-25
+
+* **Breaking:** Peripheral driver constructors now consume a peripheralREC
+  singleton. Previously they inconsistently took `&mut` or `&` references
+  to the CCDR struct itself. See the examples for the new constructors
+* **Breaking:** Erase pins from peripheral driver types. `free()` method return
+  types may have changed.
+* Expose `new_unchecked` methods for instantiating peripheral drivers without
+  providing pins
+* Improved top-level docs
+* Add DAC peripheral driver
+* Added MCO pins
+* Add `.free()` method for ADC
+* MSRV increased to 1.41.0
+* rtfm crate was renamed to rtic
+* Added alternate flash size definitions to memory.x
+* Bump dependency versions: cortex-m, cortex-m-rt, cast, paste, bare-metal
+
 ## [v0.5.0] 2020-04-27
 
 * pac: Upgrade to stm32-rs v0.11.0
@@ -36,7 +54,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
 [v0.5.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.2.1...v0.3.0
