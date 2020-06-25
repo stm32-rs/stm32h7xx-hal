@@ -1,6 +1,4 @@
-//! Digital to Analog converter
-//!
-//!
+//! Digital to Analog Converter (DAC)
 
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;

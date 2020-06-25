@@ -1,3 +1,5 @@
+//! Analog to Digital Converter (ADC)
+
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
 

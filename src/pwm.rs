@@ -1,43 +1,44 @@
-//! Pulse width modulation
-/// # Pulse width modulation
-///
-/// PWM output is avaliable for the advanced control timers (`TIM1`,
-/// `TIM8`), the general purpose timers (`TIM[2-5]`, `TIM[12-17]`) and
-/// the Low-power timers (`LPTIM[1-5]`).
-///
-/// Timers support up to 4 simultaneous PWM output channels
-///
-/// ## Usage
-///
-/// ```rust
-/// let gpioa = ..; // Set up and split GPIOA
-/// let pins = (
-///     gpioa.pa8.into_alternate_af1(),
-///     gpioa.pa9.into_alternate_af1(),
-///     gpioa.pa10.into_alternate_af1(),
-///     gpioa.pa11.into_alternate_af1(),
-/// );
-/// ```
-///
-/// Then call the `pwm` function on the corresponding timer:
-///
-/// ```
-///   let device: pac::Peripherals = ..;
-///
-///   // Put the timer in PWM mode using the specified pins
-///   // with a frequency of 100 hz.
-///   let (c0, c1, c2, c3) = device.TIM1.pwm(
-///       pins,
-///       100.hz(),
-///       &mut ccdr
-///   );
-///
-///   // Set the duty cycle of channel 0 to 50%
-///   c0.set_duty(c0.get_max_duty() / 2);
-///   // PWM outputs are disabled by default
-///   c0.enable()
-/// ```
-///
+//! Pulse Width Modulation (PWM)
+//!
+//! PWM output is avaliable for the advanced control timers (`TIM1`, `TIM8`),
+//! the general purpose timers (`TIM[2-5]`) and the Low-power timers
+//! (`LPTIM[1-5]`).
+//!
+//! TODO: `TIM[12-17]`
+//!
+//! Timers support up to 4 simultaneous PWM output channels
+//!
+//! ## Usage
+//!
+//! ```rust
+//! let gpioa = ..; // Set up and split GPIOA
+//! let pins = (
+//!     gpioa.pa8.into_alternate_af1(),
+//!     gpioa.pa9.into_alternate_af1(),
+//!     gpioa.pa10.into_alternate_af1(),
+//!     gpioa.pa11.into_alternate_af1(),
+//! );
+//! ```
+//!
+//! Then call the `pwm` function on the corresponding timer:
+//!
+//! ```
+//!   let device: pac::Peripherals = ..;
+//!
+//!   // Put the timer in PWM mode using the specified pins
+//!   // with a frequency of 100 hz.
+//!   let (c0, c1, c2, c3) = device.TIM1.pwm(
+//!       pins,
+//!       100.hz(),
+//!       &mut ccdr
+//!   );
+//!
+//!   // Set the duty cycle of channel 0 to 50%
+//!   c0.set_duty(c0.get_max_duty() / 2);
+//!   // PWM outputs are disabled by default
+//!   c0.enable()
+//! ```
+//!
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 

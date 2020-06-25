@@ -1,3 +1,5 @@
+//! Random Number Generator
+
 use core::cmp;
 use core::mem;
 

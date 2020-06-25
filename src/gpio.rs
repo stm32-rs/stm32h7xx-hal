@@ -54,6 +54,7 @@ pub enum Speed {
     VeryHigh = 3,
 }
 
+/// GPIO Edge selection
 pub enum Edge {
     RISING,
     FALLING,
@@ -103,10 +104,11 @@ pub trait ExtiPin {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $Rec:ident, $PXx:ident, $extigpionr:expr, [
+    ($GPIOX:ident, $gpiox:ident, $gpio_doc:expr,
+     $Rec:ident, $PXx:ident, $extigpionr:expr, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $exticri:ident),)+
     ]) => {
-        /// GPIO
+        #[doc=$gpio_doc]
         pub mod $gpiox {
             use core::marker::PhantomData;
 
@@ -759,7 +761,7 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, Gpioa, PA, 0, [
+gpio!(GPIOA, gpioa, "Port A", Gpioa, PA, 0, [
     PA0: (pa0, 0, Analog, exticr1),
     PA1: (pa1, 1, Analog, exticr1),
     PA2: (pa2, 2, Analog, exticr1),
@@ -778,7 +780,7 @@ gpio!(GPIOA, gpioa, Gpioa, PA, 0, [
     PA15: (pa15, 15, Alternate<AF0>, exticr4), // JTDI
 ]);
 
-gpio!(GPIOB, gpiob, Gpiob, PB, 1, [
+gpio!(GPIOB, gpiob, "Port B", Gpiob, PB, 1, [
     PB0: (pb0, 0, Analog, exticr1),
     PB1: (pb1, 1, Analog, exticr1),
     PB2: (pb2, 2, Analog, exticr1),
@@ -797,7 +799,7 @@ gpio!(GPIOB, gpiob, Gpiob, PB, 1, [
     PB15: (pb15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, Gpioc, PC, 2, [
+gpio!(GPIOC, gpioc, "Port C", Gpioc, PC, 2, [
     PC0: (pc0, 0, Analog, exticr1),
     PC1: (pc1, 1, Analog, exticr1),
     PC2: (pc2, 2, Analog, exticr1),
@@ -816,7 +818,7 @@ gpio!(GPIOC, gpioc, Gpioc, PC, 2, [
     PC15: (pc15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, Gpiod, PD, 3, [
+gpio!(GPIOD, gpiod, "Port D", Gpiod, PD, 3, [
     PD0: (pd0, 0, Analog, exticr1),
     PD1: (pd1, 1, Analog, exticr1),
     PD2: (pd2, 2, Analog, exticr1),
@@ -835,7 +837,7 @@ gpio!(GPIOD, gpiod, Gpiod, PD, 3, [
     PD15: (pd15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, Gpioe, PE, 4, [
+gpio!(GPIOE, gpioe, "Port E", Gpioe, PE, 4, [
     PE0: (pe0, 0, Analog, exticr1),
     PE1: (pe1, 1, Analog, exticr1),
     PE2: (pe2, 2, Analog, exticr1),
@@ -854,7 +856,7 @@ gpio!(GPIOE, gpioe, Gpioe, PE, 4, [
     PE15: (pe15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOF, gpiof, Gpiof, PF, 5, [
+gpio!(GPIOF, gpiof, "Port F", Gpiof, PF, 5, [
     PF0: (pf0, 0, Analog, exticr1),
     PF1: (pf1, 1, Analog, exticr1),
     PF2: (pf2, 2, Analog, exticr1),
@@ -873,7 +875,7 @@ gpio!(GPIOF, gpiof, Gpiof, PF, 5, [
     PF15: (pf15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOG, gpiog, Gpiog, PG, 6, [
+gpio!(GPIOG, gpiog, "Port G", Gpiog, PG, 6, [
     PG0: (pg0, 0, Analog, exticr1),
     PG1: (pg1, 1, Analog, exticr1),
     PG2: (pg2, 2, Analog, exticr1),
@@ -892,7 +894,7 @@ gpio!(GPIOG, gpiog, Gpiog, PG, 6, [
     PG15: (pg15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOH, gpioh, Gpioh, PH, 7, [
+gpio!(GPIOH, gpioh, "Port H", Gpioh, PH, 7, [
     PH0: (ph0, 0, Analog, exticr1),
     PH1: (ph1, 1, Analog, exticr1),
     PH2: (ph2, 2, Analog, exticr1),
@@ -911,7 +913,7 @@ gpio!(GPIOH, gpioh, Gpioh, PH, 7, [
     PH15: (ph15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOI, gpioi, Gpioi, PI, 8, [
+gpio!(GPIOI, gpioi, "Port I", Gpioi, PI, 8, [
     PI0: (pi0, 0, Analog, exticr1),
     PI1: (pi1, 1, Analog, exticr1),
     PI2: (pi2, 2, Analog, exticr1),
@@ -930,7 +932,7 @@ gpio!(GPIOI, gpioi, Gpioi, PI, 8, [
     PI15: (pi15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOJ, gpioj, Gpioj, PJ, 9, [
+gpio!(GPIOJ, gpioj, "Port J", Gpioj, PJ, 9, [
     PJ0: (pj0, 0, Analog, exticr1),
     PJ1: (pj1, 1, Analog, exticr1),
     PJ2: (pj2, 2, Analog, exticr1),
@@ -949,7 +951,7 @@ gpio!(GPIOJ, gpioj, Gpioj, PJ, 9, [
     PJ15: (pj15, 15, Analog, exticr4),
 ]);
 
-gpio!(GPIOK, gpiok, Gpiok, PK, 10, [
+gpio!(GPIOK, gpiok, "Port K", Gpiok, PK, 10, [
     PK0: (pk0, 0, Analog, exticr1),
     PK1: (pk1, 1, Analog, exticr1),
     PK2: (pk2, 2, Analog, exticr1),
