@@ -38,7 +38,7 @@
 //! `use_hse(b)` was specified
 //!
 //! * `pll1_p_ck(c)` implies `pll1_r_ck(c/2)`, including when
-//! `pll1_p_ck` was implied by `sys_ck(c)`.
+//! `pll1_p_ck` was implied by `sys_ck(c)` or `mco2_from_pll1_p_ck(c)`.
 //!
 //! Implied clock specifications can always be overridden by explicitly
 //! specifying that clock. If this results in a configuration that cannot
@@ -156,6 +156,9 @@ pub use core_clocks::CoreClocks;
 pub use pll::{PllConfig, PllConfigStrategy};
 pub use rec::{PeripheralREC, ResetEnable};
 
+mod mco;
+use mco::{MCO1Config, MCO2Config, MCO1, MCO2};
+
 /// Configuration of the core clocks
 pub struct Config {
     hse: Option<u32>,
@@ -166,6 +169,8 @@ pub struct Config {
     rcc_pclk2: Option<u32>,
     rcc_pclk3: Option<u32>,
     rcc_pclk4: Option<u32>,
+    mco1: MCO1Config,
+    mco2: MCO2Config,
     pll1: PllConfig,
     pll2: PllConfig,
     pll3: PllConfig,
@@ -190,6 +195,8 @@ impl RccExt for RCC {
                 rcc_pclk2: None,
                 rcc_pclk3: None,
                 rcc_pclk4: None,
+                mco1: MCO1Config::default(),
+                mco2: MCO2Config::default(),
                 pll1: PllConfig::default(),
                 pll2: PllConfig::default(),
                 pll3: PllConfig::default(),
@@ -464,16 +471,17 @@ impl Rcc {
 
     /// Setup sys_ck
     /// Returns sys_ck frequency, and a pll1_p_ck
-    fn sys_ck_setup(&self) -> (Hertz, Option<u32>, bool) {
+    fn sys_ck_setup(&mut self) -> (Hertz, bool) {
         // Compare available with wanted clocks
         let srcclk = self.config.hse.unwrap_or(HSI); // Available clocks
         let sys_ck = self.config.sys_ck.unwrap_or(srcclk);
 
-        // The requested system clock is not the immediately available
-        // HSE/HSI clock. Perhaps there are other ways of obtaining
-        // the requested system clock (such as `HSIDIV`) but we will
-        // ignore those for now.
         if sys_ck != srcclk {
+            // The requested system clock is not the immediately available
+            // HSE/HSI clock. Perhaps there are other ways of obtaining
+            // the requested system clock (such as `HSIDIV`) but we will
+            // ignore those for now.
+            //
             // Therefore we must use pll1_p_ck
             let pll1_p_ck = match self.config.pll1.p_ck {
                 Some(p_ck) => {
@@ -483,33 +491,31 @@ impl Rcc {
                 }
                 None => Some(sys_ck),
             };
+            self.config.pll1.p_ck = pll1_p_ck;
 
-            (Hertz(sys_ck), pll1_p_ck, true)
+            (Hertz(sys_ck), true)
         } else {
             // sys_ck is derived directly from a source clock
             // (HSE/HSI). pll1_p_ck can be as requested
-            (Hertz(sys_ck), self.config.pll1.p_ck, false)
+            (Hertz(sys_ck), false)
         }
     }
 
     /// Setup traceclk
     /// Returns a pll1_r_ck
-    fn traceclk_setup(
-        &self,
-        sys_use_pll1_p: bool,
-        pll1_p_ck: Option<u32>,
-    ) -> Option<u32> {
-        match (sys_use_pll1_p, self.config.pll1.r_ck) {
+    fn traceclk_setup(&mut self, sys_use_pll1_p: bool) {
+        let pll1_r_ck = match (sys_use_pll1_p, self.config.pll1.r_ck) {
             // pll1_p_ck selected as system clock but pll1_r_ck not
             // set. The traceclk mux is synchronous with the system
             // clock mux, but has pll1_r_ck as an input. In order to
             // keep traceclk running, we force a pll1_r_ck.
-            (true, None) => Some(pll1_p_ck.unwrap() / 2),
+            (true, None) => Some(self.config.pll1.p_ck.unwrap() / 2),
             // Either pll1 not selected as system clock, free choice
             // of pll1_r_ck. Or pll1 is selected, assume user has set
             // a suitable pll1_r_ck frequency.
             _ => self.config.pll1.r_ck,
-        }
+        };
+        self.config.pll1.r_ck = pll1_r_ck;
     }
 
     /// Freeze the core clocks, returning a Core Clocks Distribution
@@ -530,27 +536,29 @@ impl Rcc {
     /// function may also panic if a clock specification can be
     /// achieved, but the mechanism for doing so is not yet
     /// implemented here.
-    pub fn freeze(self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
-        let rcc = &self.rb;
-
+    pub fn freeze(mut self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
         // We do not reset RCC here. This routine must assert when
         // the previous state of the RCC peripheral is unacceptable.
 
+        // config modifications ----------------------------------------
+        // (required for self-consistency and usability)
+
+        // if needed for mco, set sys_ck / pll1_p / pll1_q / pll2_p
+        self.mco1_setup();
+        self.mco2_setup();
+
         // sys_ck from PLL if needed, else HSE or HSI
-        let (sys_ck, pll1_p_ck, sys_use_pll1_p) = self.sys_ck_setup();
+        let (sys_ck, sys_use_pll1_p) = self.sys_ck_setup();
 
         // Configure traceclk from PLL if needed
-        let pll1_r_ck = self.traceclk_setup(sys_use_pll1_p, pll1_p_ck);
+        self.traceclk_setup(sys_use_pll1_p);
+
+        // self is now immutable ----------------------------------------
+        let rcc = &self.rb;
 
         // Configure PLL1
-        let pll1_config = PllConfig {
-            strategy: self.config.pll1.strategy,
-            p_ck: pll1_p_ck,
-            q_ck: self.config.pll1.q_ck,
-            r_ck: pll1_r_ck,
-        };
         let (pll1_p_ck, pll1_q_ck, pll1_r_ck) =
-            self.pll1_setup(rcc, &pll1_config);
+            self.pll1_setup(rcc, &self.config.pll1);
         // Configure PLL2
         let (pll2_p_ck, pll2_q_ck, pll2_r_ck) =
             self.pll2_setup(rcc, &self.config.pll2);
@@ -631,6 +639,30 @@ impl Rcc {
             (ppre4, ppre4_bits): (self, rcc_hclk, rcc_pclk4, pclk_max),
         }
 
+        // Calculate MCO dividers and real MCO frequencies
+        let mco1_in = match self.config.mco1.source {
+            // We set the required clock earlier, so can unwrap() here.
+            MCO1::HSI => HSI,
+            MCO1::LSE => unimplemented!(),
+            MCO1::HSE => self.config.hse.unwrap(),
+            MCO1::PLL1_Q => pll1_q_ck.unwrap().0,
+            MCO1::HSI48 => HSI48,
+        };
+        let (mco_1_pre, mco1_ck) =
+            self.config.mco1.calculate_prescaler(mco1_in);
+
+        let mco2_in = match self.config.mco2.source {
+            // We set the required clock earlier, so can unwrap() here.
+            MCO2::SYSCLK => sys_ck.0,
+            MCO2::PLL2_P => pll2_p_ck.unwrap().0,
+            MCO2::HSE => self.config.hse.unwrap(),
+            MCO2::PLL1_P => pll1_p_ck.unwrap().0,
+            MCO2::CSI => CSI,
+            MCO2::LSI => unimplemented!(),
+        };
+        let (mco_2_pre, mco2_ck) =
+            self.config.mco2.calculate_prescaler(mco2_in);
+
         // Start switching clocks here! ----------------------------------------
 
         // Flash setup
@@ -643,6 +675,21 @@ impl Rcc {
         // Ensure HSI48 is on and stable
         rcc.cr.modify(|_, w| w.hsi48on().on());
         while rcc.cr.read().hsi48rdy().is_not_ready() {}
+
+        // Set the MCO outputs.
+        //
+        // It is highly recommended to configure these bits only after
+        // reset, before enabling the external oscillators and the PLLs.
+        rcc.cfgr.modify(|_, w| {
+            w.mco1()
+                .variant(self.config.mco1.source)
+                .mco1pre()
+                .bits(mco_1_pre)
+                .mco2()
+                .variant(self.config.mco2.source)
+                .mco2pre()
+                .bits(mco_2_pre)
+        });
 
         // HSE
         let hse_ck = match self.config.hse {
@@ -755,6 +802,8 @@ impl Rcc {
                 hsi48_ck: Some(Hertz(hsi48)),
                 per_ck: Some(Hertz(per_ck)),
                 hse_ck,
+                mco1_ck,
+                mco2_ck,
                 pll1_p_ck,
                 pll1_q_ck,
                 pll1_r_ck,
