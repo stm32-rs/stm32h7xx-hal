@@ -1,4 +1,4 @@
-//! Serial Peripheral Interface (SPI) bus
+//! Serial Peripheral Interface (SPI)
 //!
 //! This module implements the [embedded-hal](embedded-hal) traits for
 //! master mode SPI.

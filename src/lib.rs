@@ -1,3 +1,40 @@
+//! *See the examples folder for more usage examples*
+//!
+//! This Hardware Abstraction Layer (HAL) provides the following functionality:
+//!
+//! Setup and Configuration
+//!
+//! * [Power Configuration](crate::pwr)
+//! * [Reset and Clock Control](crate::rcc)
+//!
+//! Digital IO
+//!
+//! * [General Purpose Input / Output](crate::gpio)
+//! * [External interrupt controller](crate::exti)
+//!
+//! Analog IO
+//!
+//! * [Analog to Digital Converter (ADC)](crate::adc)
+//! * [Digital to Analog Converter (DAC)](crate::dac)
+//!
+//! Digital Busses
+//!
+//! * [Inter Integrated Circuit (I2C)](crate::i2c)
+//! * [Serial Peripheral Interface (SPI)](crate::spi)
+//! * [Serial Audio Interface](crate::sai)
+//!
+//! Timing functions
+//!
+//! * [Pulse Width Modulation (PWM)](crate::pwm)
+//! * [Quadrature Encoder Interface](crate::qei)
+//! * [Timers](crate::timer)
+//! * [Delays](crate::delay)
+//!
+//! Others
+//!
+//! * [Random Number Generator](crate::rng)
+//! * [System Window Watchdog](crate::watchdog)
+
 #![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
 
