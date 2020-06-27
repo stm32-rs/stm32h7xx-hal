@@ -1,5 +1,6 @@
 //! Inter Integrated Circuit (I2C)
 
+use core::cmp;
 use core::marker::PhantomData;
 
 use crate::gpio::gpioa::PA8;
@@ -13,7 +14,7 @@ use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
-use cast::{u16, u8};
+use cast::u16;
 
 /// I2C error
 #[derive(Debug)]
@@ -120,10 +121,19 @@ macro_rules! i2c {
     ($($I2CX:ident: ($i2cX:ident, $Rec:ident, $pclkX:ident),)+) => {
         $(
             impl I2c<$I2CX> {
-                /// Basically a new function for an I2C peripheral
+                /// Create and initialise a new I2C peripheral.
+                ///
+                /// The frequency of the I2C bus clock is specified by `frequency`.
+                ///
+                /// # Panics
+                ///
+                /// Panics if the ratio between `frequency` and the i2c_ker_ck
+                /// is out of bounds. The acceptable range is [4, 8192].
+                ///
+                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
                 pub fn $i2cX<F> (
                     i2c: $I2CX,
-                    freq: F,
+                    frequency: F,
                     prec: rec::$Rec,
                     clocks: &CoreClocks
                 ) -> Self where
@@ -131,7 +141,7 @@ macro_rules! i2c {
                 {
                     prec.enable().reset();
 
-                    let freq = freq.into().0;
+                    let freq = frequency.into().0;
 
                     assert!(freq <= 1_000_000);
 
@@ -146,7 +156,10 @@ macro_rules! i2c {
                     i2c.cr1.modify(|_, w| w.anfoff().clear_bit());
 
                     // Refer to RM0433 Rev 6 - Figure 539 for setup and hold timing:
-                    // TODO review compliance with the timing requirements of I2C
+                    //
+                    // TODO review SDADEL and SCLDEL compliance with the
+                    // peripheral timing requirements
+                    //
                     // t_I2CCLK = 1 / PCLK1
                     // t_PRESC  = (PRESC + 1) * t_I2CCLK
                     // t_SCLL   = (SCLL + 1) * t_PRESC
@@ -154,56 +167,77 @@ macro_rules! i2c {
                     //
                     // t_SYNC1 + t_SYNC2 > 4 * t_I2CCLK
                     // t_SCL ~= t_SYNC1 + t_SYNC2 + t_SCLL + t_SCLH
-                    let ratio = i2cclk / freq - 4;
-                    let (presc, scll, sclh, sdadel, scldel) = if freq > 100_000 {
+                    let ratio = i2cclk / freq;
+
+                    // For the standard-mode configuration method, we must have
+                    // a ratio of 4 or higher
+                    assert!(ratio >= 4, "The I2C PCLK must be at least 4 times the bus frequency!");
+
+                    let (presc_reg, scll, sclh, sdadel, scldel) = if freq > 100_000 {
                         // fast-mode or fast-mode plus
                         // here we pick SCLL + 1 = 2 * (SCLH + 1)
-                        let presc = ratio / 387;
 
-                        let sclh = ((ratio / (presc + 1)) - 3) / 3;
-                        let scll = 2 * (sclh + 1) - 1;
+                        // Prescaler, 384 ticks for sclh/scll. Round up then
+                        // subtract 1
+                        let presc_reg = ((ratio - 1) / 384) as u8;
+                        // ratio < 1200 by pclk 120MHz max., therefore presc < 16
+
+                        // Actual precale value selected
+                        let presc = (presc_reg + 1) as u32;
+
+                        let sclh = ((ratio / presc) - 3) / 3;
+                        let scll = 2 * (sclh + 1);
 
                         let (sdadel, scldel) = if freq > 400_000 {
                             // fast-mode plus
                             let sdadel = 0;
-                            let scldel = i2cclk / 4_000_000 / (presc + 1) - 1;
+                            let scldel = i2cclk / 4_000_000 / presc - 1;
 
                             (sdadel, scldel)
                         } else {
                             // fast-mode
-                            let sdadel = i2cclk / 8_000_000 / (presc + 1);
-                            let scldel = i2cclk / 2_000_000 / (presc + 1) - 1;
+                            let sdadel = i2cclk / 8_000_000 / presc;
+                            let scldel = i2cclk / 2_000_000 / presc - 1;
 
                             (sdadel, scldel)
                         };
 
-                        (presc, scll, sclh, sdadel, scldel)
+                        (presc_reg, scll as u8, sclh as u8, sdadel as u8, scldel as u8)
                     } else {
                         // standard-mode
                         // here we pick SCLL = SCLH
-                        let presc = ratio / 514;
-                        let sclh = ((ratio / (presc + 1)) - 2) / 2;
+
+                        // Prescaler, 512 ticks for sclh/scll. Round up then
+                        // subtract 1
+                        let presc = (ratio - 1) / 512;
+                        let presc_reg = cmp::min(presc, 15) as u8;
+
+                        // Actual prescale value selected
+                        let presc = (presc_reg + 1) as u32;
+
+                        let sclh = ((ratio / presc) - 2) / 2;
                         let scll = sclh;
 
-                        let sdadel = i2cclk / 2_000_000 / (presc + 1);
-                        let scldel = i2cclk / 800_000 / (presc + 1) - 1;
+                        // Speed check
+                        assert!(sclh < 256, "The I2C PCLK is too fast for this bus frequency!");
 
-                        (presc, scll, sclh, sdadel, scldel)
+                        let sdadel = i2cclk / 2_000_000 / presc;
+                        let scldel = i2cclk / 800_000 / presc - 1;
+
+                        (presc_reg, scll as u8, sclh as u8, sdadel as u8, scldel as u8)
                     };
 
-                    let presc = u8(presc).unwrap();
-                    //assert!(presc < 16);
-                    let scldel = u8(scldel).unwrap();
-                    //assert!(scldel < 16);
-                    let sdadel = u8(sdadel).unwrap();
-                    //assert!(sdadel < 16);
-                    let sclh = u8(sclh).unwrap();
-                    let scll = u8(scll).unwrap();
+                    // Sanity check
+                    assert!(presc_reg < 16);
+
+                    // Keep values within reasonable limits for fast per_ck
+                    let sdadel = cmp::max(sdadel, 2);
+                    let scldel = cmp::max(scldel, 4);
 
                     // Configure for "fast mode" (400 KHz)
                     i2c.timingr.write(|w|
                         w.presc()
-                            .bits(presc)
+                            .bits(presc_reg)
                             .scll()
                             .bits(scll)
                             .sclh()
