@@ -1,4 +1,4 @@
-//! System Window Watchdog implementation
+//! System Window Watchdog
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;

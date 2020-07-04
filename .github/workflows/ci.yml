@@ -1,0 +1,43 @@
+on:
+  push:
+    branches: [ staging, trying, master ]
+  pull_request:
+
+name: Continuous integration
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:                   # All permutations of {rust, mcu}
+        rust:
+          - 1.41.0  # MSRV
+          - stable
+        mcu:
+          - stm32h743
+          - stm32h753
+          - stm32h743v
+          - stm32h753v
+          - stm32h747cm7
+        include:                # One additional job, as follows:
+          - rust: nightly
+            mcu: stm32h743v
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: thumbv7em-none-eabihf
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,${{ matrix.mcu }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,${{ matrix.mcu }}

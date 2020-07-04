@@ -1,4 +1,4 @@
-//! Inter Integrated Circuit implementation
+//! Inter Integrated Circuit (I2C)
 
 use core::marker::PhantomData;
 
