@@ -61,11 +61,11 @@ pub use crate::hal::spi::{
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
+use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
 use nb;
 use stm32h7::Variant::Val;
-use core::convert::From;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
