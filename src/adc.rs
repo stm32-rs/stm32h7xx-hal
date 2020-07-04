@@ -1,11 +1,13 @@
 //! Analog to Digital Converter (ADC)
+//!
+//! ADC1 and ADC2 share a reset line. To initialise both of them, use the
+//! `adc12` method.
 
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
 
 use core::marker::PhantomData;
 
-use crate::stm32;
 use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
 
 use crate::delay::Delay;
@@ -17,7 +19,10 @@ use crate::gpio::gpiof::{
 };
 use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
 use crate::gpio::Analog;
+use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::time::Hertz;
+use stm32h7::Variant::Val;
 
 #[cfg(not(feature = "revision_v"))]
 const ADC_KER_CK_MAX: u32 = 36_000_000;
@@ -287,13 +292,84 @@ pub trait AdcExt<ADC>: Sized {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
+/// Get and check the adc_ker_ck_input
+fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
+    // Select Kernel Clock
+    let adc_clock = match prec.get_kernel_clk_mux() {
+        Val(rec::AdcClkSel::PER) => clocks.per_ck(),
+        _ => unreachable!(),
+    }
+    .expect("adc_ker_ck_input is not running!");
+
+    // Check against datasheet requirements
+    assert!(
+        adc_clock.0 <= ADC_KER_CK_MAX,
+        "adc_ker_ck_input is too fast"
+    );
+
+    adc_clock
+}
+
+// ADC12 is a unique case where a single reset line is used to control two
+// peripherals that have separate peripheral definitons in the SVD.
+
+/// Initialise ADC12 together
+///
+/// Sets all configurable parameters to one-shot defaults,
+/// performs a boot-time calibration.
+pub fn adc12(
+    adc1: ADC1,
+    adc2: ADC2,
+    delay: &mut Delay,
+    prec: rec::Adc12,
+    clocks: &CoreClocks,
+) -> (Adc<ADC1, Disabled>, Adc<ADC2, Disabled>) {
+    let mut a1 = Adc::<ADC1, Disabled>::default_from_rb(adc1);
+    let mut a2 = Adc::<ADC2, Disabled>::default_from_rb(adc2);
+
+    // Check adc_ker_ck_input
+    check_clock(&prec, clocks);
+
+    // Enable AHB clock
+    let prec = prec.enable();
+
+    // Power Down
+    a1.power_down();
+    a2.power_down();
+
+    // Reset peripheral
+    prec.reset();
+
+    // Power Up, Preconfigure and Calibrate
+    a1.power_up(delay);
+    a2.power_up(delay);
+    a1.preconfigure();
+    a2.preconfigure();
+    a1.calibrate();
+    a2.calibrate();
+
+    (a1, a2)
+}
+
+/// Freeing both the periperhal and PREC is possible for ADC3
+impl<ED> Adc<ADC3, ED> {
+    /// Releases the ADC peripheral
+    pub fn free(self) -> (ADC3, rec::Adc3) {
+        (
+            self.rb,
+            rec::Adc3 {
+                _marker: PhantomData,
+            },
+        )
+    }
+}
+
 #[allow(unused_macros)]
 macro_rules! adc_hal {
     ($(
         $ADC:ident: (
             $adcX: ident,
-            $Rec:ident,
-            $COMMON:ident
+            $Rec:ident
         )
     ),+ $(,)*) => {
         $(
@@ -317,46 +393,37 @@ macro_rules! adc_hal {
                 pub fn $adcX(adc: $ADC, delay: &mut Delay,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
-                    let mut s = Self {
-                        rb: adc,
-                        sample_time: AdcSampleTime::default(),
-                        resolution: Resolution::SIXTEENBIT,
-                        lshift: AdcLshift::default(),
-                        _enabled: PhantomData,
-                    };
+                    let mut a = Self::default_from_rb(adc);
 
-                    // Select Kernel Clock
-                    s.enable_clock(
-                        clocks.per_ck().expect("per_ck is not running!").0
-                    );
+                    // Check adc_ker_ck_input
+                    check_clock(&prec, clocks);
 
                     // Enable AHB clock
                     let prec = prec.enable();
 
                     // Power Down
-                    s.power_down();
+                    a.power_down();
 
-                    // Reset periperal
+                    // Reset peripheral
                     prec.reset();
 
                     // Power Up, Preconfigure and Calibrate
-                    s.power_up(delay);
-                    s.preconfigure();
-                    s.calibrate();
+                    a.power_up(delay);
+                    a.preconfigure();
+                    a.calibrate();
 
-                    s
+                    a
                 }
-
-                fn enable_clock(&mut self, per_ck: u32) {
-                    // Set per_ck as adc clock, TODO: we might want to
-                    // change this so we can also use other clocks as
-                    // input for this
-                    assert!(per_ck <= ADC_KER_CK_MAX, "per_ck is not running or too fast");
-                    let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
-
-                    d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
+                /// Creates ADC with default settings
+                fn default_from_rb(rb: $ADC) -> Self {
+                    Self {
+                        rb,
+                        sample_time: AdcSampleTime::default(),
+                        resolution: Resolution::SIXTEENBIT,
+                        lshift: AdcLshift::default(),
+                        _enabled: PhantomData,
+                    }
                 }
-
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
@@ -571,12 +638,6 @@ macro_rules! adc_hal {
             }
 
             impl<ED> Adc<$ADC, ED> {
-
-                /// Releases the ADC peripheral
-                pub fn free(self) -> ($ADC, rec::$Rec) {
-                    (self.rb, rec::$Rec { _marker: PhantomData })
-                }
-
                 /// Save current ADC config
                 pub fn save_cfg(&mut self) -> StoredConfig {
                     StoredConfig(self.get_sample_time(), self.get_resolution(), self.get_lshift())
@@ -714,7 +775,7 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (adc1, Adc12, ADC12_COMMON),
-    ADC2: (adc2, Adc12, ADC12_COMMON),
-    ADC3: (adc3, Adc3, ADC3_COMMON),
+    ADC1: (adc1, Adc12), // ADC1
+    ADC2: (adc2, Adc12), // ADC2
+    ADC3: (adc3, Adc3),  // ADC3
 );

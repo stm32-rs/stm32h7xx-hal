@@ -1,4 +1,3 @@
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -29,13 +28,20 @@ fn main() -> ! {
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
-    // setting this per_ck to 4 Mhz here (which is gonna choose the CSI that runs at exactly 4 Mhz) as the adc requires per_ck as its
-    // own kernel clock and wouldn't work at all if per_ck wouldnt be enabled or loose a few bits if it was too fast
-    // (the maximum for this is 36 Mhz)
+    // We need to configure a clock for adc_ker_ck_input. The default
+    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. Here we
+    // set per_ck to 4MHz.
+    //
+    // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
+    // otherwise
     let ccdr = rcc
         .sys_ck(100.mhz())
         .per_ck(4.mhz())
         .freeze(vos, &dp.SYSCFG);
+
+    // Switch adc_ker_ck_input multiplexer to per_ck
+    let d3ccipr = &unsafe { &*pac::RCC::ptr() }.d3ccipr;
+    d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - ADC");
