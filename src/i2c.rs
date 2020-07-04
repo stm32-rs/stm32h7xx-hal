@@ -34,18 +34,30 @@ pub enum Error {
 }
 
 /// A trait to represent the SCL Pin of an I2C Port
-pub trait PinScl<I2C> {}
+pub trait PinScl<I2C> {
+    fn set_open_drain(self) -> Self;
+}
 
 /// A trait to represent the SDL Pin of an I2C Port
-pub trait PinSda<I2C> {}
+pub trait PinSda<I2C> {
+    fn set_open_drain(self) -> Self;
+}
 
-pub trait Pins<I2C> {}
+/// A trait to represent the collection of pins required for an I2C port
+pub trait Pins<I2C> {
+    fn set_open_drain(self) -> Self;
+}
 
 impl<I2C, SCL, SDA> Pins<I2C> for (SCL, SDA)
 where
     SCL: PinScl<I2C>,
     SDA: PinSda<I2C>,
 {
+    fn set_open_drain(self) -> Self {
+        let (scl, sda) = self;
+
+        (scl.set_open_drain(), sda.set_open_drain())
+    }
 }
 
 #[derive(Debug)]
@@ -59,7 +71,7 @@ pub trait I2cExt<I2C>: Sized {
     fn i2c<PINS, F>(
         self,
         _pins: PINS,
-        freq: F,
+        frequency: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> I2c<I2C>
@@ -69,7 +81,7 @@ pub trait I2cExt<I2C>: Sized {
 
     fn i2c_unchecked<F>(
         self,
-        freq: F,
+        frequency: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> I2c<I2C>
@@ -263,23 +275,50 @@ macro_rules! i2c {
             impl I2cExt<$I2CX> for $I2CX {
                 type Rec = rec::$Rec;
 
-                fn i2c<PINS, F>(self, _pins: PINS, freq: F,
+                /// Create and initialise a new I2C peripheral.
+                ///
+                /// A tuple of pins `(scl, sda)` for this I2C peripheral should
+                /// be passed as `pins`. This function sets each pin to
+                /// open-drain mode.
+                ///
+                /// The frequency of the I2C bus clock is specified by `frequency`.
+                ///
+                /// # Panics
+                ///
+                /// Panics if the ratio between `frequency` and the i2c_ker_ck
+                /// is out of bounds. The acceptable range is [4, 8192].
+                ///
+                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
+                fn i2c<PINS, F>(self, pins: PINS, frequency: F,
                                 prec: rec::$Rec,
                                 clocks: &CoreClocks) -> I2c<$I2CX>
                 where
                     PINS: Pins<$I2CX>,
                     F: Into<Hertz>
                 {
-                    I2c::$i2cX(self, freq, prec, clocks)
+                    let _ = pins.set_open_drain();
+
+                    I2c::$i2cX(self, frequency, prec, clocks)
                 }
 
-                fn i2c_unchecked<F>(self, freq: F,
+                /// Create and initialise a new I2C peripheral. No pin types are
+                /// required.
+                ///
+                /// The frequency of the I2C bus clock is specified by `frequency`.
+                ///
+                /// # Panics
+                ///
+                /// Panics if the ratio between `frequency` and the i2c_ker_ck
+                /// is out of bounds. The acceptable range is [4, 8192].
+                ///
+                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
+                fn i2c_unchecked<F>(self, frequency: F,
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> I2c<$I2CX>
                 where
                     F: Into<Hertz>
                 {
-                    I2c::$i2cX(self, freq, prec, clocks)
+                    I2c::$i2cX(self, frequency, prec, clocks)
                 }
             }
 
@@ -454,10 +493,18 @@ macro_rules! pins {
     ($($I2CX:ty: SCL: [$($SCL:ty),*] SDA: [$($SDA:ty),*])+) => {
         $(
             $(
-                impl PinScl<$I2CX> for $SCL {}
+                impl PinScl<$I2CX> for $SCL {
+                    fn set_open_drain(self) -> Self {
+                        self.set_open_drain()
+                    }
+                }
             )*
             $(
-                impl PinSda<$I2CX> for $SDA {}
+                impl PinSda<$I2CX> for $SDA {
+                    fn set_open_drain(self) -> Self {
+                        self.set_open_drain()
+                    }
+                }
             )*
         )+
     }
