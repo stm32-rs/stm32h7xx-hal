@@ -1,8 +1,9 @@
-//! Example of reading a voltage with ADC1
+//! Example of using ADC1 and ADC2 together
 //!
 //! For an example of using ADC3, see examples/temperature.rs
-//! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
+//! For an example of using ADC1 alone, see examples/adc.rs
 
+#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -33,54 +34,42 @@ fn main() -> ! {
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
-    // We need to configure a clock for adc_ker_ck_input. The default
-    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. Here we
-    // set per_ck to 4MHz.
-    //
-    // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
-    // otherwise
     let ccdr = rcc
         .sys_ck(100.mhz())
-        .per_ck(4.mhz())
+        .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
         .freeze(vos, &dp.SYSCFG);
 
-    // Switch adc_ker_ck_input multiplexer to per_ck
-    let d3ccipr = &unsafe { &*pac::RCC::ptr() }.d3ccipr;
-    d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
-
     println!(log, "");
-    println!(log, "stm32h7xx-hal example - ADC");
+    println!(log, "stm32h7xx-hal example - ADC1 and ADC2");
     println!(log, "");
 
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
-    // Setup ADC
-    let mut adc1 = adc::Adc::adc1(
+    // Setup ADC1 and ADC2
+    let (adc1, adc2) = adc::adc12(
         dp.ADC1,
+        dp.ADC2,
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
-    )
-    .enable();
+    );
+
+    let mut adc1 = adc1.enable();
     adc1.set_resolution(adc::Resolution::SIXTEENBIT);
 
-    // We can't use ADC2 here because ccdr.peripheral.ADC12 has been
-    // consumed. See examples/adc12.rs
+    let mut adc2 = adc2.enable();
+    adc2.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup GPIOC
+    // NOTE: PC2 and PC3 are only pinned out on TFBGA packages!!
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
-
-    // Configure pc0 as an analog input
-    let mut channel = gpioc.pc0.into_analog(); // ANALOG IN 10
+    let mut channel_pc2 = gpioc.pc2.into_analog(); // AIN 12
+    let mut channel_pc3 = gpioc.pc3.into_analog(); // AIN 13
 
     loop {
-        let data: u32 = adc1.read(&mut channel).unwrap();
+        let data_pc2: u32 = adc1.read(&mut channel_pc2).unwrap();
+        let data_pc3: u32 = adc2.read(&mut channel_pc3).unwrap();
         // voltage = reading * (vref/resolution)
-        println!(
-            log,
-            "ADC reading: {}, voltage for nucleo: {}",
-            data,
-            data as f32 * (3.3 / adc1.max_sample() as f32)
-        );
+        println!(log, "ADC readings: {} {}", data_pc2, data_pc3);
     }
 }

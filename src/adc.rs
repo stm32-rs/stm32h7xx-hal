@@ -1,7 +1,7 @@
 //! Analog to Digital Converter (ADC)
 //!
 //! ADC1 and ADC2 share a reset line. To initialise both of them, use the
-//! `adc12` method.
+//! [`adc12`](adc12) method.
 
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
@@ -296,6 +296,8 @@ pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
     // Select Kernel Clock
     let adc_clock = match prec.get_kernel_clk_mux() {
+        Val(rec::AdcClkSel::PLL2_P) => clocks.pll2_p_ck(),
+        Val(rec::AdcClkSel::PLL3_R) => clocks.pll3_r_ck(),
         Val(rec::AdcClkSel::PER) => clocks.per_ck(),
         _ => unreachable!(),
     }
