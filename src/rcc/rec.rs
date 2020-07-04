@@ -266,7 +266,7 @@ peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
         Eth1Mac, Dma2, Dma1,
         #[cfg(any(feature = "dualcore"))] Art,
-        Adc12
+        Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
     ];
 
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
@@ -283,7 +283,8 @@ peripheral_reset_and_enable_control! {
     ];
 
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
-        Hsem, Bdma, Crc, Adc3,
+        Hsem, Bdma, Crc,
+        Adc3 [group clk: Adc],
         Gpioa, Gpiob, Gpioc, Gpiod, Gpioe, Gpiof, Gpiog, Gpioh, Gpioi, Gpioj, Gpiok
     ];
 
