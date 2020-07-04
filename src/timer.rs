@@ -164,7 +164,7 @@ macro_rules! hal {
 
                     // Generate an update event to force an update of the ARR register. This ensures
                     // the first timer cycle is of the specified duration.
-                    self.tim.egr.write(|w| w.ug.set_bit());
+                    self.tim.egr.write(|w| w.ug().set_bit());
 
                     // Start counter
                     self.resume()
