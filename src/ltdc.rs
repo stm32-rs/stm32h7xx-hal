@@ -33,7 +33,7 @@ impl Ltdc {
     pub fn new(
         ltdc: LTDC,
         ltdc_rec: rec::Ltdc,
-        core_clocks: CoreClocks,
+        core_clocks: &CoreClocks,
     ) -> Self {
         // See Errata ES0445 Rev 1 Section 2.6.1
         let lcd_clock =
