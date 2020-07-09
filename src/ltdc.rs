@@ -29,7 +29,7 @@ impl Ltdc {
     /// # Panics
     ///
     /// Panics if the pixel clock LCD_CLK is running. The LCD_CLK is
-    /// nessesary to ensure method calls do not stall the APB bus.
+    /// necessary to ensure method calls do not stall the APB bus.
     pub fn new(
         ltdc: LTDC,
         ltdc_rec: rec::Ltdc,
@@ -233,7 +233,7 @@ impl DisplayController for Ltdc {
         // Enable LTDC_Layer by setting LEN bit
         layer.cr.modify(|_, w| w.len().set_bit());
 
-        // Reload this layer immediatly
+        // Reload this layer immediately
         self.ltdc.srcr.write(|w| w.imr().set_bit());
     }
 
