@@ -49,7 +49,8 @@
 //! power supply method, `freeze` will panic until you power on reset
 //! your board.
 
-use crate::stm32::PWR;
+use crate::stm32::{PWR, SYSCFG};
+use crate::rcc::Rcc;
 
 /// Extension trait that constrains the `PWR` peripheral
 pub trait PwrExt {
@@ -80,6 +81,7 @@ pub struct Pwr {
 /// Generated when the PWR peripheral is frozen. The existence of this
 /// value indicates that the voltage scaling configuration can no
 /// longer be changed.
+#[derive(PartialEq)]
 pub enum VoltageScale {
     Scale0,
     Scale1,
@@ -180,7 +182,7 @@ impl Pwr {
     }
 
     pub fn freeze(self) -> VoltageScale {
-        // NB. The lower bytes of CR3 can only be written once after
+         // NB. The lower bytes of CR3 can only be written once after
         // POR, and must be written with a valid combination. Refer to
         // RM0433 Rev 7 6.8.4. This is partially enforced by dropping
         // `self` at the end of this method, but of course we cannot
@@ -235,5 +237,70 @@ impl Pwr {
         while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
 
         VoltageScale::Scale1
+    }
+
+    #[cfg(feature = "revision_v")]
+    pub fn freeze_vos0(self, rcc: &Rcc, syscfg: &SYSCFG) -> VoltageScale {
+        // NB. The lower bytes of CR3 can only be written once after
+        // POR, and must be written with a valid combination. Refer to
+        // RM0433 Rev 7 6.8.4. This is partially enforced by dropping
+        // `self` at the end of this method, but of course we cannot
+        // know what happened between the previous POR and here.
+
+        #[cfg(any(feature = "singlecore"))]
+        self.rb.cr3.modify(|_, w| {
+            w.scuen().set_bit().ldoen().set_bit().bypass().clear_bit()
+        });
+
+        #[cfg(any(feature = "dualcore"))]
+        self.rb.cr3.modify(|_, w| {
+            use SupplyConfiguration::*;
+
+            match self.supply_configuration {
+                LDOSupply => w.sden().clear_bit().ldoen().set_bit(),
+                DirectSMPS => w.sden().set_bit().ldoen().clear_bit(),
+                SMPSFeedsIntoLDO1V8 => unsafe {
+                    w.sden().set_bit().ldoen().set_bit().sdlevel().bits(1)
+                },
+                SMPSFeedsIntoLDO2V5 => unsafe {
+                    w.sden().set_bit().ldoen().set_bit().sdlevel().bits(2)
+                },
+                Bypass => {
+                    w.sden().clear_bit().ldoen().clear_bit().bypass().set_bit()
+                }
+                Default => {
+                    // Default configuration. The actual reset value of
+                    // CR3 varies between packages (See RM0399 Section
+                    // 7.8.4 Footnote 2). Therefore we do not modify
+                    // anything here.
+                    w
+                }
+            }
+        });
+        // Verify supply configuration, panics if these values read
+        // from CR3 do not match those written.
+        #[cfg(any(feature = "dualcore"))]
+        self.verify_supply_configuration();
+
+        // Validate the supply configuration. If you are stuck here, it is
+        // because the voltages on your board do not match those specified
+        // in the D3CR.VOS and CR3.SDLEVEL fields.  By default after reset
+        // VOS = Scale 3, so check that the voltage on the VCAP pins =
+        // 1.0V.
+        while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+
+        // We have now entered Run mode. See RM0433 Rev 7 Section 6.6.1
+
+        // go to VOS1 voltage scale for high performance
+        self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
+        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+
+        // Enable overdrive for maximum clock
+        // Syscfgen required to set enable overdrive
+        rcc.rb.apb4enr.modify(|_, w| w.syscfgen().enabled());
+        unsafe { syscfg.pwrcr.modify(|_, w| w.oden().bits(1)) };
+        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+        VoltageScale::Scale0
+
     }
 }
