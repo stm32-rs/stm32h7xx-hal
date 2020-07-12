@@ -36,7 +36,7 @@ fn main() -> ! {
         .freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
-    println!(log, "stm32h7xx-hal example - RCC");
+    println!(log, "stm32h7xx-hal example - VOS0");
     println!(log, "");
 
     // HCLK
