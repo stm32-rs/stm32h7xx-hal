@@ -7,7 +7,7 @@ extern crate panic_itm;
 
 use cortex_m;
 use cortex_m_rt::entry;
-use stm32h7xx_hal::{pac, rcc, prelude::*};
+use stm32h7xx_hal::{pac, prelude::*, rcc};
 
 use cortex_m_log::println;
 use cortex_m_log::{
@@ -23,11 +23,13 @@ fn main() -> ! {
     // Constrain and Freeze power
     println!(log, "Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let rcc = dp.RCC.constrain();
-    let vos = pwr.freeze_vos0(&rcc, &dp.SYSCFG);
+    let vos = pwr.vos0(&dp.SYSCFG).freeze();
 
     // Constrain and Freeze clock
+    // The PllConfigStrategy::Normal strategy uses the medium range VCO which has a maximum of 420 Mhz
+    // Switching to PllConfigStrategy::Iterative sets the VCO to wide range to allow this clock to reach 480 Mhz
     println!(log, "Setup RCC...                  ");
+    let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(480.mhz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
@@ -39,7 +41,7 @@ fn main() -> ! {
 
     // HCLK
     println!(log, "hclk = {} MHz", ccdr.clocks.hclk().0 as f32 / 1e6);
-    // assert_eq!(ccdr.clocks.hclk().0, 50_000_000);
+    assert_eq!(ccdr.clocks.hclk().0, 240_000_000);
 
     // SYS_CK
     println!(log, "sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
