@@ -2,11 +2,11 @@ block_labels = ["wip"]
 delete_merged_branches = true
 status = [
     "Rustfmt",
-    "ci (1.41.0, stm32h743)",
-    "ci (1.41.0, stm32h753)",
-    "ci (1.41.0, stm32h743v)",
-    "ci (1.41.0, stm32h753v)",
-    "ci (1.41.0, stm32h747cm7)",
+    "ci (1.43.0, stm32h743)",
+    "ci (1.43.0, stm32h753)",
+    "ci (1.43.0, stm32h743v)",
+    "ci (1.43.0, stm32h753v)",
+    "ci (1.43.0, stm32h747cm7)",
     "ci (stable, stm32h743)",
     "ci (stable, stm32h753)",
     "ci (stable, stm32h743v)",
