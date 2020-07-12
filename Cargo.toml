@@ -80,3 +80,7 @@ required-features = ["rt"]
 [[example]]
 name = "rtic_timers"
 required-features = ["rt"]
+
+[[example]]
+name = "vos0"
+required-features = ["revision_v"]
