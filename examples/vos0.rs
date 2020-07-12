@@ -23,7 +23,15 @@ fn main() -> ! {
     // Constrain and Freeze power
     println!(log, "Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.vos0(&dp.SYSCFG).freeze();
+    let vos;
+
+    // Enable VOS0 for revision v parts
+    #[cfg(feature = "revision_v")]
+    { vos = pwr.vos0(&dp.SYSCFG).freeze() };
+
+    // VOS0 is only support by revision v parts
+    #[cfg(not(feature = "revision_v"))]
+    { vos = pwr.freeze() };
 
     // Constrain and Freeze clock
     // The PllConfigStrategy::Normal strategy uses the medium range VCO which has a maximum of 420 Mhz
