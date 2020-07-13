@@ -12,6 +12,9 @@ use stm32h7::Variant::Val;
 
 mod pdm;
 pub use pdm::SaiPdmExt;
+mod i2s;
+pub use i2s::{I2S, I2SBitRate, I2SOverSampling, I2SDir, I2SMode, I2SProtocol, SaiI2sExt};
+pub use embedded_hal::i2s::FullDuplex;
 
 /// Trait for associating clocks with SAI instances
 pub trait GetClkSAI {
