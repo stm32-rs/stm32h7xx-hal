@@ -12,16 +12,20 @@ use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
 use crate::time::Hertz;
 
 use crate::device::sai4::ch::sr;
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA12};
+use crate::gpio::gpioa::{PA0, PA1, PA12, PA2};
 use crate::gpio::gpiob::PB2;
 use crate::gpio::gpioc::{PC0, PC1};
-use crate::gpio::gpiod::{PD0, PD1, PD4, PD6, PD8, PD9, PD10, PD11, PD12, PD13, PD14, PD15};
-use crate::gpio::gpioe::{PE0, PE2, PE3, PE4, PE5, PE6, PE11, PE12, PE13, PE14};
-use crate::gpio::gpiof::{PF6, PF7, PF8, PF9, PF11};
-use crate::gpio::gpiog::{PG7, PG9, PG10};
+use crate::gpio::gpiod::{
+    PD0, PD1, PD10, PD11, PD12, PD13, PD14, PD15, PD4, PD6, PD8, PD9,
+};
+use crate::gpio::gpioe::{
+    PE0, PE11, PE12, PE13, PE14, PE2, PE3, PE4, PE5, PE6,
+};
+use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
+use crate::gpio::gpiog::{PG10, PG7, PG9};
 use crate::gpio::gpioh::{PH2, PH3};
 use crate::gpio::gpioi::{PI4, PI5, PI6, PI7};
-use crate::gpio::{Alternate, AF6, AF8, AF10};
+use crate::gpio::{Alternate, AF10, AF6, AF8};
 use stm32h7::Variant::Val;
 
 use embedded_hal::i2s::FullDuplex;
@@ -187,7 +191,6 @@ pub trait SaiI2sExt<SAI>: Sized {
 //     fn disable() {}
 // }
 
-
 macro_rules! i2s {
     ( $($SAIX:ident, $Rec:ident: [$i2s_saiX_ch_a:ident, $i2s_saiX_ch_b:ident]),+ ) => {
         $(
@@ -331,7 +334,7 @@ macro_rules! i2s {
                     if let Some(slave) = &slave {
                         assert!(slave.slots <= NUM_SLOTS);
                     }
-            
+
                     // Clock config
                     let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks)
                         .expect("SAI kernel clock must run!");
@@ -340,7 +343,7 @@ macro_rules! i2s {
                     let mclk_div: u8 = mclk_div
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
-            
+
                     // Configure SAI peripeheral
                     let mut per_sai = Sai {
                         rb: sai,
@@ -352,9 +355,9 @@ macro_rules! i2s {
                         },
                         interface: I2S { master, slave },
                     };
-            
+
                     per_sai.sai_rcc_init(prec);
-            
+
                     i2s_config_channel(
                         &per_sai.rb.chb,
                         I2SMode::Master,
@@ -362,7 +365,7 @@ macro_rules! i2s {
                         mclk_div,
                         bit_rate,
                     );
-            
+
                     if let Some(slave) = &per_sai.interface.slave {
                         i2s_config_channel(
                             &per_sai.rb.cha,
@@ -372,7 +375,7 @@ macro_rules! i2s {
                             bit_rate,
                         );
                     }
-            
+
                     per_sai
                 }
 
@@ -422,7 +425,6 @@ i2s! {
     SAI1, Sai1: [i2s_sai3_ch_a, i2s_sai3_ch_b],
     SAI4, Sai4: [i2s_sai4_ch_a, i2s_sai4_ch_b]
 }
-
 
 impl<I2S> FullDuplex<u32> for Sai<SAI1, I2S> {
     type Error = I2SError;
