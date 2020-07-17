@@ -13,20 +13,27 @@ use cortex_m::asm::delay as delay_cycles;
 
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
+use stm32h7xx_hal::sai::{
+    I2SBitRate, I2SChanConfig, I2SClockStrobe, I2SDir, I2SOverSampling,
+    I2SSync, Sai, SaiI2sExt, I2S,
+};
+use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
 use stm32h7xx_hal::time::{Hertz, U32Ext};
-use stm32h7xx_hal::{sai, stm32};
-use stm32h7xx_hal::sai::SaiI2sExt;
 
 pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256
+// But not less than so targetting 257
 const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
+
+const SLOTS: u8 = 2;
+const FIRST_BIT_OFF_SET: u8 = 0;
 
 #[app( device = stm32h7xx_hal::stm32, peripherals = true )]
 const APP: () = {
     struct Resources {
-        audio: sai::Sai<stm32::SAI1, sai::I2S>,
+        audio: Sai<stm32::SAI1, I2S>,
     }
 
     #[init]
@@ -41,7 +48,6 @@ const APP: () = {
             .constrain()
             .use_hse(16.mhz())
             .sys_ck(400.mhz())
-            .pclk1(100.mhz()) // DMA clock
             .pll3_p_ck(PLL3_P_HZ)
             .freeze(vos, &ctx.device.SYSCFG);
 
@@ -62,20 +68,30 @@ const APP: () = {
         delay_cycles(400_000);
         codec.set_high().unwrap();
 
+        // Use PLL3_P for the SAI1 clock
         let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(SAI1SEL_A::PLL3_P);
 
         let mut audio = ctx.device.SAI1.i2s_ch_a(
             sai1_pins,
             AUDIO_SAMPLE_HZ,
-            sai::I2SBitRate::BITS_24,
+            I2SBitRate::BITS_24,
             sai1_rec,
             &ccdr.clocks,
-            sai::SaiChannel::ChannelA,
-            sai::I2SMode::Master,
-            sai::I2SDir::Tx,
-            Some(sai::SaiChannel::ChannelB),
-            Some(sai::I2SMode::Slave),
-            Some(sai::I2SDir::Rx),
+            I2SOverSampling::Disabled,
+            I2SChanConfig::new(
+                I2SDir::Tx,
+                I2SSync::Master,
+                I2SClockStrobe::Falling,
+                SLOTS,
+                FIRST_BIT_OFF_SET,
+            ),
+            Some(I2SChanConfig::new(
+                I2SDir::Rx,
+                I2SSync::Internal,
+                I2SClockStrobe::Falling,
+                SLOTS,
+                FIRST_BIT_OFF_SET,
+            )),
         );
         audio.enable();
         // Jump start audio transmission
@@ -91,4 +107,3 @@ const APP: () = {
         }
     }
 };
-

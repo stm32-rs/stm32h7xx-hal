@@ -3,18 +3,22 @@
 use core::marker::PhantomData;
 
 use crate::stm32::sai4::CH;
-use crate::stm32::{SAI1, SAI4};
+use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
 
 // clocks
 use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::rcc::rec::Sai23ClkSelGetter;
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
 mod pdm;
 pub use pdm::SaiPdmExt;
 mod i2s;
-pub use i2s::{I2S, I2SBitRate, I2SOverSampling, I2SDir, I2SMode, I2SProtocol, SaiI2sExt};
 pub use embedded_hal::i2s::FullDuplex;
+pub use i2s::{
+    I2SBitRate, I2SChanConfig, I2SClockStrobe, I2SDir, I2SMode,
+    I2SOverSampling, I2SProtocol, I2SSync, SaiI2sExt, I2S,
+};
 
 /// Trait for associating clocks with SAI instances
 pub trait GetClkSAI {
@@ -62,9 +66,12 @@ macro_rules! impl_sai_ker_ck {
 impl_sai_ker_ck! {
     Sai1, get_kernel_clk_mux, get_kernel_clk_mux, Sai1ClkSel, Sai1ClkSel: SAI1
 }
-// impl_sai_ker_ck! {
-//     d2ccip1r, get_kernel_clk_mux, get_kernel_clk_mux, SAI23SEL_A, SAI23SEL_A: SAI2, SAI3
-// }
+impl_sai_ker_ck! {
+    Sai2, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI2
+}
+impl_sai_ker_ck! {
+    Sai3, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI3
+}
 impl_sai_ker_ck! {
     Sai4, get_kernel_clk_a_mux, get_kernel_clk_b_mux, Sai4AClkSel, Sai4BClkSel: SAI4
 }
@@ -192,8 +199,7 @@ macro_rules! sai_hal {
 
 sai_hal! {
     SAI1: (sai1, Sai1),
-    // Uncomment when an interface is implemented for these
-    // SAI2: (sai2, Sai2),
-    // SAI3: (sai3, Sai3),
+    SAI2: (sai2, Sai2),
+    SAI3: (sai3, Sai3),
     SAI4: (sai4, Sai4),
 }

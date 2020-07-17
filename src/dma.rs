@@ -109,7 +109,6 @@ pub trait DmaExt {
     fn split(self) -> Self::Channels;
 }
 
-
 macro_rules! dma {
     ($($DMAX:ident: ($DMAMUXX:ident, $dmamuxx:ident, $dmaX:ident, {
         $($CX:ident: (
