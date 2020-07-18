@@ -61,6 +61,7 @@ pub use crate::hal::spi::{
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
+use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
 use nb;
@@ -109,6 +110,76 @@ where
     MISO: PinMiso<SPI>,
     MOSI: PinMosi<SPI>,
 {
+}
+
+/// A structure for specifying SPI configuration.
+///
+/// This structure uses builder semantics to generate the configuration.
+///
+/// `Example`
+/// ```
+/// use embedded_hal::spi::Mode;
+///
+/// let config = Config::new(Mode::MODE_0)
+///     .manage_cs()
+/// ```
+#[derive(Copy, Clone)]
+pub struct Config {
+    mode: Mode,
+    swap_miso_mosi: bool,
+    cs_delay: f32,
+    managed_cs: bool,
+}
+
+impl Config {
+    /// Create a default configuration for the SPI interface.
+    ///
+    /// Arguments:
+    /// * `mode` - The SPI mode to configure.
+    pub fn new(mode: Mode) -> Self {
+        Config {
+            mode: mode,
+            swap_miso_mosi: false,
+            cs_delay: 0.0,
+            managed_cs: false,
+        }
+    }
+
+    /// Specify that the SPI MISO/MOSI lines are swapped.
+    ///
+    /// Note:
+    /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
+    /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
+    pub fn swap_mosi_miso(mut self) -> Self {
+        self.swap_miso_mosi = true;
+        self
+    }
+
+    /// Specify a delay between CS assertion and the beginning of the SPI transaction.
+    ///
+    /// Note:
+    /// * This function introduces a delay on SCK from the initiation of the transaction. The delay
+    /// is specified as a number of SCK cycles, so the actual delay may vary.
+    ///
+    /// Arguments:
+    /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
+    /// register for the output pin.
+    pub fn cs_delay(mut self, delay: f32) -> Self {
+        self.cs_delay = delay;
+        self
+    }
+
+    /// CS pin is automatically managed by the SPI peripheral.
+    pub fn manage_cs(mut self) -> Self {
+        self.managed_cs = true;
+        self
+    }
+}
+
+impl From<Mode> for Config {
+    fn from(mode: Mode) -> Self {
+        Self::new(mode)
+    }
 }
 
 /// A filler type for when the SCK pin is unnecessary
@@ -270,27 +341,29 @@ pub struct Spi<SPI, WORD = u8> {
 pub trait SpiExt<SPI, WORD>: Sized {
     type Rec: ResetEnable;
 
-    fn spi<PINS, T>(
+    fn spi<PINS, T, CONFIG>(
         self,
         _pins: PINS,
-        mode: Mode,
+        config: CONFIG,
         freq: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, WORD>
     where
         PINS: Pins<SPI>,
-        T: Into<Hertz>;
+        T: Into<Hertz>,
+        CONFIG: Into<Config>;
 
-    fn spi_unchecked<T>(
+    fn spi_unchecked<T, CONFIG>(
         self,
-        mode: Mode,
+        config: CONFIG,
         freq: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, WORD>
     where
-        T: Into<Hertz>;
+        T: Into<Hertz>,
+        CONFIG: Into<Config>;
 }
 
 macro_rules! spi {
@@ -312,21 +385,24 @@ macro_rules! spi {
             // For each $TY
             $(
                 impl Spi<$SPIX, $TY> {
-                    pub fn $spiX<T>(
+                    pub fn $spiX<T, CONFIG>(
                         spi: $SPIX,
-                        mode: Mode,
+                        config: CONFIG,
                         freq: T,
                         prec: rec::$Rec,
                         clocks: &CoreClocks,
                     ) -> Self
                     where
                         T: Into<Hertz>,
+                        CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
                         prec.enable();
 
                         // Disable SS output
                         spi.cfg2.write(|w| w.ssoe().disabled());
+
+                        let config: Config = config.into();
 
                         let spi_freq = freq.into().0;
 	                    let spi_ker_ck = match Self::kernel_clk(clocks) {
@@ -353,23 +429,46 @@ macro_rules! spi {
                         // ssi: select slave = master mode
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
+                        // Calculate the CS->transaction cycle delay bits.
+                        let cycle_delay: u8 = {
+                            let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+
+                            // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                            // before truncation to an integer to ensure that we have at least as
+                            // many cycles as required.
+                            if config.cs_delay > 0.0_f32 {
+                                delay = delay + 1;
+                            }
+
+                            if delay > 0xF {
+                                delay = 0xF;
+                            }
+
+                            delay as u8
+                        };
+
+                        // The calculated cycle delay may not be more than 4 bits wide for the
+                        // configuration register.
+
                         // mstr: master configuration
                         // lsbfrst: MSB first
-                        // ssm: enable software slave management (NSS pin
-                        // free for other uses)
                         // comm: full-duplex
                         spi.cfg2.write(|w| {
                             w.cpha()
-                                .bit(mode.phase ==
+                                .bit(config.mode.phase ==
                                      Phase::CaptureOnSecondTransition)
                                 .cpol()
-                                .bit(mode.polarity == Polarity::IdleHigh)
+                                .bit(config.mode.polarity == Polarity::IdleHigh)
                                 .master()
                                 .master()
                                 .lsbfrst()
                                 .msbfirst()
                                 .ssm()
-                                .enabled()
+                                .bit(config.managed_cs == false)
+                                .mssi()
+                                .bits(cycle_delay)
+                                .ioswp()
+                                .bit(config.swap_miso_mosi == true)
                                 .comm()
                                 .full_duplex()
                         });
@@ -460,28 +559,30 @@ macro_rules! spi {
                 impl SpiExt<$SPIX, $TY> for $SPIX {
                     type Rec = rec::$Rec;
 
-	                fn spi<PINS, T>(self,
+	                fn spi<PINS, T, CONFIG>(self,
                                     _pins: PINS,
-                                    mode: Mode,
+                                    config: CONFIG,
                                     freq: T,
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> Spi<$SPIX, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
-	                    T: Into<Hertz>
+	                    T: Into<Hertz>,
+                        CONFIG: Into<Config>,
 	                {
-	                    Spi::<$SPIX, $TY>::$spiX(self, mode, freq, prec, clocks)
+	                    Spi::<$SPIX, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
-	                fn spi_unchecked<T>(self,
-                                        mode: Mode,
+	                fn spi_unchecked<T, CONFIG>(self,
+                                        config: CONFIG,
                                         freq: T,
                                         prec: rec::$Rec,
                                         clocks: &CoreClocks) -> Spi<$SPIX, $TY>
 	                where
-	                    T: Into<Hertz>
+	                    T: Into<Hertz>,
+                        CONFIG: Into<Config>,
 	                {
-	                    Spi::<$SPIX, $TY>::$spiX(self, mode, freq, prec, clocks)
+	                    Spi::<$SPIX, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 	            }
 
