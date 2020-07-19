@@ -93,6 +93,8 @@ pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
 #[cfg(feature = "device-selected")]
+pub mod qspi;
+#[cfg(feature = "device-selected")]
 pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod rng;
@@ -110,5 +112,3 @@ pub mod time;
 pub mod timer;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
-#[cfg(feature = "device-selected")]
-pub mod qspi;
