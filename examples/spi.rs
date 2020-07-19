@@ -30,14 +30,14 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc
+    let ccdr = rcc
         .sys_ck(96.mhz())
         .pll1_q_ck(48.mhz())
         .freeze(vos, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.
-    let gpioc = dp.GPIOC.split(&mut ccdr.ahb4);
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
     let sck = gpioc.pc10.into_alternate_af6();
     let miso = gpioc.pc11.into_alternate_af6();
@@ -48,9 +48,13 @@ fn main() -> ! {
     println!(log, "");
 
     // Initialise the SPI peripheral.
-    let mut spi =
-        dp.SPI3
-            .spi((sck, miso, mosi), spi::MODE_0, 3.mhz(), &mut ccdr);
+    let mut spi = dp.SPI3.spi(
+        (sck, miso, mosi),
+        spi::MODE_0,
+        3.mhz(),
+        ccdr.peripheral.SPI3,
+        &ccdr.clocks,
+    );
 
     // Write fixed data
     spi.write(&[0x11u8, 0x22, 0x33]).unwrap();

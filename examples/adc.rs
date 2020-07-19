@@ -7,18 +7,12 @@ extern crate panic_itm;
 use cortex_m;
 use cortex_m_rt::entry;
 
-use stm32h7xx_hal::{
-    adc,
-    pac,
-    delay::Delay,
-    prelude::*,
-};
+use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*};
 
 use cortex_m_log::println;
 use cortex_m_log::{
     destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
 };
-
 
 #[entry]
 fn main() -> ! {
@@ -36,9 +30,12 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     // setting this per_ck to 4 Mhz here (which is gonna choose the CSI that runs at exactly 4 Mhz) as the adc requires per_ck as its
-    // own kernel clock and wouldn't work at all if per_ck wouldnt be enabled or loose a few bits if it was too fast 
+    // own kernel clock and wouldn't work at all if per_ck wouldnt be enabled or loose a few bits if it was too fast
     // (the maximum for this is 36 Mhz)
-    let mut ccdr = rcc.sys_ck(100.mhz()).per_ck(4.mhz()).freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc
+        .sys_ck(100.mhz())
+        .per_ck(4.mhz())
+        .freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - ADC");
@@ -47,11 +44,13 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     // Setup ADC
-    let mut adc3 = adc::Adc::adc3(dp.ADC3, &mut delay, &mut ccdr).enable();
+    let mut adc3 =
+        adc::Adc::adc3(dp.ADC3, &mut delay, ccdr.peripheral.ADC3, &ccdr.clocks)
+            .enable();
     adc3.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup GPIOC
-    let gpioc = dp.GPIOC.split(&mut ccdr.ahb4);
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
     // Configure pc0 as an analog input
     let mut channel = gpioc.pc0.into_analog();
@@ -59,6 +58,11 @@ fn main() -> ! {
     loop {
         let data: u32 = adc3.read(&mut channel).unwrap();
         // voltage = reading * (vref/resolution)
-        println!(log, "ADC reading: {}, voltage for nucleo: {}", data, data as f32 * (3.3/adc3.max_sample() as f32));
+        println!(
+            log,
+            "ADC reading: {}, voltage for nucleo: {}",
+            data,
+            data as f32 * (3.3 / adc3.max_sample() as f32)
+        );
     }
 }

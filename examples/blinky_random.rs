@@ -29,13 +29,13 @@ fn main() -> ! {
     // Constrain and Freeze clock
     println!(log, "Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.mhz()).freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
     println!(log, "stm32h7xx-hal example - Random Blinky");
     println!(log, "");
 
-    let gpioe = dp.GPIOE.split(&mut ccdr.ahb4);
+    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
     // Configure PE1 as output.
     let mut led = gpioe.pe1.into_push_pull_output();
@@ -44,7 +44,7 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     // Get true random number generator
-    let mut rng = dp.RNG.constrain(&mut ccdr);
+    let mut rng = dp.RNG.constrain(ccdr.peripheral.RNG, &ccdr.clocks);
     let mut random_bytes = [0u16; 3];
     match rng.fill(&mut random_bytes) {
         Ok(()) => println!(log, "random bytes: {:?}", random_bytes),

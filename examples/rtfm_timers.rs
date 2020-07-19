@@ -36,26 +36,40 @@ const APP: () = {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let mut ccdr = rcc
+        let ccdr = rcc
             .use_hse(25.mhz())
             .sys_ck(400.mhz())
             .freeze(vos, &ctx.device.SYSCFG);
 
         // Timers
-        let mut timer1 = ctx.device.TIM1.timer(125.ms(), &mut ccdr);
+        let mut timer1 =
+            ctx.device
+                .TIM1
+                .timer(125.ms(), ccdr.peripheral.TIM1, &ccdr.clocks);
         timer1.listen(Event::TimeOut);
 
-        let mut timer2 = ctx.device.TIM2.timer(250.ms(), &mut ccdr);
+        let mut timer2 =
+            ctx.device
+                .TIM2
+                .timer(250.ms(), ccdr.peripheral.TIM2, &ccdr.clocks);
         timer2.listen(Event::TimeOut);
 
-        let mut timer3 = ctx.device.TIM12.timer(500.ms(), &mut ccdr);
+        let mut timer3 = ctx.device.TIM12.timer(
+            500.ms(),
+            ccdr.peripheral.TIM12,
+            &ccdr.clocks,
+        );
         timer3.listen(Event::TimeOut);
 
-        let mut timer4 = ctx.device.TIM17.timer(1000.ms(), &mut ccdr);
+        let mut timer4 = ctx.device.TIM17.timer(
+            1000.ms(),
+            ccdr.peripheral.TIM17,
+            &ccdr.clocks,
+        );
         timer4.listen(Event::TimeOut);
 
         // GPIO
-        let gpioi = ctx.device.GPIOI.split(&mut ccdr.ahb4);
+        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
 
         init::LateResources {
             timer1,

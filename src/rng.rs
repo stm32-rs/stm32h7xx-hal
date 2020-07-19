@@ -2,8 +2,8 @@ use core::cmp;
 use core::mem;
 
 use crate::hal::blocking::rng;
-use crate::rcc::Ccdr;
-use crate::stm32::rcc::d2ccip2r;
+use crate::rcc::{rec, rec::RngClkSel};
+use crate::rcc::{CoreClocks, ResetEnable};
 use crate::stm32::RNG;
 use crate::time::Hertz;
 
@@ -14,33 +14,31 @@ pub enum ErrorKind {
 }
 
 trait KerClk {
-    fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz>;
+    fn kernel_clk(prec: rec::Rng, clocks: &CoreClocks) -> Option<Hertz>;
 }
 
 impl KerClk for RNG {
-    fn kernel_clk(ccdr: &Ccdr) -> Option<Hertz> {
-        match ccdr.rb.d2ccip2r.read().rngsel().variant() {
-            d2ccip2r::RNGSEL_A::HSI48 => ccdr.clocks.hsi48_ck(),
-            d2ccip2r::RNGSEL_A::PLL1_Q => ccdr.clocks.pll1_q_ck(),
-            d2ccip2r::RNGSEL_A::LSE => unimplemented!(),
-            d2ccip2r::RNGSEL_A::LSI => unimplemented!(),
+    fn kernel_clk(prec: rec::Rng, clocks: &CoreClocks) -> Option<Hertz> {
+        match prec.get_kernel_clk_mux() {
+            RngClkSel::HSI48 => clocks.hsi48_ck(),
+            RngClkSel::PLL1_Q => clocks.pll1_q_ck(),
+            RngClkSel::LSE => unimplemented!(),
+            RngClkSel::LSI => unimplemented!(),
         }
     }
 }
 
 pub trait RngExt {
-    fn constrain(self, ccdr: &mut Ccdr) -> Rng;
+    fn constrain(self, prec: rec::Rng, clocks: &CoreClocks) -> Rng;
 }
 
 impl RngExt for RNG {
-    fn constrain(self, ccdr: &mut Ccdr) -> Rng {
-        ccdr.ahb2.enr().modify(|_, w| w.rngen().set_bit());
-        ccdr.ahb2.rstr().modify(|_, w| w.rngrst().set_bit());
-        ccdr.ahb2.rstr().modify(|_, w| w.rngrst().clear_bit());
+    fn constrain(self, prec: rec::Rng, clocks: &CoreClocks) -> Rng {
+        let prec = prec.enable().reset();
 
-        let hclk = ccdr.clocks.hclk();
-        let rng_clk =
-            Self::kernel_clk(&ccdr).expect("RNG input clock not running!");
+        let hclk = clocks.hclk();
+        let rng_clk = Self::kernel_clk(prec, clocks)
+            .expect("RNG input clock not running!");
 
         // Otherwise clock checker will always flag an error
         // See RM0433 Rev 6 Section 33.3.6
