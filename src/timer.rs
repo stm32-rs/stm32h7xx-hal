@@ -135,9 +135,6 @@ pub struct Timer<TIM> {
 pub enum Event {
     /// Timer timed out / count down ended
     TimeOut,
-
-    /// Timer requests a DMA transaction when timed out.
-    DmaRequest,
 }
 
 macro_rules! hal {
@@ -164,8 +161,6 @@ macro_rules! hal {
 
                     // Set PSC and ARR
                     self.set_freq(timeout);
-
-                    self.tim.egr.write(|w| w.ug().set_bit());
 
                     // Start counter
                     self.resume()
@@ -265,10 +260,7 @@ macro_rules! hal {
                     match event {
                         Event::TimeOut => {
                             // Enable update event interrupt
-                            self.tim.dier.modify(|_, w| w.uie().set_bit());
-                        },
-                        Event::DmaRequest => {
-                            self.tim.dier.modify(|_, w| w.ude().set_bit());
+                            self.tim.dier.write(|w| w.uie().set_bit());
                         }
                     }
                 }
@@ -278,10 +270,7 @@ macro_rules! hal {
                     match event {
                         Event::TimeOut => {
                             // Enable update event interrupt
-                            self.tim.dier.modify(|_, w| w.uie().clear_bit());
-                        },
-                        Event::DmaRequest => {
-                            self.tim.dier.modify(|_, w| w.ude().clear_bit());
+                            self.tim.dier.write(|w| w.uie().clear_bit());
                         }
                     }
                 }
