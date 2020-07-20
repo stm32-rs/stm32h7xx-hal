@@ -326,8 +326,9 @@ pub fn adc12(
     prec: rec::Adc12,
     clocks: &CoreClocks,
 ) -> (Adc<ADC1, Disabled>, Adc<ADC2, Disabled>) {
-    let mut a1 = Adc::<ADC1, Disabled>::default_from_rb(adc1);
-    let mut a2 = Adc::<ADC2, Disabled>::default_from_rb(adc2);
+    // Consume ADC register block, produce ADC1/2 with default settings
+    let mut adc1 = Adc::<ADC1, Disabled>::default_from_rb(adc1);
+    let mut adc2 = Adc::<ADC2, Disabled>::default_from_rb(adc2);
 
     // Check adc_ker_ck_input
     check_clock(&prec, clocks);
@@ -336,21 +337,21 @@ pub fn adc12(
     let prec = prec.enable();
 
     // Power Down
-    a1.power_down();
-    a2.power_down();
+    adc1.power_down();
+    adc2.power_down();
 
     // Reset peripheral
     prec.reset();
 
     // Power Up, Preconfigure and Calibrate
-    a1.power_up(delay);
-    a2.power_up(delay);
-    a1.preconfigure();
-    a2.preconfigure();
-    a1.calibrate();
-    a2.calibrate();
+    adc1.power_up(delay);
+    adc2.power_up(delay);
+    adc1.preconfigure();
+    adc2.preconfigure();
+    adc1.calibrate();
+    adc2.calibrate();
 
-    (a1, a2)
+    (adc1, adc2)
 }
 
 /// Freeing both the periperhal and PREC is possible for ADC3
@@ -395,7 +396,9 @@ macro_rules! adc_hal {
                 pub fn $adcX(adc: $ADC, delay: &mut Delay,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
-                    let mut a = Self::default_from_rb(adc);
+                    // Consume ADC register block, produce Self with default
+                    // settings
+                    let mut adc = Self::default_from_rb(adc);
 
                     // Check adc_ker_ck_input
                     check_clock(&prec, clocks);
@@ -404,17 +407,17 @@ macro_rules! adc_hal {
                     let prec = prec.enable();
 
                     // Power Down
-                    a.power_down();
+                    adc.power_down();
 
                     // Reset peripheral
                     prec.reset();
 
                     // Power Up, Preconfigure and Calibrate
-                    a.power_up(delay);
-                    a.preconfigure();
-                    a.calibrate();
+                    adc.power_up(delay);
+                    adc.preconfigure();
+                    adc.calibrate();
 
-                    a
+                    adc
                 }
                 /// Creates ADC with default settings
                 fn default_from_rb(rb: $ADC) -> Self {
