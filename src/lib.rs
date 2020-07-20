@@ -129,7 +129,7 @@ pub mod pwm;
 pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
-#[cfg(all(feature = "device-selected", feaure = "quadspi"))]
+#[cfg(all(feature = "device-selected", feature = "quadspi"))]
 pub mod qspi;
 #[cfg(feature = "device-selected")]
 pub mod rcc;
