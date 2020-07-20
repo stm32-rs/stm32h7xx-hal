@@ -41,18 +41,9 @@ fn main() -> ! {
     println!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
     assert_eq!(ccdr.clocks.sys_ck().0, 400_000_000);
 
-    println!(
-        "pll3_p_ck = {} MHz",
-        ccdr.clocks.pll3_p_ck().unwrap().0
-    );
-    println!(
-        "pll3_q_ck = {} MHz",
-        ccdr.clocks.pll3_q_ck().unwrap().0
-    );
-    println!(
-        "pll3_r_ck = {} MHz",
-        ccdr.clocks.pll3_r_ck().unwrap().0
-    );
+    println!("pll3_p_ck = {} MHz", ccdr.clocks.pll3_p_ck().unwrap().0);
+    println!("pll3_q_ck = {} MHz", ccdr.clocks.pll3_q_ck().unwrap().0);
+    println!("pll3_r_ck = {} MHz", ccdr.clocks.pll3_r_ck().unwrap().0);
     // assert_eq!(ccdr.clocks.sys_ck().0, 100_000_000);
 
     loop {}
