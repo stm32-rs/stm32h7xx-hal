@@ -50,6 +50,8 @@
 //! your board.
 
 use crate::stm32::PWR;
+#[cfg(feature = "revision_v")]
+use crate::stm32::{RCC, SYSCFG};
 
 /// Extension trait that constrains the `PWR` peripheral
 pub trait PwrExt {
@@ -62,6 +64,8 @@ impl PwrExt for PWR {
             rb: self,
             #[cfg(any(feature = "dualcore"))]
             supply_configuration: SupplyConfiguration::Default,
+            #[cfg(feature = "revision_v")]
+            enable_vos0: false,
         }
     }
 }
@@ -73,6 +77,8 @@ pub struct Pwr {
     pub(crate) rb: PWR,
     #[cfg(any(feature = "dualcore"))]
     supply_configuration: SupplyConfiguration,
+    #[cfg(feature = "revision_v")]
+    enable_vos0: bool,
 }
 
 /// Voltage Scale
@@ -80,6 +86,7 @@ pub struct Pwr {
 /// Generated when the PWR peripheral is frozen. The existence of this
 /// value indicates that the voltage scaling configuration can no
 /// longer be changed.
+#[derive(PartialEq)]
 pub enum VoltageScale {
     Scale0,
     Scale1,
@@ -179,6 +186,12 @@ impl Pwr {
         }
     }
 
+    #[cfg(feature = "revision_v")]
+    pub fn vos0(mut self, _: &SYSCFG) -> Self {
+        self.enable_vos0 = true;
+        self
+    }
+
     pub fn freeze(self) -> VoltageScale {
         // NB. The lower bytes of CR3 can only be written once after
         // POR, and must be written with a valid combination. Refer to
@@ -233,6 +246,25 @@ impl Pwr {
         // go to VOS1 voltage scale for high performance
         self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
         while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+
+        // Enable overdrive for maximum clock
+        // Syscfgen required to set enable overdrive
+        #[cfg(feature = "revision_v")]
+        if self.enable_vos0 {
+            unsafe {
+                &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
+            };
+            #[cfg(any(feature = "dualcore"))]
+            unsafe {
+                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit())
+            };
+            #[cfg(not(any(feature = "dualcore")))]
+            unsafe {
+                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
+            };
+            while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+            return VoltageScale::Scale0;
+        }
 
         VoltageScale::Scale1
     }

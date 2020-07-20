@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -22,22 +22,22 @@ features = ["stm32h743", "rt"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-embedded-hal = "0.2.3"
-cortex-m = "^0.6.0"
-cortex-m-rt = "0.6.10"
+embedded-hal = "0.2.4"
+cortex-m = "^0.6.2"
+cortex-m-rt = "^0.6.12"
 stm32h7 = "0.11.0"
 void = { version = "1.0.2", default-features = false }
-cast = { version = "0.2.2", default-features = false }
+cast = { version = "0.2.3", default-features = false }
 nb = "0.1.2"
-paste = "0.1.10"
+paste = "0.1.18"
 
 [dependencies.bare-metal]
-version = "0.2.4"
+version = "0.2.5"
 features = ["const-fn"]
 
 [dev-dependencies]
 panic-itm = "~0.4.1"
-cortex-m-rtfm = "0.5.1"
+cortex-m-rtic = "0.5.3"
 cortex-m-log = { version = "~0.6", features = ["itm"] }
 
 [features]
@@ -74,9 +74,13 @@ lto = true # better optimizations
 opt-level = "s" # optimize for binary size
 
 [[example]]
-name = "rtfm"
+name = "rtic"
 required-features = ["rt"]
 
 [[example]]
-name = "rtfm_timers"
+name = "rtic_timers"
 required-features = ["rt"]
+
+[[example]]
+name = "vos0"
+required-features = ["revision_v"]

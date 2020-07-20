@@ -4,11 +4,11 @@
 #![no_main]
 
 extern crate panic_itm;
-extern crate rtfm;
+extern crate rtic;
 
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 
-use rtfm::app;
+use rtic::app;
 use stm32h7xx_hal::gpio::{gpioc::PC13, gpioi::PI13};
 use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
 use stm32h7xx_hal::gpio::{Output, PushPull};
