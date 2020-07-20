@@ -85,3 +85,7 @@ required-features = ["rt"]
 [[example]]
 name = "vos0"
 required-features = ["revision_v"]
+
+[[example]]
+name = "qspi"
+required-features = ["quadspi"]
