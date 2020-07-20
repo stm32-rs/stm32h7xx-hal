@@ -39,6 +39,7 @@ features = ["const-fn"]
 panic-itm = "~0.4.1"
 cortex-m-rtic = "0.5.3"
 cortex-m-log = { version = "~0.6", features = ["itm"] }
+rtt-target = { version = "0.2.0", features = ["cortex-m"] }
 
 [features]
 default = ["unproven"]
