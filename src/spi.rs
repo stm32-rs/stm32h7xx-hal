@@ -394,12 +394,15 @@ macro_rules! spi {
                     ) -> Self
                     where
                         T: Into<Hertz>,
+                        CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
                         prec.enable();
 
                         // Disable SS output
                         spi.cfg2.write(|w| w.ssoe().disabled());
+
+                        let config: Config = config.into();
 
                         let spi_freq = freq.into().0;
 	                    let spi_ker_ck = match Self::kernel_clk(clocks) {
@@ -426,10 +429,29 @@ macro_rules! spi {
                         // ssi: select slave = master mode
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
+                        // Calculate the CS->transaction cycle delay bits.
+                        let cycle_delay: u8 = {
+                            let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+
+                            // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                            // before truncation to an integer to ensure that we have at least as
+                            // many cycles as required.
+                            if config.cs_delay > 0.0_f32 {
+                                delay = delay + 1;
+                            }
+
+                            if delay > 0xF {
+                                delay = 0xF;
+                            }
+
+                            delay as u8
+                        };
+
+                        // The calculated cycle delay may not be more than 4 bits wide for the
+                        // configuration register.
+
                         // mstr: master configuration
                         // lsbfrst: MSB first
-                        // ssm: enable software slave management (NSS pin
-                        // free for other uses)
                         // comm: full-duplex
                         spi.cfg2.write(|w| {
                             w.cpha()
@@ -545,7 +567,8 @@ macro_rules! spi {
                                     clocks: &CoreClocks) -> Spi<$SPIX, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
-	                    T: Into<Hertz>
+	                    T: Into<Hertz>,
+                        CONFIG: Into<Config>,
 	                {
 	                    Spi::<$SPIX, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
