@@ -1,0 +1,23 @@
+on:
+  push:
+    branches: [ staging, trying, master ]
+  pull_request:
+
+name: Clippy
+
+jobs:
+  clippy_check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          toolchain: stable
+          target: thumbv7em-none-eabihf
+          override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --examples --target thumbv7em-none-eabihf --features=rt,stm32h743v
