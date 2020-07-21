@@ -1,0 +1,27 @@
+on:
+  push:
+    branches: [ master ]        # Do not run on staging / trying
+  pull_request:
+
+name: Nightly rust
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: thumbv7em-none-eabihf
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,stm32h743v
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,stm32h743v

@@ -4,7 +4,6 @@
 
 extern crate panic_itm;
 
-use cortex_m;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::{
