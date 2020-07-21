@@ -8,6 +8,7 @@ name: Continuous integration
 jobs:
   ci:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:                   # All permutations of {rust, mcu}
         rust:
@@ -19,6 +20,7 @@ jobs:
           - stm32h743v
           - stm32h753v
           - stm32h747cm7
+        experimental: [false]
         include:                # One additional job, as follows:
           - rust: nightly
             mcu: stm32h743v
