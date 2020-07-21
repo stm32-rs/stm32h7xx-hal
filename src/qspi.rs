@@ -338,7 +338,7 @@ impl Qspi {
         let spi_frequency = frequency.into().0;
         let divisor = match (spi_kernel_ck + spi_frequency - 1) / spi_frequency
         {
-            divisor @ 1..=255 => divisor,
+            divisor @ 1..=256 => divisor - 1,
             _ => panic!("Invalid QSPI frequency requested"),
         };
 
