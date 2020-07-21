@@ -14,7 +14,7 @@ use cortex_m::asm::delay as delay_cycles;
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::sai::{
-    I2SBitRate, I2SChanConfig, I2SClockStrobe, I2SDir, I2SOverSampling,
+    I2SChanConfig, I2SClockStrobe, I2SDataSize, I2SDir, I2SOverSampling,
     I2SSync, Sai, SaiI2sExt, I2S,
 };
 use stm32h7xx_hal::stm32;
@@ -74,7 +74,7 @@ const APP: () = {
         let mut audio = ctx.device.SAI1.i2s_ch_a(
             sai1_pins,
             AUDIO_SAMPLE_HZ,
-            I2SBitRate::BITS_24,
+            I2SDataSize::BITS_24,
             sai1_rec,
             &ccdr.clocks,
             I2SOverSampling::Disabled,
@@ -97,7 +97,7 @@ const APP: () = {
         // Jump start audio transmission
         audio.try_send(0, 0).unwrap();
 
-        init::LateResources { audio: audio }
+        init::LateResources { audio }
     }
 
     #[task( binds = SAI1, resources =  [audio] )]

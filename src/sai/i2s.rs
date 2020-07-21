@@ -2,7 +2,6 @@
 //!
 //! Inter-IC Sound.
 //!
-#[allow(dead_code)]
 use core::convert::TryInto;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
@@ -38,14 +37,14 @@ pub enum I2SMode {
     Slave = 0b10,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum I2SDir {
     Tx = 0b00,
     Rx = 0b01,
 }
 
 #[derive(Copy, Clone)]
-pub enum I2SBitRate {
+pub enum I2SDataSize {
     BITS_8 = 0b001,
     BITS_10 = 0b010,
     BITS_16 = 0b100,
@@ -75,7 +74,7 @@ pub enum I2SSync {
 
 #[derive(Copy, Clone, Debug)]
 pub enum I2SError {
-    WouldBlock,
+    NoChannelAvailable,
 }
 
 #[derive(Copy, Clone)]
@@ -162,7 +161,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         self,
         _pins: PINS,
         audio_freq: T,
-        bit_rate: I2SBitRate,
+        bit_rate: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         over_sampling: I2SOverSampling,
@@ -176,7 +175,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         self,
         _pins: PINS,
         audio_freq: T,
-        bit_rate: I2SBitRate,
+        bit_rate: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         over_sampling: I2SOverSampling,
@@ -188,9 +187,6 @@ pub trait SaiI2sExt<SAI>: Sized {
         T: Into<Hertz>;
 }
 
-//     fn disable() {}
-// }
-
 macro_rules! i2s {
     ( $($SAIX:ident, $Rec:ident: [$i2s_saiX_ch_a:ident, $i2s_saiX_ch_b:ident]),+ ) => {
         $(
@@ -200,7 +196,7 @@ macro_rules! i2s {
                     self,
                     _pins: PINS,
                     audio_freq: T,
-                    bit_rate: I2SBitRate,
+                    bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     over_sampling: I2SOverSampling,
@@ -227,7 +223,7 @@ macro_rules! i2s {
                     self,
                     _pins: PINS,
                     audio_freq: T,
-                    bit_rate: I2SBitRate,
+                    bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     over_sampling: I2SOverSampling,
@@ -257,7 +253,7 @@ macro_rules! i2s {
                     sai: $SAIX,
                     _pins: PINS,
                     audio_freq: Hertz,
-                    bit_rate: I2SBitRate,
+                    bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     over_sampling: I2SOverSampling,
@@ -320,7 +316,7 @@ macro_rules! i2s {
                     sai: $SAIX,
                     _pins: PINS,
                     audio_freq: Hertz,
-                    bit_rate: I2SBitRate,
+                    bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     over_sampling: I2SOverSampling,
@@ -381,38 +377,50 @@ macro_rules! i2s {
 
                 pub fn enable(&mut self) {
                     // Enable slave first "recommended" per ref doc
-                    if let Some(slave_channel) = &self.slave_channel {
-                        match slave_channel {
-                            SaiChannel::ChannelA => enable_ch(&self.rb.cha),
-                            SaiChannel::ChannelB => enable_ch(&self.rb.chb),
-                        };
-                    };
-                    match self.master_channel {
-                        SaiChannel::ChannelA => enable_ch(&self.rb.cha),
-                        SaiChannel::ChannelB => enable_ch(&self.rb.chb),
-                    };
+                    self.slave_channel(enable_ch);
+                    self.master_channel(enable_ch);
                 }
 
                 pub fn disable(&mut self) {
                     // Master must be disabled first
-                    match self.master_channel {
-                        SaiChannel::ChannelA => {
-                            self.rb.cha.cr1.modify(|_, w| w.saien().disabled());
-                        }
-                        SaiChannel::ChannelB => {
-                            self.rb.chb.cr1.modify(|_, w| w.saien().disabled());
+                    self.master_channel(|ch| ch.cr1.modify(|_, w| w.saien().disabled()));
+                    self.slave_channel( |ch| ch.cr1.modify(|_, w| w.saien().disabled()));
+                }
+            }
+
+            impl FullDuplex<u32> for Sai<$SAIX, I2S> {
+                type Error = I2SError;
+
+                fn try_read(&mut self) -> nb::Result<(u32, u32), Self::Error> {
+                    if self.interface.master.dir == I2SDir::Rx {
+                        return self.master_channel(read);
+                    } else if let Some(slave) = &self.interface.slave {
+                        if slave.dir == I2SDir::Rx {
+                            return self.slave_channel(read).unwrap();
                         }
                     }
-                    if let Some(slave_channel) = &self.slave_channel {
-                        match slave_channel {
-                            SaiChannel::ChannelA => {
-                                self.rb.cha.cr1.modify(|_, w| w.saien().disabled());
-                            }
-                            SaiChannel::ChannelB => {
-                                self.rb.chb.cr1.modify(|_, w| w.saien().disabled());
-                            }
+                    Err(nb::Error::Other(I2SError::NoChannelAvailable))
+                }
+
+                fn try_send(
+                    &mut self,
+                    left_word: u32,
+                    right_word: u32,
+                ) -> nb::Result<(), Self::Error> {
+                    if self.interface.master.dir == I2SDir::Tx {
+                        return self.master_channel(|audio_ch| {
+                            send(left_word, right_word, audio_ch)
+                        });
+                    } else if let Some(slave) = &self.interface.slave {
+                        if slave.dir == I2SDir::Tx {
+                            return self
+                                .slave_channel(|audio_ch| {
+                                    send(left_word, right_word, audio_ch)
+                                })
+                                .unwrap();
                         }
-                    };
+                    }
+                    Err(nb::Error::Other(I2SError::NoChannelAvailable))
                 }
             }
         )+
@@ -426,42 +434,12 @@ i2s! {
     SAI4, Sai4: [i2s_sai4_ch_a, i2s_sai4_ch_b]
 }
 
-impl<I2S> FullDuplex<u32> for Sai<SAI1, I2S> {
-    type Error = I2SError;
-
-    fn try_read(&mut self) -> nb::Result<(u32, u32), Self::Error> {
-        let chan = &self.rb.chb;
-        match chan.sr.read().flvl().variant() {
-            Val(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
-            _ => Ok((chan.dr.read().bits(), chan.dr.read().bits())),
-        }
-    }
-
-    fn try_send(
-        &mut self,
-        left_word: u32,
-        right_word: u32,
-    ) -> nb::Result<(), Self::Error> {
-        let chan = &self.rb.cha;
-        match chan.sr.read().flvl().variant() {
-            Val(sr::FLVL_A::FULL) => Err(nb::Error::WouldBlock),
-            Val(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
-            _ => {
-                unsafe {
-                    chan.dr.write(|w| w.bits(left_word).bits(right_word));
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
 fn i2s_config_channel(
     audio_ch: &stm32::sai4::CH,
     mode: I2SMode,
     config: &I2SChanConfig,
     mclk_div: u8,
-    bit_rate: I2SBitRate,
+    bit_rate: I2SDataSize,
 ) {
     let clock_strobe = match config.clock_strobe {
         I2SClockStrobe::Rising => false,
@@ -472,12 +450,12 @@ fn i2s_config_channel(
     let slot_en_bits: u16 = (2_u32.pow(config.slots.into()) - 1) as u16;
 
     let (frame_length, slot_size) = match bit_rate {
-        I2SBitRate::BITS_8 => (16 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SBitRate::BITS_10 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SBitRate::BITS_16 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SBitRate::BITS_20 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
-        I2SBitRate::BITS_24 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
-        I2SBitRate::BITS_32 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
+        I2SDataSize::BITS_8 => (16 * (config.slots / 2), I2SSlotSize::BITS_16),
+        I2SDataSize::BITS_10 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
+        I2SDataSize::BITS_16 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
+        I2SDataSize::BITS_20 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
+        I2SDataSize::BITS_24 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
+        I2SDataSize::BITS_32 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
     };
 
     let mode_bits = (mode as u8) | (config.dir as u8);
@@ -576,6 +554,32 @@ fn enable_ch(audio_ch: &stm32::sai4::CH) {
     });
     audio_ch.cr2.modify(|_, w| w.fflush().flush());
     audio_ch.cr1.modify(|_, w| w.saien().enabled());
+}
+
+fn read(audio_ch: &stm32::sai4::CH) -> nb::Result<(u32, u32), I2SError> {
+    match audio_ch.sr.read().flvl().variant() {
+        Val(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
+        _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
+    }
+}
+
+fn send(
+    left_word: u32,
+    right_word: u32,
+    audio_ch: &stm32::sai4::CH,
+) -> nb::Result<(), I2SError> {
+    // The FIFO is 8 words long. A write consists of 2 words, in stereo mode.
+    // Therefore you need to wait for 3/4s to ensure 2 words are available for writing.
+    match audio_ch.sr.read().flvl().variant() {
+        Val(sr::FLVL_A::FULL) => Err(nb::Error::WouldBlock),
+        Val(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
+        _ => {
+            unsafe {
+                audio_ch.dr.write(|w| w.bits(left_word).bits(right_word));
+            }
+            Ok(())
+        }
+    }
 }
 
 // Pin definitions

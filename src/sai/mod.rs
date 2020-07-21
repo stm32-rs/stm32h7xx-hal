@@ -16,7 +16,7 @@ pub use pdm::SaiPdmExt;
 mod i2s;
 pub use embedded_hal::i2s::FullDuplex;
 pub use i2s::{
-    I2SBitRate, I2SChanConfig, I2SClockStrobe, I2SDir, I2SMode,
+    I2SChanConfig, I2SClockStrobe, I2SDataSize, I2SDir, I2SMode,
     I2SOverSampling, I2SProtocol, I2SSync, SaiI2sExt, I2S,
 };
 
