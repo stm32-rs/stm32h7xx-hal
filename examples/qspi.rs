@@ -40,9 +40,9 @@ fn main() -> ! {
 
     // Initialise the QSPI peripheral.
     let mut qspi = dp.QUADSPI.bank1(
-        &ccdr.clocks,
         (sck, io0, io1, io2, io3),
         3.mhz(),
+        &ccdr.clocks,
         ccdr.peripheral.QSPI,
     );
 
@@ -50,5 +50,8 @@ fn main() -> ! {
 
     loop {
         qspi.write(0x00, &[0xAA, 0x00, 0xFF]).unwrap();
+
+        let mut read: [u8; 3] = [0; 3];
+        qspi.read(0xFF, &mut read).unwrap();
     }
 }

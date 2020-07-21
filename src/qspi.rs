@@ -17,7 +17,7 @@
 //! let dp = ...;
 //! let (sck, io0, io1, io2, io3) = ...;
 //!
-//! let mut qspi = dp.QUADSPI.bank1(&ccdr.clocks, (sck, io0, io1, io2, io3), 3.mhz(),
+//! let mut qspi = dp.QUADSPI.bank1((sck, io0, io1, io2, io3), 3.mhz(), &ccdr.clocks,
 //!                                 ccdr.peripheral.QSPI);
 //!
 //! // Configure QSPI to operate in 4-bit mode.
@@ -217,9 +217,9 @@ pins! {
 pub trait QspiExt {
     fn bank1<T, PINS>(
         self,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
@@ -228,9 +228,9 @@ pub trait QspiExt {
 
     fn bank2<T, PINS>(
         self,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
@@ -239,9 +239,9 @@ pub trait QspiExt {
 
     fn qspi_unchecked<T>(
         self,
-        clocks: &CoreClocks,
         frequency: T,
         bank: Bank,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
@@ -255,38 +255,38 @@ pub struct Qspi {
 impl Qspi {
     pub fn bank1<T, PINS>(
         regs: stm32::QUADSPI,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Self
     where
         T: Into<Hertz>,
         PINS: PinsBank1,
     {
-        Self::qspi_unchecked(regs, clocks, frequency, prec, Bank::One)
+        Self::qspi_unchecked(regs, frequency, Bank::One, clocks, prec)
     }
 
     pub fn bank2<T, PINS>(
         regs: stm32::QUADSPI,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Self
     where
         T: Into<Hertz>,
         PINS: PinsBank2,
     {
-        Self::qspi_unchecked(regs, clocks, frequency, prec, Bank::Two)
+        Self::qspi_unchecked(regs, frequency, Bank::Two, clocks, prec)
     }
 
     pub fn qspi_unchecked<T>(
         regs: stm32::QUADSPI,
-        clocks: &CoreClocks,
         frequency: T,
-        prec: rec::Qspi,
         bank: Bank,
+        clocks: &CoreClocks,
+        prec: rec::Qspi,
     ) -> Self
     where
         T: Into<Hertz>,
@@ -468,17 +468,13 @@ impl Qspi {
             .dlr
             .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
 
-        // Configure the mode to indirect read and configure the instruction byte.
-        self.rb.ccr.modify(|_, w| unsafe {
-            w.fmode().bits(0b01).instruction().bits(addr)
-        });
+        // Configure the mode to indirect read.
+        self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b01) });
 
-        // Write the instruction bits to force the read to start. This has to be done after the
-        // transaction is enabled to indicate to the peripheral that we are ready to start the
-        // transaction, even though these bits should already be set.
+        // Write the address to force the read to start.
         self.rb
-            .ccr
-            .modify(|_, w| unsafe { w.instruction().bits(addr) });
+            .ar
+            .write(|w| unsafe { w.address().bits(addr as u32) });
 
         // Wait for the transaction to complete
         while self.rb.sr.read().tcf().bit_is_clear() {}
@@ -511,42 +507,42 @@ impl Qspi {
 impl QspiExt for stm32::QUADSPI {
     fn bank1<T, PINS>(
         self,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
         T: Into<Hertz>,
         PINS: PinsBank1,
     {
-        Qspi::qspi_unchecked(self, clocks, frequency, prec, Bank::One)
+        Qspi::qspi_unchecked(self, frequency, Bank::One, clocks, prec)
     }
 
     fn bank2<T, PINS>(
         self,
-        clocks: &CoreClocks,
         _pins: PINS,
         frequency: T,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
         T: Into<Hertz>,
         PINS: PinsBank2,
     {
-        Qspi::qspi_unchecked(self, clocks, frequency, prec, Bank::Two)
+        Qspi::qspi_unchecked(self, frequency, Bank::Two, clocks, prec)
     }
 
     fn qspi_unchecked<T>(
         self,
-        clocks: &CoreClocks,
         frequency: T,
         bank: Bank,
+        clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
         T: Into<Hertz>,
     {
-        Qspi::qspi_unchecked(self, clocks, frequency, prec, bank)
+        Qspi::qspi_unchecked(self, frequency, bank, clocks, prec)
     }
 }
