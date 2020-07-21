@@ -8,7 +8,7 @@ const FRACN_DIVISOR: f32 = 8192.0; // 2 ** 13
 const FRACN_MAX: f32 = FRACN_DIVISOR - 1.0;
 
 /// Strategies for configuring a Phase Locked Loop (PLL)
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PllConfigStrategy {
     /// VCOL, highest PFD frequency, highest VCO frequency
     Normal,
@@ -264,13 +264,14 @@ macro_rules! pll_setup {
 
                     // Calulate additional output dividers
                     let pll_x_q = match pll.q_ck {
-                        Some(ck) => (vco_ck + ck - 1) / ck,
+                        Some(ck) => calc_ck_div(pll.strategy, ref_x_ck, pll_x_n, pll_x_fracn, ck),
                         None => 0
                     };
                     let pll_x_r = match pll.r_ck {
-                        Some(ck) => (vco_ck + ck - 1) / ck,
+                        Some(ck) => calc_ck_div(pll.strategy, ref_x_ck, pll_x_n, pll_x_fracn, ck),
                         None => 0
                     };
+
                     let dividers = (pll_x_p, pll_x_q, pll_x_r);
 
                     // Setup and return output clocks
@@ -285,10 +286,7 @@ macro_rules! pll_setup {
                                     });
 
                                 rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
-                                Some(Hertz((
-                                    ref_x_ck as f32 *
-                                    (pll_x_n as f32 + (pll_x_fracn as f32/FRACN_DIVISOR))
-                                    / dividers.$DD as f32) as u32 ))
+                                Some(Hertz(calc_ck(ref_x_ck, pll_x_n, pll_x_fracn, dividers.$DD)))
                             },
                             None => {
                                 rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
@@ -305,6 +303,38 @@ macro_rules! pll_setup {
             }
         }
     };
+}
+
+fn calc_fracn(ref_clk: f32, pll_x_n: f32, pll_x_p: f32, output: f32) -> u16 {
+    // VCO output frequency = Fref1_ck x (DIVN1 + (FRACN1 / 2^13)),
+    let pll_x_fracn =
+        FRACN_DIVISOR * (((output * pll_x_p) / ref_clk) - pll_x_n);
+    assert!(pll_x_fracn >= 0.0);
+    assert!(pll_x_fracn <= FRACN_MAX);
+    // Rounding down by casting gives up the lowest without going over
+    pll_x_fracn as u16
+}
+
+fn calc_ck_div(
+    strategy: PllConfigStrategy,
+    ref_x_ck: u32,
+    pll_x_n: u32,
+    pll_x_fracn: u16,
+    target_ck: u32,
+) -> u32 {
+    let mut div = (ref_x_ck + target_ck - 1) / target_ck;
+    // If the divider takes us under the target clock increase it
+    if strategy == PllConfigStrategy::FractionalNotLess {
+        if target_ck < calc_ck(ref_x_ck, pll_x_n, pll_x_fracn, div) {
+            div -= 1;
+        }
+    }
+    div
+}
+
+fn calc_ck(ref_x_ck: u32, pll_x_n: u32, pll_x_fracn: u16, div: u32) -> u32 {
+    (ref_x_ck as f32 * (pll_x_n as f32 + (pll_x_fracn as f32 / FRACN_DIVISOR))
+        / div as f32) as u32
 }
 
 impl Rcc {
@@ -333,18 +363,12 @@ impl Rcc {
     }
 }
 
-fn calc_fracn(ref_clk: f32, pll_x_n: f32, pll_x_p: f32, output: f32) -> u16 {
-    // VCO output frequency = Fref1_ck x (DIVN1 + (FRACN1 / 2^13)),
-    let pll_x_fracn =
-        FRACN_DIVISOR * (((output * pll_x_p) / ref_clk) - pll_x_n);
-    assert!(pll_x_fracn >= 0.0);
-    assert!(pll_x_fracn <= FRACN_MAX);
-    // Rounding down by casting gives up the lowest without going over
-    pll_x_fracn as u16
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::rcc::pll::{
+        calc_ck, calc_ck_div, calc_fracn, PllConfigStrategy,
+    };
+
     macro_rules! dummy_method {
         ($($name:ident),+) => (
             $(
@@ -390,11 +414,13 @@ mod tests {
         let rcc = MockRcc::new();
 
         let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
-        let output = 240_000_000; // PLL output frequency (P_CK)
+        let pll_p_target = 240_000_000; // PLL output frequency (P_CK)
+        let pll_q_target = 120_000_000; // PLL output frequency (Q_CK)
+        let pll_r_target = 30_000_000; // PLL output frequency (R_CK)
         println!(
             "PLL2/3 {} MHz -> {} MHz",
             pllsrc as f32 / 1e6,
-            output as f32 / 1e6
+            pll_p_target as f32 / 1e6
         );
 
         // ----------------------------------------
@@ -402,10 +428,24 @@ mod tests {
         // VCO Setup
         println!("NORMAL");
         let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
-            NORMAL: pllsrc, output, rcc, vcosel, pllrge
+            NORMAL: pllsrc, pll_p_target, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
         let pll_x_n = vco_ck_target / ref_x_ck;
+        let pll_x_q = calc_ck_div(
+            PllConfigStrategy::Normal,
+            vco_ck_target,
+            pll_x_m,
+            0,
+            pll_q_target,
+        );
+        let pll_x_r = calc_ck_div(
+            PllConfigStrategy::Normal,
+            vco_ck_target,
+            pll_x_m,
+            0,
+            pll_r_target,
+        );
 
         // ----------------------------------------
 
@@ -421,12 +461,31 @@ mod tests {
 
         // Output
         println!("P Divider {}", pll_x_p);
-        let output = pll_x_n as f32 * input / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
+        let output_p = pll_x_n as f32 * input / pll_x_p as f32;
+        println!("==> Output {} MHz", output_p / 1e6);
         println!();
 
-        let error = output - 240e6;
-        assert!(f32::abs(error) < 2.4e6); // < ±1% error
+        let error = output_p - pll_p_target as f32;
+        println!(
+            "Error {} {}",
+            f32::abs(error),
+            (pll_p_target as f32 / 100.0)
+        );
+        assert!(f32::abs(error) < (pll_p_target as f32 / 100.0)); // < ±1% error
+
+        let output_q = calc_ck(input as u32, pll_x_n, 0, pll_x_q) as f32;
+        println!("Q Divider {}", pll_x_q);
+        println!("==> Output Q {} MHz", output_q / 1e6);
+        println!();
+        let error = output_q - pll_q_target as f32;
+        assert!(f32::abs(error) < (pll_q_target as f32 / 100.0)); // < ±1% error
+
+        let output_r = calc_ck(input as u32, pll_x_n, 0, pll_x_r) as f32;
+        println!("R Divider {}", pll_x_r);
+        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!();
+        let error = output_r - pll_r_target as f32;
+        assert!(f32::abs(error) < (pll_r_target as f32 / 100.0)); // < ±1% error
     }
 
     #[test]
@@ -435,11 +494,13 @@ mod tests {
         let rcc = MockRcc::new();
 
         let pllsrc = 25_000_000; // PLL source frequency eg. 25MHz crystal
-        let output = 240_000_000; // PLL output frequency (P_CK)
+        let pll_p_target = 240_000_000; // PLL output frequency (P_CK)
+        let pll_q_target = 120_000_000; // PLL output frequency (Q_CK)
+        let pll_r_target = 30_000_000; // PLL output frequency (R_CK)
         println!(
             "PLL2/3 {} MHz -> {} MHz",
             pllsrc as f32 / 1e6,
-            output as f32 / 1e6
+            pll_p_target as f32 / 1e6
         );
 
         // ----------------------------------------
@@ -447,10 +508,24 @@ mod tests {
         // VCO Setup
         println!("ITERATIVE");
         let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
-            ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
+            ITERATIVE: pllsrc, pll_p_target, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
         let pll_x_n = vco_ck_target / ref_x_ck;
+        let pll_x_q = calc_ck_div(
+            PllConfigStrategy::Iterative,
+            vco_ck_target,
+            pll_x_m,
+            0,
+            pll_q_target,
+        );
+        let pll_x_r = calc_ck_div(
+            PllConfigStrategy::Iterative,
+            vco_ck_target,
+            pll_x_m,
+            0,
+            pll_r_target,
+        );
 
         // ----------------------------------------
 
@@ -466,10 +541,22 @@ mod tests {
 
         // Output
         println!("P Divider {}", pll_x_p);
-        let output = pll_x_n as f32 * input / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
+        let output_p = pll_x_n as f32 * input / pll_x_p as f32;
+        println!("==> Output {} MHz", output_p / 1e6);
         println!();
-        assert_eq!(output, 240e6);
+        assert_eq!(output_p, 240e6);
+
+        let output_q = calc_ck(input as u32, pll_x_n, 0, pll_x_q) as f32;
+        println!("Q Divider {}", pll_x_q);
+        println!("==> Output Q {} MHz", output_q / 1e6);
+        println!();
+        assert_eq!(output_q, pll_q_target as f32);
+
+        let output_r = calc_ck(input as u32, pll_x_n, 0, pll_x_r) as f32;
+        println!("R Divider {}", pll_x_r);
+        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!();
+        assert_eq!(output_r, pll_r_target as f32);
     }
 
     #[test]
@@ -478,9 +565,10 @@ mod tests {
         let rcc = MockRcc::new();
 
         let pllsrc = 16_000_000; // PLL source frequency eg. 16MHz crystal
-        let target = 48_000 * 256; // Target clock
-        let output = target; // PLL output frequency (P_CK)
-
+        let pll_p_target = 48_000 * 256; // Target clock
+        let pll_q_target = 48_000 * 128; // Target clock
+        let pll_r_target = 48_000 * 63; // Target clock
+        let output = pll_p_target; // PLL output frequency (P_CK)
         println!(
             "PLL2/3 {} MHz -> {} MHz",
             pllsrc as f32 / 1e6,
@@ -490,14 +578,12 @@ mod tests {
         // ----------------------------------------
 
         // VCO Setup
-        println!("FRACTIONAL");
+        println!("Fractional");
         let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
             ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
         let pll_x_n = vco_ck_target / ref_x_ck;
-
-        // ----------------------------------------
 
         // Input
         println!("M Divider {}", pll_x_m);
@@ -509,24 +595,55 @@ mod tests {
         println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
         println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
 
-        // Output
-        let pll_x_p = pll_x_p;
-        println!("P Divider {}", pll_x_p);
-        use crate::rcc::pll::calc_fracn;
         let pll_x_fracn = calc_fracn(
             input as f32,
             pll_x_n as f32,
             pll_x_p as f32,
             output as f32,
         );
-        println!("FRANC Divider {}", pll_x_fracn);
-        let output = (input as f32
-            * (pll_x_n as f32 + (pll_x_fracn as f32 / 8192.0)))
-            / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
+        println!("FRACN Divider {}", pll_x_fracn);
+
+        // Calulate additional output dividers
+        let pll_x_q = calc_ck_div(
+            PllConfigStrategy::Fractional,
+            vco_ck_target,
+            pll_x_m,
+            pll_x_fracn,
+            pll_q_target,
+        );
+        let pll_x_r = calc_ck_div(
+            PllConfigStrategy::Fractional,
+            vco_ck_target,
+            pll_x_m,
+            pll_x_fracn,
+            pll_r_target,
+        );
+
+        // Output
+        let output_p =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_p) as f32;
+        println!("P Divider {}", pll_x_p);
+        println!("==> Output P {} MHz", output_p / 1e6);
         println!();
-        assert!(output <= target as f32);
-        assert!(output > (target as f32 - 10.0));
+        // The P clock should be very close to target with a finely tuned FRACN
+        // The other clocks accuracy will vary widely depending on how close they are to an even value of the P clock
+        assert!(output_p <= pll_p_target as f32);
+        let error = output_p - pll_p_target as f32;
+        assert!(f32::abs(error) < (pll_p_target as f32 / 1_000_000.0)); // < ±.0001% error
+
+        let output_q =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_q) as f32;
+        println!("Q Divider {}", pll_x_q);
+        println!("==> Output Q {} MHz", output_q / 1e6);
+        println!();
+        assert!(output_q <= pll_q_target as f32);
+
+        let output_r =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_r) as f32;
+        println!("R Divider {}", pll_x_r);
+        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!();
+        assert!(output_r <= pll_r_target as f32);
     }
 
     #[test]
@@ -534,8 +651,10 @@ mod tests {
         let rcc = MockRcc::new();
 
         let pllsrc = 16_000_000; // PLL source frequency eg. 16MHz crystal
-        let target = 48_000 * 256; // Target clock
-        let output = target; // PLL output frequency (P_CK)
+        let pll_p_target = 48_000 * 256; // Target clock
+        let pll_q_target = 48_000 * 128; // Target clock
+        let pll_r_target = 48_000 * 63; // Target clock
+        let output = pll_p_target; // PLL output frequency (P_CK)
         println!(
             "PLL2/3 {} MHz -> {} MHz",
             pllsrc as f32 / 1e6,
@@ -545,14 +664,12 @@ mod tests {
         // ----------------------------------------
 
         // VCO Setup
-        println!("FRACTIONAL");
+        println!("FractionalNotLess");
         let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
             ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
         let pll_x_n = vco_ck_target / ref_x_ck;
-
-        // ----------------------------------------
 
         // Input
         println!("M Divider {}", pll_x_m);
@@ -564,23 +681,54 @@ mod tests {
         println!("VCO CK Target {} MHz", vco_ck_target as f32 / 1e6);
         println!("VCO CK Achieved {} MHz", pll_x_n as f32 * input / 1e6);
 
-        // Output
-        let pll_x_p = pll_x_p;
-        println!("P Divider {}", pll_x_p);
-        use crate::rcc::pll::calc_fracn;
         let pll_x_fracn = calc_fracn(
             input as f32,
             pll_x_n as f32,
             pll_x_p as f32,
             output as f32,
         ) + 1;
-        println!("FRANC Divider {}", pll_x_fracn);
-        let output = (input as f32
-            * (pll_x_n as f32 + (pll_x_fracn as f32 / 8192.0)))
-            / pll_x_p as f32;
-        println!("==> Output {} MHz", output / 1e6);
+        println!("FRACN Divider {}", pll_x_fracn);
+
+        // Calulate additional output dividers
+        let pll_x_q = calc_ck_div(
+            PllConfigStrategy::FractionalNotLess,
+            vco_ck_target,
+            pll_x_m,
+            pll_x_fracn,
+            pll_q_target,
+        );
+        let pll_x_r = calc_ck_div(
+            PllConfigStrategy::FractionalNotLess,
+            vco_ck_target,
+            pll_x_m,
+            pll_x_fracn,
+            pll_r_target,
+        );
+
+        // Output
+        let output_p =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_p) as f32;
+        println!("P Divider {}", pll_x_p);
+        println!("==> Output P {} MHz", output_p / 1e6);
         println!();
-        assert!(output >= target as f32);
-        assert!(output < (target as f32 + 10.0));
+        // The P clock should be very close to target with a finely tuned FRACN
+        // The other clocks accuracy will vary widely depending on how close they are to an even value of the P clock
+        assert!(output_p >= pll_p_target as f32);
+        let error = output_p - pll_p_target as f32;
+        assert!(f32::abs(error) < (pll_p_target as f32 / 1_000_000.0)); // < ±.0001% error
+
+        let output_q =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_q) as f32;
+        println!("Q Divider {}", pll_x_q);
+        println!("==> Output Q {} MHz", output_q / 1e6);
+        println!();
+        assert!(output_q >= pll_q_target as f32);
+
+        let output_r =
+            calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_r) as f32;
+        println!("R Divider {}", pll_x_r);
+        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!();
+        assert!(output_r >= pll_r_target as f32);
     }
 }
