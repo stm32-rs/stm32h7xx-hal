@@ -19,10 +19,6 @@ jobs:
           - stm32h743v
           - stm32h753v
           - stm32h747cm7
-        include:                # One additional job, as follows:
-          - rust: nightly
-            mcu: stm32h743v
-            experimental: true
 
     steps:
       - uses: actions/checkout@v2

@@ -8,7 +8,6 @@ extern crate panic_itm;
 #[macro_use(block)]
 extern crate nb;
 
-use cortex_m;
 use cortex_m_rt::entry;
 use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
 use stm32h7xx_hal::{pac, prelude::*};
