@@ -17,7 +17,7 @@
 //! let dp = ...;
 //! let (sck, io0, io1, io2, io3) = ...;
 //!
-//! let mut qspi - dp.QUADSPI.bank1(&ccdr.clocks, (sck, io0, io1, io2, io3), 3.mhz(),
+//! let mut qspi = dp.QUADSPI.bank1(&ccdr.clocks, (sck, io0, io1, io2, io3), 3.mhz(),
 //!                                 ccdr.peripheral.QSPI);
 //!
 //! // Configure QSPI to operate in 4-bit mode.
@@ -41,6 +41,7 @@ use crate::{
         gpioe::{PE10, PE2, PE7, PE8, PE9},
         gpiof::{PF10, PF6, PF7, PF8, PF9},
         gpiog::{PG14, PG9},
+        gpioh::{PH2, PH3},
         Alternate, AF10, AF9,
     },
     rcc::{rec, CoreClocks, ResetEnable},
@@ -167,11 +168,13 @@ pins! {
     Bank1: [
         IO0: [
             PC9<Alternate<AF9>>,
-            PD11<Alternate<AF9>>
+            PD11<Alternate<AF9>>,
+            PF8<Alternate<AF10>>
         ]
         IO1: [
             PC10<Alternate<AF9>>,
             PD12<Alternate<AF9>>,
+            PF9<Alternate<AF10>>,
             NoIo
         ]
         IO2: [
@@ -189,11 +192,13 @@ pins! {
     Bank2: [
         IO0: [
             PE7<Alternate<AF10>>,
-            PF8<Alternate<AF10>>
+            PF8<Alternate<AF10>>,
+            PH2<Alternate<AF9>>
         ]
         IO1: [
             PE8<Alternate<AF10>>,
             PF9<Alternate<AF10>>,
+            PH3<Alternate<AF9>>,
             NoIo
         ]
         IO2: [
@@ -331,11 +336,10 @@ impl Qspi {
         });
 
         let spi_frequency = frequency.into().0;
-        let divisor = match spi_kernel_ck / spi_frequency {
-            1..=255 => spi_kernel_ck / spi_frequency - 1,
-            _ => {
-                panic!("Invalid QSPI frequency requested");
-            }
+        let divisor = match (spi_kernel_ck + spi_frequency - 1) / spi_frequency
+        {
+            divisor @ 1..=255 => divisor,
+            _ => panic!("Invalid QSPI frequency requested"),
         };
 
         // Write the prescaler
