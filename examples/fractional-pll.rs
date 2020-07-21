@@ -40,9 +40,9 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let _mco2_pin = gpioc.pc9.into_alternate_af0().set_speed(Speed::High);
 
-    println!("");
+    println!();
     println!("stm32h7xx-hal example - Fractional PLL");
-    println!("");
+    println!();
 
     // SYS_CK
     println!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
