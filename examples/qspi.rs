@@ -18,10 +18,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc
-        .sys_ck(96.mhz())
-        .pll1_q_ck(48.mhz())
-        .freeze(vos, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.mhz()).freeze(vos, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals. This also enables the clock for
     // the GPIOs in the RCC register.
