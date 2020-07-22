@@ -69,7 +69,6 @@ pub enum QspiMode {
 pub enum QspiError {
     Busy,
     Underflow,
-    FifoData,
 }
 
 /// Indicates a specific QSPI bank to use.
@@ -439,13 +438,8 @@ impl Qspi {
         // Wait for the transaction to complete
         while self.rb.sr.read().tcf().bit_is_clear() {}
 
-        // Check that there is no more transaction pending.
-        if self.is_busy() {
-            return Err(QspiError::FifoData);
-        }
-
-        // Clear the transfer complete flag.
-        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
+        // Wait for the peripheral to indicate it is no longer busy.
+        while self.is_busy() {}
 
         Ok(())
     }
@@ -492,13 +486,8 @@ impl Qspi {
             }
         }
 
-        // Check that there is no more transaction pending.
-        if self.is_busy() {
-            return Err(QspiError::FifoData);
-        }
-
-        // Clear the transfer complete flag.
-        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
+        // Wait for the peripheral to indicate it is no longer busy.
+        while self.is_busy() {}
 
         Ok(())
     }
