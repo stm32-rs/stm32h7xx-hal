@@ -77,15 +77,31 @@ pub enum I2SError {
     NoChannelAvailable,
 }
 
-#[derive(Copy, Clone)]
-pub enum I2SOverSampling {
-    Enabled = 2,
-    Disabled = 1,
-}
-
 pub enum I2SClockStrobe {
     Rising,
     Falling,
+}
+
+#[derive(Copy, Clone)]
+pub enum I2SCompanding {
+    Disabled = 0b00,
+    // Reserved = 0b01,
+    ALaw = 0b10,
+    MuLaw = 0b11,
+}
+
+pub enum I2SCompliment {
+    Ones = 0,
+    Twos = 1,
+}
+
+impl I2SCompliment {
+    fn as_bool(&self) -> bool {
+        match &self {
+            I2SCompliment::Ones => false,
+            I2SCompliment::Twos => true,
+        }
+    }
 }
 
 pub trait I2SPinsChA<SAI> {}
@@ -127,23 +143,72 @@ pub struct I2SChanConfig {
     clock_strobe: I2SClockStrobe,
     slots: u8,
     first_bit_offset: u8,
+    frame_sync_before: bool,
+    frame_sync_active_high: bool,
+    oversampling: bool,
+    master_clock_disabled: bool,
+    companding: I2SCompanding,
+    compliment: I2SCompliment,
 }
 
 impl I2SChanConfig {
-    pub fn new(
-        dir: I2SDir,
-        sync_type: I2SSync,
-        clock_strobe: I2SClockStrobe,
-        slots: u8,
-        first_bit_offset: u8,
-    ) -> I2SChanConfig {
+    pub fn new(dir: I2SDir) -> I2SChanConfig {
         I2SChanConfig {
             dir,
-            sync_type,
-            clock_strobe,
-            slots,
-            first_bit_offset,
+            sync_type: I2SSync::Master,
+            clock_strobe: I2SClockStrobe::Falling,
+            slots: 2,
+            first_bit_offset: 0,
+            frame_sync_before: false,
+            frame_sync_active_high: false,
+            oversampling: false,
+            master_clock_disabled: false,
+            companding: I2SCompanding::Disabled,
+            compliment: I2SCompliment::Ones,
         }
+    }
+
+    pub fn set_sync_type(mut self, sync_type: I2SSync) -> Self {
+        self.sync_type = sync_type;
+        self
+    }
+
+    pub fn set_clock_strobe(mut self, clock_strobe: I2SClockStrobe) -> Self {
+        self.clock_strobe = clock_strobe;
+        self
+    }
+
+    pub fn set_slots(mut self, slots: u8) -> Self {
+        self.slots = slots;
+        self
+    }
+
+    pub fn set_first_bit_offset(mut self, first_bit_offset: u8) -> Self {
+        self.first_bit_offset = first_bit_offset;
+        self
+    }
+
+    pub fn set_frame_sync_before(mut self, frame_sync_before: bool) -> Self {
+        self.frame_sync_before = frame_sync_before;
+        self
+    }
+
+    pub fn set_frame_sync_active_high(
+        mut self,
+        frame_sync_active_high: bool,
+    ) -> Self {
+        self.frame_sync_active_high = frame_sync_active_high;
+        self
+    }
+
+    pub fn enabled_oversampling(mut self) -> Self {
+        self.oversampling = true;
+        self
+    }
+
+    pub fn disable_master_clock(mut self) -> Self {
+        self.master_clock_disabled = true;
+        self
     }
 }
 
@@ -164,7 +229,6 @@ pub trait SaiI2sExt<SAI>: Sized {
         bit_rate: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
-        over_sampling: I2SOverSampling,
         master: I2SChanConfig,
         slave: Option<I2SChanConfig>,
     ) -> Sai<SAI, I2S>
@@ -178,7 +242,6 @@ pub trait SaiI2sExt<SAI>: Sized {
         bit_rate: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
-        over_sampling: I2SOverSampling,
         master: I2SChanConfig,
         slave: Option<I2SChanConfig>,
     ) -> Sai<SAI, I2S>
@@ -199,7 +262,6 @@ macro_rules! i2s {
                     bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    over_sampling: I2SOverSampling,
                     master: I2SChanConfig,
                     slave: Option<I2SChanConfig>,
                 ) -> Sai<Self, I2S>
@@ -214,7 +276,6 @@ macro_rules! i2s {
                         bit_rate,
                         prec,
                         clocks,
-                        over_sampling,
                         master,
                         slave,
                     )
@@ -226,7 +287,6 @@ macro_rules! i2s {
                     bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    over_sampling: I2SOverSampling,
                     master: I2SChanConfig,
                     slave: Option<I2SChanConfig>,
                 ) -> Sai<Self, I2S>
@@ -241,7 +301,6 @@ macro_rules! i2s {
                         bit_rate,
                         prec,
                         clocks,
-                        over_sampling,
                         master,
                         slave,
                     )
@@ -256,7 +315,6 @@ macro_rules! i2s {
                     bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    over_sampling: I2SOverSampling,
                     master: I2SChanConfig,
                     slave: Option<I2SChanConfig>,
                 ) -> Self
@@ -271,8 +329,13 @@ macro_rules! i2s {
                     // Clock config
                     let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks)
                         .expect("SAI kernel clock must run!");
+                    let clock_ratio = if master.oversampling {
+                        512
+                    } else {
+                        256
+                    };
                     let mclk_div =
-                        (ker_ck_a.0) / (audio_freq.0 * (over_sampling as u32) * 256);
+                        (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
@@ -319,7 +382,6 @@ macro_rules! i2s {
                     bit_rate: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    over_sampling: I2SOverSampling,
                     master: I2SChanConfig,
                     slave: Option<I2SChanConfig>,
                 ) -> Self
@@ -334,8 +396,13 @@ macro_rules! i2s {
                     // Clock config
                     let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks)
                         .expect("SAI kernel clock must run!");
+                    let clock_ratio = if master.oversampling {
+                        512
+                    } else {
+                        256
+                    };
                     let mclk_div =
-                        (ker_ck_a.0) / (audio_freq.0 * (over_sampling as u32) * 256);
+                        (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
@@ -476,9 +543,11 @@ fn i2s_config_channel(
                 .mono()
                 .stereo()
                 .nodiv()
-                .master_clock()
+                .bit(config.master_clock_disabled)
                 .mckdiv()
                 .bits(mclk_div)
+                .osr()
+                .bit(config.oversampling)
         });
         audio_ch.cr2.modify(|_, w| {
             w.fth()
@@ -492,10 +561,9 @@ fn i2s_config_channel(
                 .muteval()
                 .clear_bit()
                 .cpl()
-                .clear_bit()
-                // CPL, unused with companding off
+                .bit(config.compliment.as_bool())
                 .comp()
-                .no_companding()
+                .bits(config.companding as u8)
         });
         audio_ch.frcr.modify(|_, w| {
             w.frl()
@@ -505,9 +573,9 @@ fn i2s_config_channel(
                 .fsdef()
                 .set_bit() // left/right channels enabled
                 .fspol()
-                .set_bit() // FS active high
+                .bit(config.frame_sync_active_high)
                 .fsoff()
-                .clear_bit()
+                .bit(config.frame_sync_before)
         });
         audio_ch.slotr.modify(|_, w| {
             w.fboff()

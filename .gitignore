@@ -4,3 +4,5 @@ Cargo.lock
 *.hex
 *.bin
 .gdb_history
+Embed.toml
+**/*.vscode

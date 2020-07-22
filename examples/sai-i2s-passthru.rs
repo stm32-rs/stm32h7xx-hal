@@ -5,17 +5,17 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
 use rtic::app;
+
+extern crate panic_itm;
 
 use cortex_m::asm::delay as delay_cycles;
 
+use stm32h7xx_hal::device;
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::sai::{
-    I2SChanConfig, I2SClockStrobe, I2SDataSize, I2SDir, I2SOverSampling,
-    I2SSync, Sai, SaiI2sExt, I2S,
+    I2SChanConfig, I2SDataSize, I2SDir, I2SSync, Sai, SaiI2sExt, I2S,
 };
 use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
@@ -26,9 +26,6 @@ pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // The rate should be equal to sample rate * 256
 // But not less than so targetting 257
 const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
-
-const SLOTS: u8 = 2;
-const FIRST_BIT_OFF_SET: u8 = 0;
 
 #[app( device = stm32h7xx_hal::stm32, peripherals = true )]
 const APP: () = {
@@ -70,6 +67,11 @@ const APP: () = {
 
         // Use PLL3_P for the SAI1 clock
         let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(SAI1SEL_A::PLL3_P);
+        let master_config =
+            I2SChanConfig::new(I2SDir::Tx).set_frame_sync_active_high(true);
+        let slave_config = I2SChanConfig::new(I2SDir::Rx)
+            .set_sync_type(I2SSync::Internal)
+            .set_frame_sync_active_high(true);
 
         let mut audio = ctx.device.SAI1.i2s_ch_a(
             sai1_pins,
@@ -77,22 +79,16 @@ const APP: () = {
             I2SDataSize::BITS_24,
             sai1_rec,
             &ccdr.clocks,
-            I2SOverSampling::Disabled,
-            I2SChanConfig::new(
-                I2SDir::Tx,
-                I2SSync::Master,
-                I2SClockStrobe::Falling,
-                SLOTS,
-                FIRST_BIT_OFF_SET,
-            ),
-            Some(I2SChanConfig::new(
-                I2SDir::Rx,
-                I2SSync::Internal,
-                I2SClockStrobe::Falling,
-                SLOTS,
-                FIRST_BIT_OFF_SET,
-            )),
+            master_config,
+            Some(slave_config),
         );
+
+        // Setup cache
+        // Sound breaks up without this enabled
+        let mut core = device::CorePeripherals::take().unwrap();
+        core.SCB.invalidate_icache();
+        core.SCB.enable_icache();
+
         audio.enable();
         // Jump start audio transmission
         audio.try_send(0, 0).unwrap();
