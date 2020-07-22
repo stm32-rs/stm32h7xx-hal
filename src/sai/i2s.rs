@@ -59,10 +59,10 @@ enum I2SSlotSize {
     BITS_32 = 0b10,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum I2SProtocol {
-    LSB,
     MSB,
+    LSB,
 }
 
 #[derive(Copy, Clone)]
@@ -115,6 +115,7 @@ pub trait I2SPinFsB<SAI> {}
 pub trait I2SPinSdA<SAI> {}
 pub trait I2SPinSdB<SAI> {}
 
+/// Trait for valid combination of SAIxA pins
 impl<SAI, MCLK, SCK, FS, SD1, SD2> I2SPinsChA<SAI>
     for (MCLK, SCK, FS, SD1, Option<SD2>)
 where
@@ -126,6 +127,7 @@ where
 {
 }
 
+/// Trait for valid combination of SAIxB pins
 impl<SAI, MCLK, SCK, FS, SD1, SD2> I2SPinsChB<SAI>
     for (MCLK, SCK, FS, SD1, Option<SD2>)
 where
@@ -137,6 +139,7 @@ where
 {
 }
 
+/// I2S Config builder
 pub struct I2SChanConfig {
     dir: I2SDir,
     sync_type: I2SSync,
@@ -149,9 +152,18 @@ pub struct I2SChanConfig {
     master_clock_disabled: bool,
     companding: I2SCompanding,
     compliment: I2SCompliment,
+    protocol: I2SProtocol,
+    mono_mode: bool,
+    mute_repeat: bool,
+    mute_counter: u8,
+    tristate: bool,
 }
 
 impl I2SChanConfig {
+    /// Create a default configuration for the I2S channel
+    ///
+    /// Arguments:
+    /// * `dir` - The direction of data (Rx or Tx)
     pub fn new(dir: I2SDir) -> I2SChanConfig {
         I2SChanConfig {
             dir,
@@ -165,34 +177,48 @@ impl I2SChanConfig {
             master_clock_disabled: false,
             companding: I2SCompanding::Disabled,
             compliment: I2SCompliment::Ones,
+            protocol: I2SProtocol::MSB,
+            mono_mode: false,
+            mute_repeat: false,
+            mute_counter: 0,
+            tristate: false,
         }
     }
 
+    /// Set synchronization type, defaults to Master
     pub fn set_sync_type(mut self, sync_type: I2SSync) -> Self {
         self.sync_type = sync_type;
         self
     }
 
+    /// Set the clock strobing edge
     pub fn set_clock_strobe(mut self, clock_strobe: I2SClockStrobe) -> Self {
         self.clock_strobe = clock_strobe;
         self
     }
 
+    /// Set the number of slots, this is an advanced configuration.
     pub fn set_slots(mut self, slots: u8) -> Self {
+        assert!(slots <= 16);
         self.slots = slots;
         self
     }
 
+    /// Set the offset of the first data bit
     pub fn set_first_bit_offset(mut self, first_bit_offset: u8) -> Self {
+        // 5 bits or less
+        assert!(first_bit_offset < 0b10_0000);
         self.first_bit_offset = first_bit_offset;
         self
     }
 
+    ///  Sets when the frame sync is asserted
     pub fn set_frame_sync_before(mut self, frame_sync_before: bool) -> Self {
         self.frame_sync_before = frame_sync_before;
         self
     }
 
+    /// Set frame sync to active high, defaults to active low
     pub fn set_frame_sync_active_high(
         mut self,
         frame_sync_active_high: bool,
@@ -201,13 +227,63 @@ impl I2SChanConfig {
         self
     }
 
-    pub fn enabled_oversampling(mut self) -> Self {
-        self.oversampling = true;
+    /// Enable oversampling
+    ///
+    /// Note: the clock frequncy must be doubled when enabled
+    pub fn set_oversampling(mut self, oversampling: bool) -> Self {
+        self.oversampling = oversampling;
         self
     }
 
+    /// Disable master clock generator
     pub fn disable_master_clock(mut self) -> Self {
         self.master_clock_disabled = true;
+        self
+    }
+
+    /// Sets the protocol to MSB or LSB
+    pub fn set_protocol(mut self, protocol: I2SProtocol) -> Self {
+        self.protocol = protocol;
+        self
+    }
+
+    /// Set the mono mode bit, default is to use stereo
+    pub fn set_mono_mode(mut self, mono_mode: bool) -> Self {
+        self.mono_mode = mono_mode;
+        self
+    }
+
+    /// Sets the type of mute values
+    /// * false - transmit 0
+    /// * true - repeat the last values
+    ///
+    /// Only meaningful in Tx mode when slots <= 2 and mute is enabled
+    pub fn set_mute_repeat(mut self, mute_repeat: bool) -> Self {
+        if self.dir == I2SDir::Rx || self.slots > 2 {
+            panic!("This only has meaning in I2S::Tx mode when slots <= 2");
+        }
+        self.mute_repeat = mute_repeat;
+        self
+    }
+
+    /// Set the mute counter value
+    /// Must be less than or equal to 64
+    ///
+    /// The value set is compared to the number of consecutive mute frames detected in
+    /// reception. When the number of mute frames is equal to this value, the Muted even will be generated
+    pub fn set_mute_counter(mut self, mute_counter: u8) -> Self {
+        if self.dir == I2SDir::Tx {
+            panic!("This only has meaning in I2S::Rx mode");
+        }
+        // 6 bits or less
+        assert!(mute_counter < 0b100_0000);
+        self.mute_counter = mute_counter;
+        self
+    }
+
+    /// Set the tristate to release the SD output line (HI-Z) at the end of the last data bit
+    pub fn set_tristate(mut self, tristate: bool) -> Self {
+        self.tristate = tristate;
         self
     }
 }
@@ -450,8 +526,8 @@ macro_rules! i2s {
 
                 pub fn disable(&mut self) {
                     // Master must be disabled first
-                    self.master_channel(|ch| ch.cr1.modify(|_, w| w.saien().disabled()));
-                    self.slave_channel( |ch| ch.cr1.modify(|_, w| w.saien().disabled()));
+                    self.master_channel(disable_ch);
+                    self.slave_channel(disable_ch);
                 }
             }
 
@@ -535,13 +611,17 @@ fn i2s_config_channel(
                 .ds()
                 .bits(bit_rate as u8)
                 .lsbfirst()
-                .msb_first()
+                .bit(if config.protocol == I2SProtocol::LSB {
+                    true
+                } else {
+                    false
+                })
                 .ckstr()
                 .bit(clock_strobe)
                 .syncen()
                 .bits(config.sync_type as u8)
                 .mono()
-                .stereo()
+                .bit(config.mono_mode)
                 .nodiv()
                 .bit(config.master_clock_disabled)
                 .mckdiv()
@@ -553,13 +633,13 @@ fn i2s_config_channel(
             w.fth()
                 .quarter1()
                 .tris()
-                .clear_bit()
+                .bit(config.tristate)
                 .mute()
                 .clear_bit()
                 .muteval()
-                .clear_bit()
-                .muteval()
-                .clear_bit()
+                .bit(config.mute_repeat)
+                .mutecnt()
+                .bits(config.mute_counter)
                 .cpl()
                 .bit(config.compliment.as_bool())
                 .comp()
@@ -587,41 +667,18 @@ fn i2s_config_channel(
                 .sloten()
                 .bits(slot_en_bits)
         });
-        match mode {
-            I2SMode::Master => audio_ch
-                .im
-                .modify(|_, w| w.ovrudrie().enabled().wckcfgie().enabled()),
-            I2SMode::Slave => audio_ch.im.modify(|_, w| {
-                w.ovrudrie()
-                    .enabled()
-                    .afsdetie()
-                    .enabled()
-                    .lfsdetie()
-                    .enabled()
-                    .freqie()
-                    .enabled()
-            }),
-        }
     }
 }
 
 fn enable_ch(audio_ch: &stm32::sai4::CH) {
-    audio_ch.clrfr.write(|w| {
-        w.cafsdet()
-            .clear()
-            .ccnrdy()
-            .clear()
-            .clfsdet()
-            .clear()
-            .cmutedet()
-            .clear()
-            .covrudr()
-            .clear()
-            .cwckcfg()
-            .clear()
-    });
+    audio_ch.clrfr.reset();
     audio_ch.cr2.modify(|_, w| w.fflush().flush());
     audio_ch.cr1.modify(|_, w| w.saien().enabled());
+}
+
+fn disable_ch(audio_ch: &stm32::sai4::CH) {
+    audio_ch.cr1.modify(|_, w| w.saien().disabled());
+    while audio_ch.cr1.read().saien().bit_is_set() {}
 }
 
 fn read(audio_ch: &stm32::sai4::CH) -> nb::Result<(u32, u32), I2SError> {

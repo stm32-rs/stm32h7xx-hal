@@ -80,11 +80,21 @@ pub trait INTERFACE {}
 
 /// SAI Events
 ///
-/// Each event is a possible interrupt sources, if enabled
+/// Each event is a possible interrupt source, if enabled
 #[derive(Copy, Clone, PartialEq)]
 pub enum Event {
+    /// Overdue/Underrun error detection
+    Overdue,
+    /// Mute detected (Rx only)
+    Muted,
+    /// Clock not setup per frame sync rules see RM0433 Section 51.4.6: Frame synchronization
+    WrongClock,
     /// Data is available / is required in the FIFO
     Data,
+    /// Frame synchronization signal is detected earlier than expected
+    AnticipatedFrameSync,
+    /// Frame synchronization signal is not present at the right time
+    LateFrameSync,
 }
 
 /// SAI Channels
@@ -134,34 +144,99 @@ macro_rules! sai_hal {
                     }
                 }
 
-
-                /// Start listening for `event`
-                pub fn listen(&mut self, event: Event) {
+                /// Start listening for `event` on a given `channel`
+                pub fn listen(&mut self, channel: SaiChannel, event: Event) {
+                    let ch = match channel {
+                        SaiChannel::ChannelA => &self.rb.cha,
+                        SaiChannel::ChannelB => &self.rb.chb,
+                    };
                     match event {
-                        Event::Data => {
-                            // Enable FIFO request interrupt
-                            self.rb.cha.im.modify(|_, w| w.freqie().set_bit());
-                        }
+                        Event::Overdue              => ch.im.write(|w| w.ovrudrie().set_bit()),
+                        Event::Muted                => ch.im.write(|w| w.mutedetie().set_bit()),
+                        Event::WrongClock           => ch.im.write(|w| w.wckcfgie().set_bit()),
+                        Event::Data                 => ch.im.write(|w| w.freqie().set_bit()),
+                        Event::AnticipatedFrameSync => ch.im.write(|w| w.afsdetie().set_bit()),
+                        Event::LateFrameSync        => ch.im.write(|w| w.lfsdetie().set_bit()),
                     }
                 }
 
-                /// Stop listening for `event`
-                pub fn unlisten(&mut self, event: Event) {
+                /// Stop listening for `event` on a given `channel`
+                pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
+                    let ch = match channel {
+                        SaiChannel::ChannelA => &self.rb.cha,
+                        SaiChannel::ChannelB => &self.rb.chb,
+                    };
                     match event {
-                        Event::Data => {
-                            // Enable FIFO request interrupt
-                            self.rb.cha.im.modify(|_, w| w.freqie().clear_bit());
-                        }
+                        Event::Overdue              => ch.im.write(|w| w.ovrudrie().clear_bit()),
+                        Event::Muted                => ch.im.write(|w| w.mutedetie().clear_bit()),
+                        Event::WrongClock           => ch.im.write(|w| w.wckcfgie().clear_bit()),
+                        Event::Data                 => ch.im.write(|w| w.freqie().clear_bit()),
+                        Event::AnticipatedFrameSync => ch.im.write(|w| w.afsdetie().clear_bit()),
+                        Event::LateFrameSync        => ch.im.write(|w| w.lfsdetie().clear_bit()),
                     }
                 }
 
-                /// Clears interrupt flag
-                pub fn clear_irq(&mut self) {
-                    self.rb.cha.clrfr.write(|w| {
-                        // FIFO request interrupt is cleared by
-                        // reading or writing data
-                        w
-                    });
+                /// Clears interrupt flag `event` on the `channel`
+                ///
+                /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
+                pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
+                    let ch = match channel {
+                        SaiChannel::ChannelA => &self.rb.cha,
+                        SaiChannel::ChannelB => &self.rb.chb,
+                    };
+                    match event {
+                        Event::Overdue              => ch.clrfr.write(|w| w.covrudr().set_bit()),
+                        Event::Muted                => ch.clrfr.write(|w| w.cmutedet().set_bit()),
+                        Event::WrongClock           => ch.clrfr.write(|w| w.cwckcfg().set_bit()),
+                        Event::Data                 => (), // Cleared by reading/writing data
+                        Event::AnticipatedFrameSync => ch.clrfr.write(|w| w.cafsdet().set_bit()),
+                        Event::LateFrameSync        => ch.clrfr.write(|w| w.clfsdet().set_bit()),
+                    }
+                }
+
+                /// Clears all interrupts on the `channel`
+                pub fn clear_all_irq(&mut self, channel: SaiChannel) {
+                    match channel {
+                        SaiChannel::ChannelA => &self.rb.cha.clrfr.reset(),
+                        SaiChannel::ChannelB => &self.rb.chb.clrfr.reset(),
+                    };
+                }
+
+                /// Mute `channel`, this is checked at the start of each frame
+                /// Meaningful only in Tx mode
+                pub fn mute(&mut self, channel: SaiChannel) {
+                    match channel {
+                        SaiChannel::ChannelA => &self.rb.cha.cr2.write(|w| w.mute().enabled()),
+                        SaiChannel::ChannelB => &self.rb.cha.cr2.write(|w| w.mute().enabled()),
+                    };
+                }
+
+                /// Unmute `channel`, this is checked at the start of each frame
+                /// Meaningful only in Tx mode
+                pub fn unmute(&mut self, channel: SaiChannel) {
+                    match channel {
+                        SaiChannel::ChannelA => &self.rb.cha.cr2.write(|w| w.mute().disabled()),
+                        SaiChannel::ChannelB => &self.rb.chb.cr2.write(|w| w.mute().disabled()),
+                    };
+                }
+
+                /// Used to operate the audio block(s) with an external SAI for synchoniozation
+                /// Refer to RM0433 rev 7 section 51.4.4 for valid values
+                ///
+                /// In short 0-3 maps SAI1-4 with the ones pointing to self being reserved.
+                /// e.g. for SAI1 1-3 are valid and 0 is invalid
+                pub fn set_sync_input(&mut self, selection: u8) {
+                    assert!(selection < 0b1_00);
+                    unsafe { &self.rb.gcr.write(|w| w.syncout().bits(selection)) };
+                }
+
+                /// Synchoniazation output for other SAI blocks
+                pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
+                    match channel {
+                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b01) ) },
+                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b10) ) },
+                        None                       => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b00) ) },
+                    };
                 }
 
                 /// Releases the SAI peripheral

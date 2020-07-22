@@ -15,7 +15,8 @@ use stm32h7xx_hal::device;
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::sai::{
-    I2SChanConfig, I2SDataSize, I2SDir, I2SSync, Sai, SaiI2sExt, I2S,
+    self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, Sai, SaiChannel,
+    SaiI2sExt, I2S,
 };
 use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
@@ -89,6 +90,7 @@ const APP: () = {
         core.SCB.invalidate_icache();
         core.SCB.enable_icache();
 
+        audio.listen(SaiChannel::ChannelB, sai::Event::Data);
         audio.enable();
         // Jump start audio transmission
         audio.try_send(0, 0).unwrap();
