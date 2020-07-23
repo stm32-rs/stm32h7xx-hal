@@ -94,6 +94,9 @@ impl Rcc {
     }
 }
 
+// This macro uses the paste::item! macro to create identifiers.
+//
+// https://crates.io/crates/paste
 macro_rules! peripheral_reset_and_enable_control {
     ($($AXBn:ident, $axb_doc:expr => [
         $(
