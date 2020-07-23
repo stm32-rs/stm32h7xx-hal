@@ -1,7 +1,7 @@
 //! Peripheral Reset and Enable Control (REC)
 //!
 //! This module contains safe accessors to the RCC functionality for each
-//! periperal.
+//! peripheral.
 //!
 //! At a minimum each peripheral implements
 //! [ResetEnable](trait.ResetEnable.html). Peripherals that have an
@@ -11,8 +11,11 @@
 //!
 //! Peripherals that share a clock multiplexer in the PKSU with other
 //! peripherals implement a trait with a `get_kernel_clk_mux` method that
-//! returns the current kernel clock state. There is currently no safe API
-//! for setting these shared multiplexers.
+//! returns the current kernel clock state. Because the kernel_clk_mux is shared
+//! between multiple peripherals, it cannot be set by any individual one of
+//! them. Instead it can only be set by methods on the
+//! [`PeripheralRec`](struct.PeripheralRec.html) itself. These methods are named
+//! `kernel_xxxx_clk_mux()`.
 //!
 //! # Reset/Enable Example
 //!
@@ -26,16 +29,31 @@
 //! ccdr.peripheral.FDCAN.enable().reset();
 //! ```
 //!
-//! # Kernel Clock Example
+//! # Individual Kernel Clock Example
 //! ```
 //! let ccdr = ...; // Returned by `freeze()`, see example above
 //!
-//! let cec_mux_state = ccdr.peripheral.CEC.kernel_clk_mux(CecClkSel::LSI).get_kernel_clk_mux();
+//! // Set individual kernel clock
+//! let cec_prec = ccdr.peripheral.CEC.kernel_clk_mux(CecClkSel::LSI);
 //!
-//! assert_eq!(cec_mux_state, CecClkSel::LSI);
+//! assert_eq!(cec_prec.get_kernel_clk_mux(), CecClkSel::LSI);
+//! ```
 //!
-//! // Can't set this mux because it would also affect I2C2 and I2C3
-//! let i2c_mux_state = ccdr.peripheral.I2C1.get_kernel_clk_mux();
+//! # Group Kernel Clock Example
+//! ```
+//! let mut ccdr = ...; // Returned by `freeze()`, see example above
+//!
+//! // Set group kernel clock mux
+//! ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::PLL3_R);
+//!
+//! // Enable and reset peripheral
+//! let i2c3_prec = ccdr.peripheral.enable().reset();
+//! assert_eq!(i2c3_prec.get_kernel_clk_mux(), I2c123ClkSel::PLL3_R);
+//!
+//! init_i2c3(..., i2c3_prec);
+//!
+//! // Can't set group kernel clock (it would also affect I2C3)
+//! // ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
 //! ```
 #![deny(missing_docs)]
 
@@ -173,7 +191,6 @@ macro_rules! peripheral_reset_and_enable_control {
                     impl $p {
                         $(      // Individual kernel clocks
                             #[inline(always)]
-                            #[allow(unused)]
                             /// Modify a kernel clock for this
                             /// peripheral. See RM0433 Section 8.5.8.
                             ///
@@ -195,7 +212,6 @@ macro_rules! peripheral_reset_and_enable_control {
                             }
 
                             #[inline(always)]
-                            #[allow(unused)]
                             /// Return the current kernel clock selection
                             pub fn [< get_kernel_ $clk _mux>](&self) ->
                                 variant_return_type!([< $pk ClkSel >] $(, $Variant)*)
@@ -208,15 +224,15 @@ macro_rules! peripheral_reset_and_enable_control {
                             }
                         )*
                     }
-                    $(      // Group kernel clocks
-                        impl [< $pk_g ClkSelGetter >] for $p {}
-                    )*
-
                     $(          // Individual kernel clocks
                         #[doc=$clk_doc]
                         /// kernel clock source selection
                         pub type [< $pk ClkSel >] =
                             rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
+                    )*
+
+                    $(          // Group kernel clocks
+                        impl [< $pk_g ClkSelGetter >] for $p {}
                     )*
                     $(          // Group kernel clocks
                         $(
@@ -246,6 +262,32 @@ macro_rules! peripheral_reset_and_enable_control {
                             }
                         )*
                     )*
+                    impl PeripheralREC {
+                        $(          // Group kernel clocks
+                            $(
+                                /// Modify the kernel clock for
+                                #[doc=$clk_doc_g]
+                                /// . See RM0433 Section 8.5.8.
+                                ///
+                                /// It is possible to switch this clock
+                                /// dynamically without generating spurs or
+                                /// timing violations. However, the user must
+                                /// ensure that both clocks are running. See
+                                /// RM0433 Section 8.5.10
+                                pub fn [< kernel_ $pk_g:lower _clk_mux >](&mut self, sel: [< $pk_g ClkSel >]) -> &mut Self {
+                                    // unsafe: Owned exclusive access to this bitfield
+                                    interrupt::free(|_| {
+                                        let ccip = unsafe {
+                                            &(*RCC::ptr()).[< $ccip_g r >]
+                                        };
+                                        ccip.modify(|_, w| w.
+                                                    [< $pk_g:lower sel >]().variant(sel));
+                                    });
+                                    self
+                                }
+                            )*
+                        )*
+                    }
                 )*
             )+
         }
@@ -262,6 +304,9 @@ macro_rules! variant_return_type {
 }
 
 // Enumerate all peripherals and optional clock multiplexers
+//
+// If a kernel clock multiplexer is shared between multiple peripherals, all
+// those peripherals must be marked with a common group clk.
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
         Eth1Mac, Dma2, Dma1,
