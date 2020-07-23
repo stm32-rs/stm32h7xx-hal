@@ -566,6 +566,12 @@ impl Rcc {
         let (pll3_p_ck, pll3_q_ck, pll3_r_ck) =
             self.pll3_setup(rcc, &self.config.pll3);
 
+        let sys_ck = if sys_use_pll1_p {
+            pll1_p_ck.unwrap() // Must have been set by sys_ck_setup
+        } else {
+            sys_ck
+        };
+
         // hsi_ck = HSI. This routine does not support HSIDIV != 1. To
         // do so it would need to ensure all PLLxON bits are clear
         // before changing the value of HSIDIV
