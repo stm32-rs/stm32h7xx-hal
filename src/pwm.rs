@@ -72,52 +72,131 @@ use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::{Alternate, AF1, AF2, AF3, AF4, AF9};
 
-pub trait Pins<TIM> {
+// This trait marks that a GPIO pin can be used with a specific timer channel
+// TIM is the timer being used
+// CHANNEL is a marker struct for the channel (or multi channels for tuples)
+// Example: impl Pins<TIM1, C1> for PA8<Alternate<AF1>> { type Channel = Pwm<TIM1, C1>; }
+pub trait Pins<TIM, CHANNEL> {
     type Channel;
 }
 
+// Marker structs for PWM channels on Pins trait and Pwm struct
 pub struct C1;
 pub struct C2;
 pub struct C3;
 pub struct C4;
 
+// One PWM channel, the type that actually implements PwmPin
 pub struct Pwm<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
 }
 
-impl<TIM, CH1, CH2> Pins<TIM> for (CH1, CH2)
-where
-    CH1: Pins<TIM>,
-    CH2: Pins<TIM>,
-{
-    type Channel = (Pwm<TIM, C1>, Pwm<TIM, C2>);
-}
-impl<TIM, CH1, CH2, CH3> Pins<TIM> for (CH1, CH2, CH3)
-where
-    CH1: Pins<TIM>,
-    CH2: Pins<TIM>,
-    CH3: Pins<TIM>,
-{
-    type Channel = (Pwm<TIM, C1>, Pwm<TIM, C2>, Pwm<TIM, C3>);
-}
-impl<TIM, CH1, CH2, CH3, CH4> Pins<TIM> for (CH1, CH2, CH3, CH4)
-where
-    CH1: Pins<TIM>,
-    CH2: Pins<TIM>,
-    CH3: Pins<TIM>,
-    CH4: Pins<TIM>,
-{
-    type Channel = (Pwm<TIM, C1>, Pwm<TIM, C2>, Pwm<TIM, C3>, Pwm<TIM, C4>);
+// automatically implement Pins trait for tuples of individual pins
+macro_rules! pins_tuples {
+    // Tuple of two pins
+    ($(($CHA:ty, $CHB:ty)),*) => {
+        $(
+            impl<TIM, CHA, CHB> Pins<TIM, ($CHA, $CHB)> for (CHA, CHB)
+            where
+                CHA: Pins<TIM, $CHA>,
+                CHB: Pins<TIM, $CHB>,
+            {
+                type Channel = (Pwm<TIM, $CHA>, Pwm<TIM, $CHB>);
+            }
+        )*
+    };
+    // Tuple of three pins
+    ($(($CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+        $(
+            pins_tuples! {
+                PERM3: ($CHA, $CHB, $CHC),
+                PERM3: ($CHA, $CHC, $CHB),
+                PERM3: ($CHB, $CHA, $CHC),
+                PERM3: ($CHB, $CHC, $CHA),
+                PERM3: ($CHC, $CHA, $CHB),
+                PERM3: ($CHC, $CHB, $CHA)
+            }
+        )*
+    };
+    // Permutate tuple of three pins
+    ($(PERM3: ($CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+        $(
+            impl<TIM, CHA, CHB, CHC> Pins<TIM, ($CHA, $CHB, $CHC)> for (CHA, CHB, CHC)
+            where
+                CHA: Pins<TIM, $CHA>,
+                CHB: Pins<TIM, $CHB>,
+                CHC: Pins<TIM, $CHC>,
+            {
+                type Channel = (Pwm<TIM, $CHA>, Pwm<TIM, $CHB>, Pwm<TIM, $CHC>);
+            }
+        )*
+    };
+    // Tuple of four pins (permutates the last 3, leaves 4th in place)
+    ($(($CHD:ty, $CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+        $(
+            pins_tuples! {
+                PERM4: ($CHD, $CHA, $CHB, $CHC),
+                PERM4: ($CHD, $CHA, $CHC, $CHB),
+                PERM4: ($CHD, $CHB, $CHA, $CHC),
+                PERM4: ($CHD, $CHB, $CHC, $CHA),
+                PERM4: ($CHD, $CHC, $CHA, $CHB),
+                PERM4: ($CHD, $CHC, $CHB, $CHA)
+            }
+        )*
+    };
+    // Tuple of four pins (permutates the last 3, leaves 1st in place)
+    ($(PERM4: ($CHA:ty, $CHB:ty, $CHC:ty, $CHD:ty)),*) => {
+        $(
+            impl<TIM, CHA, CHB, CHC, CHD> Pins<TIM, ($CHA, $CHB, $CHC, $CHD)> for (CHA, CHB, CHC, CHD)
+            where
+                CHA: Pins<TIM, $CHA>,
+                CHB: Pins<TIM, $CHB>,
+                CHC: Pins<TIM, $CHC>,
+                CHD: Pins<TIM, $CHD>,
+            {
+                type Channel = (Pwm<TIM, $CHA>, Pwm<TIM, $CHB>, Pwm<TIM, $CHC>, Pwm<TIM, $CHD>);
+            }
+        )*
+    }
 }
 
-// Pin definitions
+pins_tuples! {
+    (C1, C2),
+    (C2, C1),
+    (C1, C3),
+    (C3, C1),
+    (C1, C4),
+    (C4, C1),
+    (C2, C3),
+    (C3, C2),
+    (C2, C4),
+    (C4, C2),
+    (C3, C4),
+    (C4, C3)
+}
+
+pins_tuples! {
+    (C1, C2, C3),
+    (C1, C2, C4),
+    (C1, C3, C4),
+    (C2, C3, C4)
+}
+
+pins_tuples! {
+    (C1, C2, C3, C4),
+    (C2, C1, C3, C4),
+    (C3, C1, C2, C4),
+    (C4, C1, C2, C3)
+}
+
+// Pin definitions, mark which pins can be used with which timers and channels
 macro_rules! pins {
     // Single channel timer
     ($($TIMX:ty: OUT: [$($OUT:ty),*])+) => {
         $(
             $(
-                impl Pins<$TIMX> for $OUT {
+                impl Pins<$TIMX, C1> for $OUT {
                     type Channel = Pwm<$TIMX, C1>;
                 }
             )*
@@ -128,12 +207,12 @@ macro_rules! pins {
        CH1N: [$($CH1N:ty),*] CH2N: [$($CH2N:ty),*])+) => {
         $(
             $(
-                impl Pins<$TIMX> for $CH1 {
+                impl Pins<$TIMX, C1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1>;
                 }
             )*
             $(
-                impl Pins<$TIMX> for $CH2 {
+                impl Pins<$TIMX, C2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2>;
                 }
             )*
@@ -144,22 +223,22 @@ macro_rules! pins {
        CH1N: [$($CH1N:ty),*] CH2N: [$($CH2N:ty),*] CH3N: [$($CH3N:ty),*] CH4N: [$($CH4N:ty),*])+) => {
         $(
             $(
-                impl Pins<$TIMX> for $CH1 {
+                impl Pins<$TIMX, C1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1>;
                 }
             )*
             $(
-                impl Pins<$TIMX> for $CH2 {
+                impl Pins<$TIMX, C2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2>;
                 }
             )*
             $(
-                impl Pins<$TIMX> for $CH3 {
+                impl Pins<$TIMX, C3> for $CH3 {
                     type Channel = Pwm<$TIMX, C3>;
                 }
             )*
             $(
-                impl Pins<$TIMX> for $CH4 {
+                impl Pins<$TIMX, C4> for $CH4 {
                     type Channel = Pwm<$TIMX, C4>;
                 }
             )*
@@ -430,10 +509,11 @@ pins! {
 }
 
 // PwmExt trait
+// Allows the pwm() method to be added to the peripheral register structs from the device crate
 pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
-    fn pwm<PINS, T>(
+    fn pwm<PINS, T, U>(
         self,
         _pins: PINS,
         frequency: T,
@@ -441,7 +521,7 @@ pub trait PwmExt: Sized {
         clocks: &CoreClocks,
     ) -> PINS::Channel
     where
-        PINS: Pins<Self>,
+        PINS: Pins<Self, U>,
         T: Into<Hertz>;
 }
 
@@ -451,7 +531,7 @@ macro_rules! pwm_ext_hal {
         impl PwmExt for $TIMX {
             type Rec = rec::$Rec;
 
-            fn pwm<PINS, T>(
+            fn pwm<PINS, T, U>(
                 self,
                 pins: PINS,
                 frequency: T,
@@ -459,7 +539,7 @@ macro_rules! pwm_ext_hal {
                 clocks: &CoreClocks,
             ) -> PINS::Channel
             where
-                PINS: Pins<Self>,
+                PINS: Pins<Self, U>,
                 T: Into<Hertz>,
             {
                 $timX(self, pins, frequency.into(), prec, clocks)
@@ -476,7 +556,7 @@ macro_rules! tim_hal {
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
             /// Configures PWM
-            fn $timX<PINS>(
+            fn $timX<PINS, T>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
@@ -484,7 +564,7 @@ macro_rules! tim_hal {
                 clocks: &CoreClocks,
             ) -> PINS::Channel
             where
-                PINS: Pins<$TIMX>,
+                PINS: Pins<$TIMX, T>,
             {
                 prec.enable().reset();
 
@@ -547,7 +627,7 @@ tim_hal! {
     TIM17: (tim17, Tim17, u16, 16),
 }
 
-// Implement PwmPin for timer
+// Implement PwmPin for timer channels
 macro_rules! tim_pin_hal {
     ($($TIMX:ident:
        ($CH:ty, $ccxe:ident, $ccmrx_output:ident, $ocxpe:ident, $ocxm:ident,
@@ -643,7 +723,7 @@ macro_rules! lptim_hal {
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
             /// Configures PWM signal on the LPTIM OUT pin.
-            fn $timX<PINS>(
+            fn $timX<PINS, T>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
@@ -651,7 +731,7 @@ macro_rules! lptim_hal {
                 clocks: &CoreClocks,
             ) -> PINS::Channel
             where
-                PINS: Pins<$TIMX>,
+                PINS: Pins<$TIMX, T>,
             {
                 prec.enable().reset();
 
