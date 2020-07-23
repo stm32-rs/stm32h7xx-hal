@@ -10,6 +10,8 @@ pub use crate::gpio::GpioExt as _stm32h7xx_hal_gpio_GpioExt;
 pub use crate::i2c::I2cExt as _stm32h7xx_hal_i2c_I2cExt;
 pub use crate::pwm::PwmExt as _stm32_hal_pwm_PwmExt;
 pub use crate::pwr::PwrExt as _stm32h7xx_hal_pwr_PwrExt;
+#[cfg(feature = "quadspi")]
+pub use crate::qspi::QspiExt as _stm32h7xx_hal_qspi_QspiExt;
 pub use crate::rcc::RccExt as _stm32h7xx_hal_rcc_RccExt;
 pub use crate::rng::RngCore as _stm32h7xx_hal_rng_RngCore;
 pub use crate::rng::RngExt as _stm32h7xx_hal_rng_RngExt;

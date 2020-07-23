@@ -50,6 +50,7 @@ dualcore = []
 dsi = []
 cm4 = []
 cm7 = []
+quadspi = []
 rt = ["stm32h7/rt"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
 stm32h743 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
@@ -84,3 +85,7 @@ required-features = ["rt"]
 [[example]]
 name = "vos0"
 required-features = ["revision_v"]
+
+[[example]]
+name = "qspi"
+required-features = ["quadspi"]
