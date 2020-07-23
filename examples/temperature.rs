@@ -1,3 +1,8 @@
+//! Example for using ADC3 to read the internal temperature sensor
+//!
+//! For an example of using ADC1, see examples/adc.rs
+//! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
+
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
@@ -36,7 +41,7 @@ fn main() -> ! {
 
     let ccdr = rcc
         .sys_ck(100.mhz())
-        .per_ck(4.mhz())
+        .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
         .freeze(vos, &dp.SYSCFG);
 
     println!(log, "");
