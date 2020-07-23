@@ -29,6 +29,7 @@ fn main() -> ! {
     let mut ccdr = rcc
         .sys_ck(100.mhz())
         .pll1_q_ck(4.mhz())
+        .pll3_p_ck(4.mhz())
         .pll3_r_ck(4.mhz())
         .freeze(vos, &dp.SYSCFG);
 
