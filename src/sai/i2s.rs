@@ -232,7 +232,7 @@ impl I2SChanConfig {
 
     /// Enable oversampling
     ///
-    /// Note: the clock frequncy must be doubled when enabled
+    /// Note: the clock frequency must be doubled when enabled
     pub fn set_oversampling(mut self, oversampling: bool) -> Self {
         self.oversampling = oversampling;
         self

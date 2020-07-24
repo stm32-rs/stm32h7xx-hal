@@ -9,6 +9,8 @@ use rtic::app;
 
 extern crate panic_itm;
 
+use cortex_m::asm::nop;
+
 use cortex_m::asm::delay as delay_cycles;
 
 use stm32h7xx_hal::device;
