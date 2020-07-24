@@ -115,7 +115,6 @@ support crates is given here:
 
 - [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
 - [stm32h7-ethernet](https://crates.io/crates/stm32h7-ethernet)
-- [stm32h7-sdmmc](https://crates.io/crates/stm32h7-sdmmc)
 - _[Search crates.io...](https://crates.io/search?q=stm32h7)_
 
 Changelog

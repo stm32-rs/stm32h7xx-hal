@@ -8,6 +8,13 @@ name: Nightly rust
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mcu:
+          - stm32h743v
+        extras:                 # Peripheral Feature flags
+          - rt,quadspi,sdmmc
+
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -20,8 +27,8 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,stm32h743v,quadspi
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ matrix.extras }}
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib --target x86_64-unknown-linux-gnu --features rt,stm32h743v,quadspi
+          args: --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ matrix.extras }}
