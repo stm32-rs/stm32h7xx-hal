@@ -12,8 +12,8 @@ jobs:
       matrix:
         mcu:
           - stm32h743v
-        extras:                 # Peripheral Feature flags
-          - rt,quadspi,sdmmc
+    env:                        # Peripheral Feature flags
+      FLAGS: rt,quadspi,sdmmc
 
     steps:
       - uses: actions/checkout@v2
@@ -27,8 +27,8 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ matrix.extras }}
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},$FLAGS
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ matrix.extras }}
+          args: --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},$FLAGS
