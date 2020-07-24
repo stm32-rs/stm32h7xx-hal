@@ -7,9 +7,8 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
 use cortex_m_rt::entry;
+use stm32h7xx_hal::logger;
 
 use stm32h7xx_hal::{
     adc,
@@ -19,24 +18,21 @@ use stm32h7xx_hal::{
     signature::{TS_CAL_110, TS_CAL_30},
 };
 
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
+use log::info;
 
 #[entry]
 fn main() -> ! {
+    logger::init();
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
@@ -44,9 +40,9 @@ fn main() -> ! {
         .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
         .freeze(vos, &dp.SYSCFG);
 
-    println!(log, "");
-    println!(log, "stm32h7xx-hal example - Temperature");
-    println!(log, "");
+    info!("");
+    info!("stm32h7xx-hal example - Temperature");
+    info!("");
 
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
@@ -76,9 +72,6 @@ fn main() -> ! {
         let temperature =
             cal * (word_3v3 - TS_CAL_30::get().read() as f32) + 30.0;
 
-        println!(
-            log,
-            "ADC reading: {}, Temperature: {:.1} °C", word, temperature
-        );
+        info!("ADC reading: {}, Temperature: {:.1} °C", word, temperature);
     }
 }

@@ -4,7 +4,6 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_itm;
 extern crate rtic;
 
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;

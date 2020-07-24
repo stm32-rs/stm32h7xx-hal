@@ -3,31 +3,26 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
 use cortex_m_rt::entry;
+use stm32h7xx_hal::logger;
 use stm32h7xx_hal::{pac, prelude::*};
 
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
+use log::info;
 
 use nb::block;
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().unwrap();
+    logger::init();
     let dp = pac::Peripherals::take().expect("Cannot take peripherals");
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(100.mhz())
@@ -43,9 +38,9 @@ fn main() -> ! {
     let ck1 = gpioe.pe2.into_alternate_af2();
     let pins = (ck1, d1);
 
-    println!(log, "");
-    println!(log, "stm32h7xx-hal example - SAI PDM");
-    println!(log, "");
+    info!("");
+    info!("stm32h7xx-hal example - SAI PDM");
+    info!("");
 
     // Configure SAI for PDM mode
     let mut sai =
@@ -53,6 +48,6 @@ fn main() -> ! {
             .pdm(pins, 1_024.khz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 
     loop {
-        println!(log, "0x{:04x}", 0xFFFF & block!(sai.read_data()).unwrap());
+        info!("0x{:04x}", 0xFFFF & block!(sai.read_data()).unwrap());
     }
 }

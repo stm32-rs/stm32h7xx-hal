@@ -3,33 +3,28 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
 use cortex_m_rt::entry;
+use stm32h7xx_hal::logger;
 use stm32h7xx_hal::{pac, prelude::*, serial};
 
 use core::fmt::Write;
 
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
+use log::info;
 
 use nb::block;
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().unwrap();
+    logger::init();
     let dp = pac::Peripherals::take().unwrap();
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc.sys_ck(160.mhz()).freeze(vos, &dp.SYSCFG);
 
@@ -40,9 +35,9 @@ fn main() -> ! {
     let tx = gpioc.pc10.into_alternate_af7();
     let rx = gpioc.pc11.into_alternate_af7();
 
-    println!(log, "");
-    println!(log, "stm32h7xx-hal example - USART");
-    println!(log, "");
+    info!("");
+    info!("stm32h7xx-hal example - USART");
+    info!("");
 
     // Configure the serial peripheral.
     let serial = dp

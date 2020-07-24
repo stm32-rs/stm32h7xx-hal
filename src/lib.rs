@@ -107,6 +107,8 @@ pub use crate::stm32 as device;
 #[cfg(feature = "rt")]
 pub use crate::stm32::interrupt;
 
+pub mod logger;
+
 #[cfg(feature = "device-selected")]
 pub mod adc;
 #[cfg(feature = "device-selected")]
