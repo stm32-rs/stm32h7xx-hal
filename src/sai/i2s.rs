@@ -5,7 +5,7 @@
 use core::convert::TryInto;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
+use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};
 use crate::stm32;
 use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
 use crate::time::Hertz;
@@ -90,16 +90,17 @@ pub enum I2SCompanding {
     MuLaw = 0b11,
 }
 
-pub enum I2SCompliment {
+#[derive(Copy, Clone)]
+pub enum I2SComplement {
     Ones = 0,
     Twos = 1,
 }
 
-impl I2SCompliment {
-    fn as_bool(&self) -> bool {
-        match &self {
-            I2SCompliment::Ones => false,
-            I2SCompliment::Twos => true,
+impl From<I2SComplement> for bool {
+    fn from(value: I2SComplement) -> Self {
+        match value {
+            I2SComplement::Ones => false,
+            I2SComplement::Twos => true,
         }
     }
 }
@@ -151,12 +152,13 @@ pub struct I2SChanConfig {
     oversampling: bool,
     master_clock_disabled: bool,
     companding: I2SCompanding,
-    compliment: I2SCompliment,
+    complement: I2SComplement,
     protocol: I2SProtocol,
     mono_mode: bool,
     mute_repeat: bool,
     mute_counter: u8,
     tristate: bool,
+    frame_size: Option<u8>,
 }
 
 impl I2SChanConfig {
@@ -176,12 +178,13 @@ impl I2SChanConfig {
             oversampling: false,
             master_clock_disabled: false,
             companding: I2SCompanding::Disabled,
-            compliment: I2SCompliment::Ones,
+            complement: I2SComplement::Ones,
             protocol: I2SProtocol::MSB,
             mono_mode: false,
             mute_repeat: false,
             mute_counter: 0,
             tristate: false,
+            frame_size: None,
         }
     }
 
@@ -286,6 +289,15 @@ impl I2SChanConfig {
         self.tristate = tristate;
         self
     }
+
+    /// Set the frame size. If None it will be automatically calculated
+    pub fn set_frame_size(mut self, frame_size: Option<u8>) -> Self {
+        if let Some(frame_size) = frame_size {
+            assert!(frame_size >= 8);
+        }
+        self.frame_size = frame_size;
+        self
+    }
 }
 
 /// I2S Interface
@@ -302,7 +314,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         self,
         _pins: PINS,
         audio_freq: T,
-        bit_rate: I2SDataSize,
+        data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         master: I2SChanConfig,
@@ -315,7 +327,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         self,
         _pins: PINS,
         audio_freq: T,
-        bit_rate: I2SDataSize,
+        data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         master: I2SChanConfig,
@@ -335,7 +347,7 @@ macro_rules! i2s {
                     self,
                     _pins: PINS,
                     audio_freq: T,
-                    bit_rate: I2SDataSize,
+                    data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     master: I2SChanConfig,
@@ -349,7 +361,7 @@ macro_rules! i2s {
                         self,
                         _pins,
                         audio_freq.into(),
-                        bit_rate,
+                        data_size,
                         prec,
                         clocks,
                         master,
@@ -360,7 +372,7 @@ macro_rules! i2s {
                     self,
                     _pins: PINS,
                     audio_freq: T,
-                    bit_rate: I2SDataSize,
+                    data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     master: I2SChanConfig,
@@ -374,7 +386,7 @@ macro_rules! i2s {
                         self,
                         _pins,
                         audio_freq.into(),
-                        bit_rate,
+                        data_size,
                         prec,
                         clocks,
                         master,
@@ -388,7 +400,7 @@ macro_rules! i2s {
                     sai: $SAIX,
                     _pins: PINS,
                     audio_freq: Hertz,
-                    bit_rate: I2SDataSize,
+                    data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     master: I2SChanConfig,
@@ -435,7 +447,7 @@ macro_rules! i2s {
                         I2SMode::Master,
                         &per_sai.interface.master,
                         mclk_div,
-                        bit_rate,
+                        data_size,
                     );
 
                     if let Some(slave) = &per_sai.interface.slave {
@@ -444,7 +456,7 @@ macro_rules! i2s {
                             I2SMode::Slave,
                             slave,
                             0,
-                            bit_rate,
+                            data_size,
                         );
                     }
 
@@ -455,7 +467,7 @@ macro_rules! i2s {
                     sai: $SAIX,
                     _pins: PINS,
                     audio_freq: Hertz,
-                    bit_rate: I2SDataSize,
+                    data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                     master: I2SChanConfig,
@@ -502,7 +514,7 @@ macro_rules! i2s {
                         I2SMode::Master,
                         &per_sai.interface.master,
                         mclk_div,
-                        bit_rate,
+                        data_size,
                     );
 
                     if let Some(slave) = &per_sai.interface.slave {
@@ -511,7 +523,7 @@ macro_rules! i2s {
                             I2SMode::Slave,
                             slave,
                             0,
-                            bit_rate,
+                            data_size,
                         );
                     }
 
@@ -582,7 +594,7 @@ fn i2s_config_channel(
     mode: I2SMode,
     config: &I2SChanConfig,
     mclk_div: u8,
-    bit_rate: I2SDataSize,
+    data_size: I2SDataSize,
 ) {
     let clock_strobe = match config.clock_strobe {
         I2SClockStrobe::Rising => false,
@@ -592,13 +604,26 @@ fn i2s_config_channel(
     // 16 bits in register correspond to 1 slot each max 16 slots
     let slot_en_bits: u16 = (2_u32.pow(config.slots.into()) - 1) as u16;
 
-    let (frame_length, slot_size) = match bit_rate {
-        I2SDataSize::BITS_8 => (16 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SDataSize::BITS_10 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SDataSize::BITS_16 => (32 * (config.slots / 2), I2SSlotSize::BITS_16),
-        I2SDataSize::BITS_20 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
-        I2SDataSize::BITS_24 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
-        I2SDataSize::BITS_32 => (64 * (config.slots / 2), I2SSlotSize::BITS_32),
+    // Slots to have to be big enough to hold a words worth of data
+    let slot_size = match data_size {
+        I2SDataSize::BITS_8 => I2SSlotSize::BITS_16,
+        I2SDataSize::BITS_10 => I2SSlotSize::BITS_16,
+        I2SDataSize::BITS_16 => I2SSlotSize::BITS_16,
+        I2SDataSize::BITS_20 => I2SSlotSize::BITS_32,
+        I2SDataSize::BITS_24 => I2SSlotSize::BITS_32,
+        I2SDataSize::BITS_32 => I2SSlotSize::BITS_32,
+    };
+
+    let frame_size = match config.frame_size {
+        Some(frame_size) => frame_size,
+        None => match data_size {
+            I2SDataSize::BITS_8 => 16 * (config.slots / 2),
+            I2SDataSize::BITS_10 => 32 * (config.slots / 2),
+            I2SDataSize::BITS_16 => 32 * (config.slots / 2),
+            I2SDataSize::BITS_20 => 64 * (config.slots / 2),
+            I2SDataSize::BITS_24 => 64 * (config.slots / 2),
+            I2SDataSize::BITS_32 => 64 * (config.slots / 2),
+        },
     };
 
     let mode_bits = (mode as u8) | (config.dir as u8);
@@ -609,13 +634,9 @@ fn i2s_config_channel(
                 .prtcfg()
                 .free()
                 .ds()
-                .bits(bit_rate as u8)
+                .bits(data_size as u8)
                 .lsbfirst()
-                .bit(if config.protocol == I2SProtocol::LSB {
-                    true
-                } else {
-                    false
-                })
+                .bit(config.protocol == I2SProtocol::LSB)
                 .ckstr()
                 .bit(clock_strobe)
                 .syncen()
@@ -641,15 +662,15 @@ fn i2s_config_channel(
                 .mutecnt()
                 .bits(config.mute_counter)
                 .cpl()
-                .bit(config.compliment.as_bool())
+                .bit(config.complement.into())
                 .comp()
                 .bits(config.companding as u8)
         });
         audio_ch.frcr.modify(|_, w| {
             w.frl()
-                .bits(frame_length - 1)
+                .bits(frame_size - 1)
                 .fsall()
-                .bits((frame_length / 2) - 1)
+                .bits((frame_size / 2) - 1)
                 .fsdef()
                 .set_bit() // left/right channels enabled
                 .fspol()
@@ -671,7 +692,7 @@ fn i2s_config_channel(
 }
 
 fn enable_ch(audio_ch: &stm32::sai4::CH) {
-    audio_ch.clrfr.reset();
+    unsafe { audio_ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS)) };
     audio_ch.cr2.modify(|_, w| w.fflush().flush());
     audio_ch.cr1.modify(|_, w| w.saien().enabled());
 }

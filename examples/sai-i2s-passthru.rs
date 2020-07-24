@@ -104,4 +104,12 @@ const APP: () = {
             ctx.resources.audio.try_send(left, right).unwrap();
         }
     }
+
+    #[idle]
+    fn idle(_cx: idle::Context) -> ! {
+        // Don't go to sleep
+        loop {
+            nop();
+        }
+    }
 };

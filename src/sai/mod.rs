@@ -11,12 +11,14 @@ use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
+const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;
+
 mod pdm;
 pub use pdm::SaiPdmExt;
 mod i2s;
 pub use embedded_hal::i2s::FullDuplex;
 pub use i2s::{
-    I2SChanConfig, I2SClockStrobe, I2SCompanding, I2SCompliment, I2SDataSize,
+    I2SChanConfig, I2SClockStrobe, I2SCompanding, I2SComplement, I2SDataSize,
     I2SDir, I2SMode, I2SProtocol, I2SSync, SaiI2sExt, I2S,
 };
 
@@ -196,10 +198,12 @@ macro_rules! sai_hal {
 
                 /// Clears all interrupts on the `channel`
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
-                    match channel {
-                        SaiChannel::ChannelA => &self.rb.cha.clrfr.reset(),
-                        SaiChannel::ChannelB => &self.rb.chb.clrfr.reset(),
-                    };
+                    unsafe {
+                        match channel {
+                            SaiChannel::ChannelA => &self.rb.cha.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
+                            SaiChannel::ChannelB => &self.rb.chb.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
+                        };
+                    }
                 }
 
                 /// Mute `channel`, this is checked at the start of each frame
