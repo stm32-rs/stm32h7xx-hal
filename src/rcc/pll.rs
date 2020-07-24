@@ -15,8 +15,10 @@ pub enum PllConfigStrategy {
     /// VCOH, choose PFD frequency for accuracy, highest VCO frequency
     Iterative,
     /// VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    /// Uses fractional mode to precisely set the P clock
     Fractional,
     /// VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    /// Uses fractional mode to precisely set the P clock not less than target frequency
     FractionalNotLess,
 }
 
@@ -542,7 +544,7 @@ mod tests {
         // Output
         println!("P Divider {}", pll_x_p);
         let output_p = pll_x_n as f32 * input / pll_x_p as f32;
-        println!("==> Output {} MHz", output_p / 1e6);
+        println!("==> Output P {} MHz", output_p / 1e6);
         println!();
         assert_eq!(output_p, 240e6);
 
@@ -554,7 +556,7 @@ mod tests {
 
         let output_r = calc_ck(input as u32, pll_x_n, 0, pll_x_r) as f32;
         println!("R Divider {}", pll_x_r);
-        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!("==> Output R {} MHz", output_r / 1e6);
         println!();
         assert_eq!(output_r, pll_r_target as f32);
     }
@@ -641,7 +643,7 @@ mod tests {
         let output_r =
             calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_r) as f32;
         println!("R Divider {}", pll_x_r);
-        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!("==> Output R {} MHz", output_r / 1e6);
         println!();
         assert!(output_r <= pll_r_target as f32);
     }
@@ -727,7 +729,7 @@ mod tests {
         let output_r =
             calc_ck(input as u32, pll_x_n, pll_x_fracn, pll_x_r) as f32;
         println!("R Divider {}", pll_x_r);
-        println!("==> Output Q {} MHz", output_r / 1e6);
+        println!("==> Output R {} MHz", output_r / 1e6);
         println!();
         assert!(output_r >= pll_r_target as f32);
     }
