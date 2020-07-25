@@ -4,7 +4,8 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::logger;
+#[path = "utilities/logger.rs"]
+mod logger;
 use stm32h7xx_hal::{gpio::Speed, pac, prelude::*, rcc::PllConfigStrategy};
 
 use log::info;

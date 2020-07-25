@@ -1,7 +1,8 @@
 #![no_main]
 #![no_std]
 
-use stm32h7xx_hal::logger;
+#[path = "utilities/logger.rs"]
+mod logger;
 use stm32h7xx_hal::{pac, prelude::*, watchdog::SystemWindowWatchdog};
 
 use cortex_m_rt::entry;

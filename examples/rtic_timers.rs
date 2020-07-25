@@ -15,6 +15,8 @@ use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
 use stm32h7xx_hal::timer::{Event, Timer};
 
+use panic_halt as _;
+
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {

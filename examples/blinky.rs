@@ -5,10 +5,12 @@
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
-use stm32h7xx_hal::logger;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
+
+#[path = "utilities/logger.rs"]
+mod logger;
 
 #[entry]
 fn main() -> ! {

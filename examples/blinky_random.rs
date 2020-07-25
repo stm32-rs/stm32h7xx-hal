@@ -5,8 +5,10 @@
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
-use stm32h7xx_hal::logger;
 use stm32h7xx_hal::{pac, prelude::*};
+
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use log::info;
 

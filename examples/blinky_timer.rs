@@ -3,7 +3,8 @@
 #![no_main]
 #![no_std]
 
-use stm32h7xx_hal::logger;
+#[path = "utilities/logger.rs"]
+mod logger;
 #[macro_use(block)]
 extern crate nb;
 

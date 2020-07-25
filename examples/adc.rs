@@ -10,7 +10,10 @@ use log::info;
 
 use cortex_m_rt::entry;
 
-use stm32h7xx_hal::{adc, delay::Delay, logger, pac, prelude::*};
+use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*};
+
+#[path = "utilities/logger.rs"]
+mod logger;
 
 #[entry]
 fn main() -> ! {

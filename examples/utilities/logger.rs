@@ -20,6 +20,7 @@ cfg_if::cfg_if! {
                 inner: InterruptSync::new(ItmDest::new(cortex_m::Peripherals::take().unwrap().ITM)),
             };
         }
+
         pub fn init() {
             cortex_m_log::log::init(&LOGGER).unwrap();
         }
