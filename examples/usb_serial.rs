@@ -30,7 +30,7 @@ fn main() -> ! {
 
     // 48MHz CLOCK
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
-    let usb_rec = ccdr.peripheral.USB1OTG.kernel_clk_mux(UsbClkSel::HSI48);
+    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
 
     // IO
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
@@ -41,7 +41,7 @@ fn main() -> ! {
         usb_pwrclk: dp.OTG1_HS_PWRCLK,
         pin_dm: gpiob.pb14.into_alternate_af12(),
         pin_dp: gpiob.pb15.into_alternate_af12(),
-        prec: usb_rec,
+        prec: ccdr.peripheral.USB1OTG,
         hclk: ccdr.clocks.hclk(),
     };
 

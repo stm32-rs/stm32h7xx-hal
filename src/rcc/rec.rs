@@ -312,10 +312,11 @@ macro_rules! variant_return_type {
 // those peripherals must be marked with a common group clk.
 peripheral_reset_and_enable_control! {
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
+        Usb1Otg [group clk: Usb d2ccip2 "USB"],
+        Usb2Otg [group clk: Usb],
         Eth1Mac, Dma2, Dma1,
         #[cfg(any(feature = "dualcore"))] Art,
-        Adc12 [group clk: Adc(Variant) d3ccip "ADC"],
-        Usb1Otg [kernel clk: Usb d2ccip2 "USB"]
+        Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
     ];
 
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [

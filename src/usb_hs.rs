@@ -8,10 +8,10 @@
 use crate::rcc;
 use crate::stm32;
 
-// use crate::gpio::{
-//     gpioa::{PA11, PA12},
-//     AF10,
-// };
+use crate::gpio::{
+    gpioa::{PA11, PA12},
+    AF10,
+};
 use crate::gpio::{
     gpiob::{PB14, PB15},
     Alternate, AF12,
@@ -32,14 +32,15 @@ pub struct USB1 {
     pub hclk: Hertz,
 }
 
-// pub struct USB2 {
-//     pub usb_global: stm32::OTG2_HS_GLOBAL,
-//     pub usb_device: stm32::OTG2_HS_DEVICE,
-//     pub usb_pwrclk: stm32::OTG2_HS_PWRCLK,
-//     pub pin_dm: PA11<Alternate<AF10>>,
-//     pub pin_dp: PA12<Alternate<AF10>>,
-//     pub hclk: Hertz,
-// }
+pub struct USB2 {
+    pub usb_global: stm32::OTG2_HS_GLOBAL,
+    pub usb_device: stm32::OTG2_HS_DEVICE,
+    pub usb_pwrclk: stm32::OTG2_HS_PWRCLK,
+    pub pin_dm: PA11<Alternate<AF10>>,
+    pub pin_dp: PA12<Alternate<AF10>>,
+    pub prec: rcc::rec::Usb2Otg,
+    pub hclk: Hertz,
+}
 
 macro_rules! usb_peripheral {
     ($USB:ident, $GLOBAL:ident, $en:ident, $rst:ident) => {
@@ -71,6 +72,10 @@ macro_rules! usb_peripheral {
             }
 
             fn ahb_frequency_hz(&self) -> u32 {
+                // For correct operation, the AHB frequency should be higher
+                // than 30MHz. See RM0433 Rev 7. Section 57.4.4
+                assert!(self.hclk.0 > 30_000_000);
+
                 self.hclk.0
             }
         }
@@ -82,9 +87,7 @@ usb_peripheral! {
 }
 pub type Usb1BusType = UsbBus<USB1>;
 
-// Not supported in synopsys_usb_otg yet
-//
-// usb_peripheral! {
-//     USB2, OTG2_HS_GLOBAL, usb2otghsen, usb2otgrst
-// }
-// pub type Usb2BusType = UsbBus<USB2>;
+usb_peripheral! {
+    USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
+}
+pub type Usb2BusType = UsbBus<USB2>;
