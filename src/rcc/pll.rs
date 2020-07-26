@@ -266,11 +266,11 @@ macro_rules! pll_setup {
 
                     // Calulate additional output dividers
                     let pll_x_q = match pll.q_ck {
-                        Some(ck) => calc_ck_div(pll.strategy, ref_x_ck, pll_x_n, pll_x_fracn, ck),
+                        Some(ck) => calc_ck_div(pll.strategy, vco_ck, pll_x_n, pll_x_fracn, ck),
                         None => 0
                     };
                     let pll_x_r = match pll.r_ck {
-                        Some(ck) => calc_ck_div(pll.strategy, ref_x_ck, pll_x_n, pll_x_fracn, ck),
+                        Some(ck) => calc_ck_div(pll.strategy, vco_ck, pll_x_n, pll_x_fracn, ck),
                         None => 0
                     };
 
