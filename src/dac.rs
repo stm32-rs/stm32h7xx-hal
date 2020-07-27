@@ -109,7 +109,7 @@ macro_rules! dac {
                 let mut trim = 0;
                 while true {
                     dac.ccr.modify(|_, w| unsafe { w.$trim().bits(trim) });
-                    delay.delay_us(64_u32);
+                    delay.try_delay_us(64_u32).ok(); // infallible
                     if dac.sr.read().$cal_flag().bit() {
                         break;
                     }

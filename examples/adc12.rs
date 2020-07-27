@@ -67,8 +67,8 @@ fn main() -> ! {
     let mut channel_pc3 = gpioc.pc3.into_analog(); // AIN 13
 
     loop {
-        let data_pc2: u32 = adc1.read(&mut channel_pc2).unwrap();
-        let data_pc3: u32 = adc2.read(&mut channel_pc3).unwrap();
+        let data_pc2: u32 = adc1.try_read(&mut channel_pc2).unwrap();
+        let data_pc3: u32 = adc2.try_read(&mut channel_pc3).unwrap();
         // voltage = reading * (vref/resolution)
         println!(log, "ADC readings: {} {}", data_pc2, data_pc3);
     }

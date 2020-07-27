@@ -6,6 +6,7 @@
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 
 use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
@@ -159,10 +160,7 @@ macro_rules! adc_pins {
         $(
             impl Channel<$ADC> for $input {
                 type ID = u8;
-
-                fn channel() -> u8 {
-                    $chan
-                }
+                const CHANNEL: Self::ID = $chan;
             }
         )+
     };
@@ -438,7 +436,7 @@ macro_rules! adc_hal {
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
                     );
-                    delay.delay_us(10_u8);
+                    delay.try_delay_us(10_u8).unwrap(); // infallible
                 }
 
                 /// Enables Deeppowerdown-mode and disables voltage regulator
@@ -768,10 +766,10 @@ macro_rules! adc_hal {
                 WORD: From<u32>,
                 PIN: Channel<$ADC, ID = u8>,
             {
-                type Error = ();
+                type Error = Infallible;
 
-                fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    let res = self.convert(PIN::channel());
+                fn try_read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
+                    let res = self.convert(PIN::CHANNEL);
                     Ok(res.into())
                 }
             }

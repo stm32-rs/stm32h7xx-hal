@@ -7,7 +7,7 @@
 extern crate panic_itm;
 extern crate rtic;
 
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
+use stm32h7xx_hal::hal::digital::ToggleableOutputPin;
 
 use rtic::app;
 use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
@@ -86,24 +86,24 @@ const APP: () = {
     #[task(binds = TIM1_UP, resources = [led1, timer1])]
     fn timer1_tick(ctx: timer1_tick::Context) {
         ctx.resources.timer1.clear_irq();
-        ctx.resources.led1.toggle().unwrap();
+        ctx.resources.led1.try_toggle().unwrap();
     }
 
     #[task(binds = TIM2, resources = [led2, timer2])]
     fn timer2_tick(ctx: timer2_tick::Context) {
         ctx.resources.timer2.clear_irq();
-        ctx.resources.led2.toggle().unwrap();
+        ctx.resources.led2.try_toggle().unwrap();
     }
 
     #[task(binds = TIM8_BRK_TIM12, resources = [led3, timer3])]
     fn timer3_tick(ctx: timer3_tick::Context) {
         ctx.resources.timer3.clear_irq();
-        ctx.resources.led3.toggle().unwrap();
+        ctx.resources.led3.try_toggle().unwrap();
     }
 
     #[task(binds = TIM17, resources = [led4, timer4])]
     fn timer4_tick(ctx: timer4_tick::Context) {
         ctx.resources.timer4.clear_irq();
-        ctx.resources.led4.toggle().unwrap();
+        ctx.resources.led4.try_toggle().unwrap();
     }
 };

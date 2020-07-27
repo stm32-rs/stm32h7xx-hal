@@ -4,6 +4,7 @@ use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
 use crate::time::{Hertz, MilliSeconds};
 use cast::u8;
+use core::convert::Infallible;
 
 /// Select Window Watchdog hardware based on core
 #[cfg(any(feature = "singlecore"))]
@@ -35,20 +36,23 @@ impl SystemWindowWatchdog {
 }
 
 impl Watchdog for SystemWindowWatchdog {
+    type Error = Infallible;
     /// Feeds the watchdog in order to avoid a reset, only executes properly if the watchdog
     /// has already been started aka. the down_counter is not 0 anymore
-    fn feed(&mut self) {
+    fn try_feed(&mut self) -> Result<(), Self::Error> {
         // if this value is 0 it is assumed that the watchdog has not yet been started
         assert!(self.down_counter != 0);
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
+        Ok(())
     }
 }
 
 impl WatchdogEnable for SystemWindowWatchdog {
+    type Error = Infallible;
     type Time = MilliSeconds;
     /// Starts the watchdog with a given timeout period, if this period is out of bounds the function
     /// is going to panic
-    fn start<T>(&mut self, period: T)
+    fn try_start<T>(&mut self, period: T) -> Result<(), Self::Error>
     where
         T: Into<Self::Time>,
     {
@@ -84,5 +88,6 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
         // enable the watchdog
         self.wwdg.cr.modify(|_, w| w.wdga().set_bit());
+        Ok(())
     }
 }

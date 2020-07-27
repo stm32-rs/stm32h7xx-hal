@@ -73,7 +73,7 @@ fn main() -> ! {
     let mut channel = gpioc.pc0.into_analog(); // ANALOG IN 10
 
     loop {
-        let data: u32 = adc1.read(&mut channel).unwrap();
+        let data: u32 = adc1.try_read(&mut channel).unwrap();
         // voltage = reading * (vref/resolution)
         println!(
             log,

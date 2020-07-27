@@ -40,9 +40,6 @@
 
 extern crate paste;
 
-#[derive(Debug)]
-pub enum Never {}
-
 #[cfg(not(feature = "device-selected"))]
 compile_error!(
     "This crate requires one of the following device features enabled:

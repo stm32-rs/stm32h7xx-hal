@@ -56,12 +56,12 @@ fn main() -> ! {
     );
 
     // Write fixed data
-    spi.write(&[0x11u8, 0x22, 0x33]).unwrap();
+    spi.try_write(&[0x11u8, 0x22, 0x33]).unwrap();
 
     // Echo what is received on the SPI
     let mut received = 0;
     loop {
-        block!(spi.send(received)).ok();
-        received = block!(spi.read()).unwrap();
+        block!(spi.try_send(received)).ok();
+        received = block!(spi.try_read()).unwrap();
     }
 }

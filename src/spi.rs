@@ -589,7 +589,7 @@ macro_rules! spi {
                 impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, $TY> {
                     type Error = Error;
 
-                    fn read(&mut self) -> nb::Result<$TY, Error> {
+                    fn try_read(&mut self) -> nb::Result<$TY, Error> {
                         let sr = self.spi.sr.read();
 
                         Err(if sr.ovr().is_overrun() {
@@ -612,7 +612,7 @@ macro_rules! spi {
                         })
                     }
 
-                    fn send(&mut self, byte: $TY) -> nb::Result<(), Error> {
+                    fn try_send(&mut self, byte: $TY) -> nb::Result<(), Error> {
                         let sr = self.spi.sr.read();
 
                         Err(if sr.ovr().is_overrun() {

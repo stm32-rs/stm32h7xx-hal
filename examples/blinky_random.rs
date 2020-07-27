@@ -6,7 +6,7 @@
 extern crate panic_itm;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
+use stm32h7xx_hal::hal::digital::ToggleableOutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use cortex_m_log::println;
@@ -61,8 +61,8 @@ fn main() -> ! {
                 // acceptable for your application.
                 let period = random % 200_u32;
 
-                led.toggle().unwrap();
-                delay.delay_ms(period);
+                led.try_toggle().unwrap();
+                delay.try_delay_ms(period).unwrap();
             }
             Err(err) => println!(log, "RNG error: {:?}", err),
         }

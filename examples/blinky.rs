@@ -6,7 +6,7 @@
 extern crate panic_itm;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
+use stm32h7xx_hal::hal::digital::OutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use cortex_m_log::println;
@@ -44,11 +44,11 @@ fn main() -> ! {
 
     loop {
         loop {
-            led.set_high().unwrap();
-            delay.delay_ms(500_u16);
+            led.try_set_high().unwrap();
+            delay.try_delay_ms(500_u16).unwrap();
 
-            led.set_low().unwrap();
-            delay.delay_ms(500_u16);
+            led.try_set_low().unwrap();
+            delay.try_delay_ms(500_u16).unwrap();
         }
     }
 }

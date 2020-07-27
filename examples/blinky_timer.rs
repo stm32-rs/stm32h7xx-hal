@@ -9,7 +9,7 @@ extern crate panic_itm;
 extern crate nb;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
+use stm32h7xx_hal::hal::digital::{OutputPin, ToggleableOutputPin};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use cortex_m_log::println;
@@ -41,7 +41,7 @@ fn main() -> ! {
 
     // Configure PE1 as output.
     let mut led = gpioe.pe1.into_push_pull_output();
-    led.set_low().unwrap();
+    led.try_set_low().unwrap();
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
@@ -52,14 +52,14 @@ fn main() -> ! {
     loop {
         for _ in 0..5 {
             // 20ms wait with timer
-            led.toggle().unwrap();
-            timer.start(20.ms());
-            block!(timer.wait()).ok();
+            led.try_toggle().unwrap();
+            timer.try_start(20.ms()).unwrap();
+            block!(timer.try_wait()).ok();
 
             // Delay for 500ms. Timer must operate correctly on next
             // use.
-            led.toggle().unwrap();
-            delay.delay_ms(500_u16);
+            led.try_toggle().unwrap();
+            delay.try_delay_ms(500_u16).unwrap();
         }
     }
 }

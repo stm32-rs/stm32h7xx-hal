@@ -1,5 +1,6 @@
 //! Serial
 
+use core::convert::Infallible;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ptr;
@@ -35,8 +36,6 @@ use crate::gpio::gpioj::{PJ8, PJ9};
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
-
-use crate::Never;
 
 /// Serial error
 #[derive(Debug)]
@@ -546,18 +545,18 @@ macro_rules! usart {
             impl serial::Read<u8> for Serial<$USARTX> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     let mut rx: Rx<$USARTX> = Rx {
                         _usart: PhantomData,
                     };
-                    rx.read()
+                    rx.try_read()
                 }
             }
 
             impl serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -585,20 +584,20 @@ macro_rules! usart {
             }
 
             impl serial::Write<u8> for Serial<$USARTX> {
-                type Error = Never;
+                type Error = Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Never> {
+                fn try_flush(&mut self) -> nb::Result<(), Infallible> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
-                    tx.flush()
+                    tx.try_flush()
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Infallible> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
-                    tx.write(byte)
+                    tx.try_write(byte)
                 }
             }
 
@@ -613,9 +612,9 @@ macro_rules! usart {
                 // framing errors (which only occur in SmartCard
                 // mode); neither of these apply to our hardware
                 // configuration
-                type Error = Never;
+                type Error = Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Never> {
+                fn try_flush(&mut self) -> nb::Result<(), Infallible> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -626,7 +625,7 @@ macro_rules! usart {
                     }
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Infallible> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -721,7 +720,11 @@ where
     Tx<USART>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
+        let _ = s
+            .as_bytes()
+            .iter()
+            .map(|c| block!(self.try_write(*c)))
+            .last();
         Ok(())
     }
 }

@@ -22,18 +22,16 @@ features = ["stm32h743", "rt"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-embedded-hal = "0.2.4"
+embedded-hal = "=1.0.0-alpha.1"
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
 stm32h7 = "0.11.0"
-void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
-nb = "0.1.2"
+nb = "1"
 paste = "0.1.18"
 
 [dependencies.bare-metal]
-version = "0.2.5"
-features = ["const-fn"]
+version = "1"
 
 [dev-dependencies]
 panic-itm = "~0.4.1"
@@ -41,8 +39,6 @@ cortex-m-rtic = "0.5.3"
 cortex-m-log = { version = "~0.6", features = ["itm"] }
 
 [features]
-default = ["unproven"]
-unproven = ["embedded-hal/unproven"]
 device-selected = []
 revision_v = []
 singlecore = []
@@ -89,3 +85,4 @@ required-features = ["revision_v"]
 [[example]]
 name = "qspi"
 required-features = ["quadspi"]
+

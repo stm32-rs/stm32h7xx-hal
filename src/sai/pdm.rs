@@ -15,14 +15,12 @@
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
 
-use core::convert::TryInto;
+use core::convert::{Infallible, TryInto};
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 use crate::stm32::{SAI1, SAI4};
 use crate::time::Hertz;
-
-use crate::Never;
 
 use crate::gpio::gpiob::PB2;
 use crate::gpio::gpioc::{PC1, PC5};
@@ -196,7 +194,7 @@ macro_rules! hal {
             }
             impl Sai<$SAIX, PDM> {
                 /// Read a single data word (one 'slot')
-                pub fn read_data(&mut self) -> nb::Result<u32, Never> {
+                pub fn read_data(&mut self) -> nb::Result<u32, Infallible> {
                     while self.interface.invalid_countdown > 0 {
                         // Check for words to read
                         if self.rb.cha.sr.read().freq().bit_is_clear() {

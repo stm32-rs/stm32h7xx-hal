@@ -3,6 +3,7 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 
 use crate::hal::timer::{CountDown, Periodic};
@@ -14,7 +15,6 @@ use crate::stm32::{
 
 use cast::{u16, u32};
 use nb;
-use void::Void;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
@@ -143,9 +143,10 @@ macro_rules! hal {
             impl Periodic for Timer<$TIMX> {}
 
             impl CountDown for Timer<$TIMX> {
+                type Error = Infallible;
                 type Time = Hertz;
 
-                fn start<T>(&mut self, timeout: T)
+                fn try_start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
                 where
                     T: Into<Hertz>,
                 {
@@ -167,10 +168,12 @@ macro_rules! hal {
                     self.tim.egr.write(|w| w.ug().set_bit());
 
                     // Start counter
-                    self.resume()
+                    self.resume();
+
+                    Ok(())
                 }
 
-                fn wait(&mut self) -> nb::Result<(), Void> {
+                fn try_wait(&mut self) -> nb::Result<(), Infallible> {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
@@ -212,7 +215,7 @@ macro_rules! hal {
                         tim,
                         timeout: Hertz(0),
                     };
-                    timer.start(timeout);
+                    timer.try_start(timeout).unwrap(); // infallible
 
                     timer
                 }

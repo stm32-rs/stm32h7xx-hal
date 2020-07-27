@@ -62,7 +62,7 @@ fn main() -> ! {
 
     loop {
         // Echo what is received on the serial link.
-        let received = block!(rx.read()).unwrap();
-        block!(tx.write(received)).ok();
+        let received = block!(rx.try_read()).unwrap();
+        block!(tx.try_write(received)).ok();
     }
 }

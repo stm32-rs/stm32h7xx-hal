@@ -41,6 +41,6 @@ fn main() -> ! {
     let mut buf = [0x60];
     loop {
         buf[0] = 0x11;
-        i2c.write_read(0x76, &buf.clone(), &mut buf).unwrap();
+        i2c.try_write_read(0x76, &buf.clone(), &mut buf).unwrap();
     }
 }

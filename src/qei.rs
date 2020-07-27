@@ -1,6 +1,8 @@
 //! # Quadrature Encoder Interface
-use crate::hal::{self, Direction};
+
+use crate::hal::{self, qei::Direction};
 use crate::rcc::{rec, ResetEnable};
+use core::convert::Infallible;
 
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA5, PA6, PA7, PA8, PA9};
 use crate::gpio::gpiob::{PB0, PB13, PB14, PB3, PB4, PB5, PB6, PB7};
@@ -207,18 +209,19 @@ macro_rules! tim_hal {
                 }
             }
 
-            impl hal::Qei for Qei<$TIM> {
+            impl hal::qei::Qei for Qei<$TIM> {
                 type Count = $bits;
+                type Error = Infallible;
 
-                fn count(&self) -> $bits {
-                    self.tim.cnt.read().bits() as $bits
+                fn try_count(&self) -> Result<$bits, Self::Error> {
+                    Ok(self.tim.cnt.read().bits() as $bits)
                 }
 
-                fn direction(&self) -> Direction {
+                fn try_direction(&self) -> Result<Direction, Self::Error> {
                     if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
+                        Ok(Direction::Upcounting)
                     } else {
-                        hal::Direction::Downcounting
+                        Ok(Direction::Downcounting)
                     }
                 }
             }

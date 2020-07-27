@@ -86,7 +86,7 @@ impl Rng {
 impl rng::Read for Rng {
     type Error = ErrorKind;
 
-    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
+    fn try_read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.fill(buffer)
     }
 }

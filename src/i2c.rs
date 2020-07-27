@@ -325,7 +325,7 @@ macro_rules! i2c {
             impl Write for I2c<$I2CX> {
                 type Error = Error;
 
-                fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+                fn try_write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
                     // TODO support transfers of more than 255 bytes
                     assert!(bytes.len() < 256 && bytes.len() > 0);
 
@@ -369,7 +369,7 @@ macro_rules! i2c {
             impl WriteRead for I2c<$I2CX> {
                 type Error = Error;
 
-                fn write_read(
+                fn try_write_read(
                     &mut self,
                     addr: u8,
                     bytes: &[u8],
@@ -444,7 +444,7 @@ macro_rules! i2c {
             impl Read for I2c<$I2CX> {
             type Error = Error;
 
-            fn read(
+            fn try_read(
                 &mut self,
                 addr: u8,
                 buffer: &mut [u8],

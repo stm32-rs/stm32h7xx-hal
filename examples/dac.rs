@@ -7,7 +7,7 @@ extern crate panic_itm;
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::Direction;
+use stm32h7xx_hal::hal::qei::Direction;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use stm32h7xx_hal::traits::DacOut;

@@ -6,7 +6,7 @@
 extern crate panic_itm;
 extern crate rtic;
 
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
+use stm32h7xx_hal::hal::digital::ToggleableOutputPin;
 
 use rtic::app;
 use stm32h7xx_hal::gpio::{gpioc::PC13, gpioi::PI13};
@@ -52,6 +52,6 @@ const APP: () = {
     #[task(binds = EXTI15_10, resources = [button, led])]
     fn button_click(ctx: button_click::Context) {
         ctx.resources.button.clear_interrupt_pending_bit();
-        ctx.resources.led.toggle().unwrap();
+        ctx.resources.led.try_toggle().unwrap();
     }
 };

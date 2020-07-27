@@ -46,7 +46,7 @@ fn main() -> ! {
 
     // Enable the watchdog with a limit of 100 ms and wait forever
     // -> restart the chip
-    watchdog.start(100.ms());
+    watchdog.try_start(100.ms()).unwrap();
 
     loop {}
 }

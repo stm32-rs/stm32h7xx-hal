@@ -39,6 +39,7 @@
 //!   c0.enable()
 //! ```
 //!
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
@@ -554,19 +555,21 @@ macro_rules! tim_pin_hal {
         $ccrx:ident, $typ:ident),)+
     ) => {
         $(
-            impl hal::PwmPin for Pwm<$TIMX, $CH> {
+            impl hal::pwm::PwmPin for Pwm<$TIMX, $CH> {
                 type Duty = $typ;
+                type Error = Infallible;
 
                 // You may not access self in the following methods!
                 // See unsafe above
 
-                fn disable(&mut self) {
+                fn try_disable(&mut self) -> Result<(), Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     tim.ccer.modify(|_, w| w.$ccxe().clear_bit());
+                    Ok(())
                 }
 
-                fn enable(&mut self) {
+                fn try_enable(&mut self) -> Result<(), Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     tim.$ccmrx_output().modify(|_, w|
@@ -576,24 +579,26 @@ macro_rules! tim_pin_hal {
                             .pwm_mode1() // PWM Mode
                     );
                     tim.ccer.modify(|_, w| w.$ccxe().set_bit());
+                    Ok(())
                 }
 
-                fn get_duty(&self) -> Self::Duty {
+                fn try_get_duty(&self) -> Result<Self::Duty, Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.$ccrx.read().ccr().bits()
+                    Ok(tim.$ccrx.read().ccr().bits())
                 }
 
-                fn get_max_duty(&self) -> Self::Duty {
+                fn try_get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.arr.read().arr().bits()
+                    Ok(tim.arr.read().arr().bits())
                 }
 
-                fn set_duty(&mut self, duty: Self::Duty) {
+                fn try_set_duty(&mut self, duty: Self::Duty) -> Result<(), Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     tim.$ccrx.write(|w| w.ccr().bits(duty));
+                    Ok(())
                 }
             }
         )+
@@ -695,44 +700,48 @@ macro_rules! lptim_hal {
                 unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1> {
+            impl hal::pwm::PwmPin for Pwm<$TIMX, C1> {
                 type Duty = u16;
+                type Error = Infallible;
 
                 // You may not access self in the following methods!
                 // See unsafe above
 
-                fn disable(&mut self) {
+                fn try_disable(&mut self) -> Result<(), Self::Error>{
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     // LPTIM only has one output, so we disable the
                     // entire timer
                     tim.cr.modify(|_, w| w.enable().disabled());
+                    Ok(())
                 }
 
-                fn enable(&mut self) {
+                fn try_enable(&mut self) -> Result<(), Self::Error>{
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     tim.cr.modify(|_, w| w.cntstrt().start().enable().enabled());
+                    Ok(())
                 }
 
-                fn get_duty(&self) -> u16 {
+                fn try_get_duty(&self) -> Result<u16, Self::Error>{
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.cmp.read().cmp().bits()
+                    Ok(tim.cmp.read().cmp().bits())
                 }
 
-                fn get_max_duty(&self) -> u16 {
+                fn try_get_max_duty(&self)-> Result<u16, Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.arr.read().arr().bits()
+                    Ok(tim.arr.read().arr().bits())
                 }
 
-                fn set_duty(&mut self, duty: u16) {
+                fn try_set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     tim.cmp.write(|w| w.cmp().bits(duty));
                     while !tim.isr.read().cmpok().is_set() {}
                     tim.icr.write(|w| w.cmpokcf().clear());
+                    Ok(())
                 }
             }
         )+

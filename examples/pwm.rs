@@ -51,23 +51,23 @@ fn main() -> ! {
             .pwm(pins, 10.khz(), ccdr.peripheral.TIM1, &ccdr.clocks);
 
     // Output PWM on PA8
-    let max = pwm.get_max_duty();
-    pwm.set_duty(max / 2);
+    let max = pwm.try_get_max_duty().unwrap();
+    pwm.try_set_duty(max / 2).unwrap();
 
     println!(log, "50%");
-    pwm.enable();
+    pwm.try_enable().unwrap();
     asm::bkpt();
 
     println!(log, "25%");
-    pwm.set_duty(max / 4);
+    pwm.try_set_duty(max / 4).unwrap();
     asm::bkpt();
 
     println!(log, "12.5%");
-    pwm.set_duty(max / 8);
+    pwm.try_set_duty(max / 8).unwrap();
     asm::bkpt();
 
     println!(log, "100%");
-    pwm.set_duty(max);
+    pwm.try_set_duty(max).unwrap();
     asm::bkpt();
 
     loop {}
