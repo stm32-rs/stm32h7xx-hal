@@ -340,9 +340,7 @@ fn calc_ck_div(
     let mut div = (vco_ck + target_ck - 1) / target_ck;
     // If the divider takes us under the target clock, then increase it
     if strategy == PllConfigStrategy::FractionalNotLess {
-        // TODO: Expression always evaluates to true
-        // target_ck < calc_ck(vco_ck, pll_n, pll_fracn, div) {
-        if true {
+        if target_ck * div > vco_ck {
             div -= 1;
         }
     }
