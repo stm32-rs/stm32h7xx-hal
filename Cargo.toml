@@ -30,6 +30,7 @@ void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
 nb = "0.1.2"
 paste = "0.1.18"
+sdio-host = { version = "0.4", optional = true }
 
 [dependencies.bare-metal]
 version = "0.2.5"
@@ -51,6 +52,7 @@ dsi = []
 cm4 = []
 cm7 = []
 quadspi = []
+sdmmc = ["sdio-host"]
 rt = ["stm32h7/rt"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
 stm32h743 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
@@ -89,3 +91,7 @@ required-features = ["revision_v"]
 [[example]]
 name = "qspi"
 required-features = ["quadspi"]
+
+[[example]]
+name = "sdmmc"
+required-features = ["sdmmc"]

@@ -137,6 +137,8 @@ pub mod rcc;
 pub mod rng;
 #[cfg(feature = "device-selected")]
 pub mod sai;
+#[cfg(all(feature = "device-selected", feature = "sdmmc"))]
+pub mod sdmmc;
 #[cfg(feature = "device-selected")]
 pub mod serial;
 #[cfg(feature = "device-selected")]
