@@ -410,7 +410,7 @@ macro_rules! i2c {
                             .nbytes()
                             .bits(bytes.len() as u8)
                             .autoend()
-                            .automatic()
+                            .software()
                     });
 
                     for byte in bytes {
@@ -422,7 +422,12 @@ macro_rules! i2c {
                         // Put byte on the wire
                         self.i2c.txdr.write(|w| w.txdata().bits(*byte));
                     }
-                    // automatic STOP
+
+                    // Wait until the write finishes
+                    busy_wait!(self.i2c, tc, is_complete);
+
+                    // Stop
+                    self.i2c.cr2.write(|w| w.stop().set_bit());
 
                     Ok(())
                 }
