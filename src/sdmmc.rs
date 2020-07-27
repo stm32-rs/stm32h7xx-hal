@@ -2,8 +2,62 @@
 //!
 //! For HDHC / SDXC / SDUC cards. SDSC cards are not supported.
 //!
-//! Adapted from stm32f4xx-hal
-//! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/sdio.rs
+//! The H7 has two SDMMC peripherals, `SDMMC1` and `SDMMC2`.
+//!
+//! ## IO Setup
+//!
+//! For high speed signalling (bus clock > 16MHz), the IO speed needs to be
+//! increased from the default.
+//!
+//! ```
+//! use stm32h7xx_hal::gpio::Speed;
+//!
+//! let d0 = d0.set_speed(Speed::VeryHigh);
+//! ```
+//!
+//! ## Usage
+//!
+//! By default the SDMMC bus clock is derived from the `pll1_q_ck`. This can be
+//! set when initialising the RCC.
+//!
+//! ```
+//! let ccdr = rcc
+//!     .pll1_q_ck(100.mhz())
+//!     .freeze(vos, &dp.SYSCFG);
+//! ```
+//!
+//! There is an [extension trait](crate::SdmmcExt) implemented for the `SDMMC1`
+//! and `SDMMC2` periperhals for easy initialisation.
+//!
+//! ```
+//! // Create SDMMC
+//! let mut sdmmc = dp.SDMMC1.sdmmc(
+//!     (clk, cmd, d0, d1, d2, d3),
+//!     ccdr.peripheral.SDMMC1,
+//!     &ccdr.clocks,
+//! );
+//! ```
+//!
+//! The next step is to initialise a card. The bus speed is also set.
+//!
+//! ```
+//! if let Err(err) = sdmmc.init_card(10.mhz()) {
+//!     info!("Init err: {:?}", err);
+//! }
+//! ```
+//!
+//! The [`card()`](crate::Sdmmc::card) method returns useful information about
+//! the card.
+//!
+//! ```
+//! let card = sdmmc.card();
+//! if let Some(card) = sdmmc.card() {
+//!     info!("SD Card Connected: {:?}", card);
+//! }
+//! ```
+
+// Adapted from stm32f4xx-hal
+// https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/sdio.rs
 
 use core::fmt;
 
