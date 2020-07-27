@@ -307,35 +307,54 @@ macro_rules! pll_setup {
     };
 }
 
-fn calc_fracn(ref_clk: f32, pll_x_n: f32, pll_x_p: f32, output: f32) -> u16 {
+/// Calcuate the Fractional-N part of the divider
+///
+/// ref_clk - Frequency at the PFD input
+/// pll_n - Integer-N part of the divider
+/// pll_p - P-divider
+/// output - Wanted output frequency
+fn calc_fracn(ref_clk: f32, pll_n: f32, pll_p: f32, output: f32) -> u16 {
     // VCO output frequency = Fref1_ck x (DIVN1 + (FRACN1 / 2^13)),
-    let pll_x_fracn =
-        FRACN_DIVISOR * (((output * pll_x_p) / ref_clk) - pll_x_n);
-    assert!(pll_x_fracn >= 0.0);
-    assert!(pll_x_fracn <= FRACN_MAX);
+    let pll_fracn = FRACN_DIVISOR * (((output * pll_p) / ref_clk) - pll_n);
+    assert!(pll_fracn >= 0.0);
+    assert!(pll_fracn <= FRACN_MAX);
     // Rounding down by casting gives up the lowest without going over
-    pll_x_fracn as u16
+    pll_fracn as u16
 }
 
+/// Calculates the {Q,R}-divider. Must NOT be used for the P-divider, as this
+/// has additional restrictions on PLL1.
+///
+/// vco_ck - VCO output frequency
+/// pll_n - Integer-N part of the divider
+/// pll_fracn - Fractional-N part of the divider
+/// target_ck - Target {Q,R} output frequency
 fn calc_ck_div(
     strategy: PllConfigStrategy,
-    ref_x_ck: u32,
-    pll_x_n: u32,
-    pll_x_fracn: u16,
+    vco_ck: u32,
+    pll_n: u32,
+    pll_fracn: u16,
     target_ck: u32,
 ) -> u32 {
-    let mut div = (ref_x_ck + target_ck - 1) / target_ck;
+    let mut div = (vco_ck + target_ck - 1) / target_ck;
     // If the divider takes us under the target clock increase it
     if strategy == PllConfigStrategy::FractionalNotLess {
-        if target_ck < calc_ck(ref_x_ck, pll_x_n, pll_x_fracn, div) {
+        // TODO: Expression always evaluates to true
+        if target_ck < calc_ck(vco_ck, pll_n, pll_fracn, div) {
             div -= 1;
         }
     }
     div
 }
 
-fn calc_ck(ref_x_ck: u32, pll_x_n: u32, pll_x_fracn: u16, div: u32) -> u32 {
-    (ref_x_ck as f32 * (pll_x_n as f32 + (pll_x_fracn as f32 / FRACN_DIVISOR))
+/// Calculates an output frequency
+///
+/// ref_clk - Frequency at the PFD input
+/// pll_n - Integer-N part of the divider
+/// pll_fracn - Fractional-N part of the divider
+/// div - {P,Q,R}-divider
+fn calc_ck(ref_ck: u32, pll_n: u32, pll_fracn: u16, div: u32) -> u32 {
+    (ref_ck as f32 * (pll_n as f32 + (pll_fracn as f32 / FRACN_DIVISOR))
         / div as f32) as u32
 }
 
@@ -713,8 +732,10 @@ mod tests {
         println!("P Divider {}", pll_x_p);
         println!("==> Output P {} MHz", output_p / 1e6);
         println!();
-        // The P clock should be very close to target with a finely tuned FRACN
-        // The other clocks accuracy will vary widely depending on how close they are to an even value of the P clock
+        // The P_CK should be very close to the target with a finely tuned FRACN
+        //
+        // The other clocks accuracy will vary widely depending on how close
+        // they are to an integer fraction with the P_CK
         assert!(output_p >= pll_p_target as f32);
         let error = output_p - pll_p_target as f32;
         assert!(f32::abs(error) < (pll_p_target as f32 / 1_000_000.0)); // < ±.0001% error
