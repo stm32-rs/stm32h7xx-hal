@@ -122,7 +122,7 @@ macro_rules! pins {
 
 pins! {
     SDMMC1:
-    CLK: [PC12<Alternate<AF12>>]
+        CLK: [PC12<Alternate<AF12>>]
         CMD: [PD2<Alternate<AF12>>]
         D0: [PC8<Alternate<AF12>>]
         D1: [PC9<Alternate<AF12>>]
@@ -136,8 +136,8 @@ pins! {
         CDIR: [PB9<Alternate<AF7>>]
         D0DIR: [PC6<Alternate<AF8>>]
         D123DIR: [PC7<Alternate<AF8>>]
-        SDMMC2:
-    CLK: [PC1<Alternate<AF9>>, PD6<Alternate<AF11>>]
+    SDMMC2:
+        CLK: [PC1<Alternate<AF9>>, PD6<Alternate<AF11>>]
         CMD: [PA0<Alternate<AF9>>, PD7<Alternate<AF11>>]
         D0: [PB14<Alternate<AF9>>]
         D1: [PB15<Alternate<AF9>>]
@@ -550,8 +550,6 @@ macro_rules! sdmmc {
                     } else {
                         // Switch to max clock for SDR12
                         self.clkcr_set_clkdiv(25_000_000, width)?;
-
-                        // trace!("Set intermediate clock frequency of 25MHz (SDR12 signalling");
                     }
 
                     // Read status
@@ -563,14 +561,13 @@ macro_rules! sdmmc {
                         self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
 
                         if self.signalling == Signalling::SDR25 {
+                            // Set final clock frequency
                             self.clkcr_set_clkdiv(freq.0, width)?;
 
                             if self.read_status()?.state() != CurrentState::Transfer {
                                 return Err(Error::SignalingSwitchFailed);
                             }
                         }
-
-                        // trace!("Set final clock frequency of {}", freq.0);
                     }
 
                     // Read status after signalling change
@@ -602,14 +599,13 @@ macro_rules! sdmmc {
                     block_size: u8,
                     direction: Dir,
                 ) {
-                    // Block Size up to 2^14 bytes
-                    assert!(block_size <= 14);
+                    assert!(block_size <= 14, "Block size up to 2^14 bytes");
 
                     // Block Size must be greater than 0 ( != 1 byte) in DDR mode
                     let ddr = self.sdmmc.clkcr.read().ddr().bit_is_set();
                     assert!(
                         !ddr || block_size != 0,
-                        "Block size must be >= 1, or >= 2 is DDR mode"
+                        "Block size must be >= 1, or >= 2 in DDR mode"
                     );
 
                     let dtdir = match direction {
@@ -695,7 +691,8 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    assert!(buffer.len() % 512 == 0);
+                    assert!(buffer.len() % 512 == 0,
+                            "Buffer length must be a multiple of 512");
                     let n_blocks = buffer.len() / 512;
                     self.cmd(Cmd::set_block_length(512))?; // CMD16
 
