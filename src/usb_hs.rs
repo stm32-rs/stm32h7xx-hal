@@ -73,8 +73,8 @@ macro_rules! usb_peripheral {
 
             fn ahb_frequency_hz(&self) -> u32 {
                 // For correct operation, the AHB frequency should be higher
-                // than 30MHz. See RM0433 Rev 7. Section 57.4.4
-                assert!(self.hclk.0 > 30_000_000);
+                // than 30MHz. See RM0433 Rev 7. Section 57.4.4. This is checked
+                // by the UsbBus implementation in synopsys-usb-otg.
 
                 self.hclk.0
             }
