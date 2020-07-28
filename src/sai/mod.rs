@@ -153,12 +153,12 @@ macro_rules! sai_hal {
                         SaiChannel::ChannelB => &self.rb.chb,
                     };
                     match event {
-                        Event::Overdue              => ch.im.write(|w| w.ovrudrie().set_bit()),
-                        Event::Muted                => ch.im.write(|w| w.mutedetie().set_bit()),
-                        Event::WrongClock           => ch.im.write(|w| w.wckcfgie().set_bit()),
-                        Event::Data                 => ch.im.write(|w| w.freqie().set_bit()),
-                        Event::AnticipatedFrameSync => ch.im.write(|w| w.afsdetie().set_bit()),
-                        Event::LateFrameSync        => ch.im.write(|w| w.lfsdetie().set_bit()),
+                        Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().set_bit()),
+                        Event::Muted                => ch.im.modify(|_, w| w.mutedetie().set_bit()),
+                        Event::WrongClock           => ch.im.modify(|_, w| w.wckcfgie().set_bit()),
+                        Event::Data                 => ch.im.modify(|_, w| w.freqie().set_bit()),
+                        Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().set_bit()),
+                        Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().set_bit()),
                     }
                 }
 
@@ -169,12 +169,12 @@ macro_rules! sai_hal {
                         SaiChannel::ChannelB => &self.rb.chb,
                     };
                     match event {
-                        Event::Overdue              => ch.im.write(|w| w.ovrudrie().clear_bit()),
-                        Event::Muted                => ch.im.write(|w| w.mutedetie().clear_bit()),
-                        Event::WrongClock           => ch.im.write(|w| w.wckcfgie().clear_bit()),
-                        Event::Data                 => ch.im.write(|w| w.freqie().clear_bit()),
-                        Event::AnticipatedFrameSync => ch.im.write(|w| w.afsdetie().clear_bit()),
-                        Event::LateFrameSync        => ch.im.write(|w| w.lfsdetie().clear_bit()),
+                        Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().clear_bit()),
+                        Event::Muted                => ch.im.modify(|_, w| w.mutedetie().clear_bit()),
+                        Event::WrongClock           => ch.im.modify(|_, w| w.wckcfgie().clear_bit()),
+                        Event::Data                 => ch.im.modify(|_, w| w.freqie().clear_bit()),
+                        Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().clear_bit()),
+                        Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().clear_bit()),
                     }
                 }
 
@@ -210,8 +210,8 @@ macro_rules! sai_hal {
                 /// Meaningful only in Tx mode
                 pub fn mute(&mut self, channel: SaiChannel) {
                     match channel {
-                        SaiChannel::ChannelA => &self.rb.cha.cr2.write(|w| w.mute().enabled()),
-                        SaiChannel::ChannelB => &self.rb.cha.cr2.write(|w| w.mute().enabled()),
+                        SaiChannel::ChannelA => &self.rb.cha.cr2.modify(|_, w| w.mute().enabled()),
+                        SaiChannel::ChannelB => &self.rb.cha.cr2.modify(|_, w| w.mute().enabled()),
                     };
                 }
 
@@ -219,8 +219,8 @@ macro_rules! sai_hal {
                 /// Meaningful only in Tx mode
                 pub fn unmute(&mut self, channel: SaiChannel) {
                     match channel {
-                        SaiChannel::ChannelA => &self.rb.cha.cr2.write(|w| w.mute().disabled()),
-                        SaiChannel::ChannelB => &self.rb.chb.cr2.write(|w| w.mute().disabled()),
+                        SaiChannel::ChannelA => &self.rb.cha.cr2.modify(|_, w| w.mute().disabled()),
+                        SaiChannel::ChannelB => &self.rb.chb.cr2.modify(|_, w| w.mute().disabled()),
                     };
                 }
 
@@ -231,15 +231,15 @@ macro_rules! sai_hal {
                 /// e.g. for SAI1 1-3 are valid and 0 is invalid
                 pub fn set_sync_input(&mut self, selection: u8) {
                     assert!(selection < 0b1_00);
-                    unsafe { &self.rb.gcr.write(|w| w.syncout().bits(selection)) };
+                    unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
                 }
 
                 /// Synchoniazation output for other SAI blocks
                 pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
                     match channel {
-                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b01) ) },
-                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b10) ) },
-                        None                       => unsafe { &self.rb.gcr.write(|w| w.syncout().bits(0b00) ) },
+                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b01) ) },
+                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b10) ) },
+                        None                       => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b00) ) },
                     };
                 }
 
