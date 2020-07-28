@@ -30,7 +30,8 @@
 //!   let (c0, c1, c2, c3) = device.TIM1.pwm(
 //!       pins,
 //!       100.hz(),
-//!       &mut ccdr
+//!       prec,
+//!       &clocks
 //!   );
 //!
 //!   // Set the duty cycle of channel 0 to 50%
@@ -76,17 +77,22 @@ use crate::gpio::{Alternate, AF1, AF2, AF3, AF4, AF9};
 // TIM is the timer being used
 // CHANNEL is a marker struct for the channel (or multi channels for tuples)
 // Example: impl Pins<TIM1, C1> for PA8<Alternate<AF1>> { type Channel = Pwm<TIM1, C1>; }
+/// Pins is a trait that marks which GPIO pins may be used as PWM channels; it should not be directly used.
+/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
 pub trait Pins<TIM, CHANNEL> {
     type Channel;
 }
 
-// Marker structs for PWM channels on Pins trait and Pwm struct
+/// Marker struct for PWM channel 1 on Pins trait and Pwm struct
 pub struct C1;
+/// Marker struct for PWM channel 2 on Pins trait and Pwm struct
 pub struct C2;
+/// Marker struct for PWM channel 3 on Pins trait and Pwm struct
 pub struct C3;
+/// Marker struct for PWM channel 4 on Pins trait and Pwm struct
 pub struct C4;
 
-// One PWM channel, the type that actually implements PwmPin
+/// Pwm represents one PWM channel; it is created by calling TIM?.pwm(...) and lets you control the channel through the PwmPin trait
 pub struct Pwm<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
@@ -509,7 +515,7 @@ pins! {
 }
 
 // PwmExt trait
-// Allows the pwm() method to be added to the peripheral register structs from the device crate
+/// Allows the pwm() method to be added to the peripheral register structs from the device crate
 pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
