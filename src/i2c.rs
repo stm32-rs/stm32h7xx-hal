@@ -16,6 +16,24 @@ use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
 use cast::u16;
 
+/// I2C Events
+///
+/// Each event is a possible interrupt sources, if enabled
+pub enum Event {
+    /// (TXIE)
+    Transmit,
+    /// (RXIE)
+    Receive,
+    /// (TCIE)
+    TransferComplete,
+    /// Stop detection (STOPIE)
+    Stop,
+    /// (ERRIE)
+    Errors,
+    /// Not Acknowledge received (NACKIE)
+    NotAcknowledge,
+}
+
 /// I2C error
 #[derive(Debug)]
 pub enum Error {
@@ -266,6 +284,50 @@ macro_rules! i2c {
                     I2c { i2c }
                 }
 
+                /// Start listening for `event`
+                pub fn listen(&mut self, event: Event) {
+                    self.i2c.cr1.modify(|_,w| {
+                        match event {
+                            Event::Transmit => w.txie().set_bit(),
+                            Event::Receive => w.rxie().set_bit(),
+                            Event::TransferComplete => w.tcie().set_bit(),
+                            Event::Stop => w.stopie().set_bit(),
+                            Event::Errors => w.errie().set_bit(),
+                            Event::NotAcknowledge => w.nackie().set_bit(),
+                        }
+                    });
+                }
+
+                /// Stop listening for `event`
+                pub fn unlisten(&mut self, event: Event) {
+                    self.i2c.cr1.modify(|_,w| {
+                        match event {
+                            Event::Transmit => w.txie().clear_bit(),
+                            Event::Receive => w.rxie().clear_bit(),
+                            Event::TransferComplete => w.tcie().clear_bit(),
+                            Event::Stop => w.stopie().clear_bit(),
+                            Event::Errors => w.errie().clear_bit(),
+                            Event::NotAcknowledge => w.nackie().clear_bit(),
+                        }
+                    });
+                }
+
+                /// Clears interrupt flag for `event`
+                pub fn clear_irq(&mut self, event: Event) {
+                    self.i2c.icr.write(|w| {
+                        match event {
+                            Event::Stop => w.stopcf().set_bit(),
+                            Event::Errors => w
+                                .berrcf().set_bit()
+                                .arlocf().set_bit()
+                                .ovrcf().set_bit(),
+                            Event::NotAcknowledge => w.nackcf().set_bit(),
+                            _ => w
+                        }
+                    });
+                }
+
+
                 /// Releases the I2C peripheral
                 pub fn free(self) -> ($I2CX, rec::$Rec) {
                     (self.i2c, rec::$Rec { _marker: PhantomData })
@@ -348,7 +410,7 @@ macro_rules! i2c {
                             .nbytes()
                             .bits(bytes.len() as u8)
                             .autoend()
-                            .automatic()
+                            .software()
                     });
 
                     for byte in bytes {
@@ -360,7 +422,12 @@ macro_rules! i2c {
                         // Put byte on the wire
                         self.i2c.txdr.write(|w| w.txdata().bits(*byte));
                     }
-                    // automatic STOP
+
+                    // Wait until the write finishes
+                    busy_wait!(self.i2c, tc, is_complete);
+
+                    // Stop
+                    self.i2c.cr2.write(|w| w.stop().set_bit());
 
                     Ok(())
                 }
