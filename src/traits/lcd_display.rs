@@ -47,16 +47,6 @@ pub struct DisplayConfiguration {
     pub pixel_clock_pol: bool,
 }
 
-/// Accessible layers
-///
-/// * `L1`: layer 1
-/// * `L2`: layer 2
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Layer {
-    L1,
-    L2,
-}
-
 /// A microcontroller peripheral that drives a LCD-TFT display
 pub trait DisplayController {
     /// Initialize the controller with a given configuration
