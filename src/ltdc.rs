@@ -1,11 +1,15 @@
 //! HAL for LTDC
 
+use core::marker::PhantomData;
+use core::ops::Deref;
+
 use crate::rcc::rec::ResetEnable;
 use crate::rcc::{rec, CoreClocks};
 use crate::stm32;
 use crate::stm32::LTDC;
 use crate::traits::lcd_display::{
-    DisplayConfiguration, DisplayController, Layer, PixelFormat, PixelWord,
+    DisplayConfiguration, DisplayController, DisplayControllerLayer,
+    PixelFormat, PixelWord,
 };
 
 mod ltdc_blending_options {
@@ -18,9 +22,33 @@ mod ltdc_blending_options {
 
 /// LCD-TFT Display controller
 pub struct Ltdc {
-    pub(crate) ltdc: LTDC,
+    ltdc: LTDC,
     config: Option<DisplayConfiguration>,
     lcd_clock: u32,
+}
+
+/// Marker for ownership of Layer 1
+pub struct LAYER1 {
+    _marker: PhantomData<*const ()>,
+}
+unsafe impl Send for LAYER1 {}
+impl Deref for LAYER1 {
+    type Target = stm32::ltdc::LAYER;
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        unsafe { &(*LTDC::ptr()).layer1 }
+    }
+}
+/// Layer 1 of the LCD-TFT display controller
+pub struct LtdcLayer1 {
+    layer: LAYER1,
+    bytes_per_pixel: u16,
+
+    // window parameters
+    window_x0: u16,
+    window_x1: u16,
+    window_y0: u16,
+    window_y1: u16,
 }
 
 impl Ltdc {
@@ -56,8 +84,8 @@ impl Ltdc {
 
     /// Clear interrupt flags
     pub fn unpend() {
-        let ltdc = unsafe { &*stm32::LTDC::ptr() };
-        ltdc.icr.write(|w| w.crrif().set_bit());
+        // unsafe: clear write-one interrupt flag
+        unsafe { (*LTDC::ptr()).icr.write(|w| w.crrif().set_bit()) };
     }
 }
 
@@ -143,49 +171,73 @@ impl DisplayController for Ltdc {
         self.config = Some(config);
     }
 
-    /// Configure one layer of the display
+    fn clock(&self) -> u32 {
+        self.lcd_clock
+    }
+}
+
+impl Ltdc {
+    /// Split the LTDC peripheral into two layers.
     ///
-    /// For simplicity, the layer is the same size as the screen
+    /// Must have already called `init()`
+    pub fn split(self) -> LtdcLayer1 {
+        let config = self.config.as_ref().unwrap();
+
+        let window_x0 = 0;
+        let window_x1 = config.active_width;
+        let window_y0 = 0;
+        let window_y1 = config.active_height;
+
+        let layer1 = LtdcLayer1 {
+            layer: LAYER1 {
+                _marker: PhantomData,
+            },
+            bytes_per_pixel: 0,
+            window_x0,
+            window_x1,
+            window_y0,
+            window_y1,
+        };
+
+        layer1
+    }
+}
+
+impl DisplayControllerLayer for LtdcLayer1 {
+    /// Configures and enables the layer
     ///
     /// # Safety
     ///
-    /// `fb_start_address` must point to a location that can be accessed by
+    /// `start_ptr` must point to a location that can be accessed by
     /// the LTDC peripheral, with sufficient length for the framebuffer.
-    unsafe fn config_layer<T: PixelWord>(
+    unsafe fn enable<T: PixelWord>(
         &mut self,
-        layer: Layer,
-        fb_start_ptr: *const T,
+        start_ptr: *const T,
         pixel_format: PixelFormat,
     ) {
         use PixelFormat::*;
+        let layer = &self.layer;
 
-        let layer = match layer {
-            Layer::L1 => &self.ltdc.layer1,
-            Layer::L2 => &self.ltdc.layer2,
-        };
+        {
+            // unsafe: read-only
+            let ltdc = &*LTDC::ptr();
 
-        let config = self.config.as_ref().unwrap();
+            // Configure the horizontal start and stop position
+            let h_win_start =
+                self.window_x0 + ltdc.bpcr.read().ahbp().bits() + 1;
+            let h_win_stop = self.window_x1 + ltdc.bpcr.read().ahbp().bits();
+            layer.whpcr.modify(|_, w| {
+                w.whstpos().bits(h_win_start).whsppos().bits(h_win_stop)
+            });
 
-        let width = config.active_width;
-        let height = config.active_height;
-        let window_x0 = 0;
-        let window_x1 = width;
-        let window_y0 = 0;
-        let window_y1 = height;
-
-        // Configure the horizontal start and stop position
-        let h_win_start = window_x0 + self.ltdc.bpcr.read().ahbp().bits() + 1;
-        let h_win_stop = window_x1 + self.ltdc.bpcr.read().ahbp().bits();
-        layer.whpcr.modify(|_, w| {
-            w.whstpos().bits(h_win_start).whsppos().bits(h_win_stop)
-        });
-
-        // Configure the vertical start and stop position
-        let v_win_start = window_y0 + self.ltdc.bpcr.read().avbp().bits() + 1;
-        let v_win_stop = window_y1 + self.ltdc.bpcr.read().avbp().bits();
-        layer.wvpcr.modify(|_, w| {
-            w.wvstpos().bits(v_win_start).wvsppos().bits(v_win_stop)
-        });
+            // Configure the vertical start and stop position
+            let v_win_start =
+                self.window_y0 + ltdc.bpcr.read().avbp().bits() + 1;
+            let v_win_stop = self.window_y1 + ltdc.bpcr.read().avbp().bits();
+            layer.wvpcr.modify(|_, w| {
+                w.wvstpos().bits(v_win_start).wvsppos().bits(v_win_stop)
+            });
+        }
 
         // Set the pixel format
         layer.pfcr.modify(|_, w| w.pf().bits(pixel_format as u8));
@@ -207,75 +259,89 @@ impl DisplayController for Ltdc {
         });
 
         // Set frame buffer
-        layer
-            .cfbar
-            .modify(|_, w| w.cfbadd().bits(fb_start_ptr as u32));
+        layer.cfbar.modify(|_, w| w.cfbadd().bits(start_ptr as u32));
 
-        // Configure the color frame buffer pitch in bytes
-        let bytes_per_pixel = match pixel_format {
+        // Calculate framebuffer pitch in bytes
+        self.bytes_per_pixel = match pixel_format {
             ARGB8888 => 4,
             RGB888 => 3,
             RGB565 | ARGB4444 | ARGB1555 | AL88 => 2,
             _ => 1,
         };
 
-        // Configure framebuffer length
+        let width = self.window_x1 - self.window_x0;
+        let height = self.window_y1 - self.window_y0;
+
+        // Framebuffer pitch and line length
         layer.cfblr.modify(|_, w| {
             w.cfbp()
-                .bits(width * bytes_per_pixel)
+                .bits(width * self.bytes_per_pixel)
                 .cfbll()
-                .bits((window_x1 - window_x0) * bytes_per_pixel + 7)
+                .bits(width * self.bytes_per_pixel + 7)
         });
 
-        // Configure the frame buffer line number
+        // Framebuffer line number
         layer.cfblnr.modify(|_, w| w.cfblnbr().bits(height));
 
         // Enable LTDC_Layer by setting LEN bit
         layer.cr.modify(|_, w| w.len().set_bit());
 
         // Reload this layer immediately
-        self.ltdc.srcr.write(|w| w.imr().set_bit());
+        (*LTDC::ptr()).srcr.write(|w| w.imr().set_bit());
     }
 
-    fn clock(&self) -> u32 {
-        self.lcd_clock
-    }
-}
+    /// Resizes the framebuffer pitch. This does not change the output window
+    /// size. The shadow registers are reloaded immediately.
+    ///
+    /// The framebuffer pitch is the increment from the start of one line of
+    /// pixels to the start of the next line.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that enough memory is allocated for the resulting
+    /// framebuffer size
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of bytes per pixel multiplied by `width` is >= 8192
+    unsafe fn resize_buffer_pitch(&mut self, width: u32) {
+        assert!(self.bytes_per_pixel > 0);
+        let pitch_bytes = (width as u16) * self.bytes_per_pixel;
 
-impl Ltdc {
+        assert!(pitch_bytes < 8192, "Maximum buffer pitch is 8191 bytes");
+
+        // Modify CFBP
+        self.layer.cfblr.modify(|_, w| w.cfbp().bits(pitch_bytes));
+
+        // Immediate reload
+        (*LTDC::ptr()).srcr.write(|w| w.imr().set_bit());
+    }
+
     /// Swap the framebuffer to a new one.
     ///
     /// # Safety
     ///
-    /// `fb_start_address` must point to a location that can be accessed by
+    /// `start_ptr` must point to a location that can be accessed by
     /// the LTDC peripheral, with sufficient length for the framebuffer.
-    pub unsafe fn swap_framebuffer<T: PixelWord>(
-        &mut self,
-        layer: Layer,
-        fb_start_ptr: *const T,
-    ) {
-        let layer = match layer {
-            Layer::L1 => &self.ltdc.layer1,
-            Layer::L2 => &self.ltdc.layer2,
-        };
-
+    unsafe fn swap_framebuffer<T: PixelWord>(&mut self, start_ptr: *const T) {
         // Set the new frame buffer address
-        layer
+        self.layer
             .cfbar
-            .modify(|_, w| w.cfbadd().bits(fb_start_ptr as u32));
+            .modify(|_, w| w.cfbadd().bits(start_ptr as u32));
 
         // Configure a shadow reload for the next blanking period
-        self.ltdc.srcr.write(|w| w.vbr().set_bit());
+        (*LTDC::ptr()).srcr.write(|w| w.vbr().set_bit());
     }
 
     /// Indicates if a framebuffer swap is pending. In this situation,
     /// memory we previously supplied to
     /// [`swap_framebuffer`](#method.swap_framebuffer), before the most
     /// recent call, is still 'owned' by the display.
-    pub fn is_swap_pending(&self) -> bool {
+    fn is_swap_pending(&self) -> bool {
         // Ensure previous writes to VBR are comitted before reading it
         cortex_m::asm::dsb();
 
-        self.ltdc.srcr.read().vbr().bit_is_set()
+        // unsafe: Read bit
+        unsafe { (*LTDC::ptr()).srcr.read().vbr().bit_is_set() }
     }
 }

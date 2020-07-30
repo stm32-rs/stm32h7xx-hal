@@ -62,18 +62,49 @@ pub trait DisplayController {
     /// Initialize the controller with a given configuration
     fn init(&mut self, config: DisplayConfiguration);
 
-    /// Configure one layer of the display
+    /// Returns the clock frequency (Hz) of the controller
+    fn clock(&self) -> u32;
+}
+
+/// A layer of a microcontroller peripheral that drives a LCD-TFT display.
+///
+/// May be implemented alongside `DisplayController` if the LCD-TFT display
+/// peripheral only supports one layer.
+pub trait DisplayControllerLayer {
+    /// Enable this display layer.
     ///
     /// # Safety
     ///
     /// [To be completed by implementation]
-    unsafe fn config_layer<T: PixelWord>(
+    unsafe fn enable<T: PixelWord>(
         &mut self,
-        layer: Layer,
-        fb_start_ptr: *const T,
+        start_ptr: *const T,
         pixel_format: PixelFormat,
     );
 
-    /// Returns the clock frequency (Hz) of the controller
-    fn clock(&self) -> u32;
+    /// Swap the framebuffer to a new one.
+    ///
+    /// # Safety
+    ///
+    /// `start_ptr` must point to a location that can be accessed by the LTDC
+    /// peripheral, with sufficient length for the framebuffer.
+    unsafe fn swap_framebuffer<T: PixelWord>(&mut self, start_ptr: *const T);
+
+    /// Indicates that a framebuffer swap is pending. In this situation, memory
+    /// we previously supplied to
+    /// [`swap_framebuffer`](#method.swap_framebuffer), before the most recent
+    /// call, is still owned by the display.
+    fn is_swap_pending(&self) -> bool;
+
+    /// Resizes the framebuffer pitch. This does not change the output window
+    /// size. The shadow registers are reloaded immediately.
+    ///
+    /// The framebuffer pitch is the increment from the start of one line of
+    /// pixels to the start of the next line.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that enough memory is allocated for the resulting
+    /// framebuffer size
+    unsafe fn resize_buffer_pitch(&mut self, width: u32);
 }
