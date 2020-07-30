@@ -82,6 +82,16 @@ pub struct C2;
 pub struct C3;
 pub struct C4;
 
+/// Error type for PWM
+#[derive(Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum PwmError {
+    /// Error
+    Error,
+    /// Failure because the PWM channel was not enabled
+    NotEnabled,
+}
+
 pub struct Pwm<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
@@ -702,7 +712,7 @@ macro_rules! lptim_hal {
 
             impl hal::pwm::PwmPin for Pwm<$TIMX, C1> {
                 type Duty = u16;
-                type Error = Infallible;
+                type Error = PwmError;
 
                 // You may not access self in the following methods!
                 // See unsafe above
@@ -711,7 +721,7 @@ macro_rules! lptim_hal {
                     let tim = unsafe { &*$TIMX::ptr() };
 
                     // LPTIM only has one output, so we disable the
-                    // entire timer
+                    // entire timer. LPTIM only has one channel.
                     tim.cr.modify(|_, w| w.enable().disabled());
                     Ok(())
                 }
@@ -737,6 +747,11 @@ macro_rules! lptim_hal {
 
                 fn try_set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
                     let tim = unsafe { &*$TIMX::ptr() };
+
+                    // LPTIM must be enabled to update CMP value
+                    if tim.cr.read().enable().bit_is_clear() {
+                        return Err(Self::Error::NotEnabled)
+                    }
 
                     tim.cmp.write(|w| w.cmp().bits(duty));
                     while !tim.isr.read().cmpok().is_set() {}
