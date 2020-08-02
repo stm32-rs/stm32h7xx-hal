@@ -13,7 +13,7 @@ jobs:
         mcu:
           - stm32h743v
     env:                        # Peripheral Feature flags
-      FLAGS: rt,quadspi,sdmmc
+      FLAGS: rt,quadspi,sdmmc,fmc
 
     steps:
       - uses: actions/checkout@v2
