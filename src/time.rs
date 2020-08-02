@@ -90,6 +90,12 @@ impl U32Ext for u32 {
 }
 
 // Unit conversions
+impl Into<Hertz> for Bps {
+    fn into(self) -> Hertz {
+        Hertz(self.0)
+    }
+}
+
 impl Into<Hertz> for KiloHertz {
     fn into(self) -> Hertz {
         Hertz(self.0 * 1_000)

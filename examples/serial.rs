@@ -6,11 +6,11 @@
 use cortex_m_rt::entry;
 #[path = "utilities/logger.rs"]
 mod logger;
-use stm32h7xx_hal::{pac, prelude::*, serial};
+use log::info;
+
+use stm32h7xx_hal::{pac, prelude::*};
 
 use core::fmt::Write;
-
-use log::info;
 
 use nb::block;
 
@@ -43,12 +43,7 @@ fn main() -> ! {
     // Configure the serial peripheral.
     let serial = dp
         .USART3
-        .usart(
-            (tx, rx),
-            serial::config::Config::default(),
-            ccdr.peripheral.USART3,
-            &ccdr.clocks,
-        )
+        .serial((tx, rx), 19_200.bps(), ccdr.peripheral.USART3, &ccdr.clocks)
         .unwrap();
 
     let (mut tx, mut rx) = serial.split();
