@@ -608,6 +608,20 @@ macro_rules! usart {
                 }
             }
 
+            impl Rx<$USARTX> {
+                /// Start listening for `Rxne` event
+                pub fn listen(&mut self) {
+                    // unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().enabled());
+                }
+
+                /// Stop listening for `Rxne` event
+                pub fn unlisten(&mut self) {
+                    // unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().disabled());
+                }
+            }
+
             impl serial::Write<u8> for Serial<$USARTX> {
                 type Error = Never;
 
@@ -666,6 +680,20 @@ macro_rules! usart {
                     } else {
                         Err(nb::Error::WouldBlock)
                     }
+                }
+            }
+
+            impl Tx<$USARTX> {
+                /// Start listening for `Txe` event
+                pub fn listen(&mut self) {
+                    // unsafe: txeie bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().enabled());
+                }
+
+                /// Stop listening for `Txe` event
+                pub fn unlisten(&mut self) {
+                    // unsafe: txeie bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().disabled());
                 }
             }
         )+
