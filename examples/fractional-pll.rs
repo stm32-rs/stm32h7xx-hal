@@ -3,27 +3,26 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
-use rprintln as println;
-use rtt_target::{rprintln, rtt_init_print};
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use cortex_m_rt::entry;
+use log::info;
 use stm32h7xx_hal::rcc;
 use stm32h7xx_hal::{gpio::Speed, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
+    logger::init();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
-    println!("Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!("Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .use_hse(25.mhz())
@@ -40,17 +39,17 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let _mco2_pin = gpioc.pc9.into_alternate_af0().set_speed(Speed::High);
 
-    println!();
-    println!("stm32h7xx-hal example - Fractional PLL");
-    println!();
+    info!("");
+    info!("stm32h7xx-hal example - Fractional PLL");
+    info!("");
 
     // SYS_CK
-    println!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
+    info!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
     assert_eq!(ccdr.clocks.sys_ck().0, 400_000_000);
 
-    println!("pll2_p_ck = {} MHz", ccdr.clocks.pll2_p_ck().unwrap().0);
-    println!("pll2_q_ck = {} MHz", ccdr.clocks.pll2_q_ck().unwrap().0);
-    println!("pll2_r_ck = {} MHz", ccdr.clocks.pll2_r_ck().unwrap().0);
+    info!("pll2_p_ck = {} MHz", ccdr.clocks.pll2_p_ck().unwrap().0);
+    info!("pll2_q_ck = {} MHz", ccdr.clocks.pll2_q_ck().unwrap().0);
+    info!("pll2_r_ck = {} MHz", ccdr.clocks.pll2_r_ck().unwrap().0);
 
     let _mco2_ck = ccdr.clocks.mco2_ck().unwrap().0;
 

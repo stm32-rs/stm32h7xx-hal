@@ -3,13 +3,17 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::{pac, prelude::*, qspi::QspiMode};
 
+use log::info;
+
 #[entry]
 fn main() -> ! {
+    logger::init();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
@@ -34,6 +38,10 @@ fn main() -> ! {
     let io1 = gpiod.pd12.into_alternate_af9();
     let io2 = gpioe.pe2.into_alternate_af9();
     let io3 = gpiod.pd13.into_alternate_af9();
+
+    info!("");
+    info!("stm32h7xx-hal example - QSPI");
+    info!("");
 
     // Initialise the QSPI peripheral.
     let mut qspi = dp.QUADSPI.bank1(

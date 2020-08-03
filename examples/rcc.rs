@@ -3,13 +3,13 @@
 #![no_main]
 #![no_std]
 
+#[path = "utilities/logger.rs"]
+mod logger;
+
 use log::info;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::{pac, prelude::*};
-
-#[path = "utilities/logger.rs"]
-mod logger;
 
 #[entry]
 fn main() -> ! {

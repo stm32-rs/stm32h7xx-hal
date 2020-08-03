@@ -5,31 +5,29 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
+use log::info;
 
 #[entry]
 fn main() -> ! {
+    logger::init();
     let mut cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
@@ -96,41 +94,41 @@ fn main() -> ! {
         match sdmmc.init_card(50.mhz()) {
             Ok(_) => break,
             Err(err) => {
-                println!(log, "Init err: {:?}", err);
+                info!("Init err: {:?}", err);
             }
         }
 
-        println!(log, "Waiting for card...");
+        info!("Waiting for card...");
 
         delay.delay_ms(1000u32);
         led.toggle().ok();
     }
 
     // Print card information
-    println!(log, "");
-    println!(log, "----------------------");
+    info!("");
+    info!("----------------------");
 
     let size = sdmmc.card().unwrap().size();
-    println!(log, "Size: {}", size);
+    info!("Size: {}", size);
 
     let ocr = sdmmc.card().unwrap().ocr;
-    println!(log, "{:?}", ocr);
+    info!("{:?}", ocr);
 
     let scr = sdmmc.card().unwrap().scr;
-    println!(log, "{:?}", scr);
+    info!("{:?}", scr);
 
     let cid = sdmmc.card().unwrap().cid;
-    println!(log, "{:?}", cid);
+    info!("{:?}", cid);
 
     let csd = sdmmc.card().unwrap().csd;
-    println!(log, "{:?}", csd);
+    info!("{:?}", csd);
 
     let status = sdmmc.card().unwrap().status;
-    println!(log, "{:?}", status);
+    info!("{:?}", status);
 
-    println!(log, "Bus Clock: {}", sdmmc.clock());
-    println!(log, "----------------------");
-    println!(log, "");
+    info!("Bus Clock: {}", sdmmc.clock());
+    info!("----------------------");
+    info!("");
 
     // Read test
     let mut buffer = [0u8; 5120];
@@ -146,16 +144,16 @@ fn main() -> ! {
     let end = pac::DWT::get_cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
 
-    println!(log, "Read 100 blocks in {} ms", duration * 1000.);
-    println!(log, "");
+    info!("Read 100 blocks in {} ms", duration * 1000.);
+    info!("");
 
     // Write 10 blocks
     let write_buffer = [0x34; 512];
     for i in 0..10 {
         if let Err(err) = sdmmc.write_block(i, &write_buffer) {
-            println!(log, "Failed to write block {}: {:?}", i, err);
+            info!("Failed to write block {}: {:?}", i, err);
         } else {
-            println!(log, "Wrote block {}", i);
+            info!("Wrote block {}", i);
         }
 
         // Read back
@@ -167,7 +165,7 @@ fn main() -> ! {
         assert_eq!(buffer[j], 0x34);
     }
 
-    println!(log, "Done!");
+    info!("Done!");
 
     loop {}
 }

@@ -7,31 +7,27 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use cortex_m;
 use cortex_m_rt::entry;
-
+use log::info;
 use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*};
-
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
 
 #[entry]
 fn main() -> ! {
+    logger::init();
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
@@ -39,9 +35,9 @@ fn main() -> ! {
         .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
         .freeze(vos, &dp.SYSCFG);
 
-    println!(log, "");
-    println!(log, "stm32h7xx-hal example - ADC1 and ADC2");
-    println!(log, "");
+    info!("");
+    info!("stm32h7xx-hal example - ADC1 and ADC2");
+    info!("");
 
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
@@ -70,6 +66,6 @@ fn main() -> ! {
         let data_pc2: u32 = adc1.read(&mut channel_pc2).unwrap();
         let data_pc3: u32 = adc2.read(&mut channel_pc3).unwrap();
         // voltage = reading * (vref/resolution)
-        println!(log, "ADC readings: {} {}", data_pc2, data_pc3);
+        info!("ADC readings: {} {}", data_pc2, data_pc3);
     }
 }
