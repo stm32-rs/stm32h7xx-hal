@@ -710,7 +710,9 @@ impl Rcc {
         let hse_ck = match self.config.hse {
             Some(hse) => {
                 // Ensure HSE is on and stable
-                rcc.cr.modify(|_, w| w.hseon().on().hsebyp().bit(self.config.bypass_hse));
+                rcc.cr.modify(|_, w| {
+                    w.hseon().on().hsebyp().bit(self.config.bypass_hse)
+                });
                 while rcc.cr.read().hserdy().is_not_ready() {}
 
                 Some(Hertz(hse))
