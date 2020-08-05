@@ -89,7 +89,6 @@ impl FmcExt for stm32::FMC {
     }
 }
 
-unsafe impl Sync for FMC {}
 unsafe impl FmcPeripheral for FMC {
     const REGISTERS: *const () = stm32::FMC::ptr() as *const ();
 
