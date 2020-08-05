@@ -3,7 +3,9 @@ on:
     branches: [ master ]        # Do not run on staging / trying
   pull_request:
 
-name: Nightly rust
+# Checks the crate compiles on nightly rust, and that the logging options for the
+# examples compile on nightly
+name: Nightly rust examples
 
 jobs:
   ci:
@@ -12,6 +14,10 @@ jobs:
       matrix:
         mcu:
           - stm32h743v
+        logging:                # Example logging options
+          - log-itm
+          - log-semihost
+          - log-rtt
     env:                        # Peripheral Feature flags
       FLAGS: rt,quadspi,sdmmc
 
@@ -27,7 +33,7 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }}
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }},${{ matrix.logging }}
       - uses: actions-rs/cargo@v1
         with:
           command: test

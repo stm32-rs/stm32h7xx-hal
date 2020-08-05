@@ -3,7 +3,8 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
+#[path = "utilities/logger.rs"]
+mod logger;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::rcc::{rec, rec::I2c123ClkSel, ResetEnable};
@@ -18,6 +19,7 @@ fn enable_fdcan(rec: rec::Fdcan) {
 
 #[entry]
 fn main() -> ! {
+    logger::init();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power

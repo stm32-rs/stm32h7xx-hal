@@ -3,7 +3,6 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_itm;
 extern crate rtic;
 
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
@@ -13,6 +12,8 @@ use stm32h7xx_hal::gpio::{gpioc::PC13, gpioi::PI13};
 use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
+
+use panic_halt as _;
 
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {

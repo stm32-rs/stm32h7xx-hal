@@ -3,31 +3,27 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
-
 use cortex_m_rt::entry;
+#[path = "utilities/logger.rs"]
+mod logger;
 use stm32h7xx_hal::{pac, prelude::*, spi};
 
-use cortex_m_log::println;
-use cortex_m_log::{
-    destination::Itm, printer::itm::InterruptSync as InterruptSyncItm,
-};
+use log::info;
 
 use nb::block;
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().unwrap();
+    logger::init();
     let dp = pac::Peripherals::take().unwrap();
-    let mut log = InterruptSyncItm::new(Itm::new(cp.ITM));
 
     // Constrain and Freeze power
-    println!(log, "Setup PWR...                  ");
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Constrain and Freeze clock
-    println!(log, "Setup RCC...                  ");
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(96.mhz())
@@ -42,9 +38,9 @@ fn main() -> ! {
     let miso = gpioc.pc11.into_alternate_af6();
     let mosi = gpioc.pc12.into_alternate_af6();
 
-    println!(log, "");
-    println!(log, "stm32h7xx-hal example - SPI");
-    println!(log, "");
+    info!("");
+    info!("stm32h7xx-hal example - SPI");
+    info!("");
 
     // Initialise the SPI peripheral.
     let mut spi = dp.SPI3.spi(
