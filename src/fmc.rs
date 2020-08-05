@@ -33,9 +33,10 @@ use crate::gpio::gpioi::{PI0, PI1, PI10, PI2, PI3, PI4, PI5, PI6, PI7, PI9};
 use crate::gpio::{Alternate, AF12, AF9};
 
 /// Storage type for Flexible Memory Controller and its clocks
+///
+/// AHB access to the FMC peripheral must be enabled
 pub struct FMC {
     fmc: stm32::FMC,
-    _prec: rec::Fmc,
     fmc_ker_ck: Option<Hertz>,
 }
 
@@ -81,9 +82,11 @@ impl FmcExt for stm32::FMC {
             rec::FmcClkSel::PER => clocks.per_ck(),
         };
 
+        // Enable AHB access and reset peripheral
+        prec.enable().reset();
+
         FMC {
             fmc: self,
-            _prec: prec,
             fmc_ker_ck,
         }
     }
@@ -93,17 +96,7 @@ unsafe impl FmcPeripheral for FMC {
     const REGISTERS: *const () = stm32::FMC::ptr() as *const ();
 
     fn enable(&mut self) {
-        // unsafe: we own this via the PREC structure
-        let rcc = unsafe { &*stm32::RCC::ptr() };
-
-        cortex_m::interrupt::free(|_| {
-            // Enable FMC peripheral
-            rcc.ahb3enr.modify(|_, w| w.fmcen().set_bit());
-
-            // Reset FMC peripheral
-            rcc.ahb3rstr.modify(|_, w| w.fmcrst().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.fmcrst().clear_bit());
-        });
+        // Already enabled as part of the contract for creating FMC
     }
 
     fn memory_controller_enable(&mut self) {
