@@ -162,6 +162,7 @@ use mco::{MCO1Config, MCO2Config, MCO1, MCO2};
 /// Configuration of the core clocks
 pub struct Config {
     hse: Option<u32>,
+    bypass_hse: bool,
     sys_ck: Option<u32>,
     per_ck: Option<u32>,
     rcc_hclk: Option<u32>,
@@ -188,6 +189,7 @@ impl RccExt for RCC {
         Rcc {
             config: Config {
                 hse: None,
+                bypass_hse: false,
                 sys_ck: None,
                 per_ck: None,
                 rcc_hclk: None,
@@ -306,6 +308,13 @@ impl Rcc {
         F: Into<Hertz>,
     {
         self.config.hse = Some(freq.into().0);
+        self
+    }
+
+    /// Use an external clock signal rather than a crystal oscillator,
+    /// bypassing the XTAL driver.
+    pub fn bypass_hse(mut self) -> Self {
+        self.config.bypass_hse = true;
         self
     }
 
@@ -701,7 +710,9 @@ impl Rcc {
         let hse_ck = match self.config.hse {
             Some(hse) => {
                 // Ensure HSE is on and stable
-                rcc.cr.modify(|_, w| w.hseon().on().hsebyp().not_bypassed());
+                rcc.cr.modify(|_, w| {
+                    w.hseon().on().hsebyp().bit(self.config.bypass_hse)
+                });
                 while rcc.cr.read().hserdy().is_not_ready() {}
 
                 Some(Hertz(hse))
