@@ -53,10 +53,12 @@ fn main() -> ! {
     let mut cp = stm32::CorePeripherals::take().unwrap();
 
     // Initialise power...
+    info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
 
     // Initialise SRAM3
+    info!("Setup RCC...                  ");
     dp.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
 
     // Initialise clocks...
