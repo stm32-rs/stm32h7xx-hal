@@ -407,7 +407,7 @@ peripheral_reset_and_enable_control! {
         Usb1Otg [group clk: Usb d2ccip2 "USB"],
         Usb2Otg [group clk: Usb],
         Eth1Mac, Dma2, Dma1,
-        #[cfg(any(feature = "dualcore"))] Art,
+        #[cfg(any(feature = "rm0399"))] Art,
         Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
     ];
 

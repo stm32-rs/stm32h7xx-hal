@@ -98,10 +98,10 @@ pub use stm32h7::stm32h753v as stm32;
 pub use stm32h7::stm32h747cm7 as stm32;
 #[cfg(any(feature = "stm32h757cm7",))]
 pub use stm32h7::stm32h757cm7 as stm32;
-// TODO(dualcore): soundness of PeripheralREC macro in rcc/rec.rs
+// TODO(rm0399): soundness of PeripheralREC macro in rcc/rec.rs
 
-#[cfg(all(feature = "singlecore", feature = "dualcore"))]
-compile_error!("Cannot not select both singlecore and dualcore");
+#[cfg(all(feature = "rm0433", feature = "rm0399"))]
+compile_error!("Cannot not select both rm0433 and rm0399");
 
 #[cfg(all(feature = "cm7", feature = "cm4"))]
 compile_error!("Cannot not select both CM7 and CM4");
