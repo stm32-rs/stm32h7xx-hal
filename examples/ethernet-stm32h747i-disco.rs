@@ -17,10 +17,10 @@ mod logger;
 
 use log::info;
 
+use stm32h7xx_hal::ethernet;
 use stm32h7xx_hal::gpio::Speed::*;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
-use stm32h7xx_hal::ethernet as ethernet;
 
 /// Locally administered MAC address
 const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];

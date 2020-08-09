@@ -11,11 +11,11 @@ extern crate cortex_m;
 mod logger;
 use log::info;
 
+use stm32h7xx_hal::ethernet;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
-use stm32h7xx_hal::ethernet as ethernet;
 use Speed::*;
 
 /// Configure SYSTICK for 1ms timebase

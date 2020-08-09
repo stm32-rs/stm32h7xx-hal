@@ -113,6 +113,8 @@ pub mod adc;
 pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod delay;
+#[cfg(all(feature = "device-selected", feature = "ethernet"))]
+pub mod ethernet;
 #[cfg(feature = "device-selected")]
 pub mod exti;
 #[cfg(feature = "device-selected")]
@@ -151,5 +153,3 @@ pub mod time;
 pub mod timer;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
-#[cfg(all(feature = "device-selected", feature = "ethernet"))]
-pub mod ethernet;

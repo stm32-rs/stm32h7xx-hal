@@ -16,9 +16,7 @@ compile_error!(
 enable."
 );
 #[cfg(all(feature = "phy_ksz8081r", feature = "phy_lan8742a"))]
-compile_error!(
-    "Cannot enable multiple PHY devices."
-);
+compile_error!("Cannot enable multiple PHY devices.");
 
 mod shared;
 /// PHY address

@@ -22,13 +22,13 @@
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
+use crate::stm32;
 use smoltcp::{
     self,
     phy::{self, DeviceCapabilities},
     time::Instant,
     wire::EthernetAddress,
 };
-use crate::stm32;
 
 use crate::ethernet::ETH_PHY_ADDR;
 use crate::ethernet::{StationManagement, PHY};

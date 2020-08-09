@@ -27,11 +27,11 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
 
 use gpio::Speed::*;
+use stm32h7xx_hal::ethernet;
 use stm32h7xx_hal::gpio;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{prelude::*, stm32};
-use stm32h7xx_hal::ethernet as ethernet;
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
