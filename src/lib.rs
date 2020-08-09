@@ -151,3 +151,5 @@ pub mod time;
 pub mod timer;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
+#[cfg(all(feature = "device-selected", feature = "ethernet"))]
+pub mod ethernet;

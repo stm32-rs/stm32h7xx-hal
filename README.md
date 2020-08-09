@@ -114,7 +114,6 @@ other core functionality. An incomplete list of additional peripheral
 support crates is given here:
 
 - [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
-- [stm32h7-ethernet](https://crates.io/crates/stm32h7-ethernet)
 - _[Search crates.io...](https://crates.io/search?q=stm32h7)_
 
 Changelog
