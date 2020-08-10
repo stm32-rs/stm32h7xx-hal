@@ -368,6 +368,7 @@ pub trait SerialExt<USART>: Sized {
         clocks: &CoreClocks,
     ) -> Result<Serial<USART>, config::InvalidConfig>;
 
+    #[deprecated(since = "0.7.0", note = "Deprecated in favour of .serial(..)")]
     fn usart(
         self,
         pins: impl Pins<USART>,
@@ -378,6 +379,10 @@ pub trait SerialExt<USART>: Sized {
         self.serial(pins, config, prec, clocks)
     }
 
+    #[deprecated(
+        since = "0.7.0",
+        note = "Deprecated in favour of .serial_unchecked(..)"
+    )]
     fn usart_unchecked(
         self,
         config: impl Into<config::Config>,
