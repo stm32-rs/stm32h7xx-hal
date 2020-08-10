@@ -19,6 +19,8 @@ jobs:
           - stm32h743v
           - stm32h753v
           - stm32h747cm7
+          - stm32h7b3
+          - stm32h7b0
     env:                        # Peripheral Feature flags
       FLAGS: rt,quadspi,sdmmc,fmc,usb_hs,rtc
 
