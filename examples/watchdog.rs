@@ -24,12 +24,13 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
 
-    #[cfg(any(feature = "singlecore"))]
+    #[cfg(any(feature = "rm0433", feature = "rm0455"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG, &ccdr);
 
-    #[cfg(all(feature = "dualcore", feature = "cm7"))]
+    // Dual core parts
+    #[cfg(all(feature = "rm0399", feature = "cm7"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
-    #[cfg(all(feature = "dualcore", feature = "cm4"))]
+    #[cfg(all(feature = "rm0399", feature = "cm4"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG2, &ccdr);
 
     info!("");
