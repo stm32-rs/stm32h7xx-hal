@@ -64,8 +64,7 @@ pub enum Event {
 }
 
 pub mod config {
-    use crate::time::Bps;
-    use crate::time::U32Ext;
+    use crate::time::Hertz;
 
     pub enum WordLength {
         DataBits8,
@@ -90,15 +89,15 @@ pub mod config {
     }
 
     pub struct Config {
-        pub baudrate: Bps,
+        pub baudrate: Hertz,
         pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
     }
 
     impl Config {
-        pub fn baudrate(mut self, baudrate: Bps) -> Self {
-            self.baudrate = baudrate;
+        pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
+            self.baudrate = baudrate.into();
             self
         }
 
@@ -138,12 +137,20 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            let baudrate = 19_200_u32.bps();
             Config {
-                baudrate,
+                baudrate: Hertz(19_200), // 19k2 baud
                 wordlength: WordLength::DataBits8,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
+            }
+        }
+    }
+
+    impl<T: Into<Hertz>> From<T> for Config {
+        fn from(f: T) -> Config {
+            Config {
+                baudrate: f.into(),
+                ..Default::default()
             }
         }
     }
@@ -343,25 +350,47 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
-pub trait SerialExt<USART> {
+pub trait SerialExt<USART>: Sized {
     type Rec: ResetEnable;
 
-    fn usart<PINS>(
+    fn serial(
         self,
-        _pins: PINS,
-        config: config::Config,
-        prec: Self::Rec,
-        clocks: &CoreClocks,
-    ) -> Result<Serial<USART>, config::InvalidConfig>
-    where
-        PINS: Pins<USART>;
-
-    fn usart_unchecked(
-        self,
-        config: config::Config,
+        _pins: impl Pins<USART>,
+        config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Result<Serial<USART>, config::InvalidConfig>;
+
+    fn serial_unchecked(
+        self,
+        config: impl Into<config::Config>,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Result<Serial<USART>, config::InvalidConfig>;
+
+    #[deprecated(since = "0.7.0", note = "Deprecated in favour of .serial(..)")]
+    fn usart(
+        self,
+        pins: impl Pins<USART>,
+        config: impl Into<config::Config>,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Result<Serial<USART>, config::InvalidConfig> {
+        self.serial(pins, config, prec, clocks)
+    }
+
+    #[deprecated(
+        since = "0.7.0",
+        note = "Deprecated in favour of .serial_unchecked(..)"
+    )]
+    fn usart_unchecked(
+        self,
+        config: impl Into<config::Config>,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Result<Serial<USART>, config::InvalidConfig> {
+        self.serial_unchecked(config, prec, clocks)
+    }
 }
 
 macro_rules! usart {
@@ -374,13 +403,15 @@ macro_rules! usart {
             impl Serial<$USARTX> {
                 pub fn $usartX(
                     usart: $USARTX,
-                    config: config::Config,
+                    config: impl Into<config::Config>,
                     prec: rec::$Rec,
                     clocks: &CoreClocks
                 ) -> Result<Self, config::InvalidConfig>
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
                     use self::config::*;
+
+                    let config = config.into();
 
                     // Enable clock for USART and reset
                     prec.enable().reset();
@@ -521,20 +552,18 @@ macro_rules! usart {
             impl SerialExt<$USARTX> for $USARTX {
                 type Rec = rec::$Rec;
 
-                fn usart<PINS>(self,
-                               _pins: PINS,
-                               config: config::Config,
-                               prec: rec::$Rec,
-                               clocks: &CoreClocks
+                fn serial(self,
+                         _pins: impl Pins<$USARTX>,
+                         config: impl Into<config::Config>,
+                         prec: rec::$Rec,
+                         clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
-                where
-                    PINS: Pins<$USARTX>
                 {
                     Serial::$usartX(self, config, prec, clocks)
                 }
 
-                fn usart_unchecked(self,
-                                   config: config::Config,
+                fn serial_unchecked(self,
+                                   config: impl Into<config::Config>,
                                    prec: rec::$Rec,
                                    clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
@@ -581,6 +610,20 @@ macro_rules! usart {
                     } else {
                         nb::Error::WouldBlock
                     })
+                }
+            }
+
+            impl Rx<$USARTX> {
+                /// Start listening for `Rxne` event
+                pub fn listen(&mut self) {
+                    // unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().enabled());
+                }
+
+                /// Stop listening for `Rxne` event
+                pub fn unlisten(&mut self) {
+                    // unsafe: rxneie bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().disabled());
                 }
             }
 
@@ -642,6 +685,20 @@ macro_rules! usart {
                     } else {
                         Err(nb::Error::WouldBlock)
                     }
+                }
+            }
+
+            impl Tx<$USARTX> {
+                /// Start listening for `Txe` event
+                pub fn listen(&mut self) {
+                    // unsafe: txeie bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().enabled());
+                }
+
+                /// Stop listening for `Txe` event
+                pub fn unlisten(&mut self) {
+                    // unsafe: txeie bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().disabled());
                 }
             }
         )+

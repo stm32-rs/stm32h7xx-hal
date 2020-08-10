@@ -21,6 +21,7 @@
 //!
 //! * [Inter Integrated Circuit (I2C)](crate::i2c)
 //! * [Serial Peripheral Interface (SPI)](crate::spi)
+//! * [Serial Data (USART/UART)](crate::serial)
 //! * [Serial Audio Interface](crate::sai)
 //!
 //! Timing functions
