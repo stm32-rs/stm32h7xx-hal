@@ -30,6 +30,7 @@ use crate::gpio::gpiof::{PF6, PF7};
 use crate::gpio::gpiog::{PG14, PG7, PG9};
 use crate::gpio::gpioh::{PH13, PH14};
 use crate::gpio::gpioi::PI9;
+#[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ8, PJ9};
 
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};

@@ -9,7 +9,9 @@ use crate::gpio::gpiod::{PD12, PD13};
 use crate::gpio::gpioe::{PE10, PE11, PE8, PE9};
 use crate::gpio::gpioh::{PH10, PH11, PH13, PH14};
 use crate::gpio::gpioi::{PI5, PI6};
+#[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11, PJ6, PJ7, PJ8, PJ9};
+#[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::Alternate;
