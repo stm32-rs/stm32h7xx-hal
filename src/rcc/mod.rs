@@ -441,8 +441,18 @@ impl Rcc {
         // See RM0433 Table 13. FLASH recommended number of wait
         // states and programming delay
         let (wait_states, progr_delay) = match vos {
+            // VOS 0 range VCORE 1.26V - 1.40V
+            Voltage::Scale0 => match rcc_aclk_mhz {
+                0..=69 => (0, 0),
+                70..=139 => (1, 1),
+                140..=184 => (2, 1),
+                185..=209 => (2, 2),
+                210..=224 => (3, 2),
+                225..=240 => (4, 2),
+                _ => (7, 3),
+            },
             // VOS 1 range VCORE 1.15V - 1.26V
-            Voltage::Scale0 | Voltage::Scale1 => match rcc_aclk_mhz {
+            Voltage::Scale1 => match rcc_aclk_mhz {
                 0..=69 => (0, 0),
                 70..=139 => (1, 1),
                 140..=184 => (2, 1),
