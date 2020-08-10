@@ -195,12 +195,17 @@ macro_rules! usart_pins {
     }
 }
 macro_rules! uart_pins {
-    ($($UARTX:ty: TX: [$($TX:ty),*] RX: [$($RX:ty),*])+) => {
+    ($($UARTX:ty:
+       TX: [$($( #[ $pmeta1:meta ] )* $TX:ty),*]
+       RX: [$($( #[ $pmeta2:meta ] )* $RX:ty),*]
+    )+) => {
         $(
             $(
+                $( #[ $pmeta1 ] )*
                 impl PinTx<$UARTX> for $TX {}
             )*
             $(
+                $( #[ $pmeta2 ] )*
                 impl PinRx<$UARTX> for $RX {}
             )*
         )+
@@ -330,11 +335,13 @@ uart_pins! {
         TX: [
             NoTx,
             PE1<Alternate<AF8>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF8>>
         ]
         RX: [
             NoRx,
             PE0<Alternate<AF8>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ9<Alternate<AF8>>
         ]
 }

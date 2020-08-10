@@ -195,15 +195,21 @@ pub struct NoMiso;
 pub struct NoMosi;
 
 macro_rules! pins {
-    ($($SPIX:ty: SCK: [$($SCK:ty),*] MISO: [$($MISO:ty),*] MOSI: [$($MOSI:ty),*])+) => {
+    ($($SPIX:ty:
+       SCK: [$($( #[ $pmeta1:meta ] )* $SCK:ty),*]
+       MISO: [$($( #[ $pmeta2:meta ] )* $MISO:ty),*]
+       MOSI: [$($( #[ $pmeta3:meta ] )* $MOSI:ty),*])+) => {
         $(
             $(
+                $( #[ $pmeta1 ] )*
                 impl PinSck<$SPIX> for $SCK {}
             )*
             $(
+                $( #[ $pmeta2 ] )*
                 impl PinMiso<$SPIX> for $MISO {}
             )*
             $(
+                $( #[ $pmeta3 ] )*
                 impl PinMosi<$SPIX> for $MOSI {}
             )*
         )+
@@ -292,18 +298,21 @@ pins! {
             NoSck,
             PF7<Alternate<AF5>>,
             PH6<Alternate<AF5>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK0<Alternate<AF5>>
         ]
         MISO: [
             NoMiso,
             PF8<Alternate<AF5>>,
             PH7<Alternate<AF5>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ11<Alternate<AF5>>
         ]
         MOSI: [
             NoMosi,
             PF9<Alternate<AF5>>,
             PF11<Alternate<AF5>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF5>>
         ]
     SPI6:
@@ -311,6 +320,8 @@ pins! {
             NoSck,
             PA5<Alternate<AF8>>,
             PB3<Alternate<AF8>>,
+            #[cfg(feature = "rm0455")]
+            PC12<Alternate<AF5>>,
             PG13<Alternate<AF5>>
         ]
         MISO: [

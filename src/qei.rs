@@ -34,12 +34,16 @@ where
 }
 
 macro_rules! pins {
-    ($($TIMX:ty: CH1: [$($CH1:ty),*] CH2: [$($CH2:ty),*])+) => {
+    ($($TIMX:ty:
+       CH1: [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
+       CH2: [$($( #[ $pmeta2:meta ] )* $CH2:ty),*])+) => {
         $(
             $(
+                $( #[ $pmeta1 ] )*
                 impl PinCh1<$TIMX> for $CH1 {}
             )*
             $(
+                $( #[ $pmeta2 ] )*
                 impl PinCh2<$TIMX> for $CH2 {}
             )*
         )+
@@ -54,7 +58,9 @@ pins! {
             PB13<Alternate<AF1>>,
             PE8<Alternate<AF1>>,
             PE9<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK0<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK1<Alternate<AF1>>
         ]
         CH2: [
@@ -63,7 +69,9 @@ pins! {
             PB14<Alternate<AF1>>,
             PE10<Alternate<AF1>>,
             PE11<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ11<Alternate<AF1>>
         ]
 
@@ -117,7 +125,9 @@ pins! {
             PC6<Alternate<AF3>>,
             PH13<Alternate<AF3>>,
             PI5<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ9<Alternate<AF3>>
         ]
         CH2: [
@@ -126,9 +136,13 @@ pins! {
             PC7<Alternate<AF3>>,
             PH14<Alternate<AF3>>,
             PI6<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ6<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ7<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ11<Alternate<AF3>>
         ]
 

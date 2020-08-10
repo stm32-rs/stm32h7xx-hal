@@ -100,7 +100,7 @@ impl Rcc {
 //
 // https://crates.io/crates/paste
 macro_rules! peripheral_reset_and_enable_control {
-    ($($AXBn:ident, $axb_doc:expr => [
+    ($( #[ $tmeta:meta ] $AXBn:ident, $axb_doc:expr => [
         $(
             $( #[ $pmeta:meta ] )*
                 $p:ident
@@ -117,6 +117,7 @@ macro_rules! peripheral_reset_and_enable_control {
                 $(
                     $(
                         #[allow(missing_docs)]
+                        #[ $tmeta ]
                         $( #[ $pmeta ] )*
                         pub [< $p:upper >]: $p,
                     )*
@@ -134,6 +135,7 @@ macro_rules! peripheral_reset_and_enable_control {
                     PeripheralREC {
                         $(
                             $(
+                                #[ $tmeta ]
                                 $( #[ $pmeta ] )*
                                 [< $p:upper >]: $p {
                                     _marker: PhantomData,
@@ -145,6 +147,7 @@ macro_rules! peripheral_reset_and_enable_control {
             }
             $(
                 $(
+                    #[ $tmeta ]
                     peripheral_reset_and_enable_control_generator! (
                         $AXBn, $p, [< $p:upper >], [< $p:lower >],
                         $( $pmeta )*
@@ -403,35 +406,47 @@ macro_rules! variant_return_type {
 // If a kernel clock multiplexer is shared between multiple peripherals, all
 // those peripherals must be marked with a common group clk.
 peripheral_reset_and_enable_control! {
+    #[cfg(all())]
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
         Usb1Otg [group clk: Usb d2ccip2 "USB"],
         Usb2Otg [group clk: Usb],
-        Eth1Mac, Dma2, Dma1,
+        #[cfg(not(feature = "rm0455"))] Eth1Mac,
+        Dma2, Dma1,
         #[cfg(any(feature = "rm0399"))] Art,
-        Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
+
+        Adc12 [group clk: Adc(Variant) d3ccip "ADC"] // TODO: d3ccip -> srdccip
     ];
 
+    #[cfg(all())]
     AHB2, "AMBA High-performance Bus (AHB2) peripherals" => [
         Hash, Crypt,
         Rng [kernel clk: Rng d2ccip2 "RNG"],
         Sdmmc2 [group clk: Sdmmc]
     ];
 
+    #[cfg(all())]
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
         Sdmmc1 [group clk: Sdmmc d1ccip "SDMMC"],
-        Qspi [kernel clk: Qspi d1ccip "QUADSPI"],
+        #[cfg(not(feature = "rm0455"))] Qspi [kernel clk: Qspi d1ccip "QUADSPI"],
         Fmc [kernel clk: Fmc d1ccip "FMC"],
         Jpgdec, Dma2d, Mdma
     ];
 
+    #[cfg(all())]
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
         Hsem, Bdma, Crc,
-        Adc3 [group clk: Adc],
         Gpioa, Gpiob, Gpioc, Gpiod, Gpioe, Gpiof, Gpiog, Gpioh, Gpioi, Gpioj, Gpiok
     ];
+    #[cfg(not(feature = "rm0455"))]
+    AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
+        Adc3 [group clk: Adc]
+    ];
 
+    #[cfg(all())]
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        Dac12,
+        #[cfg(not(feature = "rm0455"))] Dac12,
+        #[cfg(feature = "rm0455")] Dac12, // TODO: dac1 ?
+
         I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
         I2c2 [group clk: I2c123],
         I2c3 [group clk: I2c123],
@@ -452,12 +467,14 @@ peripheral_reset_and_enable_control! {
         Uart8 [group clk: Usart234578]
     ];
 
+    #[cfg(all())]
     APB1H, "Advanced Peripheral Bus 1H (APB1H) peripherals" => [
         Fdcan [kernel clk: Fdcan(Variant) d2ccip1 "FDCAN"],
         Swp [kernel clk: Swp d2ccip1 "SWPMI"],
         Crs, Mdios, Opamp
     ];
 
+    #[cfg(all())]
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
         Hrtim,
         Dfsdm1 [kernel clk: Dfsdm1 d2ccip1 "DFSDM1"],
@@ -476,11 +493,13 @@ peripheral_reset_and_enable_control! {
         Usart6 [group clk: Usart16]
     ];
 
+    #[cfg(all())]
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc [fixed clk: "pll3_r_ck"],
         #[cfg(any(feature = "dsi"))] Dsi
     ];
 
+    #[cfg(not(feature = "rm0455"))]
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
         Vref, Comp12,
 
@@ -488,11 +507,24 @@ peripheral_reset_and_enable_control! {
         Lptim3 [group clk: Lptim345(Variant) d3ccip "LPTIM3/4/5"],
         Lptim4 [group clk: Lptim345],
         Lptim5 [group clk: Lptim345],
+
         I2c4 [kernel clk: I2c4 d3ccip "I2C4"],
         Spi6 [kernel clk: Spi6(Variant) d3ccip "SPI6"],
         Sai4 [kernel clk_a: Sai4A(Variant) d3ccip
             "Sub-Block A of SAI4"]
             [kernel clk_b: Sai4B(Variant) d3ccip
             "Sub-Block B of SAI4"]
+    ];
+
+    #[cfg(feature = "rm0455")]
+    APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [
+        Vref, Comp12,
+
+        // TODO d3ccip -> srdccip
+        Lptim2 [kernel clk: Lptim2(Variant) d3ccip "LPTIM2"],
+        Lptim3 [group clk: Lptim345(Variant) d3ccip "LPTIM3/4/5"],
+
+        I2c4 [kernel clk: I2c4 d3ccip "I2C4"],
+        Spi6 [kernel clk: Spi6(Variant) d3ccip "SPI6"]
     ];
 }

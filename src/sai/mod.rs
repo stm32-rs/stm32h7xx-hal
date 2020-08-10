@@ -2,8 +2,14 @@
 
 use core::marker::PhantomData;
 
+#[cfg(feature = "rm0455")]
+use crate::stm32::sai1::CH;
+#[cfg(not(feature = "rm0455"))]
 use crate::stm32::sai4::CH;
-use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
+
+use crate::stm32::{SAI1, SAI2};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::{SAI3, SAI4};
 
 // clocks
 use crate::rcc::rec::Sai23ClkSelGetter;
@@ -70,9 +76,12 @@ impl_sai_ker_ck! {
 impl_sai_ker_ck! {
     Sai2, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI2
 }
+
+#[cfg(not(feature = "rm0455"))] // RM0455 parts have SAI1, SAI2 only
 impl_sai_ker_ck! {
     Sai3, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI3
 }
+#[cfg(not(feature = "rm0455"))] // RM0455 parts have SAI1, SAI2 only
 impl_sai_ker_ck! {
     Sai4, get_kernel_clk_a_mux, get_kernel_clk_b_mux, Sai4AClkSel, Sai4BClkSel: SAI4
 }
@@ -278,6 +287,9 @@ macro_rules! sai_hal {
 sai_hal! {
     SAI1: (sai1, Sai1),
     SAI2: (sai2, Sai2),
+}
+#[cfg(not(feature = "rm0455"))]
+sai_hal! {
     SAI3: (sai3, Sai3),
     SAI4: (sai4, Sai4),
 }

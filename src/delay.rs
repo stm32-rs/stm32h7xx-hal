@@ -62,24 +62,16 @@ impl DelayUs<u32> for Delay {
 
         // With c_ck up to 480e6, we need u64 for delays > 8.9s
 
-        #[cfg(all(feature = "rm0433", feature = "revision_v"))]
-        let mut total_rvr =
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000);
-
-        // See errata ES0392 §2.2.3. Revision Y does not have the /8 divider
-        #[cfg(all(feature = "rm0433", not(feature = "revision_v")))]
-        let mut total_rvr =
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000);
-
-        // Dual core has an additional divide by 8
-        #[cfg(all(feature = "rm0399", feature = "cm7"))]
-        let mut total_rvr =
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000);
-
-        // CM4 dervived from HCLK
-        #[cfg(all(feature = "rm0399", feature = "cm4"))]
-        let mut total_rvr =
-            u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000);
+        let mut total_rvr = if cfg!(not(feature = "revision_v")) {
+            // See errata ES0392 §2.2.3. Revision Y does not have the /8 divider
+            u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000)
+        } else if cfg!(feature = "cm4") {
+            // CM4 dervived from HCLK
+            u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000)
+        } else {
+            // Normally divide by 8
+            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000)
+        };
 
         while total_rvr != 0 {
             let current_rvr = if total_rvr <= MAX_RVR.into() {

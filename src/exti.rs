@@ -91,7 +91,7 @@ pub enum Event {
 }
 
 /// Return an EXTI register for the current CPU
-#[cfg(any(feature = "rm0433"))]
+#[cfg(any(feature = "rm0433", feature = "rm0455"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
         $self.cpuimr1

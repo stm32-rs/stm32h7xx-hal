@@ -6,7 +6,7 @@ use crate::time::{Hertz, MilliSeconds};
 use cast::u8;
 
 /// Select Window Watchdog hardware based on core
-#[cfg(any(feature = "rm0433"))]
+#[cfg(any(feature = "rm0433", feature = "rm0455"))]
 use crate::stm32::WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm7"))]
 use crate::stm32::WWDG1 as WWDG;

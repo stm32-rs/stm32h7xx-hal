@@ -275,7 +275,7 @@ macro_rules! gpio {
 
                 /// Enable external interrupts from this pin.
                 fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                    #[cfg(any(feature = "rm0433"))]
+                    #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                     let imr1 = &exti.cpuimr1;
                     #[cfg(all(feature = "rm0399", feature = "cm7"))]
                     let imr1 = &exti.c1imr1;
@@ -287,7 +287,7 @@ macro_rules! gpio {
 
                 /// Disable external interrupts from this pin
                 fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                    #[cfg(any(feature = "rm0433"))]
+                    #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                     let imr1 = &exti.cpuimr1;
                     #[cfg(all(feature = "rm0399", feature = "cm7"))]
                     let imr1 = &exti.c1imr1;
@@ -300,7 +300,7 @@ macro_rules! gpio {
                 /// Clear the interrupt pending bit for this pin
                 fn clear_interrupt_pending_bit(&mut self) {
                     unsafe {
-                        #[cfg(any(feature = "rm0433"))]
+                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                         let pr1 = &(*EXTI::ptr()).cpupr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let pr1 = &(*EXTI::ptr()).c1pr1;
@@ -722,7 +722,7 @@ macro_rules! gpio {
 
                     /// Enable external interrupts from this pin.
                     fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                        #[cfg(any(feature = "rm0433"))]
+                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                         let imr1 = &exti.cpuimr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let imr1 = &exti.c1imr1;
@@ -734,7 +734,7 @@ macro_rules! gpio {
 
                     /// Disable external interrupts from this pin
                     fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                        #[cfg(any(feature = "rm0433"))]
+                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                         let imr1 = &exti.cpuimr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let imr1 = &exti.c1imr1;
@@ -747,7 +747,7 @@ macro_rules! gpio {
                     /// Clear the interrupt pending bit for this pin
                     fn clear_interrupt_pending_bit(&mut self) {
                         unsafe {
-                            #[cfg(any(feature = "rm0433"))]
+                            #[cfg(any(feature = "rm0433", feature = "rm0455"))]
                             let pr1 = &(*(EXTI::ptr())).cpupr1;
                             #[cfg(all(feature = "rm0399", feature = "cm7"))]
                             let pr1 = &(*(EXTI::ptr())).c1pr1;
