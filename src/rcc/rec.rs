@@ -401,10 +401,22 @@ macro_rules! variant_return_type {
     };
 }
 
-// Enumerate all peripherals and optional clock multiplexers
+// Enumerate all peripherals and optional kernel clock multiplexers
 //
-// If a kernel clock multiplexer is shared between multiple peripherals, all
-// those peripherals must be marked with a common group clk.
+// Peripherals are grouped by bus for convenience. Each bus is specified like:
+// #[attribute] name, "description" => [..];
+//
+// The attribute is mandatory for the bus grouping, but can just be
+// #[cfg(all())]. The description is not used. Each bus grouping can be repeated
+// multiple times if needed.
+//
+// As well as busses, peripherals can optionally be preceeded by a conditional
+// compilation attribute. However, this only works for peripherals without
+// kernel clock multiplexers.
+//
+// Peripherals with an individual kernel clock must be marked "kernel clk". If a
+// kernel clock multiplexer is shared between multiple peripherals, all those
+// peripherals must instead be marked with a common "group clk".
 peripheral_reset_and_enable_control! {
     #[cfg(all())]
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
@@ -427,9 +439,12 @@ peripheral_reset_and_enable_control! {
     #[cfg(all())]
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
         Sdmmc1 [group clk: Sdmmc d1ccip "SDMMC"],
-        #[cfg(not(feature = "rm0455"))] Qspi [kernel clk: Qspi d1ccip "QUADSPI"],
         Fmc [kernel clk: Fmc d1ccip "FMC"],
         Jpgdec, Dma2d, Mdma
+    ];
+    #[cfg(not(feature = "rm0455"))]
+    AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
+        Qspi [kernel clk: Qspi d1ccip "QUADSPI"]
     ];
 
     #[cfg(all())]
