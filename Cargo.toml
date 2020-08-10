@@ -134,7 +134,7 @@ required-features = ["fmc"]
 
 [[example]]
 name = "qspi"
-required-features = ["quadspi"]
+required-features = ["quadspi", "rm0433"]
 
 [[example]]
 name = "sdmmc"
