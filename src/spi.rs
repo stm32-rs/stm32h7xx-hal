@@ -551,6 +551,26 @@ macro_rules! spi {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
+                    /// Clears the MODF flag.
+                    pub fn clear_modf(&mut self) {
+                        self.spi.ifcr.write(|w| w.modfc().clear());
+                    }
+
+                    /// Disables the SPI peripheral.
+                    /// Any SPI operation is stopped and disabled, the internal state machine is reset, all
+                    /// the FIFOs content is flushed, CRC calculation is re-initialized.
+                    pub fn disable(&mut self) {
+                        self.clear_modf();
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                    }
+
+                    /// Enables the SPI peripheral.
+                    pub fn enable(&mut self) {
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    }
+
+                    /// Deconstructs the SPI peripheral and returns the owned parts.
+                    /// Does not deinitialize the SPI peripheral.
                     pub fn free(self) -> ($SPIX, rec::$Rec) {
                         (self.spi, rec::$Rec { _marker: PhantomData })
                     }
