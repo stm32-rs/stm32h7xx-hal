@@ -171,7 +171,7 @@ const APP: () = {
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
-            ethernet::ethernet_init(
+            ethernet::new_unchecked(
                 ctx.device.ETHERNET_MAC,
                 ctx.device.ETHERNET_MTL,
                 ctx.device.ETHERNET_DMA,

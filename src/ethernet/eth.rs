@@ -414,7 +414,7 @@ pub struct EthernetMAC {
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
-pub unsafe fn ethernet_init(
+pub unsafe fn new_unchecked(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,

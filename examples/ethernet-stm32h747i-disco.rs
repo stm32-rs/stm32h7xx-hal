@@ -85,7 +85,7 @@ fn main() -> ! {
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, mut eth_mac) = unsafe {
-        ethernet::ethernet_init(
+        ethernet::new_unchecked(
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
             dp.ETHERNET_DMA,

@@ -38,7 +38,7 @@ trait PHY {
     fn phy_init(&mut self);
 }
 
-pub use eth::{enable_interrupt, ethernet_init, interrupt_handler};
+pub use eth::{enable_interrupt, interrupt_handler, new_unchecked};
 pub use eth::{DesRing, EthernetDMA, EthernetMAC};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
