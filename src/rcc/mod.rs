@@ -345,9 +345,10 @@ impl Rcc {
         self
     }
 
-    /// Set the peripheral clock frequency for AHB and AXI
-    /// peripherals. There are several gated versions `rcc_hclk[1-4]`
-    /// for different power domains, but they are all the same frequency
+    /// Set the peripheral clock frequency for AHB and AXI peripherals. There
+    /// are several gated versions `rcc_hclk[1-4]` for different power domains,
+    /// and the AXI bus clock is called `rcc_aclk`. However they are all the
+    /// same frequency.
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -653,6 +654,7 @@ impl Rcc {
         // Calculate real AXI and AHB clock
         let rcc_hclk = sys_d1cpre_ck / hpre_div;
         assert!(rcc_hclk <= rcc_hclk_max);
+        let rcc_aclk = rcc_hclk; // AXI clock is always equal to AHB clock on H7
 
         // Calculate ppreN dividers and real rcc_pclkN frequencies
         ppre_calculate! {
@@ -691,7 +693,7 @@ impl Rcc {
         // Start switching clocks here! ----------------------------------------
 
         // Flash setup
-        Self::flash_setup(sys_d1cpre_ck, vos);
+        Self::flash_setup(rcc_aclk, vos);
 
         // Ensure CSI is on and stable
         rcc.cr.modify(|_, w| w.csion().on());
