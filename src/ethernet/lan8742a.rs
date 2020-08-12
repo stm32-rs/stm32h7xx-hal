@@ -1,6 +1,6 @@
 //! SMSC LAN8742A Ethernet PHY
 
-use crate::ethernet::shared::EthernetMAC;
+use crate::ethernet::eth::EthernetMAC;
 use crate::ethernet::{StationManagement, PHY};
 
 #[allow(dead_code)]

@@ -18,7 +18,7 @@ enable."
 #[cfg(all(feature = "phy_ksz8081r", feature = "phy_lan8742a"))]
 compile_error!("Cannot enable multiple PHY devices.");
 
-mod shared;
+mod eth;
 /// PHY address
 pub const ETH_PHY_ADDR: u8 = 0;
 
@@ -38,8 +38,8 @@ trait PHY {
     fn phy_init(&mut self);
 }
 
-pub use shared::{enable_interrupt, ethernet_init, interrupt_handler};
-pub use shared::{DesRing, EthernetDMA, EthernetMAC};
+pub use eth::{enable_interrupt, ethernet_init, interrupt_handler};
+pub use eth::{DesRing, EthernetDMA, EthernetMAC};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)

@@ -1,6 +1,6 @@
 //! Micrel KSZ8081R Ethernet PHY
 
-use crate::ethernet::shared::EthernetMAC;
+use crate::ethernet::eth::EthernetMAC;
 use crate::ethernet::{StationManagement, PHY};
 
 /// Private implementation of PHY
