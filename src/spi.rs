@@ -55,9 +55,7 @@
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;
-pub use crate::hal::spi::{
-    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
-};
+pub use crate::hal::spi::{Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3};
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
@@ -551,26 +549,31 @@ macro_rules! spi {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
-                    /// Clears the MODF flag.
+                    /// Clears the MODF flag, which indicates that a
+                    /// mode fault has occurred.
                     pub fn clear_modf(&mut self) {
                         self.spi.ifcr.write(|w| w.modfc().clear());
                     }
 
-                    /// Disables the SPI peripheral.
-                    /// Any SPI operation is stopped and disabled, the internal state machine is reset, all
-                    /// the FIFOs content is flushed, CRC calculation is re-initialized.
+                    /// Disables the SPI peripheral. Any SPI operation is
+                    /// stopped and disabled, the internal state machine is
+                    /// reset, all the FIFOs content is flushed, the MODF
+                    /// flag is cleared, the SSI flag is cleared, and the
+                    /// CRC calculation is re-initialized. Clocks are not
+                    /// disabled.
                     pub fn disable(&mut self) {
                         self.clear_modf();
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
                     }
 
                     /// Enables the SPI peripheral.
+                    /// Clears the SSI flag, and sets the SPE bit.
                     pub fn enable(&mut self) {
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
                     }
 
-                    /// Deconstructs the SPI peripheral and returns the owned parts.
-                    /// Does not deinitialize the SPI peripheral.
+                    /// Deconstructs the SPI peripheral and returns the
+                    /// owned parts. Does not disable the SPI peripheral.
                     pub fn free(self) -> ($SPIX, rec::$Rec) {
                         (self.spi, rec::$Rec { _marker: PhantomData })
                     }
