@@ -55,7 +55,9 @@
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;
-pub use crate::hal::spi::{Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3};
+pub use crate::hal::spi::{
+    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
+};
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
