@@ -36,6 +36,12 @@ sdio-host = { version = "0.4", optional = true }
 version = "0.2.5"
 features = ["const-fn"]
 
+[dependencies.smoltcp]
+version = "0.6.0"
+default-features = false
+features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-tcp", "socket-raw"]
+optional = true
+
 [dev-dependencies]
 cortex-m-rtic = "0.5.3"
 log = "0.4.11"
@@ -49,6 +55,11 @@ panic-itm = { version = "~0.4.1" }
 panic-semihosting = { version = "0.5.3" }
 cortex-m-semihosting = { version = "0.3.5" }
 
+[dev-dependencies.smoltcp]
+version = "0.6.0"
+default-features = false
+features = ["ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
+
 [features]
 default = ["unproven"]
 unproven = ["embedded-hal/unproven"]
@@ -61,6 +72,9 @@ cm4 = []
 cm7 = []
 quadspi = []
 sdmmc = ["sdio-host"]
+ethernet = ["smoltcp"]
+phy_ksz8081r = []
+phy_lan8742a = []
 rt = ["stm32h7/rt"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
 stm32h743 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
@@ -74,7 +88,6 @@ stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualco
 log-itm = []
 log-rtt = []
 log-semihost  = []
-
 
 [profile.dev]
 codegen-units = 1 # better optimizations
@@ -106,3 +119,15 @@ required-features = ["quadspi"]
 [[example]]
 name = "sdmmc"
 required-features = ["sdmmc"]
+
+[[example]]
+name = "ethernet-stm32h747i-disco"
+required-features = ["phy_lan8742a", "rt", "stm32h747cm7", "ethernet"]
+
+[[example]]
+name = "ethernet-rtic-stm32h747i-disco"
+required-features = ["phy_lan8742a", "rt", "stm32h747cm7", "ethernet"]
+
+[[example]]
+name = "ethernet-nucleo-h743zi2"
+required-features = ["phy_lan8742a", "rt", "revision_v", "stm32h743v", "ethernet"]
