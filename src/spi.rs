@@ -488,8 +488,13 @@ macro_rules! spi {
 
                     /// Enables the SPI peripheral.
                     /// Clears the SSI flag, and sets the SPE bit.
-                    pub fn enable(&mut self) {
+                    pub fn enable(self) -> Spi<$SPIX, Enabled, $TY> {
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                        Spi {
+                            spi: self.spi,
+                            _word: PhantomData,
+                            _ed: PhantomData,
+                        }
                     }
 
                     /// Deconstructs the SPI peripheral and returns the component parts.
@@ -588,19 +593,17 @@ macro_rules! spi {
                     /// flag is cleared, the SSI flag is cleared, and the
                     /// CRC calculation is re-initialized. Clocks are not
                     /// disabled.
-                    pub fn disable(&mut self) {
+                    pub fn disable(mut self) -> Spi<$SPIX, Disabled, $TY> {
                         // Master communication must be suspended before the peripheral is disabled
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
                         self.clear_modf();
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
-                    }
-
-                    /// Disables the SPI peripheral, then deconstructs it
-                    /// and returns the component parts.
-                    pub fn free(self) -> ($SPIX, rec::$Rec) {
-                        self.disable(); // SPI constructor requires SPE=0
-                        (self.spi, rec::$Rec { _marker: PhantomData })
+                        Spi {
+                            spi: self.spi,
+                            _word: PhantomData,
+                            _ed: PhantomData,
+                        }
                     }
                 }
 

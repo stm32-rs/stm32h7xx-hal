@@ -43,13 +43,14 @@ fn main() -> ! {
     info!("");
 
     // Initialise the SPI peripheral.
-    let mut spi = dp.SPI3.spi(
+    let spi: spi::Spi<_, _, u8> = dp.SPI3.spi(
         (sck, miso, mosi),
         spi::MODE_0,
         3.mhz(),
         ccdr.peripheral.SPI3,
         &ccdr.clocks,
     );
+    let mut spi = spi.enable();
 
     // Write fixed data
     spi.write(&[0x11u8, 0x22, 0x33]).unwrap();
