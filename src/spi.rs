@@ -487,8 +487,9 @@ macro_rules! spi {
                     }
 
                     /// Enables the SPI peripheral.
-                    /// Clears the SSI flag, and sets the SPE bit.
-                    pub fn enable(self) -> Spi<$SPIX, Enabled, $TY> {
+                    /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
+                    pub fn enable(mut self) -> Spi<$SPIX, Enabled, $TY> {
+                        self.clear_modf(); // SPE cannot be set when MODF is set
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
                         Spi {
                             spi: self.spi,
@@ -593,11 +594,10 @@ macro_rules! spi {
                     /// flag is cleared, the SSI flag is cleared, and the
                     /// CRC calculation is re-initialized. Clocks are not
                     /// disabled.
-                    pub fn disable(mut self) -> Spi<$SPIX, Disabled, $TY> {
+                    pub fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
                         // Master communication must be suspended before the peripheral is disabled
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
-                        self.clear_modf();
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
                         Spi {
                             spi: self.spi,
