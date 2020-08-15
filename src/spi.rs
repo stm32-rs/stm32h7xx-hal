@@ -491,6 +491,11 @@ macro_rules! spi {
                     pub fn enable(&mut self) {
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
                     }
+
+                    /// Deconstructs the SPI peripheral and returns the component parts.
+                    pub fn free(self) -> ($SPIX, rec::$Rec) {
+                        (self.spi, rec::$Rec { _marker: PhantomData })
+                    }
                 }
 
                 impl<EN> Spi<$SPIX, EN, $TY>
@@ -574,12 +579,6 @@ macro_rules! spi {
                     pub fn clear_modf(&mut self) {
                         self.spi.ifcr.write(|w| w.modfc().clear());
                     }
-
-                    /// Deconstructs the SPI peripheral and returns the
-                    /// owned parts. Does not disable the SPI peripheral.
-                    pub fn free(self) -> ($SPIX, rec::$Rec) {
-                        (self.spi, rec::$Rec { _marker: PhantomData })
-                    }
                 }
 
                 impl Spi<$SPIX, Enabled, $TY> {
@@ -590,8 +589,18 @@ macro_rules! spi {
                     /// CRC calculation is re-initialized. Clocks are not
                     /// disabled.
                     pub fn disable(&mut self) {
+                        // Master communication must be suspended before the peripheral is disabled
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while self.spi.sr.read().eot().is_completed() {}
                         self.clear_modf();
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                    }
+
+                    /// Disables the SPI peripheral, then deconstructs it
+                    /// and returns the component parts.
+                    pub fn free(self) -> ($SPIX, rec::$Rec) {
+                        self.disable(); // SPI constructor requires SPE=0
+                        (self.spi, rec::$Rec { _marker: PhantomData })
                     }
                 }
 
