@@ -104,10 +104,6 @@ pub struct Enabled;
 /// Disabled SPI peripheral (type state)
 pub struct Disabled;
 
-pub trait ED {}
-impl ED for Enabled {}
-impl ED for Disabled {}
-
 pub trait Pins<SPI> {}
 pub trait PinSck<SPI> {}
 pub trait PinMiso<SPI> {}
@@ -528,8 +524,6 @@ macro_rules! spi {
                 }
 
                 impl<EN> Spi<$SPIX, EN, $TY>
-                where
-                    EN: ED,
                 {
                     /// Enable interrupts for the given `event`:
                     ///  - Received data ready to be read (RXP)
