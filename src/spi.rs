@@ -99,6 +99,11 @@ pub enum Error {
     _Extensible,
 }
 
+/// Enabled SPI peripheral (type state)
+pub struct Enabled;
+/// Disabled SPI peripheral (type state)
+pub struct Disabled;
+
 pub trait Pins<SPI> {}
 pub trait PinSck<SPI> {}
 pub trait PinMiso<SPI> {}
@@ -333,9 +338,10 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct Spi<SPI, WORD = u8> {
+pub struct Spi<SPI, ED, WORD = u8> {
     spi: SPI,
     _word: PhantomData<WORD>,
+    _ed: PhantomData<ED>,
 }
 
 pub trait SpiExt<SPI, WORD>: Sized {
@@ -348,7 +354,7 @@ pub trait SpiExt<SPI, WORD>: Sized {
         freq: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Spi<SPI, WORD>
+    ) -> Spi<SPI, Enabled, WORD>
     where
         PINS: Pins<SPI>,
         T: Into<Hertz>,
@@ -360,7 +366,7 @@ pub trait SpiExt<SPI, WORD>: Sized {
         freq: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Spi<SPI, WORD>
+    ) -> Spi<SPI, Enabled, WORD>
     where
         T: Into<Hertz>,
         CONFIG: Into<Config>;
@@ -384,7 +390,7 @@ macro_rules! spi {
 	    $(
             // For each $TY
             $(
-                impl Spi<$SPIX, $TY> {
+                impl Spi<$SPIX, Enabled, $TY> {
                     pub fn $spiX<T, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
@@ -476,9 +482,49 @@ macro_rules! spi {
                         // spe: enable the SPI bus
                         spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
-                        Spi { spi, _word: PhantomData }
+                        Spi { spi, _word: PhantomData, _ed: PhantomData }
                     }
 
+                    /// Disables the SPI peripheral. Any SPI operation is
+                    /// stopped and disabled, the internal state machine is
+                    /// reset, all the FIFOs content is flushed, the MODF
+                    /// flag is cleared, the SSI flag is cleared, and the
+                    /// CRC calculation is re-initialized. Clocks are not
+                    /// disabled.
+                    pub fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
+                        // Master communication must be suspended before the peripheral is disabled
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while self.spi.sr.read().eot().is_completed() {}
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                        Spi {
+                            spi: self.spi,
+                            _word: PhantomData,
+                            _ed: PhantomData,
+                        }
+                    }
+                }
+
+                impl Spi<$SPIX, Disabled, $TY> {
+                    /// Enables the SPI peripheral.
+                    /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
+                    pub fn enable(mut self) -> Spi<$SPIX, Enabled, $TY> {
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                        Spi {
+                            spi: self.spi,
+                            _word: PhantomData,
+                            _ed: PhantomData,
+                        }
+                    }
+
+                    /// Deconstructs the SPI peripheral and returns the component parts.
+                    pub fn free(self) -> ($SPIX, rec::$Rec) {
+                        (self.spi, rec::$Rec { _marker: PhantomData })
+                    }
+                }
+
+                impl<EN> Spi<$SPIX, EN, $TY>
+                {
                     /// Enable interrupts for the given `event`:
                     ///  - Received data ready to be read (RXP)
                     ///  - Transmit data register empty (TXP)
@@ -551,8 +597,10 @@ macro_rules! spi {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
-                    pub fn free(self) -> ($SPIX, rec::$Rec) {
-                        (self.spi, rec::$Rec { _marker: PhantomData })
+                    /// Clears the MODF flag, which indicates that a
+                    /// mode fault has occurred.
+                    pub fn clear_modf(&mut self) {
+                        self.spi.ifcr.write(|w| w.modfc().clear());
                     }
                 }
 
@@ -564,29 +612,29 @@ macro_rules! spi {
                                     config: CONFIG,
                                     freq: T,
                                     prec: rec::$Rec,
-                                    clocks: &CoreClocks) -> Spi<$SPIX, $TY>
+                                    clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
 	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
-	                    Spi::<$SPIX, $TY>::$spiX(self, config, freq, prec, clocks)
+	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
 	                fn spi_unchecked<T, CONFIG>(self,
                                         config: CONFIG,
                                         freq: T,
                                         prec: rec::$Rec,
-                                        clocks: &CoreClocks) -> Spi<$SPIX, $TY>
+                                        clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
 	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
-	                    Spi::<$SPIX, $TY>::$spiX(self, config, freq, prec, clocks)
+	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 	            }
 
-                impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, $TY> {
+                impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn read(&mut self) -> nb::Result<$TY, Error> {
@@ -641,10 +689,10 @@ macro_rules! spi {
                 }
 
                 impl hal::blocking::spi::transfer::Default<$TY>
-                    for Spi<$SPIX, $TY> {}
+                    for Spi<$SPIX, Enabled, $TY> {}
 
                 impl hal::blocking::spi::write::Default<$TY>
-                    for Spi<$SPIX, $TY> {}
+                    for Spi<$SPIX, Enabled, $TY> {}
             )+
         )+
 	}
@@ -653,7 +701,7 @@ macro_rules! spi {
 macro_rules! spi123sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<WORD> Spi<$SPIX, WORD> {
+            impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
@@ -676,7 +724,7 @@ macro_rules! spi123sel {
 macro_rules! spi45sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<WORD> Spi<$SPIX, WORD> {
+            impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
@@ -699,7 +747,7 @@ macro_rules! spi45sel {
 macro_rules! spi6sel {
 	($($SPIX:ident,)+) => {
 	    $(
-            impl<WORD> Spi<$SPIX, WORD> {
+            impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
