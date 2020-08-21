@@ -112,7 +112,16 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
+    #[deprecated(since = "0.7.0", note = "Use countdown_timer()")]
     fn timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
+    where
+        T: Into<Hertz>;
+
+    fn countdown_timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
+    where
+        T: Into<Hertz>;
+    
+    fn tick_timer<T>(self, frequency: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
     where
         T: Into<Hertz>;
 }
@@ -180,20 +189,54 @@ macro_rules! hal {
                 fn timer<T>(self, timeout: T,
                             prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX>
-                    where
-                        T: Into<Hertz>,
+                where
+                    T: Into<Hertz>,
                 {
-                    Timer::$timX(self, timeout, prec, clocks)
+                    self.countdown_timer(timeout, prec, clocks)
+                }
+
+                fn countdown_timer<T>(self, timeout: T,
+                                      prec: Self::Rec, clocks: &CoreClocks
+                ) -> Timer<$TIMX>
+                where
+                    T: Into<Hertz>,
+                {
+                    let mut timer = Timer::$timX(self, prec, clocks);
+                    timer.start(timeout);
+                    timer
+                }
+
+                fn tick_timer<T>(self, frequency: T,
+                                 prec: Self::Rec, clocks: &CoreClocks
+                ) -> Timer<$TIMX>
+                where
+                    T: Into<Hertz>,
+                {
+                    let mut timer = Timer::$timX(self, prec, clocks);
+                    
+                    timer.pause();
+
+                    // UEV event occours on next overflow
+                    timer.tim.cr1.modify(|_, w| w.urs().counter_only());
+                    timer.clear_uif_bit();
+
+                    // Set PSC and ARR
+                    timer.set_tick_freq(frequency);
+
+                    // Generate an update event to force an update of the ARR register. This ensures
+                    // the first timer cycle is of the specified duration.
+                    timer.tim.egr.write(|w| w.ug().set_bit());
+
+                    // Start counter
+                    timer.resume();
+
+                    timer
                 }
             }
 
             impl Timer<$TIMX> {
-                /// Configures a TIM peripheral as a periodic count down timer, then starts it
-                pub fn $timX<T>(tim: $TIMX, timeout: T,
-                                prec: rec::$Rec, clocks: &CoreClocks
-                ) -> Self
-                where
-                    T: Into<Hertz>,
+                /// Configures a TIM peripheral as a periodic count down timer, without starting it
+                pub fn $timX(tim: $TIMX, prec: rec::$Rec, clocks: &CoreClocks) -> Self
                 {
                     // enable and reset peripheral to a clean slate state
                     prec.enable().reset();
@@ -201,13 +244,10 @@ macro_rules! hal {
                     let clk = $TIMX::get_clk(clocks)
                         .expect("Timer input clock not running!").0;
 
-                    let mut timer = Timer {
+                    Timer {
                         clk,
                         tim,
-                    };
-                    timer.start(timeout);
-
-                    timer
+                    }
                 }
 
                 /// Configures the timer's frequency and counter reload value
