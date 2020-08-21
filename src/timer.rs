@@ -9,8 +9,7 @@ use core::marker::PhantomData;
 use crate::hal::timer::{CountDown, Periodic};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
 use crate::stm32::{
-    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
-    TIM6, TIM7, TIM8,
+    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8,
 };
 
 use cast::{u16, u32};
@@ -113,12 +112,7 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
-    fn timer<T>(
-        self,
-        timeout: T,
-        prec: Self::Rec,
-        clocks: &CoreClocks,
-    ) -> Timer<TIM>
+    fn timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
     where
         T: Into<Hertz>;
 }
@@ -127,7 +121,6 @@ pub trait TimerExt<TIM> {
 pub struct Timer<TIM> {
     clk: u32,
     tim: TIM,
-    timeout: Hertz,
 }
 
 /// Timer Events
@@ -139,7 +132,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $Rec:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $Rec:ident, $cntType:ty),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
@@ -195,7 +188,7 @@ macro_rules! hal {
             }
 
             impl Timer<$TIMX> {
-                /// Configures a TIM peripheral as a periodic count down timer
+                /// Configures a TIM peripheral as a periodic count down timer, then starts it
                 pub fn $timX<T>(tim: $TIMX, timeout: T,
                                 prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self
@@ -211,22 +204,20 @@ macro_rules! hal {
                     let mut timer = Timer {
                         clk,
                         tim,
-                        timeout: Hertz(0),
                     };
                     timer.start(timeout);
 
                     timer
                 }
 
+                /// Configures the timer's frequency and counter reload value
+                /// so that it underflows at the timeout's frequency
                 pub fn set_freq<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
                 {
-                    self.timeout = timeout.into();
-
-                    let clk = self.clk;
-                    let frequency = self.timeout.0;
-                    let ticks = clk / frequency;
+                    let timeout = timeout.into();
+                    let ticks = self.clk / timeout.0;
 
                     self.set_timeout_ticks(ticks);
                 }
@@ -266,10 +257,31 @@ macro_rules! hal {
 
                 fn set_timeout_ticks(&mut self, ticks: u32) {
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-                    self.tim.psc.write(|w| { w.psc().bits(psc) });
+                    self.tim.psc.write(|w| w.psc().bits(psc));
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
+                }
+
+                /// Configures the timer to tick down at the given frequency
+                /// and reload the counter with its maximum value
+                pub fn set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    let frequency = frequency.into();
+                    let div = self.clk / frequency.0;
+
+                    let psc = u16(div - 1).unwrap();
+                    self.tim.psc.write(|w| w.psc().bits(psc));
+
+                    let counter_max = <$cntType>::MAX;
+                    self.tim.arr.write(|w| unsafe { w.bits(counter_max.into()) });
+                }
+
+                /// Updates the timer prescaler and auto-reload value
+                pub fn apply_freq(&mut self) {
+                    self.tim.egr.write(|w| w.ug().set_bit());
                 }
 
                 /// Clear uif bit
@@ -339,26 +351,26 @@ macro_rules! hal {
 
 hal! {
     // Advanced-control
-    TIM1: (tim1, Tim1),
-    TIM8: (tim8, Tim8),
+    TIM1: (tim1, Tim1, u16),
+    TIM8: (tim8, Tim8, u16),
 
     // General-purpose
-    TIM2: (tim2, Tim2),
-    TIM3: (tim3, Tim3),
-    TIM4: (tim4, Tim4),
-    TIM5: (tim5, Tim5),
+    TIM2: (tim2, Tim2, u32),
+    TIM3: (tim3, Tim3, u16),
+    TIM4: (tim4, Tim4, u16),
+    TIM5: (tim5, Tim5, u32),
 
     // Basic
-    TIM6: (tim6, Tim6),
-    TIM7: (tim7, Tim7),
+    TIM6: (tim6, Tim6, u16),
+    TIM7: (tim7, Tim7, u16),
 
     // General-purpose
-    TIM12: (tim12, Tim12),
-    TIM13: (tim13, Tim13),
-    TIM14: (tim14, Tim14),
+    TIM12: (tim12, Tim12, u16),
+    TIM13: (tim13, Tim13, u16),
+    TIM14: (tim14, Tim14, u16),
 
     // General-purpose
-    TIM15: (tim15, Tim15),
-    TIM16: (tim16, Tim16),
-    TIM17: (tim17, Tim17),
+    TIM15: (tim15, Tim15, u16),
+    TIM16: (tim16, Tim16, u16),
+    TIM17: (tim17, Tim17, u16),
 }
