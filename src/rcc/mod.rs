@@ -437,7 +437,11 @@ macro_rules! ppre_calculate {
 impl Rcc {
     fn flash_setup(rcc_aclk: u32, vos: Voltage) {
         use crate::stm32::FLASH;
-        let rcc_aclk_mhz = rcc_aclk / 1_000_000;
+        // ACLK in MHz, round down and subtract 1 from integers. eg.
+        // 61_999_999 -> 61MHz
+        // 62_000_000 -> 61MHz
+        // 62_000_001 -> 62MHz
+        let rcc_aclk_mhz = (rcc_aclk - 1) / 1_000_000;
 
         // See RM0433 Table 13. FLASH recommended number of wait
         // states and programming delay
@@ -449,7 +453,7 @@ impl Rcc {
                 140..=184 => (2, 1),
                 185..=209 => (2, 2),
                 210..=224 => (3, 2),
-                225..=240 => (4, 2),
+                225..=239 => (4, 2),
                 _ => (7, 3),
             },
             // VOS 1 range VCORE 1.15V - 1.26V
@@ -467,7 +471,6 @@ impl Rcc {
                 55..=109 => (1, 1),
                 110..=164 => (2, 1),
                 165..=224 => (3, 2),
-                225 => (4, 2),
                 _ => (7, 3),
             },
             // VOS 3 range VCORE 0.95V - 1.05V
