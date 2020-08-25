@@ -277,6 +277,7 @@ pub struct ActiveLow;
 
 /// Whether a PWM signal is left-aligned, right-aligned, or center-aligned
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Alignment {
     Left,
     Right,

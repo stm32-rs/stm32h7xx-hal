@@ -54,6 +54,7 @@
 extern crate paste;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Never {}
 
 #[cfg(not(feature = "device-selected"))]

@@ -88,6 +88,7 @@ pub struct Adc<ADC, ED> {
 //
 // Refer to RM0433 Rev 6 - Chapter 24.4.13
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
 pub enum AdcSampleTime {
     /// 1.5 cycles sampling time
@@ -134,6 +135,7 @@ impl From<AdcSampleTime> for u8 {
 ///
 /// Only values in range of 0..=15 are allowed.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcLshift(u8);
 
 impl AdcLshift {
@@ -155,6 +157,7 @@ impl AdcLshift {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalOffset(u16);
 
 impl AdcCalOffset {
@@ -164,6 +167,7 @@ impl AdcCalOffset {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalLinear([u32; 6]);
 
 impl AdcCalLinear {
@@ -325,6 +329,29 @@ pub trait AdcExt<ADC>: Sized {
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for StoredConfig {
+    fn format(&self, fmt: defmt::Formatter) {
+        use stm32h7::stm32h743v::adc3::cfgr::RES_A;
+        let res = match self.1 {
+            RES_A::SIXTEENBIT => defmt::intern!("SIXTEENBIT"),
+            RES_A::FOURTEENBIT => defmt::intern!("FOURTEENBIT"),
+            RES_A::FOURTEENBITV => defmt::intern!("FOURTEENBITV"),
+            RES_A::TWELVEBIT => defmt::intern!("TWELVEBIT"),
+            RES_A::TWELVEBITV => defmt::intern!("TWELVEBITV"),
+            RES_A::TENBIT => defmt::intern!("TENBIT"),
+            RES_A::EIGHTBIT => defmt::intern!("EIGHTBIT"),
+        };
+        defmt::write!(
+            fmt,
+            "StoredConfig({:?}, {=istr}, {:?})",
+            self.0,
+            res,
+            self.2
+        )
+    }
+}
 
 /// Get and check the adc_ker_ck_input
 fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {

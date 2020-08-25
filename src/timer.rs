@@ -183,6 +183,7 @@ pub trait TimerExt<TIM> {
 
 /// Hardware timers
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Timer<TIM> {
     clk: u32,
     tim: TIM,

@@ -117,6 +117,7 @@ use traits::{
 
 /// Errors.
 #[derive(PartialEq, Debug, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DMAError {
     /// DMA not ready to change buffers.
     NotReady,
@@ -128,6 +129,7 @@ pub enum DMAError {
 
 /// Possible DMA's directions.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DmaDirection {
     /// Memory to Memory transfer.
     MemoryToMemory,
@@ -139,6 +141,7 @@ pub enum DmaDirection {
 
 /// DMA from a peripheral to a memory location.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PeripheralToMemory;
 
 impl Direction for PeripheralToMemory {
@@ -153,6 +156,7 @@ impl Direction for PeripheralToMemory {
 
 /// DMA from one memory location to another memory location.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MemoryToMemory<T> {
     _data: PhantomData<T>,
 }
@@ -169,6 +173,7 @@ impl<T> Direction for MemoryToMemory<T> {
 
 /// DMA from a memory location to a peripheral.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MemoryToPeripheral;
 
 impl Direction for MemoryToPeripheral {
@@ -203,6 +208,7 @@ unsafe impl TargetAddress<Self> for MemoryToMemory<u32> {
 
 /// How full the DMA stream's fifo is.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum FifoLevel {
     /// 0 < fifo_level < 1/4.
     GtZeroLtQuarter,
@@ -236,6 +242,7 @@ impl From<u8> for FifoLevel {
 
 /// Which DMA buffer is in use.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum CurrentBuffer {
     /// The first buffer (m0ar).
     Buffer0 = 0,
@@ -264,6 +271,7 @@ pub mod config {
     /// priority over the stream with the higher number. For example, Stream 2
     /// takes priority over Stream 4.
     #[derive(Debug, Clone, Copy)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Priority {
         /// Low priority.
         Low,
@@ -293,6 +301,7 @@ pub mod config {
 
     /// The level to fill the fifo to before performing the transaction.
     #[derive(Debug, Clone, Copy)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum FifoThreshold {
         /// 1/4 full.
         QuarterFull,
@@ -318,6 +327,7 @@ pub mod config {
     /// How burst transfers are done, requires fifo enabled. Check datasheet for
     /// valid combinations.
     #[derive(Debug, Clone, Copy)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum BurstMode {
         /// Single transfer, no burst.
         NoBurst,

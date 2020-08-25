@@ -146,6 +146,7 @@ mod common {
 
     /// Represents operation modes of the XSPI interface.
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiMode {
         /// Only a single IO line (IO0) is used for transmit and a separate line
         /// (IO1) is used for receive.
@@ -175,6 +176,7 @@ mod common {
     }
     /// Indicates an error with the XSPI peripheral.
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiError {
         Busy,
         Underflow,
@@ -186,6 +188,7 @@ mod common {
 
     /// Instruction, Address or Alternate Byte word used by the XSPI interface
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiWord {
         None,
         U8(u8),
@@ -225,6 +228,7 @@ mod common {
 
     /// Sampling mode for the XSPI interface
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum SamplingEdge {
         Falling,
         Rising,
@@ -232,6 +236,7 @@ mod common {
 
     /// Interrupt events
     #[derive(Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Event {
         /// FIFO Threashold
         FIFOThreashold,
@@ -243,6 +248,7 @@ mod common {
 
     /// Indicates a specific QUADSPI bank to use
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub enum Bank {
         One,
