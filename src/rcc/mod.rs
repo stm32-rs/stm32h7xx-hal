@@ -443,7 +443,7 @@ impl Rcc {
         // 62_000_001 -> 62MHz
         let rcc_aclk_mhz = (rcc_aclk - 1) / 1_000_000;
 
-        // See RM0433 Table 13. FLASH recommended number of wait
+        // See RM0433 Rev 7 Table 17. FLASH recommended number of wait
         // states and programming delay
         let (wait_states, progr_delay) = match vos {
             // VOS 0 range VCORE 1.26V - 1.40V
