@@ -17,7 +17,11 @@ cfg_if::cfg_if! {
         lazy_static! {
             static ref LOGGER: Logger<ItmSync<InterruptFree>> = Logger {
                 level: LevelFilter::Info,
-                inner: InterruptSync::new(ItmDest::new(cortex_m::Peripherals::take().unwrap().ITM)),
+                inner: unsafe {
+                    InterruptSync::new(
+                        ItmDest::new(cortex_m::Peripherals::steal().ITM)
+                    )
+                },
             };
         }
 
