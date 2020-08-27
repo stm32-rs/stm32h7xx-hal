@@ -242,7 +242,7 @@ macro_rules! hal {
                         clk * timeout.as_secs() as u32 +
                         clk * timeout.subsec_nanos() / NANOS_PER_SECOND;
 
-                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
+                    let psc = u16((ticks.max(1) - 1) / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| { w.psc().bits(psc) });
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
