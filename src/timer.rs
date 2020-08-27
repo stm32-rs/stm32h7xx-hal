@@ -235,12 +235,17 @@ macro_rules! hal {
                 }
 
                 pub fn set_timeout(&mut self, timeout: core::time::Duration) {
-                    const NANOS_PER_SECOND: u32 = 1_000_000_000;
+                    use core::convert::TryFrom;
 
-                    let clk = self.clk;
-                    let ticks =
-                        clk * timeout.as_secs() as u32 +
-                        clk * timeout.subsec_nanos() / NANOS_PER_SECOND;
+                    const NANOS_PER_SECOND: u64 = 1_000_000_000;
+
+                    let clk = self.clk as u64;
+                    let ticks = u32::try_from(
+                        clk * timeout.as_secs() +
+                        clk * u64::from(timeout.subsec_nanos()) / NANOS_PER_SECOND,
+                    )
+                    .unwrap_or(u32::max_value());
+
 
                     let psc = u16((ticks.max(1) - 1) / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| { w.psc().bits(psc) });
