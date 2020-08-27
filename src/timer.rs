@@ -234,6 +234,21 @@ macro_rules! hal {
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
+                pub fn set_timeout(&mut self, timeout: core::time::Duration) {
+                    const NANOS_PER_SECOND: u32 = 1_000_000_000;
+
+                    let clk = self.clk;
+                    let ticks =
+                        clk * timeout.as_secs() as u32 +
+                        clk * timeout.subsec_nanos() / NANOS_PER_SECOND;
+
+                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
+                    self.tim.psc.write(|w| { w.psc().bits(psc) });
+
+                    let arr = u16(ticks / u32(psc + 1)).unwrap();
+                    self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
+                }
+
                 /// Clear uif bit
                 pub fn clear_uif_bit(&mut self) {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
