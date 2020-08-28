@@ -92,6 +92,10 @@ name = "vos0"
 required-features = ["revision_v"]
 
 [[example]]
+name = "fmc"
+required-features = ["fmc"]
+
+[[example]]
 name = "qspi"
 required-features = ["quadspi"]
 
