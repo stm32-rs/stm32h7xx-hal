@@ -3,7 +3,6 @@
 //! For an example of using ADC1, see examples/adc.rs
 //! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
 
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
