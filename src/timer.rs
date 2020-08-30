@@ -3,6 +3,7 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
+use core::convert::TryFrom;
 use core::marker::PhantomData;
 
 use crate::hal::timer::{CountDown, Periodic};
@@ -230,10 +231,28 @@ macro_rules! hal {
                     self.set_timeout_ticks(ticks);
                 }
 
-                pub fn set_timeout(&mut self, timeout: core::time::Duration) {
-                    use core::convert::TryFrom;
-
+                /// Sets the timer period from a time duration
+                ///
+                /// ```
+                /// // Set timeout to 100ms
+                /// timer.set_timeout(100.ms());
+                /// ```
+                ///
+                /// Alternatively, the duration can be set using the
+                /// core::time::Duration type
+                ///
+                /// ```
+                /// let duration = core::time::Duration::from_nanos(2_500);
+                ///
+                /// // Set timeout to 2.5µs
+                /// timer.set_timeout(duration);
+                /// ```
+                pub fn set_timeout<T>(&mut self, timeout: T)
+                where
+                    T: Into<core::time::Duration>
+                {
                     const NANOS_PER_SECOND: u64 = 1_000_000_000;
+                    let timeout = timeout.into();
 
                     let clk = self.clk as u64;
                     let ticks = u32::try_from(
