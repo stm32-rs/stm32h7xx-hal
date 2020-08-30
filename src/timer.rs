@@ -227,11 +227,7 @@ macro_rules! hal {
                     let frequency = self.timeout.0;
                     let ticks = clk / frequency;
 
-                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-                    self.tim.psc.write(|w| { w.psc().bits(psc) });
-
-                    let arr = u16(ticks / u32(psc + 1)).unwrap();
-                    self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
+                    self.set_timeout_ticks(ticks);
                 }
 
                 pub fn set_timeout(&mut self, timeout: core::time::Duration) {
@@ -246,8 +242,11 @@ macro_rules! hal {
                     )
                     .unwrap_or(u32::max_value());
 
+                    self.set_timeout_ticks(ticks.max(1));
+                }
 
-                    let psc = u16((ticks.max(1) - 1) / (1 << 16)).unwrap();
+                fn set_timeout_ticks(&mut self, ticks: u32) {
+                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| { w.psc().bits(psc) });
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
