@@ -143,11 +143,15 @@ use crate::pwr::PowerConfiguration;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
-use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdccipr::CKPERSEL_A as CKPERSEL;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 
 pub mod backup;
 mod core_clocks;
@@ -857,7 +861,10 @@ impl Rcc {
         });
 
         // Peripheral Clock (per_ck)
+        #[cfg(not(feature = "rm0455"))]
         rcc.d1ccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
+        #[cfg(feature = "rm0455")]
+        rcc.cdccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
 
         // Set timer clocks prescaler setting
         rcc.cfgr.modify(|_, w| w.timpre().variant(timpre));

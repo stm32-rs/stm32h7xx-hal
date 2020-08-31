@@ -58,8 +58,13 @@ use crate::hal;
 pub use crate::hal::spi::{
     Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
 };
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
+
 use crate::stm32;
-use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
 use core::convert::From;
 use core::marker::PhantomData;
@@ -719,15 +724,18 @@ macro_rules! spi123sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
-                    let d2ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
-                    match d2ccip1r.spi123sel().variant() {
-                        Val(d2ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(d2ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(d2ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
+                    match ccip1r.spi123sel().variant() {
+                        Val(ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
+                        Val(ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+                        Val(ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
                         // Need a method of specifying pin clock
-                        Val(d2ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Val(d2ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
+                        Val(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
+                        Val(ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -742,15 +750,18 @@ macro_rules! spi45sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
-                    let d2ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
-                    match d2ccip1r.spi45sel().variant() {
-                        Val(d2ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
-                        Val(d2ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(d2ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(d2ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(d2ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(d2ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
+                    match ccip1r.spi45sel().variant() {
+                        Val(ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
+                        Val(ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Val(ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Val(ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Val(ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
+                        Val(ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -765,15 +776,18 @@ macro_rules! spi6sel {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
-                    let d3ccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
+                    #[cfg(not(feature = "rm0455"))]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
+                    #[cfg(feature = "rm0455")]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
-                    match d3ccipr.spi6sel().variant() {
-                        Val(d3ccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Val(d3ccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(d3ccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(d3ccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(d3ccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(d3ccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                    match srdccipr.spi6sel().variant() {
+                        Val(srdccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+                        Val(srdccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Val(srdccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Val(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Val(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
+                        Val(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }

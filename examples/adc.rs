@@ -42,7 +42,11 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
+    #[cfg(not(feature = "rm0455"))]
     let d3ccipr = &unsafe { &*pac::RCC::ptr() }.d3ccipr;
+    #[cfg(feature = "rm0455")]
+    let d3ccipr = &unsafe { &*pac::RCC::ptr() }.srdccipr;
+
     d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
 
     info!("");

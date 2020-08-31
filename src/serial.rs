@@ -10,9 +10,13 @@ use embedded_hal::serial;
 use nb::block;
 
 use crate::stm32;
-use crate::stm32::rcc::d2ccip2r;
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use stm32h7::Variant::Val;
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
 
 use crate::stm32::{UART4, UART5, UART7, UART8};
 use crate::stm32::{USART1, USART2, USART3, USART6};
@@ -717,47 +721,24 @@ macro_rules! usart {
     }
 }
 
-macro_rules! usart16sel {
-	($($USARTX:ident,)+) => {
+macro_rules! usart_sel {
+	($ccip:ident, $SEL:ident, $sel:ident, $PCLK:ident, $pclk:ident;
+     $($USARTX:ident: $doc:expr,)+) => {
 	    $(
             impl Serial<$USARTX> {
-                /// Returns the frequency of the current kernel clock
-                /// for USART1 and 6
+                /// Returns the frequency of the current kernel clock for
+                #[doc=$doc]
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     // unsafe: read only
-                    let d2ccip2r = unsafe { (*stm32::RCC::ptr()).d2ccip2r.read() };
+                    let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
 
-                    match d2ccip2r.usart16sel().variant() {
-                        Val(d2ccip2r::USART16SEL_A::RCC_PCLK2) => Some(clocks.pclk2()),
-                        Val(d2ccip2r::USART16SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(d2ccip2r::USART16SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(d2ccip2r::USART16SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(d2ccip2r::USART16SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(d2ccip2r::USART16SEL_A::LSE) => unimplemented!(),
-                        _ => unreachable!(),
-                    }
-                }
-            }
-        )+
-    }
-}
-macro_rules! usart234578sel {
-	($($USARTX:ident,)+) => {
-	    $(
-            impl Serial<$USARTX> {
-                /// Returns the frequency of the current kernel clock
-                /// for USART2/3, UART4/5/7/8
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
-                    // unsafe: read only
-                    let d2ccip2r = unsafe { (*stm32::RCC::ptr()).d2ccip2r.read() };
-
-                    match d2ccip2r.usart234578sel().variant() {
-                        Val(d2ccip2r::USART234578SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
-                        Val(d2ccip2r::USART234578SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(d2ccip2r::USART234578SEL_A::LSE) => unimplemented!(),
+                    match ccip.$sel().variant() {
+                        Val($SEL::$PCLK) => Some(clocks.$pclk()),
+                        Val($SEL::PLL2_Q) => clocks.pll2_q_ck(),
+                        Val($SEL::PLL3_Q) => clocks.pll3_q_ck(),
+                        Val($SEL::HSI_KER) => clocks.hsi_ck(),
+                        Val($SEL::CSI_KER) => clocks.csi_ck(),
+                        Val($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
@@ -778,11 +759,44 @@ usart! {
     UART8: (uart8, Uart8, pclk1),
 }
 
-usart16sel! {
-    USART1, USART6,
+#[cfg(not(feature = "rm0455"))]
+usart_sel! {
+    d2ccip2r, USART16SEL_A, usart16sel, RCC_PCLK2, pclk2;
+
+    USART1: "USART1",
+    USART6: "USART6",
 }
-usart234578sel! {
-    USART2, USART3, UART4, UART5, UART7, UART8,
+#[cfg(feature = "rm0455")]
+usart_sel! {
+    cdccip2r, USART16910SEL_A, usart16910sel, RCC_PCLK2, pclk2;
+
+    USART1: "USART1",
+    USART6: "USART6",
+}
+
+#[cfg(not(feature = "rm0455"))]
+usart_sel! {
+    d2ccip2r, USART234578SEL_A, usart234578sel, RCC_PCLK1, pclk1;
+
+    USART2: "USART2",
+    USART3: "USART3",
+
+    UART4: "UART4",
+    UART5: "UART5",
+    UART8: "UART8",
+    UART7: "UART7",
+}
+#[cfg(feature = "rm0455")]
+usart_sel! {
+    cdccip2r, USART234578SEL_A, usart234578sel, RCC_PCLK1, pclk1;
+
+    USART2: "USART2",
+    USART3: "USART3",
+
+    UART4: "UART4",
+    UART5: "UART5",
+    UART8: "UART8",
+    UART7: "UART7",
 }
 
 impl<USART> fmt::Write for Tx<USART>
