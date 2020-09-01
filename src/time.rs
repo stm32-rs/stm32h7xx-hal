@@ -1,6 +1,7 @@
 //! Time units
 
 use core::fmt;
+use core::time::Duration;
 use cortex_m::peripheral::DWT;
 
 /// Bits per second
@@ -127,6 +128,13 @@ impl Into<Hertz> for MilliSeconds {
         let period = self.0;
         assert!(period != 0 && period <= 1_000);
         Hertz(1_000 / period)
+    }
+}
+
+// Into core::time::Duration
+impl Into<Duration> for MilliSeconds {
+    fn into(self) -> Duration {
+        Duration::from_millis(self.0 as u64)
     }
 }
 
