@@ -345,9 +345,10 @@ impl Rcc {
         self
     }
 
-    /// Set the peripheral clock frequency for AHB and AXI
-    /// peripherals. There are several gated versions `rcc_hclk[1-4]`
-    /// for different power domains, but they are all the same frequency
+    /// Set the peripheral clock frequency for AHB and AXI peripherals. There
+    /// are several gated versions `rcc_hclk[1-4]` for different power domains,
+    /// and the AXI bus clock is called `rcc_aclk`. However they are all the
+    /// same frequency.
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -436,13 +437,27 @@ macro_rules! ppre_calculate {
 impl Rcc {
     fn flash_setup(rcc_aclk: u32, vos: Voltage) {
         use crate::stm32::FLASH;
-        let rcc_aclk_mhz = rcc_aclk / 1_000_000;
+        // ACLK in MHz, round down and subtract 1 from integers. eg.
+        // 61_999_999 -> 61MHz
+        // 62_000_000 -> 61MHz
+        // 62_000_001 -> 62MHz
+        let rcc_aclk_mhz = (rcc_aclk - 1) / 1_000_000;
 
-        // See RM0433 Table 13. FLASH recommended number of wait
+        // See RM0433 Rev 7 Table 17. FLASH recommended number of wait
         // states and programming delay
         let (wait_states, progr_delay) = match vos {
+            // VOS 0 range VCORE 1.26V - 1.40V
+            Voltage::Scale0 => match rcc_aclk_mhz {
+                0..=69 => (0, 0),
+                70..=139 => (1, 1),
+                140..=184 => (2, 1),
+                185..=209 => (2, 2),
+                210..=224 => (3, 2),
+                225..=239 => (4, 2),
+                _ => (7, 3),
+            },
             // VOS 1 range VCORE 1.15V - 1.26V
-            Voltage::Scale0 | Voltage::Scale1 => match rcc_aclk_mhz {
+            Voltage::Scale1 => match rcc_aclk_mhz {
                 0..=69 => (0, 0),
                 70..=139 => (1, 1),
                 140..=184 => (2, 1),
@@ -456,7 +471,6 @@ impl Rcc {
                 55..=109 => (1, 1),
                 110..=164 => (2, 1),
                 165..=224 => (3, 2),
-                225 => (4, 2),
                 _ => (7, 3),
             },
             // VOS 3 range VCORE 0.95V - 1.05V
@@ -643,6 +657,7 @@ impl Rcc {
         // Calculate real AXI and AHB clock
         let rcc_hclk = sys_d1cpre_ck / hpre_div;
         assert!(rcc_hclk <= rcc_hclk_max);
+        let rcc_aclk = rcc_hclk; // AXI clock is always equal to AHB clock on H7
 
         // Calculate ppreN dividers and real rcc_pclkN frequencies
         ppre_calculate! {
@@ -681,7 +696,7 @@ impl Rcc {
         // Start switching clocks here! ----------------------------------------
 
         // Flash setup
-        Self::flash_setup(sys_d1cpre_ck, vos);
+        Self::flash_setup(rcc_aclk, vos);
 
         // Ensure CSI is on and stable
         rcc.cr.modify(|_, w| w.csion().on());
