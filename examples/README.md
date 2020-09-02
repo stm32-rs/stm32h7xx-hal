@@ -55,3 +55,7 @@ cargo build --features=stm32h750v,rt,log-itm --examples
 
 Note that you may need to configure your debugger to output ITM, and/or
 configure the ITM yourself. See [ITM.md](ITM.md)
+
+If you select this feature flag, then the call to `logger::init()` internally
+configures the ITM peripheral. If you also interact with the ITM peripheral
+yourself, you should be aware that it has already been configured.

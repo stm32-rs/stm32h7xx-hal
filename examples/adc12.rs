@@ -3,7 +3,6 @@
 //! For an example of using ADC3, see examples/temperature.rs
 //! For an example of using ADC1 alone, see examples/adc.rs
 
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
