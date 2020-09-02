@@ -120,6 +120,8 @@ pub mod ethernet;
 pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
+#[cfg(all(feature = "device-selected", feature = "fmc"))]
+pub mod fmc;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 #[cfg(feature = "device-selected")]

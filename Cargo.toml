@@ -31,6 +31,7 @@ cast = { version = "0.2.3", default-features = false }
 nb = "0.1.2"
 paste = "0.1.18"
 sdio-host = { version = "0.4", optional = true }
+stm32-fmc = { version = "0.2", optional = true }
 
 [dependencies.bare-metal]
 version = "0.2.5"
@@ -71,6 +72,7 @@ dsi = []
 cm4 = []
 cm7 = []
 quadspi = []
+fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
 phy_ksz8081r = []
@@ -111,6 +113,10 @@ required-features = ["rt"]
 [[example]]
 name = "vos0"
 required-features = ["revision_v"]
+
+[[example]]
+name = "fmc"
+required-features = ["fmc"]
 
 [[example]]
 name = "qspi"
