@@ -651,7 +651,7 @@ mod tests {
         // they are to an integer fraction of the P_CK
         assert!(output_p <= pll_p_target as f32);
         let error = output_p - pll_p_target as f32;
-        assert!(f32::abs(error) < (pll_p_target as f32 / 1_000_000.0)); // < ±.0001% error
+        assert!(f32::abs(error) < (pll_p_target as f32 / 500_000.0)); // < ±.0002% = 2ppm error
 
         let output_q = vco_ck_achieved as f32 / pll_x_q as f32;
         println!("Q Divider {}", pll_x_q);
@@ -738,7 +738,7 @@ mod tests {
         // they are to an integer fraction of the P_CK
         assert!(output_p >= pll_p_target as f32);
         let error = output_p - pll_p_target as f32;
-        assert!(f32::abs(error) < (pll_p_target as f32 / 1_000_000.0)); // < ±.0001% error
+        assert!(f32::abs(error) < (pll_p_target as f32 / 500_000.0)); // < ±.0002% = 2ppm error
 
         let output_q = vco_ck_achieved as f32 / pll_x_q as f32;
         println!("Q Divider {}", pll_x_q);
