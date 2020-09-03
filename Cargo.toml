@@ -1,11 +1,13 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
            "Jan Adä <jan.adae@outlook.de>",
            "Robert Jördens <rj@quartiq.de>",
+           "Ryan Summers <ryan.summers@vertigo-designs.com>",
+           "Matthew Meyer <mtthw.meyer@gmail.com>",
            "Florian Jung <flo@windfisch.org>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
@@ -18,7 +20,7 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743", "rt", "quadspi", "sdmmc"]
+features = ["stm32h743", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "lan8742a"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]

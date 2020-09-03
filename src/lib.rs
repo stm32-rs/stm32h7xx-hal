@@ -23,6 +23,13 @@
 //! * [Serial Peripheral Interface (SPI)](crate::spi)
 //! * [Serial Data (USART/UART)](crate::serial)
 //! * [Serial Audio Interface](crate::sai)
+//! * [Quad SPI](crate::qspi) Feature gate `qspi`
+//! * [Ethernet](crate::ethernet) Feature gate `ethernet`
+//!
+//! External Memory
+//!
+//! * [Flexible Memory Controller (FMC)](crate::fmc) Feature gate `fmc`
+//! * [SD Card (SDMMC)](crate::sdmmc) Feature gate `sdmmc`
 //!
 //! Timing functions
 //!

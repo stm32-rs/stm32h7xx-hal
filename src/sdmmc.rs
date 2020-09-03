@@ -26,8 +26,8 @@
 //!     .freeze(vos, &dp.SYSCFG);
 //! ```
 //!
-//! There is an [extension trait](crate::SdmmcExt) implemented for the `SDMMC1`
-//! and `SDMMC2` periperhals for easy initialisation.
+//! There is an [extension trait](crate::sdmmc::SdmmcExt) implemented for the
+//! `SDMMC1` and `SDMMC2` periperhals for easy initialisation.
 //!
 //! ```
 //! // Create SDMMC
@@ -46,7 +46,7 @@
 //! }
 //! ```
 //!
-//! The [`card()`](crate::Sdmmc::card) method returns useful information about
+//! The [`card()`](crate::sdmmc::Sdmmc::card) method returns useful information about
 //! the card.
 //!
 //! ```

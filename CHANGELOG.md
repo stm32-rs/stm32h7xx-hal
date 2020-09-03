@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [v0.7.0] 2020-09-03
+
+* **Breaking**: Fix PWM pin types. See #110
+* Add QSPI support
+* Add SDMMC support
+* Add Ethernet support
+* Add FMC support
+* spi: add new configuration options
+* i2c: fix i2c bus clock frequency calculation
+* i2c: extend write duration until transaction finishes
+* timer: Fix timer first cycle invalid #72
+* timer: Add set_timeout method
+* adc: add method to initialise ADC1 and ADC2 together, see examples
+* Added method to switch to VOS0 (480MHz)
+* Allow external HSE clock input (bypass mode)
+* Use ACLK (AXI clock) frequency for calculating flash waitstates
+* pll: Add fractional strategies
+* pll: fix very subtle error in PLL Q,R frequencies
+* serial: rename usart method to serial, will be depreciated in future
+* examples: Added logging framework
+* MSRV increased to 1.43.0
+
 ## [v0.6.0] 2020-06-25
 
 * **Breaking:** Peripheral driver constructors now consume a peripheralREC
@@ -54,8 +76,9 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...HEAD
-[v0.6.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...HEAD
+[v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...v0.7.0
+[v0.6.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.2.1...v0.3.0

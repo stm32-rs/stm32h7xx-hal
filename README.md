@@ -52,19 +52,22 @@ linker errors, uncomment the correct `FLASH` section definition in memory.x
 Getting Started
 ---------------
 
-The `examples` folder contains several example programs. To compile
-them, one must specify the target device as cargo feature:
+The [examples folder](examples/) contains several example programs. To compile
+them, specify the target device in a cargo feature:
+
 ```
 $ cargo build --features=stm32h743v,rt
 ```
 
+See the [Examples README](examples/README.md) for more details.
+
 To use stm32h7xx-hal as a dependency in a standalone project the
 target device feature must be specified in the `Cargo.toml` file:
-```
+```toml
 [dependencies]
 cortex-m = "0.6.2"
 cortex-m-rt = "0.6.12"
-stm32h7xx-hal = {version = "0.6.0", features = ["stm32h743v","rt"]}
+stm32h7xx-hal = {version = "0.7.0", features = ["stm32h743v","rt"]}
 ```
 
 If you are unfamiliar with embedded development using Rust, there are
@@ -93,6 +96,7 @@ Board | Manufacturer | BSP / Examples?
 [Daisy Seed](https://www.electro-smith.com/daisy/daisy) | Electrosmith |
 [Portenta H7](https://store.arduino.cc/portenta-h7) ⚠️ | Arduino |
 [OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
+[Toasty](https://www.tindie.com/products/webtronics/toasty-480mhz-stm32-usb-development-board/) | Webtronics |
 
 ⚠️: Programming this board via its USB connector requires interacting with
 an unknown proprietary(?) bootloader. This bootloader may make it difficult
