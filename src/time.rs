@@ -24,6 +24,14 @@ pub struct MegaHertz(pub u32);
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct MilliSeconds(pub u32);
 
+/// MicroSeconds
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+pub struct MicroSeconds(pub u32);
+
+/// NanoSeconds
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+pub struct NanoSeconds(pub u32);
+
 impl fmt::Display for Bps {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} bits per second", self.0)
@@ -49,6 +57,16 @@ impl fmt::Display for MilliSeconds {
         write!(f, "{} ms", self.0)
     }
 }
+impl fmt::Display for MicroSeconds {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} us", self.0)
+    }
+}
+impl fmt::Display for NanoSeconds {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} ns", self.0)
+    }
+}
 
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
@@ -66,6 +84,12 @@ pub trait U32Ext {
 
     /// Wrap in "MilliSeconds"
     fn ms(self) -> MilliSeconds;
+
+    /// Wrap in "MicroSeconds"
+    fn us(self) -> MicroSeconds;
+
+    /// Wrap in "NanoSeconds"
+    fn ns(self) -> NanoSeconds;
 }
 
 impl U32Ext for u32 {
@@ -87,6 +111,14 @@ impl U32Ext for u32 {
 
     fn ms(self) -> MilliSeconds {
         MilliSeconds(self)
+    }
+
+    fn us(self) -> MicroSeconds {
+        MicroSeconds(self)
+    }
+
+    fn ns(self) -> NanoSeconds {
+        NanoSeconds(self)
     }
 }
 
@@ -112,6 +144,24 @@ impl Into<Hertz> for MegaHertz {
 impl Into<KiloHertz> for MegaHertz {
     fn into(self) -> KiloHertz {
         KiloHertz(self.0 * 1_000)
+    }
+}
+
+impl Into<NanoSeconds> for MicroSeconds {
+    fn into(self) -> NanoSeconds {
+        NanoSeconds(self.0 * 1_000)
+    }
+}
+
+impl Into<NanoSeconds> for MilliSeconds {
+    fn into(self) -> NanoSeconds {
+        NanoSeconds(self.0 * 1_000_000)
+    }
+}
+
+impl Into<MicroSeconds> for MilliSeconds {
+    fn into(self) -> MicroSeconds {
+        MicroSeconds(self.0 * 1_000)
     }
 }
 
