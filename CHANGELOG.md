@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [v0.7.1] 2020-09-04
+
+* Update docs
+
 ## [v0.7.0] 2020-09-03
 
 * **Breaking**: Fix PWM pin types. See #110
@@ -76,7 +80,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...HEAD
+[v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
