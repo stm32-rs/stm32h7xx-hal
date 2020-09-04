@@ -110,16 +110,6 @@ The Minimum Supported Rust Version (MSRV) at the moment is **1.43.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 
-Other STM32H7 crates
---------------------
-
-This crate only includes implmentations of [embedded-hal][] traits or
-other core functionality. An incomplete list of additional peripheral
-support crates is given here:
-
-- [stm32h7-fmc](https://crates.io/crates/stm32h7-fmc)
-- _[Search crates.io...](https://crates.io/search?q=stm32h7)_
-
 Changelog
 ---------
 

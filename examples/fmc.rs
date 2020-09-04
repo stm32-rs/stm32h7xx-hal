@@ -151,7 +151,7 @@ const APP: () = {
         // ----------------------------------------------------------
         // SDRAM
         // Initialise SDRAM...
-        let fmc_io = fmc_pins! {
+        let sdram_pins = fmc_pins! {
             // A0-A11
             gpiof.pf0, gpiof.pf1, gpiof.pf2, gpiof.pf3,
             gpiof.pf4, gpiof.pf5, gpiof.pf12, gpiof.pf13,
@@ -178,7 +178,7 @@ const APP: () = {
         };
 
         let mut sdram = dp.FMC.sdram(
-            fmc_io,
+            sdram_pins,
             is42s32800g_6::Is42s32800g {},
             ccdr.peripheral.FMC,
             &ccdr.clocks,

@@ -1,4 +1,30 @@
 //! HAL for Flexible memory controller (FMC)
+//!
+//! FMC support is implemented via the
+//! [stm32-fmc](https://github.com/stm32-rs/stm32-fmc) crate.
+//!
+//! ## SDRAM
+//!
+//! An external SDRAM can be instantiated by calling the [sdram](FmcExt::sdram)
+//! extension method. To avoid the pin checks, you can use
+//! [sdram_unchecked](FmcExt::sdram_unchecked) instead.
+//!
+//! ```
+//! use stm32h7xx_hal::prelude::*;
+//!
+//! let sdram_pins = ...; // Tuple, see stm32-fmc docs for pin ordering
+//! let sdram_chip = ...; // See stm32-fmc docs
+//!
+//! let mut sdram = dp.FMC.sdram(
+//!     sdram_pins,
+//!     sdram_chip,
+//!     ccdr.peripheral.FMC,
+//!     &ccdr.clocks,
+//! );
+//! ```
+//!
+//! `sdram` usage is described
+//! [here](https://github.com/stm32-rs/stm32-fmc#usage).
 
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
