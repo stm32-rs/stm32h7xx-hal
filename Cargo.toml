@@ -20,7 +20,7 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "lan8742a"]
+features = ["stm32h743", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "phy_lan8742a"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
