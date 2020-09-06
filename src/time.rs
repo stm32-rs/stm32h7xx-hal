@@ -188,6 +188,20 @@ impl Into<Duration> for MilliSeconds {
     }
 }
 
+// Into core::time::Duration
+impl Into<Duration> for MicroSeconds {
+    fn into(self) -> Duration {
+        Duration::from_micros(self.0 as u64)
+    }
+}
+
+// Into core::time::Duration
+impl Into<Duration> for NanoSeconds {
+    fn into(self) -> Duration {
+        Duration::from_nanos(self.0 as u64)
+    }
+}
+
 // /// A monotonic nondecreasing timer
 // #[derive(Clone, Copy)]
 // pub struct MonoTimer {
