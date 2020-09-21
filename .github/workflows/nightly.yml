@@ -23,6 +23,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Cache cargo registry and index
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo build
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-target-nightly-${{ hashFiles('**/Cargo.toml') }}-memory-${{ hashFiles('**/memory.x') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
