@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: target
-          key: ${{ runner.os }}-target-stable-${{ hashFiles('**/Cargo.toml') }}-memory-${{ hashFiles('**/memory.x') }}
+          key: ${{ runner.os }}-target-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-memory-${{ hashFiles('**/memory.x') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
