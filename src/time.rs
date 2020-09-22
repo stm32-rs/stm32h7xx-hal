@@ -181,6 +181,38 @@ impl Into<Hertz> for MilliSeconds {
     }
 }
 
+// MicroSeconds <-> Hertz
+impl Into<MicroSeconds> for Hertz {
+    fn into(self) -> MicroSeconds {
+        let freq = self.0;
+        assert!(freq != 0 && freq <= 1_000_000);
+        MicroSeconds(1_000_000 / freq)
+    }
+}
+impl Into<Hertz> for MicroSeconds {
+    fn into(self) -> Hertz {
+        let period = self.0;
+        assert!(period != 0 && period <= 1_000_000);
+        Hertz(1_000_000 / period)
+    }
+}
+
+// NanoSeconds <-> Hertz
+impl Into<NanoSeconds> for Hertz {
+    fn into(self) -> NanoSeconds {
+        let freq = self.0;
+        assert!(freq != 0 && freq <= 1_000_000_000);
+        NanoSeconds(1_000_000_000 / freq)
+    }
+}
+impl Into<Hertz> for NanoSeconds {
+    fn into(self) -> Hertz {
+        let period = self.0;
+        assert!(period != 0 && period <= 1_000_000_000);
+        Hertz(1_000_000_000 / period)
+    }
+}
+
 // Into core::time::Duration
 impl Into<Duration> for MilliSeconds {
     fn into(self) -> Duration {
