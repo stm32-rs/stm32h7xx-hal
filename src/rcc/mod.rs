@@ -139,8 +139,8 @@
 //!
 #![deny(missing_docs)]
 
-use crate::pwr::VoltageScale as Voltage;
 use crate::pwr::PowerConfiguration;
+use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
@@ -560,7 +560,11 @@ impl Rcc {
     /// function may also panic if a clock specification can be
     /// achieved, but the mechanism for doing so is not yet
     /// implemented here.
-    pub fn freeze(mut self, pwrcfg: PowerConfiguration, syscfg: &SYSCFG) -> Ccdr {
+    pub fn freeze(
+        mut self,
+        pwrcfg: PowerConfiguration,
+        syscfg: &SYSCFG,
+    ) -> Ccdr {
         // We do not reset RCC here. This routine must assert when
         // the previous state of the RCC peripheral is unacceptable.
 

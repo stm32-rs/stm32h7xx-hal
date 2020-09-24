@@ -282,9 +282,13 @@ impl Pwr {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
-            return PowerConfiguration { vos: VoltageScale::Scale0 };
+            return PowerConfiguration {
+                vos: VoltageScale::Scale0,
+            };
         }
 
-        PowerConfiguration { vos: VoltageScale::Scale1 }
+        PowerConfiguration {
+            vos: VoltageScale::Scale1,
+        }
     }
 }
