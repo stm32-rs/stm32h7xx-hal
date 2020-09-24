@@ -33,14 +33,14 @@ const APP: () = {
     #[init]
     fn init(ctx: init::Context) -> init::LateResources {
         let pwr = ctx.device.PWR.constrain();
-        let vos = pwr.freeze();
+        let pwrcfg = pwr.freeze();
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
             .use_hse(25.mhz())
             .sys_ck(400.mhz())
-            .freeze(vos, &ctx.device.SYSCFG);
+            .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Timers
         let mut timer1 =

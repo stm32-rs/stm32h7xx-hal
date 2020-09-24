@@ -14,9 +14,9 @@
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = pwr.freeze();
+//!     let pwrcfg = pwr.freeze();
 //!
-//!     assert_eq!(vos, VoltageScale::Scale1);
+//!     assert_eq!(pwrcfg.vos(), VoltageScale::Scale1);
 //! ```
 //!
 //! # SMPS
@@ -39,9 +39,9 @@
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = pwr.smps().freeze();
+//!     let pwrcfg = pwr.smps().freeze();
 //!
-//!     assert_eq!(vos, VoltageScale::Scale1);
+//!     assert_eq!(pwrcfg.vos(), VoltageScale::Scale1);
 //! ```
 //!
 //! The VCORE supply configuration can only be set once after each
@@ -83,15 +83,34 @@ pub struct Pwr {
 
 /// Voltage Scale
 ///
+/// Represents the voltage range feeding the CPU core. The maximum core
+/// clock frequency depends on this value.
+#[derive(Copy, Clone, PartialEq)]
+pub enum VoltageScale {
+    /// VOS 0 range VCORE 1.26V - 1.40V
+    Scale0,
+    /// VOS 1 range VCORE 1.15V - 1.26V
+    Scale1,
+    /// VOS 2 range VCORE 1.05V - 1.15V
+    Scale2,
+    /// VOS 3 range VCORE 0.95V - 1.05V
+    Scale3,
+}
+
+/// Power Configuration
+///
 /// Generated when the PWR peripheral is frozen. The existence of this
 /// value indicates that the voltage scaling configuration can no
 /// longer be changed.
-#[derive(PartialEq)]
-pub enum VoltageScale {
-    Scale0,
-    Scale1,
-    Scale2,
-    Scale3,
+pub struct PowerConfiguration {
+    pub(crate) vos: VoltageScale,
+}
+
+impl PowerConfiguration {
+    /// Gets the `VoltageScale` which was configured by `Pwr::freeze()`.
+    pub fn vos(&self) -> VoltageScale {
+        self.vos
+    }
 }
 
 /// SMPS Supply Configuration - Dual Core parts
@@ -192,7 +211,7 @@ impl Pwr {
         self
     }
 
-    pub fn freeze(self) -> VoltageScale {
+    pub fn freeze(self) -> PowerConfiguration {
         // NB. The lower bytes of CR3 can only be written once after
         // POR, and must be written with a valid combination. Refer to
         // RM0433 Rev 7 6.8.4. This is partially enforced by dropping
@@ -263,9 +282,9 @@ impl Pwr {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
-            return VoltageScale::Scale0;
+            return PowerConfiguration { vos: VoltageScale::Scale0 };
         }
 
-        VoltageScale::Scale1
+        PowerConfiguration { vos: VoltageScale::Scale1 }
     }
 }

@@ -52,13 +52,13 @@
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = pwr.freeze();
+//!     let pwrcfg = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
 //!         .sys_ck(96.mhz())
 //!         .pclk1(48.mhz())
-//!         .freeze(vos, &dp.SYSCFG);
+//!         .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
 //! A more complex example, involving the PLL:
@@ -67,7 +67,7 @@
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = pwr.freeze();
+//!     let pwrcfg = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
@@ -75,7 +75,7 @@
 //!         // For non-integer values, round up. `freeze` will never
 //!         // configure a clock faster than that specified.
 //!         .pll1_q_ck(33_333_334.hz())
-//!         .freeze(vos, &dp.SYSCFG);
+//!         .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
 //! A much more complex example, indicative of real usage with a
@@ -85,7 +85,7 @@
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
 //!     let pwr = dp.PWR.constrain();
-//!     let vos = pwr.freeze();
+//!     let pwrcfg = pwr.freeze();
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
@@ -98,7 +98,7 @@
 //!         .pll3_p_ck(240.mhz()) // for LTDC
 //!         .pll3_q_ck(48.mhz()) // for LTDC
 //!         .pll3_r_ck(26_666_667.hz()) // Pixel clock for LTDC
-//!         .freeze(vos, &dp.SYSCFG);
+//!         .freeze(pwrcfg, &dp.SYSCFG);
 //!```
 //!
 //! # Peripherals
@@ -140,6 +140,7 @@
 #![deny(missing_docs)]
 
 use crate::pwr::VoltageScale as Voltage;
+use crate::pwr::PowerConfiguration;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
@@ -559,7 +560,7 @@ impl Rcc {
     /// function may also panic if a clock specification can be
     /// achieved, but the mechanism for doing so is not yet
     /// implemented here.
-    pub fn freeze(mut self, vos: Voltage, syscfg: &SYSCFG) -> Ccdr {
+    pub fn freeze(mut self, pwrcfg: PowerConfiguration, syscfg: &SYSCFG) -> Ccdr {
         // We do not reset RCC here. This routine must assert when
         // the previous state of the RCC peripheral is unacceptable.
 
@@ -625,7 +626,7 @@ impl Rcc {
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
-        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match vos {
+        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
             Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
             Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
             Voltage::Scale2 => (300_000_000, 150_000_000, 75_000_000),
@@ -696,7 +697,7 @@ impl Rcc {
         // Start switching clocks here! ----------------------------------------
 
         // Flash setup
-        Self::flash_setup(rcc_aclk, vos);
+        Self::flash_setup(rcc_aclk, pwrcfg.vos);
 
         // Ensure CSI is on and stable
         rcc.cr.modify(|_, w| w.csion().on());

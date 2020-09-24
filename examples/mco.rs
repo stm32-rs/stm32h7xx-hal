@@ -17,7 +17,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -27,7 +27,7 @@ fn main() -> ! {
         .mco1_from_hsi48(24.mhz())
         .pll2_strategy(PllConfigStrategy::Iterative)
         .mco2_from_pll2_p_ck(25_600.khz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);

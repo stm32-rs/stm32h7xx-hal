@@ -24,7 +24,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -39,7 +39,7 @@ fn main() -> ! {
     let ccdr = rcc
         .sys_ck(100.mhz())
         .per_ck(4.mhz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
     let d3ccipr = &unsafe { &*pac::RCC::ptr() }.d3ccipr;

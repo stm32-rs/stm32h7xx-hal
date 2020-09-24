@@ -23,7 +23,7 @@
 //! ```
 //! let ccdr = rcc
 //!     .pll1_q_ck(100.mhz())
-//!     .freeze(vos, &dp.SYSCFG);
+//!     .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
 //! There is an [extension trait](crate::sdmmc::SdmmcExt) implemented for the

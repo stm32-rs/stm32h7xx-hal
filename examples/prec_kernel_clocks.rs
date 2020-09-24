@@ -23,7 +23,7 @@ fn main() -> ! {
 
     // Constrain and Freeze power
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
@@ -32,7 +32,7 @@ fn main() -> ! {
         .pll1_q_ck(4.mhz())
         .pll3_p_ck(4.mhz())
         .pll3_r_ck(4.mhz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Set group kernel clock to PLL3 R CK. Needs mutable ccdr
     ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::PLL3_R);

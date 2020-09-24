@@ -17,7 +17,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.vos0(&dp.SYSCFG).freeze();
+    let pwrcfg = pwr.vos0(&dp.SYSCFG).freeze();
 
     // Constrain and Freeze clock
     // The PllConfigStrategy::Normal strategy uses the medium range VCO which has a maximum of 420 Mhz
@@ -27,7 +27,7 @@ fn main() -> ! {
     let ccdr = rcc
         .sys_ck(480.mhz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
     info!("stm32h7xx-hal example - VOS0");

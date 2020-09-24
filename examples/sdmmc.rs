@@ -23,7 +23,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -32,7 +32,7 @@ fn main() -> ! {
     let ccdr = rcc
         .sys_ck(400.mhz())
         .pll1_q_ck(100.mhz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
     gpiob.pb3.into_alternate_af0();

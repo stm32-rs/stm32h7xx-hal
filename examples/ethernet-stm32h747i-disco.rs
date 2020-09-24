@@ -39,7 +39,7 @@ fn main() -> ! {
     // Initialise power...
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.smps().freeze();
+    let pwrcfg = pwr.smps().freeze();
 
     // Link the SRAM3 power state to CPU1
     info!("Setup RCC...                  ");
@@ -50,7 +50,7 @@ fn main() -> ! {
     let ccdr = rcc
         .sys_ck(200.mhz())
         .hclk(200.mhz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Initialise system...
     cp.SCB.invalidate_icache();

@@ -126,7 +126,7 @@ const APP: () = {
         logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
-        let vos = pwr.smps().freeze();
+        let pwrcfg = pwr.smps().freeze();
 
         // Link the SRAM3 power state to CPU1
         ctx.device.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
@@ -136,7 +136,7 @@ const APP: () = {
         let ccdr = rcc
             .sys_ck(200.mhz())
             .hclk(200.mhz())
-            .freeze(vos, &ctx.device.SYSCFG);
+            .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
         ctx.core.SCB.invalidate_icache();
