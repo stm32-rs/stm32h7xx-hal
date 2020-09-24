@@ -71,12 +71,14 @@ pub trait INTERFACE {}
 /// SAI Events
 ///
 /// Each event is a possible interrupt sources, if enabled
+#[derive(Copy, Clone, PartialEq)]
 pub enum Event {
     /// Data is available / is required in the FIFO
     Data,
 }
 
 /// SAI Channels
+#[derive(Copy, Clone, PartialEq)]
 pub enum SaiChannel {
     ChannelA,
     ChannelB,

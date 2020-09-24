@@ -54,6 +54,7 @@ pub enum Error {
 }
 
 /// Interrupt event
+#[derive(Copy, Clone, PartialEq)]
 pub enum Event {
     /// New data has been received
     Rxne,
@@ -66,17 +67,20 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
+    #[derive(Copy, Clone, PartialEq)]
     pub enum WordLength {
         DataBits8,
         DataBits9,
     }
 
+    #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
         ParityEven,
         ParityOdd,
     }
 
+    #[derive(Copy, Clone, PartialEq)]
     pub enum StopBits {
         #[doc = "1 stop bit"]
         STOP1,

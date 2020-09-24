@@ -86,7 +86,7 @@ pub struct Pwr {
 /// Generated when the PWR peripheral is frozen. The existence of this
 /// value indicates that the voltage scaling configuration can no
 /// longer be changed.
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum VoltageScale {
     Scale0,
     Scale1,

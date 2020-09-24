@@ -19,6 +19,7 @@ use cast::u16;
 /// I2C Events
 ///
 /// Each event is a possible interrupt sources, if enabled
+#[derive(Copy, Clone, PartialEq)]
 pub enum Event {
     /// (TXIE)
     Transmit,

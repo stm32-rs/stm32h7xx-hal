@@ -328,6 +328,7 @@ pins! {
 }
 
 /// Interrupt events
+#[derive(Copy, Clone, PartialEq)]
 pub enum Event {
     /// New data has been received
     Rxp,

@@ -47,6 +47,7 @@ pub struct OpenDrain;
 pub struct Analog;
 
 /// GPIO Pin speed selection
+#[derive(Copy, Clone, PartialEq)]
 pub enum Speed {
     Low = 0,
     Medium = 1,
@@ -55,6 +56,7 @@ pub enum Speed {
 }
 
 /// GPIO Edge selection
+#[derive(Copy, Clone, PartialEq)]
 pub enum Edge {
     RISING,
     FALLING,
