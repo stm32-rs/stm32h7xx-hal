@@ -149,6 +149,7 @@ use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
 
+pub mod backup;
 mod core_clocks;
 mod pll;
 pub mod rec;
@@ -249,6 +250,7 @@ pub struct Ccdr {
 const HSI: u32 = 64_000_000; // Hz
 const CSI: u32 = 4_000_000; // Hz
 const HSI48: u32 = 48_000_000; // Hz
+const LSI: u32 = 32_000; // Hz
 
 /// Setter defintion for pclk 1 - 4
 macro_rules! pclk_setter {
@@ -610,6 +612,11 @@ impl Rcc {
         let csi = CSI;
         let hsi48 = HSI48;
 
+        // Enable LSI for RTC, IWDG, AWU, or MCO2
+        let lsi = LSI;
+        rcc.csr.modify(|_, w| w.lsion().on());
+        while rcc.csr.read().lsirdy().is_not_ready() {}
+
         // per_ck from HSI by default
         let (per_ck, ckpersel) =
             match (self.config.per_ck == self.config.hse, self.config.per_ck) {
@@ -693,7 +700,7 @@ impl Rcc {
             MCO2::HSE => self.config.hse.unwrap(),
             MCO2::PLL1_P => pll1_p_ck.unwrap().0,
             MCO2::CSI => CSI,
-            MCO2::LSI => unimplemented!(),
+            MCO2::LSI => LSI,
         };
         let (mco_2_pre, mco2_ck) =
             self.config.mco2.calculate_prescaler(mco2_in);
@@ -837,6 +844,7 @@ impl Rcc {
                 csi_ck: Some(Hertz(csi)),
                 hsi_ck: Some(Hertz(hsi)),
                 hsi48_ck: Some(Hertz(hsi48)),
+                lsi_ck: Some(Hertz(lsi)),
                 per_ck: Some(Hertz(per_ck)),
                 hse_ck,
                 mco1_ck,

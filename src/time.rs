@@ -5,19 +5,19 @@ use core::time::Duration;
 use cortex_m::peripheral::DWT;
 
 /// Bits per second
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct Bps(pub u32);
 
 /// Hertz
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct Hertz(pub u32);
 
 /// KiloHertz
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct KiloHertz(pub u32);
 
 /// MegaHertz
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct MegaHertz(pub u32);
 
 /// MilliSeconds

@@ -20,7 +20,7 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "phy_lan8742a"]
+features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "phy_lan8742a", "rtc"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
@@ -40,6 +40,11 @@ stm32-fmc = { version = "0.2", optional = true }
 version = "0.6.0"
 default-features = false
 features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-tcp", "socket-raw"]
+optional = true
+
+[dependencies.chrono]
+version = "0.4"
+default-features = false
 optional = true
 
 [dev-dependencies]
@@ -76,6 +81,7 @@ sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
 phy_ksz8081r = []
 phy_lan8742a = []
+rtc = ["chrono"]
 rt = ["stm32h7/rt"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
 stm32h743 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
@@ -140,3 +146,7 @@ required-features = ["phy_lan8742a", "rt", "revision_v", "stm32h743v", "ethernet
 [[example]]
 name = "tick_timer"
 required-features = ["rt"]
+
+[[example]]
+name = "rtc"
+required-features = ["rt", "rtc"]
