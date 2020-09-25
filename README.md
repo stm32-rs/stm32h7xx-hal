@@ -97,6 +97,8 @@ Board | Manufacturer | BSP / Examples?
 [Portenta H7](https://store.arduino.cc/portenta-h7) ⚠️ | Arduino |
 [OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
 [Toasty](https://www.tindie.com/products/webtronics/toasty-480mhz-stm32-usb-development-board/) | Webtronics |
+[DevEBox](https://item.taobao.com/item.htm?id=601083694791) | MCUDev |
+[MiniSTM32H7xx](https://github.com/WeActTC/MiniSTM32H7xx) | WeAct Studio |
 
 ⚠️: Programming this board via its USB connector requires interacting with
 an unknown proprietary(?) bootloader. This bootloader may make it difficult
