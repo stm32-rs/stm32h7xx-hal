@@ -116,14 +116,14 @@ const APP: () = {
 
         // Initialise power...
         let pwr = dp.PWR.constrain();
-        let vos = pwr.freeze();
+        let pwrcfg = pwr.freeze();
 
         // Initialise clocks...
         let rcc = dp.RCC.constrain();
         let ccdr = rcc
             .sys_ck(200.mhz())
             .hclk(200.mhz()) // FMC clock from HCLK by default
-            .freeze(vos, &dp.SYSCFG);
+            .freeze(pwrcfg, &dp.SYSCFG);
 
         // Get the delay provider.
         let mut delay = ctx.core.SYST.delay(ccdr.clocks);

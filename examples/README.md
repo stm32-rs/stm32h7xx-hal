@@ -13,13 +13,13 @@ PWR. For instance if your board uses the internal LDO to supply VCORE, you
 can replace:
 
 ```rust
-let vos = pwr.freeze();
+let pwrcfg = pwr.freeze();
 ```
 
 with
 
 ```rust
-let vos = pwr.ldo().freeze();
+let pwrcfg = pwr.ldo().freeze();
 ```
 
 The results of calling the wrong builder method for your hardware are

@@ -55,7 +55,7 @@ fn main() -> ! {
     // Initialise power...
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Initialise SRAM3
     info!("Setup RCC...                  ");
@@ -67,7 +67,7 @@ fn main() -> ! {
         .sys_ck(200.mhz())
         .hclk(200.mhz())
         .pll1_r_ck(100.mhz()) // for TRACECK
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Get the delay provider.
     let delay = cp.SYST.delay(ccdr.clocks);

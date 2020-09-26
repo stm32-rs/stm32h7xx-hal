@@ -19,7 +19,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -27,7 +27,7 @@ fn main() -> ! {
     let ccdr = rcc
         .sys_ck(100.mhz())
         .pll1_q_ck(20_480.khz()) // SAI1 clock source
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire GPIO peripherals. This also enables the clock for each
     // GPIO in the RCC register.

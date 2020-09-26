@@ -18,7 +18,7 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let pwrcfg = pwr.freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -32,7 +32,7 @@ fn main() -> ! {
         .pll2_r_ck((48_000 * 63).hz())
         // pll2_p / 2 --> mco2
         .mco2_from_pll2_p_ck(7.mhz())
-        .freeze(vos, &dp.SYSCFG);
+        .freeze(pwrcfg, &dp.SYSCFG);
 
     // Enable MCO2 output pin
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
