@@ -113,7 +113,9 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
-    #[deprecated(since = "0.8.0", note = "Use countdown_timer()")]
+    /// Configures a periodic timer
+    ///
+    /// Generates an overflow event at the `timeout` frequency.
     fn timer<T>(
         self,
         timeout: T,
@@ -123,15 +125,11 @@ pub trait TimerExt<TIM> {
     where
         T: Into<Hertz>;
 
-    fn countdown_timer<T>(
-        self,
-        timeout: T,
-        prec: Self::Rec,
-        clocks: &CoreClocks,
-    ) -> Timer<TIM>
-    where
-        T: Into<Hertz>;
-
+    /// Configures the timer to count up at the given frequency
+    ///
+    /// Counts from 0 to the counter's maximum value, then repeats.
+    /// Because this only uses the timer prescaler, the frequency
+    /// is rounded to a multiple of the timer's kernel clock.
     fn tick_timer<T>(
         self,
         frequency: T,
@@ -204,15 +202,6 @@ macro_rules! hal {
 
                 fn timer<T>(self, timeout: T,
                             prec: Self::Rec, clocks: &CoreClocks
-                ) -> Timer<$TIMX>
-                where
-                    T: Into<Hertz>,
-                {
-                    self.countdown_timer(timeout, prec, clocks)
-                }
-
-                fn countdown_timer<T>(self, timeout: T,
-                                      prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX>
                 where
                     T: Into<Hertz>,
@@ -319,8 +308,11 @@ macro_rules! hal {
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
-                /// Configures the timer to tick down at the given frequency
-                /// and reload the counter with its maximum value
+                /// Configures the timer to count up at the given frequency
+                ///
+                /// Counts from 0 to the counter's maximum value, then repeats.
+                /// Because this only uses the timer prescaler, the frequency
+                /// is rounded to a multiple of the timer's kernel clock.
                 pub fn set_tick_freq<T>(&mut self, frequency: T)
                 where
                     T: Into<Hertz>,
@@ -331,8 +323,8 @@ macro_rules! hal {
                     let psc = u16(div - 1).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
-                    let counter_max = <$cntType>::MAX;
-                    self.tim.arr.write(|w| unsafe { w.bits(counter_max.into()) });
+                    let counter_max = u32(<$cntType>::MAX);
+                    self.tim.arr.write(|w| unsafe { w.bits(counter_max) });
                 }
 
                 /// Updates the timer prescaler and auto-reload value
