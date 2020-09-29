@@ -9,7 +9,8 @@ use core::marker::PhantomData;
 use crate::hal::timer::{CountDown, Periodic};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
 use crate::stm32::{
-    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8,
+    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
+    TIM6, TIM7, TIM8,
 };
 
 use cast::{u16, u32};
@@ -113,15 +114,30 @@ pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
     #[deprecated(since = "0.7.0", note = "Use countdown_timer()")]
-    fn timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
+    fn timer<T>(
+        self,
+        timeout: T,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Timer<TIM>
     where
         T: Into<Hertz>;
 
-    fn countdown_timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
+    fn countdown_timer<T>(
+        self,
+        timeout: T,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Timer<TIM>
     where
         T: Into<Hertz>;
-    
-    fn tick_timer<T>(self, frequency: T, prec: Self::Rec, clocks: &CoreClocks) -> Timer<TIM>
+
+    fn tick_timer<T>(
+        self,
+        frequency: T,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Timer<TIM>
     where
         T: Into<Hertz>;
 }
@@ -213,7 +229,7 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     let mut timer = Timer::$timX(self, prec, clocks);
-                    
+
                     timer.pause();
 
                     // UEV event occours on next overflow
