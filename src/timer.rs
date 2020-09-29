@@ -113,7 +113,7 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
-    #[deprecated(since = "0.7.0", note = "Use countdown_timer()")]
+    #[deprecated(since = "0.8.0", note = "Use countdown_timer()")]
     fn timer<T>(
         self,
         timeout: T,
