@@ -327,7 +327,11 @@ macro_rules! hal {
                     self.tim.arr.write(|w| unsafe { w.bits(counter_max) });
                 }
 
-                /// Updates the timer prescaler and auto-reload value
+                /// Applies frequency/timeout changes immediately
+                ///
+                /// The timer will normally update its prescaler and auto-reload
+                /// value when its counter overflows. This function causes
+                /// those changes to happen immediately. Also clears the counter.
                 pub fn apply_freq(&mut self) {
                     self.tim.egr.write(|w| w.ug().set_bit());
                 }

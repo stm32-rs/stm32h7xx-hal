@@ -136,3 +136,7 @@ required-features = ["phy_lan8742a", "rt", "stm32h747cm7", "ethernet"]
 [[example]]
 name = "ethernet-nucleo-h743zi2"
 required-features = ["phy_lan8742a", "rt", "revision_v", "stm32h743v", "ethernet"]
+
+[[example]]
+name = "tick_timer"
+required-features = ["rt"]
