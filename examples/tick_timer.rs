@@ -3,11 +3,14 @@
 #![no_main]
 #![no_std]
 
-use core::{cell::RefCell, sync::atomic::{AtomicU32, Ordering}};
+use core::{
+    cell::RefCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
-use log::info;
 use cortex_m::{asm, interrupt::Mutex};
 use cortex_m_rt::entry;
+use log::info;
 
 use pac::interrupt;
 use stm32h7xx_hal::{pac, prelude::*, timer};
@@ -16,7 +19,8 @@ use stm32h7xx_hal::{pac, prelude::*, timer};
 mod logger;
 
 static OVERFLOWS: AtomicU32 = AtomicU32::new(0);
-static TIMER: Mutex<RefCell<Option<timer::Timer<pac::TIM2>>>> = Mutex::new(RefCell::new(None));
+static TIMER: Mutex<RefCell<Option<timer::Timer<pac::TIM2>>>> =
+    Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
