@@ -113,9 +113,26 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 pub trait TimerExt<TIM> {
     type Rec: ResetEnable;
 
+    /// Configures a periodic timer
+    ///
+    /// Generates an overflow event at the `timeout` frequency.
     fn timer<T>(
         self,
         timeout: T,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Timer<TIM>
+    where
+        T: Into<Hertz>;
+
+    /// Configures the timer to count up at the given frequency
+    ///
+    /// Counts from 0 to the counter's maximum value, then repeats.
+    /// Because this only uses the timer prescaler, the frequency
+    /// is rounded to a multiple of the timer's kernel clock.
+    fn tick_timer<T>(
+        self,
+        frequency: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Timer<TIM>
@@ -127,7 +144,6 @@ pub trait TimerExt<TIM> {
 pub struct Timer<TIM> {
     clk: u32,
     tim: TIM,
-    timeout: Hertz,
 }
 
 /// Timer Events
@@ -139,7 +155,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $Rec:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $Rec:ident, $cntType:ty),)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
 
@@ -187,20 +203,45 @@ macro_rules! hal {
                 fn timer<T>(self, timeout: T,
                             prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX>
-                    where
-                        T: Into<Hertz>,
+                where
+                    T: Into<Hertz>,
                 {
-                    Timer::$timX(self, timeout, prec, clocks)
+                    let mut timer = Timer::$timX(self, prec, clocks);
+                    timer.start(timeout);
+                    timer
+                }
+
+                fn tick_timer<T>(self, frequency: T,
+                                 prec: Self::Rec, clocks: &CoreClocks
+                ) -> Timer<$TIMX>
+                where
+                    T: Into<Hertz>,
+                {
+                    let mut timer = Timer::$timX(self, prec, clocks);
+
+                    timer.pause();
+
+                    // UEV event occours on next overflow
+                    timer.tim.cr1.modify(|_, w| w.urs().counter_only());
+                    timer.clear_uif_bit();
+
+                    // Set PSC and ARR
+                    timer.set_tick_freq(frequency);
+
+                    // Generate an update event to force an update of the ARR register. This ensures
+                    // the first timer cycle is of the specified duration.
+                    timer.tim.egr.write(|w| w.ug().set_bit());
+
+                    // Start counter
+                    timer.resume();
+
+                    timer
                 }
             }
 
             impl Timer<$TIMX> {
-                /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $timX<T>(tim: $TIMX, timeout: T,
-                                prec: rec::$Rec, clocks: &CoreClocks
-                ) -> Self
-                where
-                    T: Into<Hertz>,
+                /// Configures a TIM peripheral as a periodic count down timer, without starting it
+                pub fn $timX(tim: $TIMX, prec: rec::$Rec, clocks: &CoreClocks) -> Self
                 {
                     // enable and reset peripheral to a clean slate state
                     prec.enable().reset();
@@ -208,25 +249,20 @@ macro_rules! hal {
                     let clk = $TIMX::get_clk(clocks)
                         .expect("Timer input clock not running!").0;
 
-                    let mut timer = Timer {
+                    Timer {
                         clk,
                         tim,
-                        timeout: Hertz(0),
-                    };
-                    timer.start(timeout);
-
-                    timer
+                    }
                 }
 
+                /// Configures the timer's frequency and counter reload value
+                /// so that it underflows at the timeout's frequency
                 pub fn set_freq<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
                 {
-                    self.timeout = timeout.into();
-
-                    let clk = self.clk;
-                    let frequency = self.timeout.0;
-                    let ticks = clk / frequency;
+                    let timeout = timeout.into();
+                    let ticks = self.clk / timeout.0;
 
                     self.set_timeout_ticks(ticks);
                 }
@@ -266,10 +302,38 @@ macro_rules! hal {
 
                 fn set_timeout_ticks(&mut self, ticks: u32) {
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-                    self.tim.psc.write(|w| { w.psc().bits(psc) });
+                    self.tim.psc.write(|w| w.psc().bits(psc));
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
+                }
+
+                /// Configures the timer to count up at the given frequency
+                ///
+                /// Counts from 0 to the counter's maximum value, then repeats.
+                /// Because this only uses the timer prescaler, the frequency
+                /// is rounded to a multiple of the timer's kernel clock.
+                pub fn set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    let frequency = frequency.into();
+                    let div = self.clk / frequency.0;
+
+                    let psc = u16(div - 1).unwrap();
+                    self.tim.psc.write(|w| w.psc().bits(psc));
+
+                    let counter_max = u32(<$cntType>::MAX);
+                    self.tim.arr.write(|w| unsafe { w.bits(counter_max) });
+                }
+
+                /// Applies frequency/timeout changes immediately
+                ///
+                /// The timer will normally update its prescaler and auto-reload
+                /// value when its counter overflows. This function causes
+                /// those changes to happen immediately. Also clears the counter.
+                pub fn apply_freq(&mut self) {
+                    self.tim.egr.write(|w| w.ug().set_bit());
                 }
 
                 /// Clear uif bit
@@ -339,26 +403,26 @@ macro_rules! hal {
 
 hal! {
     // Advanced-control
-    TIM1: (tim1, Tim1),
-    TIM8: (tim8, Tim8),
+    TIM1: (tim1, Tim1, u16),
+    TIM8: (tim8, Tim8, u16),
 
     // General-purpose
-    TIM2: (tim2, Tim2),
-    TIM3: (tim3, Tim3),
-    TIM4: (tim4, Tim4),
-    TIM5: (tim5, Tim5),
+    TIM2: (tim2, Tim2, u32),
+    TIM3: (tim3, Tim3, u16),
+    TIM4: (tim4, Tim4, u16),
+    TIM5: (tim5, Tim5, u32),
 
     // Basic
-    TIM6: (tim6, Tim6),
-    TIM7: (tim7, Tim7),
+    TIM6: (tim6, Tim6, u16),
+    TIM7: (tim7, Tim7, u16),
 
     // General-purpose
-    TIM12: (tim12, Tim12),
-    TIM13: (tim13, Tim13),
-    TIM14: (tim14, Tim14),
+    TIM12: (tim12, Tim12, u16),
+    TIM13: (tim13, Tim13, u16),
+    TIM14: (tim14, Tim14, u16),
 
     // General-purpose
-    TIM15: (tim15, Tim15),
-    TIM16: (tim16, Tim16),
-    TIM17: (tim17, Tim17),
+    TIM15: (tim15, Tim15, u16),
+    TIM16: (tim16, Tim16, u16),
+    TIM17: (tim17, Tim17, u16),
 }
