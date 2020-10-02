@@ -208,7 +208,10 @@ impl Rtc {
             let s_pre = total_div / a_pre;
             (a_pre, s_pre)
         };
-        assert!(a_pre <= a_pre_max && s_pre <= s_pre_max, "Invalid RTC prescaler value");
+        assert!(
+            a_pre <= a_pre_max && s_pre <= s_pre_max,
+            "Invalid RTC prescaler value"
+        );
 
         rtc.prer.write(|w| unsafe {
             w.prediv_s()
@@ -573,7 +576,9 @@ impl Rtc {
                 .expect("Interval was too large for wakeup timer");
             self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         } else {
-            self.reg.cr.modify(|_, w| unsafe { w.wucksel().bits(0b100) });
+            self.reg
+                .cr
+                .modify(|_, w| unsafe { w.wucksel().bits(0b100) });
             let interval =
                 u16(interval).expect("Interval was too large for wakeup timer");
             self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
@@ -636,7 +641,9 @@ impl Rtc {
 
         // Clear timestamp interrupt and internal timestamp interrupt (VBat transition)
         // TODO: Timestamp overflow flag
-        self.reg.isr.modify(|_, w| w.tsf().clear_bit().itsf().clear_bit());
+        self.reg
+            .isr
+            .modify(|_, w| w.tsf().clear_bit().itsf().clear_bit());
 
         Some(date.and_time(time))
     }
