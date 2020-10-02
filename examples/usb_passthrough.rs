@@ -21,7 +21,6 @@ static mut EP_MEMORY_2: [u32; 1024] = [0; 1024];
 
 #[entry]
 fn main() -> ! {
-    let mut cp = stm32::CorePeripherals::take().unwrap();
     let dp = stm32::Peripherals::take().unwrap();
 
     // Power
