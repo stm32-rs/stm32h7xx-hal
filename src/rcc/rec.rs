@@ -47,9 +47,11 @@
 //! ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::PLL3_R);
 //!
 //! // Enable and reset peripheral
-//! let i2c3_prec = ccdr.peripheral.enable().reset();
+//! let i2c3_prec = ccdr.peripheral.I2C3.enable().reset();
+//!
 //! assert_eq!(i2c3_prec.get_kernel_clk_mux(), I2c123ClkSel::PLL3_R);
 //!
+//! // Some method that consumes the i2c3 prec
 //! init_i2c3(..., i2c3_prec);
 //!
 //! // Can't set group kernel clock (it would also affect I2C3)
