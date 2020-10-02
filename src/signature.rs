@@ -26,7 +26,11 @@ macro_rules! define_ptr_type {
 #[derive(Hash, Debug)]
 #[repr(C)]
 pub struct Uid(u128);
+
+#[cfg(not(feature = "rm0455"))]
 define_ptr_type!(Uid, 0x1FF1_E800);
+#[cfg(feature = "rm0455")]
+define_ptr_type!(Uid, 0x08FF_F800);
 
 impl Uid {
     /// Read Unique Deivce ID
@@ -39,7 +43,11 @@ impl Uid {
 #[derive(Debug)]
 #[repr(C)]
 pub struct FlashSize(u16);
+
+#[cfg(not(feature = "rm0455"))]
 define_ptr_type!(FlashSize, 0x1FF1_E880);
+#[cfg(feature = "rm0455")]
+define_ptr_type!(FlashSize, 0x08FF_F80C);
 
 impl FlashSize {
     /// Read flash size in kilobytes
@@ -57,7 +65,11 @@ impl FlashSize {
 #[derive(Debug)]
 #[repr(C)]
 pub struct VREFIN_CAL(u16);
+
+#[cfg(not(feature = "rm0455"))]
 define_ptr_type!(VREFIN_CAL, 0x1FF1_E860);
+#[cfg(feature = "rm0455")]
+define_ptr_type!(VREFIN_CAL, 0x08FF_F810);
 
 impl VREFIN_CAL {
     /// Read calibration value
@@ -70,7 +82,11 @@ impl VREFIN_CAL {
 #[derive(Debug)]
 #[repr(C)]
 pub struct TS_CAL_30(u16);
+
+#[cfg(not(feature = "rm0455"))]
 define_ptr_type!(TS_CAL_30, 0x1FF1_E820);
+#[cfg(feature = "rm0455")]
+define_ptr_type!(TS_CAL_30, 0x08FF_F814);
 
 impl TS_CAL_30 {
     /// Read calibration value
@@ -83,7 +99,11 @@ impl TS_CAL_30 {
 #[derive(Debug)]
 #[repr(C)]
 pub struct TS_CAL_110(u16);
+
+#[cfg(not(feature = "rm0455"))]
 define_ptr_type!(TS_CAL_110, 0x1FF1_E840);
+#[cfg(feature = "rm0455")]
+define_ptr_type!(TS_CAL_110, 0x08FF_F818);
 
 impl TS_CAL_110 {
     /// Read calibration value
