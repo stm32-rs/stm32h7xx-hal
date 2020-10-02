@@ -179,12 +179,12 @@ impl Rtc {
         }
 
         // Disable RTC register write protection
-        rtc.wpr.write(|w| w.key().bits(0xCA));
-        rtc.wpr.write(|w| w.key().bits(0x53));
+        rtc.wpr.write(|w| unsafe { w.bits(0xCA) });
+        rtc.wpr.write(|w| unsafe { w.bits(0x53) });
 
         // Enter initialization mode
-        rtc.isr.modify(|_, w| w.init().init_mode());
-        while rtc.isr.read().initf().is_not_allowed() {}
+        rtc.isr.modify(|_, w| w.init().set_bit());
+        while rtc.isr.read().initf().bit_is_clear() {}
 
         // Configure prescaler for 1Hz clock
         // Want to maximize a_pre_max for power reasons, though it reduces the
@@ -210,7 +210,7 @@ impl Rtc {
         };
         assert!(a_pre <= a_pre_max && s_pre <= s_pre_max, "Invalid RTC prescaler value");
 
-        rtc.prer.write(|w| {
+        rtc.prer.write(|w| unsafe {
             w.prediv_s()
                 .bits(u16(s_pre - 1).unwrap())
                 .prediv_a()
@@ -218,7 +218,7 @@ impl Rtc {
         });
 
         // Exit initialization mode
-        rtc.isr.modify(|_, w| w.init().free_running_mode());
+        rtc.isr.modify(|_, w| w.init().clear_bit());
 
         Rtc { reg: rtc, prec }
     }
@@ -229,7 +229,44 @@ impl Rtc {
     ///
     /// Panics if `reg` is greater than 31.
     pub fn read_backup_reg(&self, reg: u8) -> u32 {
-        self.reg.bkpr[reg as usize].read().bkp().bits()
+        match reg {
+            0 => self.reg.bkp0r.read().bkp().bits(),
+            1 => self.reg.bkp1r.read().bkp().bits(),
+            2 => self.reg.bkp2r.read().bkp().bits(),
+            3 => self.reg.bkp3r.read().bkp().bits(),
+            4 => self.reg.bkp4r.read().bkp().bits(),
+            5 => self.reg.bkp5r.read().bkp().bits(),
+            6 => self.reg.bkp6r.read().bkp().bits(),
+            7 => self.reg.bkp7r.read().bkp().bits(),
+            8 => self.reg.bkp8r.read().bkp().bits(),
+            9 => self.reg.bkp9r.read().bkp().bits(),
+            10 => self.reg.bkp10r.read().bkp().bits(),
+            11 => self.reg.bkp11r.read().bkp().bits(),
+            12 => self.reg.bkp12r.read().bkp().bits(),
+            13 => self.reg.bkp13r.read().bkp().bits(),
+            14 => self.reg.bkp14r.read().bkp().bits(),
+            15 => self.reg.bkp15r.read().bkp().bits(),
+            16 => self.reg.bkp16r.read().bkp().bits(),
+            17 => self.reg.bkp17r.read().bkp().bits(),
+            18 => self.reg.bkp18r.read().bkp().bits(),
+            19 => self.reg.bkp19r.read().bkp().bits(),
+            20 => self.reg.bkp20r.read().bkp().bits(),
+            21 => self.reg.bkp21r.read().bkp().bits(),
+            22 => self.reg.bkp22r.read().bkp().bits(),
+            23 => self.reg.bkp23r.read().bkp().bits(),
+            24 => self.reg.bkp24r.read().bkp().bits(),
+            25 => self.reg.bkp25r.read().bkp().bits(),
+            26 => self.reg.bkp26r.read().bkp().bits(),
+            27 => self.reg.bkp27r.read().bkp().bits(),
+            28 => self.reg.bkp28r.read().bkp().bits(),
+            29 => self.reg.bkp29r.read().bkp().bits(),
+            30 => self.reg.bkp30r.read().bkp().bits(),
+            31 => self.reg.bkp31r.read().bkp().bits(),
+            _ => panic!("Backup reg index out of range"),
+        }
+
+        // TODO: stm32h7 0.13.0
+        // self.reg.bkpr[reg as usize].read().bkp().bits()
     }
 
     /// Writes `value` to a 32-bit backup register
@@ -238,14 +275,51 @@ impl Rtc {
     ///
     /// Panics if `reg` is greater than 31.
     pub fn write_backup_reg(&mut self, reg: u8, value: u32) {
-        self.reg.bkpr[reg as usize].write(|w| w.bkp().bits(value));
+        match reg {
+            0 => self.reg.bkp0r.write(|w| unsafe { w.bkp().bits(value) }),
+            1 => self.reg.bkp1r.write(|w| unsafe { w.bkp().bits(value) }),
+            2 => self.reg.bkp2r.write(|w| unsafe { w.bkp().bits(value) }),
+            3 => self.reg.bkp3r.write(|w| unsafe { w.bkp().bits(value) }),
+            4 => self.reg.bkp4r.write(|w| unsafe { w.bkp().bits(value) }),
+            5 => self.reg.bkp5r.write(|w| unsafe { w.bkp().bits(value) }),
+            6 => self.reg.bkp6r.write(|w| unsafe { w.bkp().bits(value) }),
+            7 => self.reg.bkp7r.write(|w| unsafe { w.bkp().bits(value) }),
+            8 => self.reg.bkp8r.write(|w| unsafe { w.bkp().bits(value) }),
+            9 => self.reg.bkp9r.write(|w| unsafe { w.bkp().bits(value) }),
+            10 => self.reg.bkp10r.write(|w| unsafe { w.bkp().bits(value) }),
+            11 => self.reg.bkp11r.write(|w| unsafe { w.bkp().bits(value) }),
+            12 => self.reg.bkp12r.write(|w| unsafe { w.bkp().bits(value) }),
+            13 => self.reg.bkp13r.write(|w| unsafe { w.bkp().bits(value) }),
+            14 => self.reg.bkp14r.write(|w| unsafe { w.bkp().bits(value) }),
+            15 => self.reg.bkp15r.write(|w| unsafe { w.bkp().bits(value) }),
+            16 => self.reg.bkp16r.write(|w| unsafe { w.bkp().bits(value) }),
+            17 => self.reg.bkp17r.write(|w| unsafe { w.bkp().bits(value) }),
+            18 => self.reg.bkp18r.write(|w| unsafe { w.bkp().bits(value) }),
+            19 => self.reg.bkp19r.write(|w| unsafe { w.bkp().bits(value) }),
+            20 => self.reg.bkp20r.write(|w| unsafe { w.bkp().bits(value) }),
+            21 => self.reg.bkp21r.write(|w| unsafe { w.bkp().bits(value) }),
+            22 => self.reg.bkp22r.write(|w| unsafe { w.bkp().bits(value) }),
+            23 => self.reg.bkp23r.write(|w| unsafe { w.bkp().bits(value) }),
+            24 => self.reg.bkp24r.write(|w| unsafe { w.bkp().bits(value) }),
+            25 => self.reg.bkp25r.write(|w| unsafe { w.bkp().bits(value) }),
+            26 => self.reg.bkp26r.write(|w| unsafe { w.bkp().bits(value) }),
+            27 => self.reg.bkp27r.write(|w| unsafe { w.bkp().bits(value) }),
+            28 => self.reg.bkp28r.write(|w| unsafe { w.bkp().bits(value) }),
+            29 => self.reg.bkp29r.write(|w| unsafe { w.bkp().bits(value) }),
+            30 => self.reg.bkp30r.write(|w| unsafe { w.bkp().bits(value) }),
+            31 => self.reg.bkp31r.write(|w| unsafe { w.bkp().bits(value) }),
+            _ => panic!("Backup reg index out of range"),
+        }
+
+        // TODO: stm32h7 0.13.0
+        // self.reg.bkpr[reg as usize].write(|w| w.bkp().bits(value));
     }
 
     /// Sets the date and time of the RTC
     pub fn set_date_time(&mut self, date_time: NaiveDateTime) {
         // Enter initialization mode
-        self.reg.isr.modify(|_, w| w.init().init_mode());
-        while self.reg.isr.read().initf().is_not_allowed() {}
+        self.reg.isr.modify(|_, w| w.init().set_bit());
+        while self.reg.isr.read().initf().bit_is_clear() {}
 
         let hour = date_time.hour() as u8;
         let ht = hour / 10;
@@ -259,7 +333,7 @@ impl Rtc {
         let st = second / 10;
         let su = second % 10;
 
-        self.reg.tr.write(|w| {
+        self.reg.tr.write(|w| unsafe {
             w.pm()
                 .clear_bit()
                 .ht()
@@ -308,7 +382,7 @@ impl Rtc {
         });
 
         // Exit initialization mode
-        self.reg.isr.modify(|_, w| w.init().free_running_mode());
+        self.reg.isr.modify(|_, w| w.init().clear_bit());
     }
 
     /// De-initializes the calendar and clock
@@ -316,19 +390,19 @@ impl Rtc {
     /// For when you lose confidince in the stored time e.g. if the LSE clock fails.
     pub fn clear_date_time(&mut self) {
         // Enter initialization mode
-        self.reg.isr.modify(|_, w| w.init().init_mode());
-        while self.reg.isr.read().initf().is_not_allowed() {}
+        self.reg.isr.modify(|_, w| w.init().set_bit());
+        while self.reg.isr.read().initf().bit_is_clear() {}
 
         self.reg.tr.reset();
         self.reg.dr.reset();
 
         // Exit initialization mode
-        self.reg.isr.modify(|_, w| w.init().free_running_mode());
+        self.reg.isr.modify(|_, w| w.init().clear_bit());
     }
 
     /// Returns `None` if the calendar is uninitialized
     fn calendar_initialized(&self) -> Option<()> {
-        match self.reg.isr.read().inits().is_initalized() {
+        match self.reg.isr.read().inits().bit() {
             true => Some(()),
             false => None,
         }
@@ -336,7 +410,7 @@ impl Rtc {
 
     /// Wait for initialization or shift to complete
     fn wait_for_sync(&self) {
-        while self.reg.isr.read().rsf().is_not_synced() {}
+        while self.reg.isr.read().rsf().bit_is_clear() {}
     }
 
     /// Calendar Date
@@ -430,7 +504,7 @@ impl Rtc {
 
     /// Returns the stored Daylight Savings Time status
     pub fn dst(&self) -> DstState {
-        if self.reg.cr.read().bkp().is_dst_changed() {
+        if self.reg.cr.read().bkp().bit_is_set() {
             DstState::Dst
         } else {
             DstState::Standard
@@ -450,12 +524,12 @@ impl Rtc {
     pub fn begin_dst(&mut self) -> Result<(), DstError> {
         self.calendar_initialized()
             .ok_or(DstError::ClockNotInitialized)?;
-        if self.reg.cr.read().bkp().is_dst_changed() {
+        if self.reg.cr.read().bkp().bit_is_set() {
             return Err(DstError::AlreadyDst);
         }
         self.reg
             .cr
-            .modify(|_, w| w.add1h().add1().bkp().dst_changed());
+            .modify(|_, w| w.add1h().set_bit().bkp().set_bit());
         Ok(())
     }
 
@@ -468,7 +542,7 @@ impl Rtc {
     pub fn end_dst(&mut self) -> Result<(), DstError> {
         self.calendar_initialized()
             .ok_or(DstError::ClockNotInitialized)?;
-        if self.reg.cr.read().bkp().is_dst_not_changed() {
+        if self.reg.cr.read().bkp().bit_is_clear() {
             return Err(DstError::AlreadyStandardTime);
         }
         let time = self.reg.tr.read();
@@ -477,7 +551,7 @@ impl Rtc {
         }
         self.reg
             .cr
-            .modify(|_, w| w.sub1h().sub1().bkp().dst_not_changed());
+            .modify(|_, w| w.sub1h().set_bit().bkp().clear_bit());
         Ok(())
     }
 
@@ -487,52 +561,52 @@ impl Rtc {
     ///
     /// Panics if interval is greater than 2¹⁷-1.
     pub fn enable_wakeup(&mut self, interval: u32) {
-        self.reg.cr.modify(|_, w| w.wute().disabled());
-        self.reg.isr.modify(|_, w| w.wutf().clear());
-        while self.reg.isr.read().wutwf().is_update_not_allowed() {}
+        self.reg.cr.modify(|_, w| w.wute().clear_bit());
+        self.reg.isr.modify(|_, w| w.wutf().clear_bit());
+        while self.reg.isr.read().wutwf().bit_is_clear() {}
 
         if interval > 1 << 16 {
             self.reg
                 .cr
-                .modify(|_, w| w.wucksel().clock_spare_with_offset());
+                .modify(|_, w| unsafe { w.wucksel().bits(0b110) });
             let interval = u16(interval - 1 << 16)
                 .expect("Interval was too large for wakeup timer");
-            self.reg.wutr.write(|w| w.wut().bits(interval));
+            self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         } else {
-            self.reg.cr.modify(|_, w| w.wucksel().clock_spare());
+            self.reg.cr.modify(|_, w| unsafe { w.wucksel().bits(0b100) });
             let interval =
                 u16(interval).expect("Interval was too large for wakeup timer");
-            self.reg.wutr.write(|w| w.wut().bits(interval));
+            self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         }
 
-        self.reg.cr.modify(|_, w| w.wute().enabled());
+        self.reg.cr.modify(|_, w| w.wute().set_bit());
     }
 
     /// Disables the wakeup timer
     pub fn disable_wakeup(&mut self) {
-        self.reg.cr.modify(|_, w| w.wute().disabled());
-        self.reg.isr.modify(|_, w| w.wutf().clear());
+        self.reg.cr.modify(|_, w| w.wute().clear_bit());
+        self.reg.isr.modify(|_, w| w.wutf().clear_bit());
     }
 
     /// Configures the timestamp to be captured when the RTC switches to Vbat power
     pub fn enable_vbat_timestamp(&mut self) {
-        self.reg.cr.modify(|_, w| w.tse().disabled());
-        self.reg.isr.modify(|_, w| w.tsf().clear());
-        self.reg.cr.modify(|_, w| w.itse().enabled());
-        self.reg.cr.modify(|_, w| w.tse().enabled());
+        self.reg.cr.modify(|_, w| w.tse().clear_bit());
+        self.reg.isr.modify(|_, w| w.tsf().clear_bit());
+        self.reg.cr.modify(|_, w| w.itse().set_bit());
+        self.reg.cr.modify(|_, w| w.tse().set_bit());
     }
 
     /// Disables the timestamp
     pub fn disable_timestamp(&mut self) {
-        self.reg.cr.modify(|_, w| w.tse().disabled());
-        self.reg.isr.modify(|_, w| w.tsf().clear());
+        self.reg.cr.modify(|_, w| w.tse().clear_bit());
+        self.reg.isr.modify(|_, w| w.tsf().clear_bit());
     }
 
     /// Reads the stored value of the timestamp if present
     ///
     /// Clears the timestamp interrupt flags.
     pub fn read_timestamp(&self) -> Option<NaiveDateTime> {
-        if !self.reg.isr.read().tsf().is_timestamp_event() {
+        if !self.reg.isr.read().tsf().bit_is_clear() {
             return None;
         }
 
@@ -562,7 +636,7 @@ impl Rtc {
 
         // Clear timestamp interrupt and internal timestamp interrupt (VBat transition)
         // TODO: Timestamp overflow flag
-        self.reg.isr.modify(|_, w| w.tsf().clear().itsf().clear());
+        self.reg.isr.modify(|_, w| w.tsf().clear_bit().itsf().clear_bit());
 
         Some(date.and_time(time))
     }
@@ -575,10 +649,10 @@ impl Rtc {
             Event::LseCss => unsafe {
                 (&*RCC::ptr()).cier.modify(|_, w| w.lsecssie().enabled());
             },
-            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().enabled()),
-            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().enabled()),
-            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().enabled()),
-            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().enabled()),
+            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().set_bit()),
+            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().set_bit()),
+            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().set_bit()),
+            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().set_bit()),
         }
     }
 
@@ -588,10 +662,10 @@ impl Rtc {
             Event::LseCss => unsafe {
                 (&*RCC::ptr()).cier.modify(|_, w| w.lsecssie().disabled());
             },
-            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().disabled()),
-            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().disabled()),
-            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().disabled()),
-            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().disabled()),
+            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().clear_bit()),
+            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().clear_bit()),
+            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().clear_bit()),
+            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().clear_bit()),
         }
     }
 
