@@ -160,34 +160,8 @@ macro_rules! smps_level {
     };
 }
 
+/// Internal power methods
 impl Pwr {
-    #[cfg(any(feature = "smps"))]
-    supply_configuration_setter! {
-        LDOSupply: ldo, "VCORE power domains supplied from the LDO. \
-                         LDO voltage adjusted by VOS. \
-                         LDO power mode will follow the system \
-                         low-power mode.",
-        DirectSMPS: smps, "VCORE power domains are supplied from the \
-                           SMPS step-down converter. SMPS output voltage \
-                           adjusted by VOS. SMPS power mode will follow \
-                           the system low-power mode",
-        Bypass: bypass, "VCORE is supplied from an external source",
-        SMPSFeedsIntoLDO1V8:
-        smps_1v8_feeds_ldo, "VCORE power domains supplied from the LDO. \
-                         LDO voltage adjusted by VOS. \
-                         LDO power mode will follow the system \
-                         low-power mode. SMPS output voltage set to \
-                         1.8V. SMPS power mode will follow \
-                         the system low-power mode",
-        SMPSFeedsIntoLDO2V5:
-        smps_2v5_feeds_ldo, "VCORE power domains supplied from the LDO. \
-                         LDO voltage adjusted by VOS. \
-                         LDO power mode will follow the system \
-                         low-power mode. SMPS output voltage set to \
-                         2.5V. SMPS power mode will follow \
-                         the system low-power mode",
-    }
-
     /// Verify that the lower byte of CR3 reads as written
     #[cfg(any(feature = "smps"))]
     fn verify_supply_configuration(&self) {
@@ -223,6 +197,65 @@ impl Pwr {
             }
             Default => {} // Default configuration is NOT verified
         }
+    }
+
+    /// Transition between voltage scaling levels using the D3CR / SRDCR
+    /// register
+    ///
+    /// Does NOT implement overdrive (back-bias)
+    fn voltage_scaling_transition(&self, new_scale: VoltageScale) {
+        self.rb.d3cr.write(|w| unsafe {
+            // Manually set field values for each family
+            w.vos().bits(
+                #[cfg(not(feature = "rm0455"))]
+                match new_scale {
+                    // RM0433 Rev 7 6.8.6
+                    VoltageScale::Scale3 => 0b01,
+                    VoltageScale::Scale2 => 0b10,
+                    VoltageScale::Scale1 => 0b11,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "rm0455")]
+                match new_scale {
+                    // RM0455 Rev 3 6.8.6
+                    VoltageScale::Scale3 => 0b00,
+                    VoltageScale::Scale2 => 0b01,
+                    VoltageScale::Scale1 => 0b10,
+                    VoltageScale::Scale0 => 0b11,
+                },
+            )
+        });
+        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+    }
+}
+
+/// Builder methods
+impl Pwr {
+    #[cfg(any(feature = "smps"))]
+    supply_configuration_setter! {
+        LDOSupply: ldo, "VCORE power domains supplied from the LDO. \
+                         LDO voltage adjusted by VOS. \
+                         LDO power mode will follow the system \
+                         low-power mode.",
+        DirectSMPS: smps, "VCORE power domains are supplied from the \
+                           SMPS step-down converter. SMPS output voltage \
+                           adjusted by VOS. SMPS power mode will follow \
+                           the system low-power mode",
+        Bypass: bypass, "VCORE is supplied from an external source",
+        SMPSFeedsIntoLDO1V8:
+        smps_1v8_feeds_ldo, "VCORE power domains supplied from the LDO. \
+                         LDO voltage adjusted by VOS. \
+                         LDO power mode will follow the system \
+                         low-power mode. SMPS output voltage set to \
+                         1.8V. SMPS power mode will follow \
+                         the system low-power mode",
+        SMPSFeedsIntoLDO2V5:
+        smps_2v5_feeds_ldo, "VCORE power domains supplied from the LDO. \
+                         LDO voltage adjusted by VOS. \
+                         LDO power mode will follow the system \
+                         low-power mode. SMPS output voltage set to \
+                         2.5V. SMPS power mode will follow \
+                         the system low-power mode",
     }
 
     #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
@@ -285,8 +318,7 @@ impl Pwr {
         // We have now entered Run mode. See RM0433 Rev 7 Section 6.6.1
 
         // go to VOS1 voltage scale for high performance
-        self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
-        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+        self.voltage_scaling_transition(VoltageScale::Scale1);
 
         #[allow(unused_mut)]
         let mut vos = VoltageScale::Scale1;
