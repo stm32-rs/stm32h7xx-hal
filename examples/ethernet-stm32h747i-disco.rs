@@ -12,8 +12,8 @@ use cortex_m;
 use cortex_m_rt as rt;
 use rt::{entry, exception};
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 
 use log::info;
 
@@ -32,7 +32,7 @@ static mut DES_RING: ethernet::DesRing = ethernet::DesRing::new();
 // the program entry point
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = stm32::Peripherals::take().unwrap();
     let mut cp = stm32::CorePeripherals::take().unwrap();
 

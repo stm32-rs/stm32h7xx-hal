@@ -4,21 +4,21 @@
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = pac::Peripherals::take().expect("Cannot take peripherals");
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");

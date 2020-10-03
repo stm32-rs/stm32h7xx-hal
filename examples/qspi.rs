@@ -2,8 +2,8 @@
 #![no_main]
 #![no_std]
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::{pac, prelude::*, qspi::QspiMode};
@@ -12,12 +12,12 @@ use log::info;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();

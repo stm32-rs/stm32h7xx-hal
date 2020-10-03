@@ -14,8 +14,8 @@
 use cortex_m;
 use rtic::app;
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 use log::info;
 
 use smoltcp::iface::{
@@ -123,7 +123,7 @@ const APP: () = {
 
     #[init]
     fn init(mut ctx: init::Context) -> init::LateResources {
-        logger::init();
+        utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = pwr.smps().freeze();

@@ -2,8 +2,8 @@
 #![no_main]
 #![no_std]
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 #[macro_use(block)]
 extern crate nb;
 
@@ -15,14 +15,14 @@ use log::info;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
