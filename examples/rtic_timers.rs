@@ -41,10 +41,7 @@ const APP: () = {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let ccdr = rcc
-            .use_hse(25.mhz())
-            .sys_ck(400.mhz())
-            .freeze(pwrcfg, &ctx.device.SYSCFG);
+        let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Timers
         let mut timer1 =

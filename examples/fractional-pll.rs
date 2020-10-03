@@ -24,8 +24,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .use_hse(25.mhz())
-        .sys_ck(400.mhz())
+        .sys_ck(100.mhz())
         .pll2_strategy(rcc::PllConfigStrategy::FractionalNotLess)
         .pll2_p_ck(12_288_000.hz())
         .pll2_q_ck(6_144_000.hz())
