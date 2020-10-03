@@ -420,18 +420,19 @@ macro_rules! variant_return_type {
 peripheral_reset_and_enable_control! {
     #[cfg(all())]
     AHB1, "AMBA High-performance Bus (AHB1) peripherals" => [
-        Usb1Otg [group clk: Usb d2ccip2 "USB"],
-        Usb2Otg [group clk: Usb],
         Dma2, Dma1
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB1, "" => [
+        Usb1Otg [group clk: Usb d2ccip2 "USB"],
+        Usb2Otg [group clk: Usb],
         Eth1Mac,
         #[cfg(any(feature = "rm0399"))] Art,
         Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
     ];
     #[cfg(feature = "rm0455")]
     AHB1, "" => [
+        Usb1Otg [group clk: Usb cdccip2 "USB"],
         Adc12 [group clk: Adc(Variant) srdccip "ADC"]
     ];
 

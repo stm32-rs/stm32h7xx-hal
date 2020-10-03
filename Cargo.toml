@@ -166,7 +166,7 @@ required-features = ["usb_hs"]
 
 [[example]]
 name = "usb_passthrough"
-required-features = ["usb_hs"]
+required-features = ["usb_hs", "rm0399"]
 
 [[example]]
 name = "rtc"
