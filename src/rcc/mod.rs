@@ -704,8 +704,12 @@ impl Rcc {
         // Check resulting sys_d1cpre_ck
         assert!(sys_d1cpre_ck <= sys_d1cpre_ck_max);
 
-        // Get ideal AHB clock
+        // Get AHB clock or sensible default
+        #[cfg(not(feature = "rm0455"))]
         let rcc_hclk = self.config.rcc_hclk.unwrap_or(sys_d1cpre_ck / 2);
+        #[cfg(feature = "rm0455")]
+        let rcc_hclk = self.config.rcc_hclk.unwrap_or(sys_d1cpre_ck);
+
         assert!(rcc_hclk <= rcc_hclk_max);
 
         // Estimate divisor
