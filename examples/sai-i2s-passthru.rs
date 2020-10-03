@@ -24,6 +24,8 @@ use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
 use stm32h7xx_hal::time::{Hertz, U32Ext};
 
+use stm32h7xx_hal::traits::i2s::FullDuplex;
+
 pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256

@@ -24,6 +24,7 @@ features = ["stm32h743", "rt", "quadspi", "sdmmc", "fmc", "ethernet", "phy_lan87
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
+embedded-hal = "0.2.4"
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
 stm32h7 = "^0.12.1"
@@ -41,10 +42,6 @@ version = "0.6.0"
 default-features = false
 features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-tcp", "socket-raw"]
 optional = true
-
-[dependencies.embedded-hal]
-git = "https://github.com/eldruin/embedded-hal.git"
-branch = "i2s-v0.2.x"
 
 [dev-dependencies]
 cortex-m-rtic = "0.5.3"

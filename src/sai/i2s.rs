@@ -27,7 +27,8 @@ use crate::gpio::gpioi::{PI4, PI5, PI6, PI7};
 use crate::gpio::{Alternate, AF10, AF6, AF8};
 use stm32h7::Variant::Val;
 
-use embedded_hal::i2s::FullDuplex;
+use crate::traits::i2s::FullDuplex;
+// use embedded_hal::i2s::FullDuplex;
 
 const NUM_SLOTS: u8 = 16;
 
