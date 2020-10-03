@@ -9,7 +9,7 @@ use panic_itm as _;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::rcc::rec::UsbClkSel;
-use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
+use stm32h7xx_hal::usb_hs::{UsbBus, USB2};
 use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
@@ -33,15 +33,15 @@ fn main() -> ! {
     ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
 
     // IO
-    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
+    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
 
-    let usb = USB1 {
-        usb_global: dp.OTG1_HS_GLOBAL,
-        usb_device: dp.OTG1_HS_DEVICE,
-        usb_pwrclk: dp.OTG1_HS_PWRCLK,
-        pin_dm: gpiob.pb14.into_alternate_af12(),
-        pin_dp: gpiob.pb15.into_alternate_af12(),
-        prec: ccdr.peripheral.USB1OTG,
+    let usb = USB2 {
+        usb_global: dp.OTG2_HS_GLOBAL,
+        usb_device: dp.OTG2_HS_DEVICE,
+        usb_pwrclk: dp.OTG2_HS_PWRCLK,
+        pin_dm: gpioa.pa11.into_alternate_af10(),
+        pin_dp: gpioa.pa12.into_alternate_af10(),
+        prec: ccdr.peripheral.USB2OTG,
         hclk: ccdr.clocks.hclk(),
     };
 
