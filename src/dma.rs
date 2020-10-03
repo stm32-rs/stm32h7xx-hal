@@ -32,7 +32,7 @@ pub enum Direction {
 /// Chanel level methods with defaults based on DmaInternal
 pub trait DmaChannel<MUX>: DmaInternal<MUX> {
     fn set_peripheral_address(&mut self, address: u32, inc: bool) {
-        self.par().write(|w| w.pa().bits(address));
+        self.par().write(|w| unsafe { w.pa().bits(address) });
         self.cr().modify(|_, w| w.pinc().bit(inc));
     }
 
