@@ -497,7 +497,7 @@ impl Rcc {
         let (wait_states, progr_delay) = match vos {
             // VOS 0 range VCORE 1.25V - 1.35V
             Voltage::Scale0 => match rcc_aclk_mhz {
-                0..=41 => (0, 0),
+                0..=41 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
                 42..=83 => (1, 0),
                 84..=125 => (2, 1),
                 126..=167 => (3, 1),
@@ -508,7 +508,7 @@ impl Rcc {
             },
             // VOS 1 range VCORE 1.15V - 1.25V
             Voltage::Scale1 => match rcc_aclk_mhz {
-                0..=37 => (0, 0),
+                0..=37 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
                 38..=75 => (1, 0),
                 76..=113 => (2, 1),
                 114..=151 => (3, 1),
@@ -518,7 +518,7 @@ impl Rcc {
             },
             // VOS 2 range VCORE 1.05V - 1.15V
             Voltage::Scale2 => match rcc_aclk_mhz {
-                0..=33 => (0, 0),
+                0..=33 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
                 34..=67 => (1, 0),
                 68..=101 => (2, 1),
                 102..=135 => (3, 1),
@@ -527,7 +527,7 @@ impl Rcc {
             },
             // VOS 3 range VCORE 0.95V - 1.05V
             Voltage::Scale3 => match rcc_aclk_mhz {
-                0..=21 => (0, 0),
+                0..=21 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
                 22..=43 => (1, 0),
                 44..=65 => (2, 1),
                 66..=87 => (3, 1),
