@@ -583,7 +583,10 @@ impl Rcc {
             // set. The traceclk mux is synchronous with the system
             // clock mux, but has pll1_r_ck as an input. In order to
             // keep traceclk running, we force a pll1_r_ck.
+            #[cfg(not(feature = "rm0455"))]
             (true, None) => Some(self.config.pll1.p_ck.unwrap() / 2),
+            #[cfg(feature = "rm0455")]
+            (true, None) => Some(self.config.pll1.p_ck.unwrap() / 8),
             // Either pll1 not selected as system clock, free choice
             // of pll1_r_ck. Or pll1 is selected, assume user has set
             // a suitable pll1_r_ck frequency.
