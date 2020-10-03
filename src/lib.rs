@@ -161,5 +161,7 @@ pub mod spi;
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
+#[cfg(all(feature = "device-selected", feature = "usb_hs"))]
+pub mod usb_hs;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
