@@ -105,9 +105,9 @@
 //!
 //! The `freeze()` method returns a [Core Clocks Distribution and Reset
 //! (CCDR)](struct.Ccdr.html) object. This singleton tells you how the core
-//! clocks were actually configured (in
-//! [CoreClocks](struct.CoreClocks.html)) and allows you to configure the
-//! remaining peripherals (see [PeripheralREC](struct.PeripheralREC.html)).
+//! clocks were actually configured (in [CoreClocks](struct.CoreClocks.html))
+//! and allows you to configure the remaining peripherals (see
+//! [PeripheralREC](crate::rcc::rec::struct.PeripheralREC.html)).
 //!
 //!```rust
 //! let ccdr = ...; // Returned by `freeze()`, see examples above

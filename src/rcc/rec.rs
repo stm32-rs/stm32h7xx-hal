@@ -14,7 +14,7 @@
 //! returns the current kernel clock state. Because the kernel_clk_mux is shared
 //! between multiple peripherals, it cannot be set by any individual one of
 //! them. Instead it can only be set by methods on the
-//! [`PeripheralRec`](struct.PeripheralRec.html) itself. These methods are named
+//! [`PeripheralRec`](struct.PeripheralREC.html) itself. These methods are named
 //! `kernel_xxxx_clk_mux()`.
 //!
 //! # Reset/Enable Example
