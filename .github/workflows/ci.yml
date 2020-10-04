@@ -22,7 +22,7 @@ jobs:
           - stm32h7b3
           - stm32h7b0
     env:                        # Peripheral Feature flags
-      FLAGS: rt,quadspi,fmc,usb_hs,rtc
+      FLAGS: rt,quadspi,sdmmc,fmc,usb_hs,rtc
 
     steps:
       - uses: actions/checkout@v2

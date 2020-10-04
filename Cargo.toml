@@ -142,7 +142,7 @@ required-features = ["quadspi", "rm0433"]
 
 [[example]]
 name = "sdmmc"
-required-features = ["sdmmc"]
+required-features = ["sdmmc", "rm0433"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
