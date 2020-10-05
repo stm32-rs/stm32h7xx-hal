@@ -129,6 +129,19 @@ impl Rtc {
             return Err((rtc, prec, InitError::ClockNotRunning));
         }
 
+        let ker_ck = match clock_source {
+            RtcClock::Lsi => clocks.lsi_ck().unwrap().0,
+            RtcClock::Hse { divider } => {
+                clocks.hse_ck().unwrap().0 / divider as u32
+            }
+            RtcClock::Lse { freq, .. } => freq.0,
+        };
+        // See RM0433 Rev 7 46.3.9
+        assert!(
+            clocks.pclk4().0 >= 7 * ker_ck,
+            "PCLK4 must be >= 7 * rtc_ker_ck to read the RTC shadow registers"
+        );
+
         Ok(Rtc { reg: rtc, prec })
     }
 
@@ -165,6 +178,11 @@ impl Rtc {
         .0;
 
         assert!(ker_ck <= 1 << 22, "rtc_ker_ck too fast for prescaler");
+        // See RM0433 Rev 7 46.3.9
+        assert!(
+            clocks.pclk4().0 >= 7 * ker_ck,
+            "PCLK4 must be >= 7 * rtc_ker_ck to read the RTC shadow registers"
+        );
 
         // Select RTC kernel clock
         prec.kernel_clk_mux(match clock_source {
@@ -483,10 +501,10 @@ impl Rtc {
         let ss = u32(ss);
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
         assert!(ss <= prediv_s); // See RM0433 Rev 7 46.6.10, shift operations not supported
-        // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
-        // u64 division would call `__aeabi_uldivmod` which is large and slow.
-        // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
-        // the nearest 10 to avoid overflow.
+                                 // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
+                                 // u64 division would call `__aeabi_uldivmod` which is large and slow.
+                                 // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
+                                 // the nearest 10 to avoid overflow.
         (((prediv_s - ss) * 100_000) / (prediv_s + 1)) * 10
     }
 
