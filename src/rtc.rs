@@ -482,11 +482,25 @@ impl Rtc {
     fn ss_to_us(&self, ss: u16) -> u32 {
         let ss = u32(ss);
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
-        ((prediv_s - ss) * 1_000) / (prediv_s + 1)
+        // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
+        // u64 division would call `__aeabi_uldivmod` which is large and slow.
+        // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
+        // the nearest 10 to avoid overflow.
+        (((prediv_s - ss) * 100_000) / (prediv_s + 1)) * 10
     }
 
     /// Returns the fraction of seconds that have occurred since the last second tick
     /// as a number of milliseconds rounded to the nearest whole number.
+    pub fn subsec_millis(&self) -> Option<u16> {
+        self.calendar_initialized()?;
+        self.wait_for_sync();
+        let ss = u32(self.reg.ssr.read().ss().bits());
+        let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
+        Some(u16(((prediv_s - ss) * 1_000) / (prediv_s + 1)).unwrap())
+    }
+
+    /// Returns the fraction of seconds that have occurred since the last second tick
+    /// as a number of microseconds rounded to the nearest whole number.
     pub fn subsec_micros(&self) -> Option<u32> {
         self.calendar_initialized()?;
         self.wait_for_sync();
