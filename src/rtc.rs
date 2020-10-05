@@ -482,6 +482,7 @@ impl Rtc {
     fn ss_to_us(&self, ss: u16) -> u32 {
         let ss = u32(ss);
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
+        assert!(ss <= prediv_s); // See RM0433 Rev 7 46.6.10, shift operations not supported
         // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
         // u64 division would call `__aeabi_uldivmod` which is large and slow.
         // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
