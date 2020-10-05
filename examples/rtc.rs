@@ -64,4 +64,6 @@ fn main() -> ! {
 }
 
 #[interrupt]
-fn RTC_WKUP() {}
+fn RTC_WKUP() {
+    // Just cause the asm::wfi() above to complete so the loop runs one more time
+}
