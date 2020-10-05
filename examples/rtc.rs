@@ -46,7 +46,7 @@ fn main() -> ! {
     );
 
     // TODO: Get current time from some source
-    let now = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
+    let now = NaiveDate::from_ymd(2001, 1, 1).and_hms(0, 0, 0);
 
     rtc.set_date_time(now);
     rtc.listen(rtc::Event::Wakeup);

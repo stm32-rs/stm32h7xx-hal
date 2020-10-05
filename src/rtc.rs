@@ -322,7 +322,7 @@ impl Rtc {
     ///
     /// # Panics
     ///
-    /// Panics if `date_time` is before 01-01-2000 or after 12-31-2099
+    /// Panics if `date_time` is before 01-01-2001 or after 12-31-2099
     /// when debug assertions are enabled.
     pub fn set_date_time(&mut self, date_time: NaiveDateTime) {
         // Enter initialization mode
@@ -359,7 +359,7 @@ impl Rtc {
         });
 
         let year = date_time.year();
-        debug_assert!(year >= 2000 && year < 2100);
+        debug_assert!(year > 2000 && year < 2100);
         let yt = ((year - 2000) / 10) as u8;
         let yu = ((year - 2000) % 10) as u8;
 
