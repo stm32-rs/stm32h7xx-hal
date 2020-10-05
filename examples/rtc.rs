@@ -18,7 +18,6 @@ mod logger;
 #[entry]
 fn main() -> ! {
     logger::init();
-    let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
@@ -45,9 +44,17 @@ fn main() -> ! {
         rtc::RtcClock::Lsi,
         &ccdr.clocks,
     );
-    rtc.set_date_time(Utc.ymd(2000, 1, 1).and_hms(0, 0, 0));
+
+    // TODO: Get current time from some source
+    let now = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
+
+    rtc.set_date_time(now);
     rtc.listen(rtc::Event::Wakeup);
     rtc.enable_wakeup(10);
+
+    unsafe {
+        pac::NVIC::unmask(interrupt::RTC_WKUP);
+    }
 
     loop {
         info!("Time: {}", rtc.time().unwrap());
