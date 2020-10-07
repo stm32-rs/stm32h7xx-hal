@@ -21,7 +21,7 @@ use core::fmt::Debug;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 use crate::stm32::{SAI1, SAI4};
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 use crate::Never;
 

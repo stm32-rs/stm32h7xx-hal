@@ -4,7 +4,7 @@ use core::convert::TryInto;
 use core::fmt::Debug;
 
 use super::Rcc;
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 pub use crate::stm32::rcc::cfgr::MCO1_A as MCO1;
 pub use crate::stm32::rcc::cfgr::MCO2_A as MCO2;

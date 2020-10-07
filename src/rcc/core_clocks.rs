@@ -1,6 +1,6 @@
 //! Structure to represent frozen core clock frequencies
 
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 /// Frozen core clock frequencies
 ///

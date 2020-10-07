@@ -150,7 +150,7 @@ use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 pub mod backup;
 mod core_clocks;

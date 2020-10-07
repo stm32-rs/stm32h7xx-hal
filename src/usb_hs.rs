@@ -17,7 +17,7 @@ use crate::gpio::{
     Alternate, AF12,
 };
 
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;

@@ -13,7 +13,6 @@ use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
-use stm32h7xx_hal::time::rate::Extensions;
 use stm32h7xx_hal::timer::{Event, Timer};
 
 use panic_halt as _;

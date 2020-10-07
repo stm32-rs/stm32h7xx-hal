@@ -54,7 +54,7 @@ use crate::stm32::{
 };
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 use crate::timer::GetClk;
 
 use crate::gpio::gpioa::{

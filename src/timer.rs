@@ -21,8 +21,7 @@ use void::Void;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
-use crate::time::duration::{self, Duration, Nanoseconds};
-use crate::time::rate::{self, Hertz, Rate};
+use crate::time::{self, Duration, Hertz, Nanoseconds, Rate};
 use stm32h7::Variant::Val;
 
 /// Used to configure periodic timer timeouts using either a duration or a frequency
@@ -66,12 +65,12 @@ macro_rules! impl_timeout_duration {
     };
 }
 
-impl_timeout_duration!(duration::Nanoseconds<u64>);
-impl_timeout_duration!(duration::Milliseconds);
-impl_timeout_duration!(duration::Seconds);
-impl_timeout_duration!(duration::Nanoseconds);
-impl_timeout_duration!(duration::Hours);
-impl_timeout_duration!(duration::Minutes);
+impl_timeout_duration!(Nanoseconds<u64>);
+impl_timeout_duration!(time::Milliseconds);
+impl_timeout_duration!(time::Seconds);
+impl_timeout_duration!(Nanoseconds);
+impl_timeout_duration!(time::Hours);
+impl_timeout_duration!(time::Minutes);
 
 macro_rules! impl_timeout_rate {
     ($ty:ty) => {
@@ -83,11 +82,11 @@ macro_rules! impl_timeout_rate {
     };
 }
 
-impl_timeout_rate!(rate::Hertz);
-impl_timeout_rate!(rate::Kibihertz);
-impl_timeout_rate!(rate::Kilohertz);
-impl_timeout_rate!(rate::Mebihertz);
-impl_timeout_rate!(rate::Megahertz);
+impl_timeout_rate!(time::Hertz);
+impl_timeout_rate!(time::Kibihertz);
+impl_timeout_rate!(time::Kilohertz);
+impl_timeout_rate!(time::Mebihertz);
+impl_timeout_rate!(time::Megahertz);
 
 /// Associate clocks with timers
 pub trait GetClk {

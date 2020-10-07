@@ -1,7 +1,12 @@
 //! Time units
 
-pub use embedded_time::duration;
-pub use embedded_time::fixed_point;
-pub use embedded_time::fraction;
-pub use embedded_time::rate;
-pub use embedded_time::Instant;
+pub use embedded_time::duration::{
+    Duration, Hours, Microseconds, Milliseconds, Minutes, Nanoseconds, Seconds,
+};
+pub use embedded_time::rate::{
+    Baud, BitsPerSecond, BytesPerSecond, Hertz, Kibibaud, KibibitsPerSecond,
+    KibibytesPerSecond, Kibihertz, Kilobaud, KilobitsPerSecond,
+    KilobytesPerSecond, Kilohertz, Mebibaud, MebibitsPerSecond,
+    MebibytesPerSecond, Mebihertz, Megabaud, MegabitsPerSecond,
+    MegabytesPerSecond, Megahertz, Rate,
+};

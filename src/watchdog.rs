@@ -2,7 +2,7 @@
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
-use crate::time::{duration::Milliseconds, rate::Hertz};
+use crate::time::{Hertz, Milliseconds};
 use cast::u8;
 
 /// Select Window Watchdog hardware based on core

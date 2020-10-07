@@ -72,7 +72,7 @@ use crate::gpio::gpiob::{PB14, PB15, PB3, PB4, PB8, PB9};
 use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC6, PC7, PC8, PC9};
 use crate::gpio::gpiod::{PD2, PD6, PD7};
 use crate::gpio::gpiog::PG11;
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 use crate::gpio::{Alternate, AF10, AF11, AF12, AF9};
 //use crate::gpio:::{AF7, AF8};

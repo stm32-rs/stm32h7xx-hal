@@ -34,7 +34,7 @@ use crate::gpio::gpioj::{PJ8, PJ9};
 
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 use crate::Never;
 
@@ -65,7 +65,7 @@ pub enum Event {
 }
 
 pub mod config {
-    use crate::time::rate::{self, Baud};
+    use crate::time::{self, Baud};
     use core::convert::TryInto;
 
     #[derive(Copy, Clone, PartialEq)]
@@ -165,46 +165,47 @@ pub mod config {
 
     /// Trait to convert baudrates and bitrates to `Baud`, panics on error
     pub trait Baudrate {
-        fn to_baud(self) -> rate::Baud;
+        fn to_baud(self) -> Baud;
     }
 
     macro_rules! impl_baudrate_baud {
         ($ty:ty) => {
             impl Baudrate for $ty {
-                fn to_baud(self) -> rate::Baud {
+                fn to_baud(self) -> Baud {
                     self.try_into().unwrap()
                 }
             }
         };
     }
 
-    impl_baudrate_baud!(rate::Baud);
-    impl_baudrate_baud!(rate::Kibibaud);
-    impl_baudrate_baud!(rate::Kilobaud);
-    impl_baudrate_baud!(rate::Mebibaud);
-    impl_baudrate_baud!(rate::Megabaud);
+    impl_baudrate_baud!(time::Baud);
+    impl_baudrate_baud!(time::Kibibaud);
+    impl_baudrate_baud!(time::Kilobaud);
+    impl_baudrate_baud!(time::Mebibaud);
+    impl_baudrate_baud!(time::Megabaud);
 
     macro_rules! impl_baudrate_bits {
         ($ty:ty) => {
             impl Baudrate for $ty {
-                fn to_baud(self) -> rate::Baud {
-                    let generic: rate::Generic<u32> = self.into();
+                fn to_baud(self) -> Baud {
+                    let generic: embedded_time::rate::Generic<u32> =
+                        self.into();
                     generic.try_into().unwrap()
                 }
             }
         };
     }
 
-    impl_baudrate_bits!(rate::BitsPerSecond);
-    impl_baudrate_bits!(rate::BytesPerSecond);
-    impl_baudrate_bits!(rate::KibibitsPerSecond);
-    impl_baudrate_bits!(rate::KibibytesPerSecond);
-    impl_baudrate_bits!(rate::KilobitsPerSecond);
-    impl_baudrate_bits!(rate::KilobytesPerSecond);
-    impl_baudrate_bits!(rate::MebibitsPerSecond);
-    impl_baudrate_bits!(rate::MebibytesPerSecond);
-    impl_baudrate_bits!(rate::MegabitsPerSecond);
-    impl_baudrate_bits!(rate::MegabytesPerSecond);
+    impl_baudrate_bits!(time::BitsPerSecond);
+    impl_baudrate_bits!(time::BytesPerSecond);
+    impl_baudrate_bits!(time::KibibitsPerSecond);
+    impl_baudrate_bits!(time::KibibytesPerSecond);
+    impl_baudrate_bits!(time::KilobitsPerSecond);
+    impl_baudrate_bits!(time::KilobytesPerSecond);
+    impl_baudrate_bits!(time::MebibitsPerSecond);
+    impl_baudrate_bits!(time::MebibytesPerSecond);
+    impl_baudrate_bits!(time::MegabitsPerSecond);
+    impl_baudrate_bits!(time::MegabytesPerSecond);
 }
 
 pub trait Pins<USART> {}

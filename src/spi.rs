@@ -88,7 +88,7 @@ use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]

@@ -15,7 +15,7 @@ use crate::gpio::{Alternate, AF4, AF6};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
-use crate::time::rate::Hertz;
+use crate::time::Hertz;
 use cast::u16;
 
 /// I2C Events
