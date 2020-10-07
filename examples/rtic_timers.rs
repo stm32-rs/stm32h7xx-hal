@@ -13,6 +13,7 @@ use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
+use stm32h7xx_hal::time::rate::Extensions;
 use stm32h7xx_hal::timer::{Event, Timer};
 
 use panic_halt as _;
@@ -38,35 +39,36 @@ const APP: () = {
         // RCC
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .use_hse(25.mhz())
-            .sys_ck(400.mhz())
+            .use_hse(25_u32.MHz())
+            .sys_ck(400_u32.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Timers
-        let mut timer1 =
-            ctx.device
-                .TIM1
-                .timer(125.ms(), ccdr.peripheral.TIM1, &ccdr.clocks);
+        let mut timer1 = ctx.device.TIM1.timer(
+            125_u32.milliseconds(),
+            ccdr.peripheral.TIM1,
+            &ccdr.clocks,
+        );
         timer1.listen(Event::TimeOut);
 
-        let mut timer2 =
-            ctx.device
-                .TIM2
-                .timer(250.ms(), ccdr.peripheral.TIM2, &ccdr.clocks);
+        let mut timer2 = ctx.device.TIM2.timer(
+            250_u32.milliseconds(),
+            ccdr.peripheral.TIM2,
+            &ccdr.clocks,
+        );
         timer2.listen(Event::TimeOut);
 
         let mut timer3 = ctx.device.TIM12.timer(
-            500.ms(),
+            500_u32.milliseconds(),
             ccdr.peripheral.TIM12,
             &ccdr.clocks,
         );
         timer3.listen(Event::TimeOut);
 
-        let mut timer4 = ctx.device.TIM17.timer(
-            1000.ms(),
-            ccdr.peripheral.TIM17,
-            &ccdr.clocks,
-        );
+        let mut timer4 =
+            ctx.device
+                .TIM17
+                .timer(1.Hz(), ccdr.peripheral.TIM17, &ccdr.clocks);
         timer4.listen(Event::TimeOut);
 
         // GPIO

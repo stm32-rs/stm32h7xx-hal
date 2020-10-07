@@ -2,7 +2,7 @@
 
 use super::{Rcc, HSI};
 use crate::stm32::RCC;
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 const FRACN_DIVISOR: f32 = 8192.0; // 2 ** 13
 const FRACN_MAX: f32 = FRACN_DIVISOR - 1.0;

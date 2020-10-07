@@ -30,8 +30,8 @@ const APP: () = {
         // RCC
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .use_hse(25.mhz())
-            .sys_ck(400.mhz())
+            .use_hse(25_u32.MHz())
+            .sys_ck(400_u32.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // GPIO

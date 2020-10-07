@@ -24,14 +24,14 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .use_hse(25.mhz())
-        .sys_ck(400.mhz())
+        .use_hse(25_u32.MHz())
+        .sys_ck(400_u32.MHz())
         .pll2_strategy(rcc::PllConfigStrategy::FractionalNotLess)
-        .pll2_p_ck(12_288_000.hz())
-        .pll2_q_ck(6_144_000.hz())
-        .pll2_r_ck((48_000 * 63).hz())
+        .pll2_p_ck(12_288_000_u32.Hz())
+        .pll2_q_ck(6_144_000_u32.Hz())
+        .pll2_r_ck((48_000 * 63u32).Hz())
         // pll2_p / 2 --> mco2
-        .mco2_from_pll2_p_ck(7.mhz())
+        .mco2_from_pll2_p_ck(7_u32.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Enable MCO2 output pin

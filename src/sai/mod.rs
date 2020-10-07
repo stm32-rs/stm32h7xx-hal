@@ -8,7 +8,7 @@ use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
 // clocks
 use crate::rcc::rec::Sai23ClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 use stm32h7::Variant::Val;
 
 const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;

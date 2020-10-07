@@ -10,17 +10,18 @@
 //! let pins = (ck1, d1);
 //!
 //! // Configure SAI for PDM mode
-//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.khz(), ccdr.periperhal.SAI1, &ccdr.clocks);
+//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.kHz(), ccdr.periperhal.SAI1, &ccdr.clocks);
 //!
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
 
 use core::convert::TryInto;
+use core::fmt::Debug;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 use crate::stm32::{SAI1, SAI4};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 use crate::Never;
 
@@ -162,16 +163,17 @@ impl INTERFACE for PDM {}
 pub trait SaiPdmExt<SAI>: Sized {
     type Rec: ResetEnable;
 
-    fn pdm<PINS, T>(
+    fn pdm<PINS, F>(
         self,
         _pins: PINS,
-        clock: T,
+        clock: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Sai<SAI, PDM>
     where
         PINS: PulseDensityPins<Self>,
-        T: Into<Hertz>;
+        F: TryInto<Hertz>,
+        F::Error: Debug;
 }
 
 macro_rules! hal {
@@ -180,18 +182,19 @@ macro_rules! hal {
             impl SaiPdmExt<$SAIX> for $SAIX {
                 type Rec = rec::$Rec;
 
-                fn pdm<PINS, T>(
+                fn pdm<PINS, F>(
                     self,
                     _pins: PINS,
-                    clock: T,
+                    clock: F,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                 ) -> Sai<Self, PDM>
                 where
                     PINS: PulseDensityPins<Self>,
-                    T: Into<Hertz>,
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
-                    Sai::$pdm_saiX(self, _pins, clock.into(), prec, clocks)
+                    Sai::$pdm_saiX(self, _pins, clock.try_into().unwrap(), prec, clocks)
                 }
             }
             impl Sai<$SAIX, PDM> {

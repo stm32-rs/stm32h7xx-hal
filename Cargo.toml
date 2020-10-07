@@ -25,6 +25,7 @@ targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
 embedded-hal = "0.2.4"
+embedded-time = "0.10.0"
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
 stm32h7 = "^0.12.1"

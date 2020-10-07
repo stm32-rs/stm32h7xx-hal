@@ -14,7 +14,7 @@
 //! let dp = ...;                   // Device peripherals
 //! let (sck, miso, mosi) = ...;    // GPIO pins
 //!
-//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1_u32.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! The GPIO pins should be supplied as a
@@ -28,7 +28,7 @@
 //! filler types instead:
 //!
 //! ```
-//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1_u32.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Word Sizes
@@ -40,7 +40,7 @@
 //!
 //! For example, an explict type annotation:
 //! ```
-//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1_u32.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Clocks
@@ -54,19 +54,22 @@
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
+use core::convert::{From, TryInto};
+use core::fmt::Debug;
+use core::marker::PhantomData;
+use core::ptr;
+
+use nb;
+use stm32h7::Variant::Val;
+
 use crate::hal;
 pub use crate::hal::spi::{
     Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
 };
+
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip1r, d3ccipr};
 use crate::stm32::spi1::cfg1::MBR_A as MBR;
-use core::convert::From;
-use core::marker::PhantomData;
-use core::ptr;
-use nb;
-use stm32h7::Variant::Val;
-
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
 use crate::gpio::gpioa::{PA12, PA5, PA6, PA7, PA9};
@@ -84,7 +87,8 @@ use crate::gpio::gpiok::PK0;
 use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+
+use crate::time::rate::Hertz;
 
 /// SPI error
 #[derive(Debug)]
@@ -348,28 +352,30 @@ pub struct Spi<SPI, ED, WORD = u8> {
 pub trait SpiExt<SPI, WORD>: Sized {
     type Rec: ResetEnable;
 
-    fn spi<PINS, T, CONFIG>(
+    fn spi<PINS, F, CONFIG>(
         self,
         _pins: PINS,
         config: CONFIG,
-        freq: T,
+        freq: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
         PINS: Pins<SPI>,
-        T: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
         CONFIG: Into<Config>;
 
-    fn spi_unchecked<T, CONFIG>(
+    fn spi_unchecked<F, CONFIG>(
         self,
         config: CONFIG,
-        freq: T,
+        freq: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
-        T: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
         CONFIG: Into<Config>;
 }
 
@@ -392,15 +398,16 @@ macro_rules! spi {
             // For each $TY
             $(
                 impl Spi<$SPIX, Enabled, $TY> {
-                    pub fn $spiX<T, CONFIG>(
+                    pub fn $spiX<F, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
-                        freq: T,
+                        freq: F,
                         prec: rec::$Rec,
                         clocks: &CoreClocks,
                     ) -> Self
                     where
-                        T: Into<Hertz>,
+                        F: TryInto<Hertz>,
+                        F::Error: Debug,
                         CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
@@ -411,7 +418,7 @@ macro_rules! spi {
 
                         let config: Config = config.into();
 
-                        let spi_freq = freq.into().0;
+                        let spi_freq = freq.try_into().unwrap().0;
 	                    let spi_ker_ck = match Self::kernel_clk(clocks) {
                             Some(ker_hz) => ker_hz.0,
                             _ => panic!("$SPIX kernel clock not running!")
@@ -608,27 +615,29 @@ macro_rules! spi {
                 impl SpiExt<$SPIX, $TY> for $SPIX {
                     type Rec = rec::$Rec;
 
-	                fn spi<PINS, T, CONFIG>(self,
+	                fn spi<PINS, F, CONFIG>(self,
                                     _pins: PINS,
                                     config: CONFIG,
-                                    freq: T,
+                                    freq: F,
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
-	                    T: Into<Hertz>,
+                        F: TryInto<Hertz>,
+                        F::Error: Debug,
                         CONFIG: Into<Config>,
 	                {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
-	                fn spi_unchecked<T, CONFIG>(self,
+	                fn spi_unchecked<F, CONFIG>(self,
                                         config: CONFIG,
-                                        freq: T,
+                                        freq: F,
                                         prec: rec::$Rec,
                                         clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
-	                    T: Into<Hertz>,
+                        F: TryInto<Hertz>,
+                        F::Error: Debug,
                         CONFIG: Into<Config>,
 	                {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)

@@ -56,8 +56,8 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .sys_ck(96.mhz())
-//!         .pclk1(48.mhz())
+//!         .sys_ck(96_u32.MHz())
+//!         .pclk1(48_u32.MHz())
 //!         .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
@@ -71,10 +71,10 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .sys_ck(200.mhz()) // Implies pll1_p_ck
+//!         .sys_ck(200_u32.MHz()) // Implies pll1_p_ck
 //!         // For non-integer values, round up. `freeze` will never
 //!         // configure a clock faster than that specified.
-//!         .pll1_q_ck(33_333_334.hz())
+//!         .pll1_q_ck(33_333_334.Hz())
 //!         .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
@@ -89,15 +89,15 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .use_hse(25.mhz()) // XTAL X1
-//!         .sys_ck(400.mhz())
-//!         .pll1_r_ck(100.mhz()) // for TRACECK
-//!         .pll1_q_ck(200.mhz())
-//!         .hclk(200.mhz())
+//!         .use_hse(25_u32.MHz()) // XTAL X1
+//!         .sys_ck(400_u32.MHz())
+//!         .pll1_r_ck(100_u32.MHz()) // for TRACECK
+//!         .pll1_q_ck(200_u32.MHz())
+//!         .hclk(200_u32.MHz())
 //!         .pll3_strategy(PllConfigStrategy::Iterative)
-//!         .pll3_p_ck(240.mhz()) // for LTDC
-//!         .pll3_q_ck(48.mhz()) // for LTDC
-//!         .pll3_r_ck(26_666_667.hz()) // Pixel clock for LTDC
+//!         .pll3_p_ck(240_u32.MHz()) // for LTDC
+//!         .pll3_q_ck(48_u32.MHz()) // for LTDC
+//!         .pll3_r_ck(26_666_667.Hz()) // Pixel clock for LTDC
 //!         .freeze(pwrcfg, &dp.SYSCFG);
 //!```
 //!
@@ -139,6 +139,9 @@
 //!
 #![deny(missing_docs)]
 
+use core::convert::TryInto;
+use core::fmt::Debug;
+
 use crate::pwr::PowerConfiguration;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
@@ -147,7 +150,7 @@ use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 pub mod backup;
 mod core_clocks;
@@ -260,9 +263,10 @@ macro_rules! pclk_setter {
             /// peripherals.
             pub fn $name<F>(mut self, freq: F) -> Self
             where
-                F: Into<Hertz>,
+                F: TryInto<Hertz>,
+                F::Error: Debug,
             {
-                self.config.$pclk = Some(freq.into().0);
+                self.config.$pclk = Some(freq.try_into().unwrap().0);
                 self
             }
         )+
@@ -277,9 +281,10 @@ macro_rules! pll_setter {
                 /// Set the target clock frequency for PLL output
                 pub fn $name<F>(mut self, freq: F) -> Self
                 where
-                    F: Into<Hertz>,
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
-                    self.config.$pll.$ck = Some(freq.into().0);
+                    self.config.$pll.$ck = Some(freq.try_into().unwrap().0);
                     self
                 }
             )+
@@ -308,9 +313,10 @@ impl Rcc {
     /// external oscillator is not connected or it fails to start.
     pub fn use_hse<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
     {
-        self.config.hse = Some(freq.into().0);
+        self.config.hse = Some(freq.try_into().unwrap().0);
         self
     }
 
@@ -324,27 +330,30 @@ impl Rcc {
     /// Set input frequency to the SCGU
     pub fn sys_ck<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
     {
-        self.config.sys_ck = Some(freq.into().0);
+        self.config.sys_ck = Some(freq.try_into().unwrap().0);
         self
     }
 
     /// Set input frequency to the SCGU - ALIAS
     pub fn sysclk<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
     {
-        self.config.sys_ck = Some(freq.into().0);
+        self.config.sys_ck = Some(freq.try_into().unwrap().0);
         self
     }
 
     /// Set peripheral clock frequency
     pub fn per_ck<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
     {
-        self.config.per_ck = Some(freq.into().0);
+        self.config.per_ck = Some(freq.try_into().unwrap().0);
         self
     }
 
@@ -354,9 +363,10 @@ impl Rcc {
     /// same frequency.
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
+        F::Error: Debug,
     {
-        self.config.rcc_hclk = Some(freq.into().0);
+        self.config.rcc_hclk = Some(freq.try_into().unwrap().0);
         self
     }
 

@@ -28,10 +28,10 @@ fn main() -> ! {
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
     let mut ccdr = rcc
-        .sys_ck(100.mhz())
-        .pll1_q_ck(4.mhz())
-        .pll3_p_ck(4.mhz())
-        .pll3_r_ck(4.mhz())
+        .sys_ck(100_u32.MHz())
+        .pll1_q_ck(4_u32.MHz())
+        .pll3_p_ck(4_u32.MHz())
+        .pll3_r_ck(4_u32.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Set group kernel clock to PLL3 R CK. Needs mutable ccdr

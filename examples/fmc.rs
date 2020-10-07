@@ -121,8 +121,8 @@ const APP: () = {
         // Initialise clocks...
         let rcc = dp.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz()) // FMC clock from HCLK by default
+            .sys_ck(200_u32.MHz())
+            .hclk(200_u32.MHz()) // FMC clock from HCLK by default
             .freeze(pwrcfg, &dp.SYSCFG);
 
         // Get the delay provider.

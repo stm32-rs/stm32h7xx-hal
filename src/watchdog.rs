@@ -2,7 +2,7 @@
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
-use crate::time::{Hertz, MilliSeconds};
+use crate::time::{duration::Milliseconds, rate::Hertz};
 use cast::u8;
 
 /// Select Window Watchdog hardware based on core
@@ -45,7 +45,7 @@ impl Watchdog for SystemWindowWatchdog {
 }
 
 impl WatchdogEnable for SystemWindowWatchdog {
-    type Time = MilliSeconds;
+    type Time = Milliseconds;
     /// Starts the watchdog with a given timeout period, if this period is out of bounds the function
     /// is going to panic
     fn start<T>(&mut self, period: T)

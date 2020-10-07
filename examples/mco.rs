@@ -23,10 +23,10 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .mco1_from_hsi48(24.mhz())
+        .sys_ck(100_u32.MHz())
+        .mco1_from_hsi48(24_u32.MHz())
         .pll2_strategy(PllConfigStrategy::Iterative)
-        .mco2_from_pll2_p_ck(25_600.khz())
+        .mco2_from_pll2_p_ck(25_600_u32.kHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);

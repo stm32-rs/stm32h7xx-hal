@@ -22,7 +22,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96_u32.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     #[cfg(any(feature = "singlecore"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG, &ccdr);
@@ -42,7 +42,7 @@ fn main() -> ! {
 
     // Enable the watchdog with a limit of 100 ms and wait forever
     // -> restart the chip
-    watchdog.start(100.ms());
+    watchdog.start(100.milliseconds());
 
     loop {}
 }

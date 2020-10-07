@@ -1,6 +1,8 @@
 //! Inter Integrated Circuit (I2C)
 
 use core::cmp;
+use core::convert::TryInto;
+use core::fmt::Debug;
 use core::marker::PhantomData;
 
 use crate::gpio::gpioa::PA8;
@@ -13,7 +15,7 @@ use crate::gpio::{Alternate, AF4, AF6};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 use cast::u16;
 
 /// I2C Events
@@ -96,7 +98,8 @@ pub trait I2cExt<I2C>: Sized {
     ) -> I2c<I2C>
     where
         PINS: Pins<I2C>,
-        F: Into<Hertz>;
+        F: TryInto<Hertz>,
+        F::Error: Debug;
 
     fn i2c_unchecked<F>(
         self,
@@ -105,7 +108,8 @@ pub trait I2cExt<I2C>: Sized {
         clocks: &CoreClocks,
     ) -> I2c<I2C>
     where
-        F: Into<Hertz>;
+        F: TryInto<Hertz>,
+        F::Error: Debug;
 }
 
 // Sequence to flush the TXDR register. This resets the TXIS and TXE
@@ -273,11 +277,12 @@ macro_rules! i2c {
                     prec: rec::$Rec,
                     clocks: &CoreClocks
                 ) -> Self where
-                    F: Into<Hertz>,
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
                     prec.enable().reset();
 
-                    let freq: u32 = frequency.into().0;
+                    let freq = frequency.try_into().unwrap().0;
 
                     // Maximum f_SCL for Fast-mode Plus (Fm+)
                     assert!(freq <= 1_000_000);
@@ -385,7 +390,8 @@ macro_rules! i2c {
                                 clocks: &CoreClocks) -> I2c<$I2CX>
                 where
                     PINS: Pins<$I2CX>,
-                    F: Into<Hertz>
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
                     let _ = pins.set_open_drain();
 
@@ -407,7 +413,8 @@ macro_rules! i2c {
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> I2c<$I2CX>
                 where
-                    F: Into<Hertz>
+                    F: TryInto<Hertz>,
+                    F::Error: Debug
                 {
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }

@@ -37,7 +37,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
-    let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100_u32.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
     info!("stm32h7xx-hal example - Tick Timer");
@@ -45,7 +45,7 @@ fn main() -> ! {
 
     let mut timer =
         dp.TIM2
-            .tick_timer(1.mhz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+            .tick_timer(1_u32.MHz(), ccdr.peripheral.TIM2, &ccdr.clocks);
     timer.listen(timer::Event::TimeOut);
 
     cortex_m::interrupt::free(|cs| {

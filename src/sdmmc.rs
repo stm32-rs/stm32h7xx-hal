@@ -22,7 +22,7 @@
 //!
 //! ```
 //! let ccdr = rcc
-//!     .pll1_q_ck(100.mhz())
+//!     .pll1_q_ck(100_u32.MHz())
 //!     .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
@@ -41,7 +41,7 @@
 //! The next step is to initialise a card. The bus speed is also set.
 //!
 //! ```
-//! if let Err(err) = sdmmc.init_card(10.mhz()) {
+//! if let Err(err) = sdmmc.init_card(10_u32.MHz()) {
 //!     info!("Init err: {:?}", err);
 //! }
 //! ```
@@ -59,7 +59,8 @@
 // Adapted from stm32f4xx-hal
 // https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/sdio.rs
 
-use core::fmt;
+use core::convert::TryInto;
+use core::fmt::{self, Debug};
 
 use sdio_host::{
     BusWidth, CardCapacity, CardStatus, CurrentState, SDStatus, CID, CSD, OCR,
@@ -71,7 +72,7 @@ use crate::gpio::gpiob::{PB14, PB15, PB3, PB4, PB8, PB9};
 use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC6, PC7, PC8, PC9};
 use crate::gpio::gpiod::{PD2, PD6, PD7};
 use crate::gpio::gpiog::PG11;
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 use crate::gpio::{Alternate, AF10, AF11, AF12, AF9};
 //use crate::gpio:::{AF7, AF8};
@@ -499,8 +500,12 @@ macro_rules! sdmmc {
 
                 /// Initializes card (if present) and sets the bus at the
                 /// specified frequency.
-                pub fn init_card(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    let freq = freq.into();
+                pub fn init_card<F>(&mut self, freq: F) -> Result<(), Error>
+                where
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
+                {
+                    let freq = freq.try_into().unwrap();
 
                     // Enable power to card
                     self.sdmmc

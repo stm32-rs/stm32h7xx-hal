@@ -25,7 +25,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(480.mhz())
+        .sys_ck(480_u32.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .freeze(pwrcfg, &dp.SYSCFG);
 

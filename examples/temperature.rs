@@ -36,8 +36,8 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
+        .sys_ck(100_u32.MHz())
+        .pll2_p_ck(4_u32.MHz()) // Default adc_ker_ck_input
         .freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");

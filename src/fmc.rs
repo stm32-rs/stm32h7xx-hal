@@ -34,7 +34,7 @@ use stm32_fmc::{
 
 use crate::rcc::{rec, rec::ResetEnable, CoreClocks};
 use crate::stm32;
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 use crate::gpio::gpioa::PA7;
 use crate::gpio::gpiob::{PB5, PB6, PB7};

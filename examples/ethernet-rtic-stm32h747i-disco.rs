@@ -134,8 +134,8 @@ const APP: () = {
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz())
+            .sys_ck(200_u32.MHz())
+            .hclk(200_u32.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...

@@ -3,7 +3,8 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
-use core::convert::TryFrom;
+use core::convert::TryInto;
+use core::fmt::Debug;
 use core::marker::PhantomData;
 
 use crate::hal::timer::{CountDown, Periodic};
@@ -20,8 +21,73 @@ use void::Void;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::rcc::{d2ccip2r, d3ccipr};
-use crate::time::Hertz;
+use crate::time::duration::{self, Duration, Nanoseconds};
+use crate::time::rate::{self, Hertz, Rate};
 use stm32h7::Variant::Val;
+
+/// Used to configure periodic timer timeouts using either a duration or a frequency
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Timeout {
+    Duration(Nanoseconds<u64>),
+    Frequency(Hertz),
+}
+
+impl Into<Hertz> for Timeout {
+    fn into(self) -> Hertz {
+        match self {
+            Timeout::Frequency(hertz) => hertz,
+            Timeout::Duration(ns) => ns.to_rate().unwrap(),
+        }
+    }
+}
+
+impl Into<Nanoseconds<u64>> for Timeout {
+    fn into(self) -> Nanoseconds<u64> {
+        match self {
+            Timeout::Frequency(hertz) => hertz.to_duration().unwrap(),
+            Timeout::Duration(ns) => ns,
+        }
+    }
+}
+
+impl From<core::time::Duration> for Timeout {
+    fn from(dur: core::time::Duration) -> Self {
+        Timeout::Duration(dur.try_into().unwrap())
+    }
+}
+
+macro_rules! impl_timeout_duration {
+    ($ty:ty) => {
+        impl From<$ty> for Timeout {
+            fn from(dur: $ty) -> Self {
+                Timeout::Duration(dur.try_into().unwrap())
+            }
+        }
+    };
+}
+
+impl_timeout_duration!(duration::Nanoseconds<u64>);
+impl_timeout_duration!(duration::Milliseconds);
+impl_timeout_duration!(duration::Seconds);
+impl_timeout_duration!(duration::Nanoseconds);
+impl_timeout_duration!(duration::Hours);
+impl_timeout_duration!(duration::Minutes);
+
+macro_rules! impl_timeout_rate {
+    ($ty:ty) => {
+        impl From<$ty> for Timeout {
+            fn from(rate: $ty) -> Self {
+                Timeout::Frequency(rate.try_into().unwrap())
+            }
+        }
+    };
+}
+
+impl_timeout_rate!(rate::Hertz);
+impl_timeout_rate!(rate::Kibihertz);
+impl_timeout_rate!(rate::Kilohertz);
+impl_timeout_rate!(rate::Mebihertz);
+impl_timeout_rate!(rate::Megahertz);
 
 /// Associate clocks with timers
 pub trait GetClk {
@@ -123,21 +189,21 @@ pub trait TimerExt<TIM> {
         clocks: &CoreClocks,
     ) -> Timer<TIM>
     where
-        T: Into<Hertz>;
+        T: Into<Timeout>;
 
     /// Configures the timer to count up at the given frequency
     ///
     /// Counts from 0 to the counter's maximum value, then repeats.
     /// Because this only uses the timer prescaler, the frequency
     /// is rounded to a multiple of the timer's kernel clock.
-    fn tick_timer<T>(
+    fn tick_timer<F>(
         self,
-        frequency: T,
+        frequency: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Timer<TIM>
     where
-        T: Into<Hertz>;
+        F: Into<Timeout>;
 }
 
 /// Hardware timers
@@ -160,11 +226,11 @@ macro_rules! hal {
             impl Periodic for Timer<$TIMX> {}
 
             impl CountDown for Timer<$TIMX> {
-                type Time = Hertz;
+                type Time = Timeout;
 
-                fn start<T>(&mut self, timeout: T)
+                fn start<F>(&mut self, timeout: F)
                 where
-                    T: Into<Hertz>,
+                    F: Into<Timeout>,
                 {
                     // Pause
                     self.pause();
@@ -177,7 +243,8 @@ macro_rules! hal {
                     self.clear_uif_bit();
 
                     // Set PSC and ARR
-                    self.set_freq(timeout);
+                    let timeout = timeout.into();
+                    self.set_timeout(timeout);
 
                     // Generate an update event to force an update of the ARR register. This ensures
                     // the first timer cycle is of the specified duration.
@@ -204,18 +271,18 @@ macro_rules! hal {
                             prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX>
                 where
-                    T: Into<Hertz>,
+                    T: Into<Timeout>,
                 {
                     let mut timer = Timer::$timX(self, prec, clocks);
                     timer.start(timeout);
                     timer
                 }
 
-                fn tick_timer<T>(self, frequency: T,
+                fn tick_timer<F>(self, frequency: F,
                                  prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX>
                 where
-                    T: Into<Hertz>,
+                    F: Into<Timeout>,
                 {
                     let mut timer = Timer::$timX(self, prec, clocks);
 
@@ -257,50 +324,40 @@ macro_rules! hal {
 
                 /// Configures the timer's frequency and counter reload value
                 /// so that it underflows at the timeout's frequency
-                pub fn set_freq<T>(&mut self, timeout: T)
+                #[deprecated(since = "0.8.0", note = "use set_timeout(), it works with frequencies now")]
+                pub fn set_freq<T>(&mut self, frequency: T)
                 where
-                    T: Into<Hertz>,
+                    T: TryInto<Hertz>,
+                    T::Error: Debug,
                 {
-                    let timeout = timeout.into();
-                    let ticks = self.clk / timeout.0;
-
-                    self.set_timeout_ticks(ticks);
+                    self.set_timeout(frequency.try_into().unwrap())
                 }
 
-                /// Sets the timer period from a time duration
+                /// Sets the timer's timeout period from a duration or frequency
                 ///
                 /// ```
                 /// // Set timeout to 100ms
-                /// timer.set_timeout(100.ms());
-                /// ```
+                /// timer.set_timeout(100u32.milliseconds());
                 ///
-                /// Alternatively, the duration can be set using the
-                /// core::time::Duration type
-                ///
-                /// ```
+                /// // core::time::Duration is also supported
                 /// let duration = core::time::Duration::from_nanos(2_500);
-                ///
                 /// // Set timeout to 2.5µs
                 /// timer.set_timeout(duration);
+                ///
+                /// // Set timeout to 100kHz
+                /// timer.set_timeout(100u32.kHz());
                 /// ```
                 pub fn set_timeout<T>(&mut self, timeout: T)
                 where
-                    T: Into<core::time::Duration>
+                    T: Into<Timeout>,
                 {
                     const NANOS_PER_SECOND: u64 = 1_000_000_000;
-                    let timeout = timeout.into();
 
+                    let timeout: Nanoseconds<u64> = timeout.into().into();
                     let clk = self.clk as u64;
-                    let ticks = u32::try_from(
-                        clk * timeout.as_secs() +
-                        clk * u64::from(timeout.subsec_nanos()) / NANOS_PER_SECOND,
-                    )
-                    .unwrap_or(u32::max_value());
+                    let ticks = clk * timeout.0 / NANOS_PER_SECOND;
+                    let ticks = ticks.try_into().unwrap_or(u32::MAX).max(1);
 
-                    self.set_timeout_ticks(ticks.max(1));
-                }
-
-                fn set_timeout_ticks(&mut self, ticks: u32) {
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
@@ -313,11 +370,11 @@ macro_rules! hal {
                 /// Counts from 0 to the counter's maximum value, then repeats.
                 /// Because this only uses the timer prescaler, the frequency
                 /// is rounded to a multiple of the timer's kernel clock.
-                pub fn set_tick_freq<T>(&mut self, frequency: T)
+                pub fn set_tick_freq<F>(&mut self, frequency: F)
                 where
-                    T: Into<Hertz>,
+                    F: Into<Timeout>,
                 {
-                    let frequency = frequency.into();
+                    let frequency: Hertz = frequency.into().into();
                     let div = self.clk / frequency.0;
 
                     let psc = u16(div - 1).unwrap();

@@ -64,9 +64,9 @@ fn main() -> ! {
     // Initialise clocks...
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .hclk(200.mhz())
-        .pll1_r_ck(100.mhz()) // for TRACECK
+        .sys_ck(200_u32.MHz())
+        .hclk(200_u32.MHz())
+        .pll1_r_ck(100_u32.MHz()) // for TRACECK
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Get the delay provider.

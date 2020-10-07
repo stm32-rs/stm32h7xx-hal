@@ -34,7 +34,7 @@ use crate::gpio::gpioj::{PJ8, PJ9};
 
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 use crate::Never;
 
@@ -65,7 +65,8 @@ pub enum Event {
 }
 
 pub mod config {
-    use crate::time::Hertz;
+    use crate::time::rate::{self, Baud};
+    use core::convert::TryInto;
 
     #[derive(Copy, Clone, PartialEq)]
     pub enum WordLength {
@@ -93,15 +94,18 @@ pub mod config {
     }
 
     pub struct Config {
-        pub baudrate: Hertz,
+        pub baudrate: Baud,
         pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
     }
 
     impl Config {
-        pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
-            self.baudrate = baudrate.into();
+        pub fn baudrate<B>(mut self, baudrate: B) -> Self
+        where
+            B: Baudrate,
+        {
+            self.baudrate = baudrate.to_baud();
             self
         }
 
@@ -142,7 +146,7 @@ pub mod config {
     impl Default for Config {
         fn default() -> Config {
             Config {
-                baudrate: Hertz(19_200), // 19k2 baud
+                baudrate: Baud(19_200), // 19k2 baud
                 wordlength: WordLength::DataBits8,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
@@ -150,14 +154,57 @@ pub mod config {
         }
     }
 
-    impl<T: Into<Hertz>> From<T> for Config {
+    impl<T: Baudrate> From<T> for Config {
         fn from(f: T) -> Config {
             Config {
-                baudrate: f.into(),
+                baudrate: f.to_baud(),
                 ..Default::default()
             }
         }
     }
+
+    /// Trait to convert baudrates and bitrates to `Baud`, panics on error
+    pub trait Baudrate {
+        fn to_baud(self) -> rate::Baud;
+    }
+
+    macro_rules! impl_baudrate_baud {
+        ($ty:ty) => {
+            impl Baudrate for $ty {
+                fn to_baud(self) -> rate::Baud {
+                    self.try_into().unwrap()
+                }
+            }
+        };
+    }
+
+    impl_baudrate_baud!(rate::Baud);
+    impl_baudrate_baud!(rate::Kibibaud);
+    impl_baudrate_baud!(rate::Kilobaud);
+    impl_baudrate_baud!(rate::Mebibaud);
+    impl_baudrate_baud!(rate::Megabaud);
+
+    macro_rules! impl_baudrate_bits {
+        ($ty:ty) => {
+            impl Baudrate for $ty {
+                fn to_baud(self) -> rate::Baud {
+                    let generic: rate::Generic<u32> = self.into();
+                    generic.try_into().unwrap()
+                }
+            }
+        };
+    }
+
+    impl_baudrate_bits!(rate::BitsPerSecond);
+    impl_baudrate_bits!(rate::BytesPerSecond);
+    impl_baudrate_bits!(rate::KibibitsPerSecond);
+    impl_baudrate_bits!(rate::KibibytesPerSecond);
+    impl_baudrate_bits!(rate::KilobitsPerSecond);
+    impl_baudrate_bits!(rate::KilobytesPerSecond);
+    impl_baudrate_bits!(rate::MebibitsPerSecond);
+    impl_baudrate_bits!(rate::MebibytesPerSecond);
+    impl_baudrate_bits!(rate::MegabitsPerSecond);
+    impl_baudrate_bits!(rate::MegabytesPerSecond);
 }
 
 pub trait Pins<USART> {}

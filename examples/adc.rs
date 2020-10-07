@@ -37,8 +37,8 @@ fn main() -> ! {
     // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
     // otherwise
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .per_ck(4.mhz())
+        .sys_ck(100_u32.MHz())
+        .per_ck(4_u32.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck

@@ -1,7 +1,10 @@
 //! Micro-Controller Out (MCO) pins
 
+use core::convert::TryInto;
+use core::fmt::Debug;
+
 use super::Rcc;
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 pub use crate::stm32::rcc::cfgr::MCO1_A as MCO1;
 pub use crate::stm32::rcc::cfgr::MCO2_A as MCO2;
@@ -154,10 +157,11 @@ macro_rules! mco1_setters {
                 /// that).
                 pub fn $mco_setter<F>(mut self, freq: F) -> Self
                 where
-                    F: Into<Hertz>,
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
                     self.config.mco1.source = MCO1::$source;
-                    self.config.mco1.frequency = Some(freq.into().0);
+                    self.config.mco1.frequency = Some(freq.try_into().unwrap().0);
                     self
                 }
             )+
@@ -185,10 +189,11 @@ macro_rules! mco2_setters {
                 /// that).
                 pub fn $mco_setter<F>(mut self, freq: F) -> Self
                 where
-                    F: Into<Hertz>,
+                    F: TryInto<Hertz>,
+                    F::Error: Debug,
                 {
                     self.config.mco2.source = MCO2::$source;
-                    self.config.mco2.frequency = Some(freq.into().0);
+                    self.config.mco2.frequency = Some(freq.try_into().unwrap().0);
                     self
                 }
             )+

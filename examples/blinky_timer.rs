@@ -43,13 +43,14 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     // Configure the timer.
-    let mut timer = dp.TIM2.timer(1.hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+    let mut timer =
+        dp.TIM2.timer(1u32.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
 
     loop {
         for _ in 0..5 {
             // 20ms wait with timer
             led.toggle().unwrap();
-            timer.start(20.ms());
+            timer.start(20u32.milliseconds());
             block!(timer.wait()).ok();
 
             // Delay for 500ms. Timer must operate correctly on next

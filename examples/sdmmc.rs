@@ -30,8 +30,8 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(400.mhz())
-        .pll1_q_ck(100.mhz())
+        .sys_ck(400_u32.MHz())
+        .pll1_q_ck(100_u32.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
@@ -90,7 +90,7 @@ fn main() -> ! {
 
     // Loop until we have a card
     loop {
-        match sdmmc.init_card(50.mhz()) {
+        match sdmmc.init_card(50_u32.MHz()) {
             Ok(_) => break,
             Err(err) => {
                 info!("Init err: {:?}", err);

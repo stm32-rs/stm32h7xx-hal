@@ -22,5 +22,6 @@ pub use crate::sai::SaiPdmExt as _stm32h7xx_hal_spi_SaiPdmExt;
 pub use crate::sdmmc::SdmmcExt as _stm32h7xx_hal_sdmmc_SdmmcExt;
 pub use crate::serial::SerialExt as _stm32h7xx_hal_serial_SerialExt;
 pub use crate::spi::SpiExt as _stm32h7xx_hal_spi_SpiExt;
-pub use crate::time::U32Ext as _stm32h7xx_hal_time_U32Ext;
 pub use crate::timer::TimerExt as _stm32h7xx_hal_timer_TimerExt;
+pub use embedded_time::duration::Extensions as _stm32h7xx_hal_time_DurationExtensions;
+pub use embedded_time::rate::Extensions as _stm32h7xx_hal_time_RateExtensions;

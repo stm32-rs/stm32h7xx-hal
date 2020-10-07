@@ -21,7 +21,7 @@ use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
 use crate::gpio::Analog;
 use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 use stm32h7::Variant::Val;
 
 #[cfg(not(feature = "revision_v"))]

@@ -7,7 +7,7 @@ use crate::hal::blocking::rng;
 use crate::rcc::{rec, rec::RngClkSel};
 use crate::rcc::{CoreClocks, ResetEnable};
 use crate::stm32::RNG;
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 
 #[derive(Debug)]
 pub enum ErrorKind {

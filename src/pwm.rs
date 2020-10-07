@@ -29,7 +29,7 @@
 //!   // with a frequency of 100 hz.
 //!   let (c0, c1, c2, c3) = device.TIM1.pwm(
 //!       pins,
-//!       100.hz(),
+//!       100.Hz(),
 //!       prec,
 //!       &clocks
 //!   );
@@ -40,6 +40,8 @@
 //!   c0.enable()
 //! ```
 //!
+use core::convert::TryInto;
+use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
@@ -52,7 +54,7 @@ use crate::stm32::{
 };
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+use crate::time::rate::Hertz;
 use crate::timer::GetClk;
 
 use crate::gpio::gpioa::{
@@ -519,16 +521,17 @@ pins! {
 pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
-    fn pwm<PINS, T, U>(
+    fn pwm<PINS, F, U>(
         self,
         _pins: PINS,
-        frequency: T,
+        frequency: F,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> PINS::Channel
     where
         PINS: Pins<Self, U>,
-        T: Into<Hertz>;
+        F: TryInto<Hertz>,
+        F::Error: Debug;
 }
 
 // Implement PwmExt trait for timer
@@ -537,18 +540,19 @@ macro_rules! pwm_ext_hal {
         impl PwmExt for $TIMX {
             type Rec = rec::$Rec;
 
-            fn pwm<PINS, T, U>(
+            fn pwm<PINS, F, U>(
                 self,
                 pins: PINS,
-                frequency: T,
+                frequency: F,
                 prec: rec::$Rec,
                 clocks: &CoreClocks,
             ) -> PINS::Channel
             where
                 PINS: Pins<Self, U>,
-                T: Into<Hertz>,
+                F: TryInto<Hertz>,
+                F::Error: Debug,
             {
-                $timX(self, pins, frequency.into(), prec, clocks)
+                $timX(self, pins, frequency.try_into().unwrap(), prec, clocks)
             }
         }
     };

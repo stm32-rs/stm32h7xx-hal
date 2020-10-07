@@ -26,7 +26,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(160.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(160u32.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.
@@ -42,7 +42,12 @@ fn main() -> ! {
     // Configure the serial peripheral.
     let serial = dp
         .USART3
-        .serial((tx, rx), 19_200.bps(), ccdr.peripheral.USART3, &ccdr.clocks)
+        .serial(
+            (tx, rx),
+            19_200_u32.bps(),
+            ccdr.peripheral.USART3,
+            &ccdr.clocks,
+        )
         .unwrap();
 
     let (mut tx, mut rx) = serial.split();

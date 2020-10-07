@@ -23,7 +23,7 @@
 //! // Constrain and Freeze power
 //! ...
 //! let rcc = dp.RCC.constrain();
-//! let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+//! let ccdr = rcc.sys_ck(100_u32.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 //!
 //! // Enable the clock to a peripheral and reset it
 //! ccdr.peripheral.FDCAN.enable().reset();
