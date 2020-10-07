@@ -129,19 +129,6 @@ impl Rtc {
             return Err((rtc, prec, InitError::ClockNotRunning));
         }
 
-        let ker_ck = match clock_source {
-            RtcClock::Lsi => clocks.lsi_ck().unwrap().0,
-            RtcClock::Hse { divider } => {
-                clocks.hse_ck().unwrap().0 / divider as u32
-            }
-            RtcClock::Lse { freq, .. } => freq.0,
-        };
-        // See RM0433 Rev 7 46.3.9
-        assert!(
-            clocks.pclk4().0 >= 7 * ker_ck,
-            "PCLK4 must be >= 7 * rtc_ker_ck to read the RTC shadow registers"
-        );
-
         Ok(Rtc { reg: rtc, prec })
     }
 
@@ -178,11 +165,6 @@ impl Rtc {
         .0;
 
         assert!(ker_ck <= 1 << 22, "rtc_ker_ck too fast for prescaler");
-        // See RM0433 Rev 7 46.3.9
-        assert!(
-            clocks.pclk4().0 >= 7 * ker_ck,
-            "PCLK4 must be >= 7 * rtc_ker_ck to read the RTC shadow registers"
-        );
 
         // Select RTC kernel clock
         prec.kernel_clk_mux(match clock_source {
@@ -203,6 +185,9 @@ impl Rtc {
         // Enter initialization mode
         rtc.isr.modify(|_, w| w.init().set_bit());
         while rtc.isr.read().initf().bit_is_clear() {}
+
+        // Enable Shadow Register Bypass
+        rtc.cr.modify(|_, w| w.bypshad().set_bit());
 
         // Configure prescaler for 1Hz clock
         // Want to maximize a_pre_max for power reasons, though it reduces the
@@ -435,17 +420,11 @@ impl Rtc {
         }
     }
 
-    /// Wait for initialization or shift to complete
-    fn wait_for_sync(&self) {
-        while self.reg.isr.read().rsf().bit_is_clear() {}
-    }
-
     /// Calendar Date
     ///
     /// Returns `None` if the calendar has not been initialized
     pub fn date(&self) -> Option<NaiveDate> {
         self.calendar_initialized()?;
-        self.wait_for_sync();
         let data = self.reg.dr.read();
         let year = 2000 + i32(data.yt().bits()) * 10 + i32(data.yu().bits());
         let month = data.mt().bits() as u8 * 10 + data.mu().bits();
@@ -457,31 +436,72 @@ impl Rtc {
     ///
     /// Returns `None` if the calendar has not been initialized
     pub fn time(&self) -> Option<NaiveTime> {
-        self.calendar_initialized()?;
-        self.wait_for_sync();
-        let data = self.reg.tr.read();
-        let mut hour = data.ht().bits() * 10 + data.hu().bits();
-        if data.pm().bit_is_set() {
-            hour += 12;
+        loop {
+            self.calendar_initialized()?;
+            let ss = self.reg.ssr.read().ss().bits();
+            let data = self.reg.tr.read();
+
+            // If an RTCCLK edge occurs during read we may see inconsistent values
+            // so read ssr again and see if it has changed. (see RM0433 Rev 7 46.3.9)
+            let ss_after = self.reg.ssr.read().ss().bits();
+            if ss == ss_after {
+                let mut hour = data.ht().bits() * 10 + data.hu().bits();
+                if data.pm().bit_is_set() {
+                    hour += 12;
+                }
+                let minute = data.mnt().bits() * 10 + data.mnu().bits();
+                let second = data.st().bits() * 10 + data.su().bits();
+                let micro = self.ss_to_us(ss);
+
+                return NaiveTime::from_hms_micro_opt(
+                    u32(hour),
+                    u32(minute),
+                    u32(second),
+                    micro,
+                );
+            }
         }
-        let minute = data.mnt().bits() * 10 + data.mnu().bits();
-        let second = data.st().bits() * 10 + data.su().bits();
-        let micro = self.ss_to_us(self.reg.ssr.read().ss().bits());
-        NaiveTime::from_hms_micro_opt(
-            u32(hour),
-            u32(minute),
-            u32(second),
-            micro,
-        )
     }
 
     /// Calendar Date and Time
     ///
     /// Returns `None` if the calendar has not been initialized
     pub fn date_time(&self) -> Option<NaiveDateTime> {
-        let date = self.date()?;
-        let time = self.time()?;
-        Some(date.and_time(time))
+        loop {
+            self.calendar_initialized()?;
+            let ss = self.reg.ssr.read().ss().bits();
+            let dr = self.reg.dr.read();
+            let tr = self.reg.tr.read();
+
+            // If an RTCCLK edge occurs during read we may see inconsistent values
+            // so read ssr again and see if it has changed. (see RM0433 Rev 7 46.3.9)
+            let ss_after = self.reg.ssr.read().ss().bits();
+            if ss == ss_after {
+                let year =
+                    2000 + i32(dr.yt().bits()) * 10 + i32(dr.yu().bits());
+                let month = dr.mt().bits() as u8 * 10 + dr.mu().bits();
+                let day = dr.dt().bits() * 10 + dr.du().bits();
+
+                let date = NaiveDate::from_ymd_opt(year, u32(month), u32(day))?;
+
+                let mut hour = tr.ht().bits() * 10 + tr.hu().bits();
+                if tr.pm().bit_is_set() {
+                    hour += 12;
+                }
+                let minute = tr.mnt().bits() * 10 + tr.mnu().bits();
+                let second = tr.st().bits() * 10 + tr.su().bits();
+                let micro = self.ss_to_us(ss);
+
+                let time = NaiveTime::from_hms_micro_opt(
+                    u32(hour),
+                    u32(minute),
+                    u32(second),
+                    micro,
+                )?;
+
+                return Some(date.and_time(time));
+            }
+        }
     }
 
     /// Returns the fraction of seconds that have occurred since the last second tick
@@ -491,7 +511,6 @@ impl Rtc {
     /// crystal this value has a resolution of 1/256 of a second.
     pub fn subseconds(&self) -> Option<f32> {
         self.calendar_initialized()?;
-        self.wait_for_sync();
         let ss = f32(self.reg.ssr.read().ss().bits());
         let prediv_s = f32(self.reg.prer.read().prediv_s().bits());
         Some((prediv_s - ss) / (prediv_s + 1.0))
@@ -501,10 +520,11 @@ impl Rtc {
         let ss = u32(ss);
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
         assert!(ss <= prediv_s); // See RM0433 Rev 7 46.6.10, shift operations not supported
-                                 // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
-                                 // u64 division would call `__aeabi_uldivmod` which is large and slow.
-                                 // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
-                                 // the nearest 10 to avoid overflow.
+
+        // Multiplying (prediv_s - ss) by 1,000,000 could overflow a u32 if prediv_s is large enough.
+        // u64 division would call `__aeabi_uldivmod` which is large and slow.
+        // Our maximum resolution is 1/32768 seconds or 32.5 us, so we can get away with rounding to
+        // the nearest 10 to avoid overflow.
         (((prediv_s - ss) * 100_000) / (prediv_s + 1)) * 10
     }
 
@@ -512,7 +532,6 @@ impl Rtc {
     /// as a number of milliseconds rounded to the nearest whole number.
     pub fn subsec_millis(&self) -> Option<u16> {
         self.calendar_initialized()?;
-        self.wait_for_sync();
         let ss = u32(self.reg.ssr.read().ss().bits());
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
         Some(u16(((prediv_s - ss) * 1_000) / (prediv_s + 1)).unwrap())
@@ -522,7 +541,6 @@ impl Rtc {
     /// as a number of microseconds rounded to the nearest whole number.
     pub fn subsec_micros(&self) -> Option<u32> {
         self.calendar_initialized()?;
-        self.wait_for_sync();
         let ss = self.reg.ssr.read().ss().bits();
         Some(self.ss_to_us(ss))
     }
@@ -532,7 +550,6 @@ impl Rtc {
     /// This counts up to `self.subsec_res()` then resets to zero once per second.
     pub fn subsec_raw(&self) -> Option<u16> {
         self.calendar_initialized()?;
-        self.wait_for_sync();
         Some(self.reg.ssr.read().ss().bits())
     }
 
