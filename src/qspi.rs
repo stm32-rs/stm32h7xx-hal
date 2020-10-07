@@ -45,7 +45,8 @@ use crate::{
         Alternate, AF10, AF9,
     },
     rcc::{rec, CoreClocks, ResetEnable},
-    stm32, Hertz,
+    stm32,
+    time::Hertz,
 };
 
 use core::convert::TryInto;
