@@ -22,7 +22,7 @@ static RTC: Mutex<RefCell<Option<rtc::Rtc>>> = Mutex::new(RefCell::new(None));
 #[entry]
 fn main() -> ! {
     logger::init();
-    let dp = pac::Peripherals::take().unwrap();
+    let mut dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
@@ -54,7 +54,7 @@ fn main() -> ! {
 
     rtc.set_date_time(now);
     rtc.enable_wakeup(10);
-    rtc.listen(rtc::Event::Wakeup);
+    rtc.listen(&mut dp.EXTI, rtc::Event::Wakeup);
 
     unsafe {
         pac::NVIC::unmask(interrupt::RTC_WKUP);
@@ -79,7 +79,8 @@ fn RTC_WKUP() {
         let mut rc = RTC.borrow(cs).borrow_mut();
         let rtc = rc.as_mut().unwrap();
         let date_time = rtc.date_time().unwrap();
-        rtc.unpend(rtc::Event::Wakeup);
+        let exti = unsafe { &mut pac::Peripherals::steal().EXTI };
+        rtc.unpend(exti, rtc::Event::Wakeup);
         date_time
     });
     info!("Time: {}", date_time);
