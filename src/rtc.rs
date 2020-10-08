@@ -6,7 +6,7 @@ use chrono::prelude::*;
 use crate::rcc::backup;
 use crate::rcc::rec::ResetEnable;
 use crate::rcc::CoreClocks;
-use crate::stm32::{RCC, RTC};
+use crate::stm32::{EXTI, RCC, RTC};
 use crate::time::Hertz;
 
 pub enum Event {
@@ -708,36 +708,91 @@ impl Rtc {
 
     /// Start listening for `event`
     pub fn listen(&mut self, event: Event) {
+        // RTC interrupts aren't connected directly to the NVIC but are routed through the EXTI,
+        // I suppose so that they can use the EXTI's ability to wakeup the CPU or other things.
+        // We need to also enable the interrupt in the EXTI.
+        //
+        // Input Mapping (RM0433 Rev 7 Section 20.4):
+        // EXTI 17 = RTC Alarms
+        // EXTI 18 = RTC Tamper, RTC Timestamp, RTC LSECSS
+        // EXTI 19 = RTC Wakeup Timer
+
+        // unsafe: Only we can use these bits for anything
+        let exti = unsafe { &*EXTI::ptr() };
+        let rcc = unsafe { &*RCC::ptr() };
+
         match event {
-            Event::LseCss => unsafe {
-                (&*RCC::ptr()).cier.modify(|_, w| w.lsecssie().enabled());
-            },
-            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().set_bit()),
-            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().set_bit()),
-            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().set_bit()),
-            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().set_bit()),
+            Event::LseCss => {
+                exti.cpuimr1.modify(|_, w| w.mr18().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr18().enabled());
+                rcc.cier.modify(|_, w| w.lsecssie().enabled());
+            }
+            Event::AlarmA => {
+                exti.cpuimr1.modify(|_, w| w.mr17().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr17().enabled());
+                self.reg.cr.modify(|_, w| w.alraie().set_bit());
+            }
+            Event::AlarmB => {
+                exti.cpuimr1.modify(|_, w| w.mr17().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr17().enabled());
+                self.reg.cr.modify(|_, w| w.alrbie().set_bit());
+            }
+            Event::Wakeup => {
+                exti.cpuimr1.modify(|_, w| w.mr19().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr19().enabled());
+                self.reg.cr.modify(|_, w| w.wutie().set_bit());
+            }
+            Event::Timestamp => {
+                exti.cpuimr1.modify(|_, w| w.mr18().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr18().enabled());
+                self.reg.cr.modify(|_, w| w.tsie().set_bit());
+            }
         }
     }
 
     /// Stop listening for `event`
     pub fn unlisten(&mut self, event: Event) {
+        // See the note in listen() about EXTI
+        // unsafe: Only we can use these bits for anything
+        let exti = unsafe { &*EXTI::ptr() };
+        let rcc = unsafe { &*RCC::ptr() };
+
         match event {
-            Event::LseCss => unsafe {
-                (&*RCC::ptr()).cier.modify(|_, w| w.lsecssie().disabled());
-            },
-            Event::AlarmA => self.reg.cr.modify(|_, w| w.alraie().clear_bit()),
-            Event::AlarmB => self.reg.cr.modify(|_, w| w.alrbie().clear_bit()),
-            Event::Wakeup => self.reg.cr.modify(|_, w| w.wutie().clear_bit()),
-            Event::Timestamp => self.reg.cr.modify(|_, w| w.tsie().clear_bit()),
+            Event::LseCss => {
+                rcc.cier.modify(|_, w| w.lsecssie().disabled());
+                exti.cpuimr1.modify(|_, w| w.mr18().masked());
+                exti.rtsr1.modify(|_, w| w.tr18().disabled());
+            }
+            Event::AlarmA => {
+                self.reg.cr.modify(|_, w| w.alraie().clear_bit());
+                exti.cpuimr1.modify(|_, w| w.mr17().masked());
+                exti.rtsr1.modify(|_, w| w.tr17().disabled());
+            }
+            Event::AlarmB => {
+                self.reg.cr.modify(|_, w| w.alrbie().clear_bit());
+                exti.cpuimr1.modify(|_, w| w.mr17().masked());
+                exti.rtsr1.modify(|_, w| w.tr17().disabled());
+            }
+            Event::Wakeup => {
+                self.reg.cr.modify(|_, w| w.wutie().clear_bit());
+                exti.cpuimr1.modify(|_, w| w.mr19().masked());
+                exti.rtsr1.modify(|_, w| w.tr19().disabled());
+            }
+            Event::Timestamp => {
+                self.reg.cr.modify(|_, w| w.tsie().clear_bit());
+                exti.cpuimr1.modify(|_, w| w.mr18().masked());
+                exti.rtsr1.modify(|_, w| w.tr18().disabled());
+            }
         }
     }
 
     /// Returns `true` if `event` is pending
     pub fn is_pending(&self, event: Event) -> bool {
+        // unsafe: Only we can do anything with this bit
+        let rcc = unsafe { &*RCC::ptr() };
+
         match event {
-            Event::LseCss => unsafe {
-                (&*RCC::ptr()).cifr.read().lsecssf().bit_is_set()
-            },
+            Event::LseCss => rcc.cifr.read().lsecssf().bit_is_set(),
             Event::AlarmA => self.reg.isr.read().alraf().bit_is_set(),
             Event::AlarmB => self.reg.isr.read().alrbf().bit_is_set(),
             Event::Wakeup => self.reg.isr.read().wutf().bit_is_set(),
@@ -747,14 +802,32 @@ impl Rtc {
 
     /// Clears the interrupt flag for `event`
     pub fn unpend(&mut self, event: Event) {
+        // See the note in listen() about EXTI
+        // unsafe: Only we can do anything with these bits
+        let exti = unsafe { &*EXTI::ptr() };
+        let rcc = unsafe { &*RCC::ptr() };
+
         match event {
-            Event::LseCss => unsafe {
-                (&*RCC::ptr()).cicr.write(|w| w.lsecssc().clear())
-            },
-            Event::AlarmA => self.reg.isr.modify(|_, w| w.alraf().clear_bit()),
-            Event::AlarmB => self.reg.isr.modify(|_, w| w.alrbf().clear_bit()),
-            Event::Wakeup => self.reg.isr.modify(|_, w| w.wutf().clear_bit()),
-            Event::Timestamp => self.reg.isr.modify(|_, w| w.tsf().clear_bit()),
+            Event::LseCss => {
+                rcc.cicr.write(|w| w.lsecssc().clear());
+                exti.cpupr1.write(|w| w.pr18().clear());
+            }
+            Event::AlarmA => {
+                self.reg.isr.modify(|_, w| w.alraf().clear_bit());
+                exti.cpupr1.write(|w| w.pr17().clear());
+            }
+            Event::AlarmB => {
+                self.reg.isr.modify(|_, w| w.alrbf().clear_bit());
+                exti.cpupr1.write(|w| w.pr17().clear());
+            }
+            Event::Wakeup => {
+                self.reg.isr.modify(|_, w| w.wutf().clear_bit());
+                exti.cpupr1.write(|w| w.pr19().clear());
+            }
+            Event::Timestamp => {
+                self.reg.isr.modify(|_, w| w.tsf().clear_bit());
+                exti.cpupr1.write(|w| w.pr18().clear());
+            }
         }
     }
 

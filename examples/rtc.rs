@@ -3,10 +3,12 @@
 #![no_main]
 #![no_std]
 
+use core::cell::RefCell;
+
 use log::info;
 
 use chrono::prelude::*;
-use cortex_m::asm;
+use cortex_m::{asm, interrupt::Mutex};
 use cortex_m_rt::entry;
 
 use pac::interrupt;
@@ -14,6 +16,8 @@ use stm32h7xx_hal::{pac, prelude::*, rtc};
 
 #[path = "utilities/logger.rs"]
 mod logger;
+
+static RTC: Mutex<RefCell<Option<rtc::Rtc>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
@@ -49,21 +53,34 @@ fn main() -> ! {
     let now = NaiveDate::from_ymd(2001, 1, 1).and_hms(0, 0, 0);
 
     rtc.set_date_time(now);
-    rtc.listen(rtc::Event::Wakeup);
     rtc.enable_wakeup(10);
+    rtc.listen(rtc::Event::Wakeup);
 
     unsafe {
         pac::NVIC::unmask(interrupt::RTC_WKUP);
     }
 
+    info!("Time: {}", rtc.date_time().unwrap());
+
+    cortex_m::interrupt::free(|cs| {
+        RTC.borrow(cs).replace(Some(rtc));
+    });
+
     loop {
-        info!("Time: {}", rtc.time().unwrap());
-        rtc.unpend(rtc::Event::Wakeup);
+        // Some debuggers have issues working when the MCU goes to standby/sleep.
+        // You may want to change this to asm::nop() or try to enable low-power debugging.
         asm::wfi();
     }
 }
 
 #[interrupt]
 fn RTC_WKUP() {
-    // Just cause the asm::wfi() above to complete so the loop runs one more time
+    let date_time = cortex_m::interrupt::free(|cs| {
+        let mut rc = RTC.borrow(cs).borrow_mut();
+        let rtc = rc.as_mut().unwrap();
+        let date_time = rtc.date_time().unwrap();
+        rtc.unpend(rtc::Event::Wakeup);
+        date_time
+    });
+    info!("Time: {}", date_time);
 }
