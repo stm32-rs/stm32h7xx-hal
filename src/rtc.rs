@@ -636,8 +636,8 @@ impl Rtc {
             self.reg
                 .cr
                 .modify(|_, w| unsafe { w.wucksel().bits(0b100) });
-            let interval =
-                u16(interval - 1).expect("Interval was too large for wakeup timer");
+            let interval = u16(interval - 1)
+                .expect("Interval was too large for wakeup timer");
             self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         }
 
