@@ -615,7 +615,7 @@ impl Rtc {
         Ok(())
     }
 
-    /// Configures the wakeup timer to trigger periodically after `interval` seconds
+    /// Configures the wakeup timer to trigger periodically every `interval` seconds
     ///
     /// # Panics
     ///
@@ -629,7 +629,7 @@ impl Rtc {
             self.reg
                 .cr
                 .modify(|_, w| unsafe { w.wucksel().bits(0b110) });
-            let interval = u16(interval - 1 << 16)
+            let interval = u16(interval - (1 << 16) - 1)
                 .expect("Interval was too large for wakeup timer");
             self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         } else {
@@ -637,7 +637,7 @@ impl Rtc {
                 .cr
                 .modify(|_, w| unsafe { w.wucksel().bits(0b100) });
             let interval =
-                u16(interval).expect("Interval was too large for wakeup timer");
+                u16(interval - 1).expect("Interval was too large for wakeup timer");
             self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
         }
 
