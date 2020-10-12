@@ -11,8 +11,10 @@ use crate::stm32::{SAI1, SAI2};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::{SAI3, SAI4};
 
-// clocks
+#[cfg(not(feature = "rm0455"))]
 use crate::rcc::rec::Sai23ClkSelGetter;
+
+// clocks
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
@@ -73,17 +75,22 @@ macro_rules! impl_sai_ker_ck {
 impl_sai_ker_ck! {
     Sai1, get_kernel_clk_mux, get_kernel_clk_mux, Sai1ClkSel, Sai1ClkSel: SAI1
 }
+#[cfg(not(feature = "rm0455"))]
 impl_sai_ker_ck! {
     Sai2, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI2
 }
-
-#[cfg(not(feature = "rm0455"))] // RM0455 parts have SAI1, SAI2 only
+#[cfg(not(feature = "rm0455"))]
 impl_sai_ker_ck! {
     Sai3, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI3
 }
-#[cfg(not(feature = "rm0455"))] // RM0455 parts have SAI1, SAI2 only
+
+#[cfg(not(feature = "rm0455"))] // Two kernel clocks for SAI4
 impl_sai_ker_ck! {
     Sai4, get_kernel_clk_a_mux, get_kernel_clk_b_mux, Sai4AClkSel, Sai4BClkSel: SAI4
+}
+#[cfg(feature = "rm0455")] // On RM0455 parts, SAI2 has two kernel clocks instead
+impl_sai_ker_ck! {
+    Sai2, get_kernel_clk_a_mux, get_kernel_clk_b_mux, Sai2AClkSel, Sai2BClkSel: SAI2
 }
 
 pub trait INTERFACE {}
