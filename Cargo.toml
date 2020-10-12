@@ -172,3 +172,6 @@ required-features = ["usb_hs", "rm0399"]
 name = "rtc"
 required-features = ["rt", "rtc"]
 
+[[example]]
+name = "sai-i2s-passthru"
+required-features = ["rm0433"]
