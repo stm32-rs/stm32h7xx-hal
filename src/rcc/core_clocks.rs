@@ -20,6 +20,7 @@ pub struct CoreClocks {
     pub(super) csi_ck: Option<Hertz>,
     pub(super) hsi_ck: Option<Hertz>,
     pub(super) hsi48_ck: Option<Hertz>,
+    pub(super) lsi_ck: Option<Hertz>,
     pub(super) per_ck: Option<Hertz>,
     pub(super) hse_ck: Option<Hertz>,
     pub(super) mco1_ck: Option<Hertz>,
@@ -106,6 +107,7 @@ impl CoreClocks {
         hsi48_ck: "hsi48_ck",
         per_ck: "per_ck",
         hse_ck: "hse_ck",
+        lsi_ck: "lsi_ck",
     }
 
     /// Returns `Some(frequency)` if the MCO1 output is running, otherwise

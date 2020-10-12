@@ -49,6 +49,7 @@
 //! power supply method, `freeze` will panic until you power on reset
 //! your board.
 
+use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
 #[cfg(feature = "revision_v")]
 use crate::stm32::{RCC, SYSCFG};
@@ -104,12 +105,17 @@ pub enum VoltageScale {
 /// longer be changed.
 pub struct PowerConfiguration {
     pub(crate) vos: VoltageScale,
+    pub(crate) backup: Option<BackupREC>,
 }
 
 impl PowerConfiguration {
     /// Gets the `VoltageScale` which was configured by `Pwr::freeze()`.
     pub fn vos(&self) -> VoltageScale {
         self.vos
+    }
+
+    pub fn backup(&mut self) -> Option<BackupREC> {
+        self.backup.take()
     }
 }
 
@@ -266,6 +272,9 @@ impl Pwr {
         self.rb.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
         while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
 
+        #[allow(unused_mut)]
+        let mut vos = VoltageScale::Scale1;
+
         // Enable overdrive for maximum clock
         // Syscfgen required to set enable overdrive
         #[cfg(feature = "revision_v")]
@@ -282,13 +291,16 @@ impl Pwr {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
-            return PowerConfiguration {
-                vos: VoltageScale::Scale0,
-            };
+            vos = VoltageScale::Scale0;
         }
 
+        // Disable backup power domain write protection
+        self.rb.cr1.modify(|_, w| w.dbp().set_bit());
+        let backup = unsafe { BackupREC::new_singleton() };
+
         PowerConfiguration {
-            vos: VoltageScale::Scale1,
+            vos,
+            backup: Some(backup),
         }
     }
 }

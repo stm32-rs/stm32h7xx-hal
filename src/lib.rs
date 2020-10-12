@@ -147,6 +147,8 @@ pub mod qspi;
 pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod rng;
+#[cfg(all(feature = "device-selected", feature = "rtc"))]
+pub mod rtc;
 #[cfg(feature = "device-selected")]
 pub mod sai;
 #[cfg(all(feature = "device-selected", feature = "sdmmc"))]
