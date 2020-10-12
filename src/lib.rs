@@ -121,6 +121,8 @@ pub mod adc;
 pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod delay;
+#[cfg(feature = "device-selected")]
+pub mod dma;
 #[cfg(all(feature = "device-selected", feature = "ethernet"))]
 pub mod ethernet;
 #[cfg(feature = "device-selected")]

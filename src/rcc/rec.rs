@@ -14,7 +14,7 @@
 //! returns the current kernel clock state. Because the kernel_clk_mux is shared
 //! between multiple peripherals, it cannot be set by any individual one of
 //! them. Instead it can only be set by methods on the
-//! [`PeripheralRec`](struct.PeripheralRec.html) itself. These methods are named
+//! [`PeripheralRec`](struct.PeripheralREC.html) itself. These methods are named
 //! `kernel_xxxx_clk_mux()`.
 //!
 //! # Reset/Enable Example
@@ -47,9 +47,11 @@
 //! ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::PLL3_R);
 //!
 //! // Enable and reset peripheral
-//! let i2c3_prec = ccdr.peripheral.enable().reset();
+//! let i2c3_prec = ccdr.peripheral.I2C3.enable().reset();
+//!
 //! assert_eq!(i2c3_prec.get_kernel_clk_mux(), I2c123ClkSel::PLL3_R);
 //!
+//! // Some method that consumes the i2c3 prec
 //! init_i2c3(..., i2c3_prec);
 //!
 //! // Can't set group kernel clock (it would also affect I2C3)
@@ -104,6 +106,7 @@ macro_rules! peripheral_reset_and_enable_control {
                 $p:ident
                 $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
                 $([ group clk: $pk_g:ident $( $(($Variant_g:ident))* $ccip_g:ident $clk_doc_g:expr )* ])*
+                $([ fixed clk: $clk_doc_f:expr ])*
         ),*
     ];)+) => {
         paste::item! {
@@ -142,157 +145,246 @@ macro_rules! peripheral_reset_and_enable_control {
             }
             $(
                 $(
-                    /// Owned ability to Reset, Enable and Disable peripheral
-                    $( #[ $pmeta ] )*
-                    pub struct $p {
-                        pub(crate) _marker: PhantomData<*const ()>,
-                    }
-                    $( #[ $pmeta ] )*
-                    unsafe impl Send for $p {}
-                    $( #[ $pmeta ] )*
-                    impl ResetEnable for $p {
-                        #[inline(always)]
-                        fn enable(self) -> Self {
-                            // unsafe: Owned exclusive access to this bitfield
-                            interrupt::free(|_| {
-                                let enr = unsafe {
-                                    &(*RCC::ptr()).[< $AXBn:lower enr >]
-                                };
-                                enr.modify(|_, w| w.
-                                           [< $p:lower en >]().set_bit());
-                            });
-                            self
-                        }
-                        #[inline(always)]
-                        fn disable(self) -> Self {
-                            // unsafe: Owned exclusive access to this bitfield
-                            interrupt::free(|_| {
-                                let enr = unsafe {
-                                    &(*RCC::ptr()).[< $AXBn:lower enr >]
-                                };
-                                enr.modify(|_, w| w.
-                                           [< $p:lower en >]().clear_bit());
-                            });
-                            self
-                        }
-                        #[inline(always)]
-                        fn reset(self) -> Self {
-                            // unsafe: Owned exclusive access to this bitfield
-                            interrupt::free(|_| {
-                                let rstr = unsafe {
-                                    &(*RCC::ptr()).[< $AXBn:lower rstr >]
-                                };
-                                rstr.modify(|_, w| w.
-                                            [< $p:lower rst >]().set_bit());
-                                rstr.modify(|_, w| w.
-                                            [< $p:lower rst >]().clear_bit());
-                            });
-                            self
-                        }
-                    }
-                    $( #[ $pmeta ] )*
-                    impl $p {
-                        $(      // Individual kernel clocks
-                            #[inline(always)]
-                            /// Modify a kernel clock for this
-                            /// peripheral. See RM0433 Section 8.5.8.
-                            ///
-                            /// It is possible to switch this clock
-                            /// dynamically without generating spurs or
-                            /// timing violations. However, the user must
-                            /// ensure that both clocks are running. See
-                            /// RM0433 Section 8.5.10
-                            pub fn [< kernel_ $clk _mux >](self, sel: [< $pk ClkSel >]) -> Self {
-                                // unsafe: Owned exclusive access to this bitfield
-                                interrupt::free(|_| {
-                                    let ccip = unsafe {
-                                        &(*RCC::ptr()).[< $ccip r >]
-                                    };
-                                    ccip.modify(|_, w| w.
-                                                [< $pk:lower sel >]().variant(sel));
-                                });
-                                self
-                            }
-
-                            #[inline(always)]
-                            /// Return the current kernel clock selection
-                            pub fn [< get_kernel_ $clk _mux>](&self) ->
-                                variant_return_type!([< $pk ClkSel >] $(, $Variant)*)
-                            {
-                                // unsafe: We only read from this bitfield
-                                let ccip = unsafe {
-                                    &(*RCC::ptr()).[< $ccip r >]
-                                };
-                                ccip.read().[< $pk:lower sel >]().variant()
-                            }
-                        )*
-                    }
-                    $(          // Individual kernel clocks
-                        #[doc=$clk_doc]
-                        /// kernel clock source selection
-                        pub type [< $pk ClkSel >] =
-                            rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
-                    )*
-
-                    $(          // Group kernel clocks
-                        impl [< $pk_g ClkSelGetter >] for $p {}
-                    )*
-                    $(          // Group kernel clocks
+                    peripheral_reset_and_enable_control_generator! (
+                        $AXBn, $p, [< $p:upper >], [< $p:lower >],
+                        $( $pmeta )*
                         $(
-                            #[doc=$clk_doc_g]
-                            /// kernel clock source selection
-                            pub type [< $pk_g ClkSel >] =
-                                rcc::[< $ccip_g r >]::[< $pk_g:upper SEL_A >];
-
-                            /// Can return
-                            #[doc=$clk_doc_g]
-                            /// kernel clock source selection
-                            pub trait [< $pk_g ClkSelGetter >] {
-                                #[inline(always)]
-                                #[allow(unused)]
-                                /// Return the
-                                #[doc=$clk_doc_g]
-                                /// kernel clock selection
-                                fn get_kernel_clk_mux(&self) ->
-                                    variant_return_type!([< $pk_g ClkSel >] $(, $Variant_g)*)
-                                {
-                                    // unsafe: We only read from this bitfield
-                                    let ccip = unsafe {
-                                        &(*RCC::ptr()).[< $ccip_g r >]
-                                    };
-                                    ccip.read().[< $pk_g:lower sel >]().variant()
-                                }
-                            }
+                            [kernel $clk: $pk $(($Variant))* $ccip $clk_doc]
                         )*
-                    )*
-                    impl PeripheralREC {
-                        $(          // Group kernel clocks
-                            $(
-                                /// Modify the kernel clock for
-                                #[doc=$clk_doc_g]
-                                /// . See RM0433 Section 8.5.8.
-                                ///
-                                /// It is possible to switch this clock
-                                /// dynamically without generating spurs or
-                                /// timing violations. However, the user must
-                                /// ensure that both clocks are running. See
-                                /// RM0433 Section 8.5.10
-                                pub fn [< kernel_ $pk_g:lower _clk_mux >](&mut self, sel: [< $pk_g ClkSel >]) -> &mut Self {
-                                    // unsafe: Owned exclusive access to this bitfield
-                                    interrupt::free(|_| {
-                                        let ccip = unsafe {
-                                            &(*RCC::ptr()).[< $ccip_g r >]
-                                        };
-                                        ccip.modify(|_, w| w.
-                                                    [< $pk_g:lower sel >]().variant(sel));
-                                    });
-                                    self
-                                }
-                            )*
+                        $(
+                            [group clk: $pk_g [< $pk_g:lower >] $( $(($Variant_g))* $ccip_g $clk_doc_g )* ]
                         )*
-                    }
+                        $(
+                            [fixed clk: $clk_doc_f]
+                        )*
+                    );
                 )*
             )+
+        }
+    }
+}
+
+// This macro uses the paste::item! macro to create identifiers.
+//
+// https://crates.io/crates/paste
+//
+// The macro is intended only to be called from within the
+// peripheral_reset_and_enable_control macro
+macro_rules! peripheral_reset_and_enable_control_generator {
+    (
+        $AXBn:ident,
+        $p:ident,
+        $p_upper:ident,         // Lower and upper case $p available for use in
+        $p_lower:ident,         // comments, equivalent to with the paste macro.
+
+        $( $pmeta:meta )*
+        $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
+        $([ group clk: $pk_g:ident $pk_g_lower:ident $( $(($Variant_g:ident))* $ccip_g:ident $clk_doc_g:expr )* ])*
+        $([ fixed clk: $clk_doc_f:expr ])*
+    ) => {
+        paste::item! {
+            #[doc = " Reset, Enable and Clock functionality for " $p]
+            ///
+            /// # Reset/Enable Example
+            ///
+            /// ```
+            /// let ccdr = ...; // From RCC
+            ///
+            /// // Enable the clock to the peripheral and reset it
+            #[doc = "ccdr.peripheral." $p_upper ".enable().reset();"]
+            /// ```
+            ///
+            $(                  // Individual kernel clocks
+                /// # Individual Kernel Clock
+                ///
+                /// This peripheral has its own dedicated kernel clock.
+                #[doc = "See [" $pk "ClkSel](crate::rcc::rec::" $pk "ClkSel) "
+                  "for possible clock sources."]
+                ///
+                /// ```
+                /// let ccdr = ...; // From RCC
+                ///
+                /// // Set individual kernel clock
+                #[doc = "let " $p_lower "_prec = ccdr.peripheral." $p_upper
+                  ".kernel_clk_mux(" $pk "ClkSel::XX_clock_soruce_XX);"]
+                ///
+                #[doc = "assert_eq!(" $p_lower "_prec.get_kernel_clk_mux(), "
+                  $pk "ClkSel::XX_clock_source_XX);"]
+                /// ```
+            )*
+            $(                  // Group kernel clocks
+                /// # Group Kernel Clock
+                ///
+                /// This peripheral has a kernel clock that is shared with other
+                /// peripherals.
+                ///
+                #[doc = "Since it is shared, it must be set using the "
+                  "[kernel_" $pk_g_lower "_clk_mux](crate::rcc::rec::PeripheralREC#method"
+                  ".kernel_" $pk_g_lower "_clk_mux) method."]
+                ///
+                /// ```
+                /// let mut ccdr = ...; // From RCC
+                ///
+                /// // Set group kernel clock mux
+                #[doc = " ccdr.peripheral."
+                  "kernel_" $pk_g_lower "_clk_mux("
+                  $pk_g "ClkSel::XX_clock_source_XX);"]
+                ///
+                #[doc = " assert_eq!(ccdr.peripheral." $p_upper
+                  ".get_kernel_clk_mux(), " $pk_g "ClkSel::XX_clock_source_XX);"]
+            )*
+            $(                  // Fixed kernel clocks
+                /// # Fixed Kernel Clock
+                ///
+                /// This peripheral has a kernel clock that is always equal to
+                #[doc= $clk_doc_f "."]
+            )*
+            $( #[ $pmeta ] )*
+            pub struct $p {
+                pub(crate) _marker: PhantomData<*const ()>,
+            }
+            $( #[ $pmeta ] )*
+            unsafe impl Send for $p {}
+            $( #[ $pmeta ] )*
+            impl ResetEnable for $p {
+                #[inline(always)]
+                fn enable(self) -> Self {
+                    // unsafe: Owned exclusive access to this bitfield
+                    interrupt::free(|_| {
+                        let enr = unsafe {
+                            &(*RCC::ptr()).[< $AXBn:lower enr >]
+                        };
+                        enr.modify(|_, w| w.
+                                   [< $p:lower en >]().set_bit());
+                    });
+                    self
+                }
+                #[inline(always)]
+                fn disable(self) -> Self {
+                    // unsafe: Owned exclusive access to this bitfield
+                    interrupt::free(|_| {
+                        let enr = unsafe {
+                            &(*RCC::ptr()).[< $AXBn:lower enr >]
+                        };
+                        enr.modify(|_, w| w.
+                                   [< $p:lower en >]().clear_bit());
+                    });
+                    self
+                }
+                #[inline(always)]
+                fn reset(self) -> Self {
+                    // unsafe: Owned exclusive access to this bitfield
+                    interrupt::free(|_| {
+                        let rstr = unsafe {
+                            &(*RCC::ptr()).[< $AXBn:lower rstr >]
+                        };
+                        rstr.modify(|_, w| w.
+                                    [< $p:lower rst >]().set_bit());
+                        rstr.modify(|_, w| w.
+                                    [< $p:lower rst >]().clear_bit());
+                    });
+                    self
+                }
+            }
+            $( #[ $pmeta ] )*
+            impl $p {
+                $(      // Individual kernel clocks
+                    #[inline(always)]
+                    /// Modify the kernel clock for
+                    #[doc=$clk_doc "."]
+                    /// See RM0433 Rev 7 Section 8.5.8.
+                    ///
+                    /// It is possible to switch this clock dynamically without
+                    /// generating spurs or timing violations. However, the user
+                    /// must ensure that both clocks are running. See RM0433 Rev
+                    /// 7 Section 8.5.10.
+                    pub fn [< kernel_ $clk _mux >](self, sel: [< $pk ClkSel >]) -> Self {
+                        // unsafe: Owned exclusive access to this bitfield
+                        interrupt::free(|_| {
+                            let ccip = unsafe {
+                                &(*RCC::ptr()).[< $ccip r >]
+                            };
+                            ccip.modify(|_, w| w.
+                                        [< $pk:lower sel >]().variant(sel));
+                        });
+                        self
+                    }
+
+                    #[inline(always)]
+                    /// Return the current kernel clock selection
+                    pub fn [< get_kernel_ $clk _mux>](&self) ->
+                        variant_return_type!([< $pk ClkSel >] $(, $Variant)*)
+                    {
+                        // unsafe: We only read from this bitfield
+                        let ccip = unsafe {
+                            &(*RCC::ptr()).[< $ccip r >]
+                        };
+                        ccip.read().[< $pk:lower sel >]().variant()
+                    }
+                )*
+            }
+            $(          // Individual kernel clocks
+                #[doc=$clk_doc]
+                /// kernel clock source selection
+                pub type [< $pk ClkSel >] =
+                    rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
+            )*
+            $(          // Group kernel clocks
+                impl [< $pk_g ClkSelGetter >] for $p {}
+            )*
+            $(          // Group kernel clocks
+                $(
+                    #[doc=$clk_doc_g]
+                    /// kernel clock source selection.
+                    pub type [< $pk_g ClkSel >] =
+                        rcc::[< $ccip_g r >]::[< $pk_g:upper SEL_A >];
+
+                    /// Can return
+                    #[doc=$clk_doc_g]
+                    /// kernel clock source selection
+                    pub trait [< $pk_g ClkSelGetter >] {
+                        #[inline(always)]
+                        #[allow(unused)]
+                        /// Return the
+                        #[doc=$clk_doc_g]
+                        /// kernel clock selection
+                        fn get_kernel_clk_mux(&self) ->
+                            variant_return_type!([< $pk_g ClkSel >] $(, $Variant_g)*)
+                        {
+                            // unsafe: We only read from this bitfield
+                            let ccip = unsafe {
+                                &(*RCC::ptr()).[< $ccip_g r >]
+                            };
+                            ccip.read().[< $pk_g:lower sel >]().variant()
+                        }
+                    }
+                )*
+            )*
+            impl PeripheralREC {
+                $(          // Group kernel clocks
+                    $(
+                        /// Modify the kernel clock for
+                        #[doc=$clk_doc_g "."]
+                        /// See RM0433 Rev 7 Section 8.5.8.
+                        ///
+                        /// It is possible to switch this clock dynamically
+                        /// without generating spurs or timing
+                        /// violations. However, the user must ensure that both
+                        /// clocks are running. See RM0433 Rev 7 Section 8.5.10.
+                        pub fn [< kernel_ $pk_g:lower _clk_mux >](&mut self, sel: [< $pk_g ClkSel >]) -> &mut Self {
+                            // unsafe: Owned exclusive access to this bitfield
+                            interrupt::free(|_| {
+                                let ccip = unsafe {
+                                    &(*RCC::ptr()).[< $ccip_g r >]
+                                };
+                                ccip.modify(|_, w| w.
+                                            [< $pk_g:lower sel >]().variant(sel));
+                            });
+                            self
+                        }
+                    )*
+                )*
+            }
         }
     }
 }
@@ -385,7 +477,7 @@ peripheral_reset_and_enable_control! {
     ];
 
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
-        Ltdc,
+        Ltdc [fixed clk: "pll3_r_ck"],
         #[cfg(any(feature = "dsi"))] Dsi
     ];
 
