@@ -53,7 +53,7 @@ fn main() -> ! {
     let now = NaiveDate::from_ymd(2001, 1, 1).and_hms(0, 0, 0);
 
     rtc.set_date_time(now);
-    rtc.enable_wakeup(10);
+    rtc.enable_wakeup(10.seconds());
     rtc.listen(&mut dp.EXTI, rtc::Event::Wakeup);
 
     unsafe {

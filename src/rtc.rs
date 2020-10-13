@@ -8,7 +8,7 @@ use crate::rcc::backup;
 use crate::rcc::rec::ResetEnable;
 use crate::rcc::CoreClocks;
 use crate::stm32::{EXTI, RCC, RTC};
-use crate::time::Hertz;
+use crate::time::{Hertz, Microseconds, Milliseconds, Seconds};
 
 pub enum Event {
     AlarmA,
@@ -531,19 +531,19 @@ impl Rtc {
 
     /// Returns the fraction of seconds that have occurred since the last second tick
     /// as a number of milliseconds rounded to the nearest whole number.
-    pub fn subsec_millis(&self) -> Option<u16> {
+    pub fn subsec_millis(&self) -> Option<Milliseconds> {
         self.calendar_initialized()?;
         let ss = u32(self.reg.ssr.read().ss().bits());
         let prediv_s = u32(self.reg.prer.read().prediv_s().bits());
-        Some(u16(((prediv_s - ss) * 1_000) / (prediv_s + 1)).unwrap())
+        Some(Milliseconds(((prediv_s - ss) * 1_000) / (prediv_s + 1)))
     }
 
     /// Returns the fraction of seconds that have occurred since the last second tick
     /// as a number of microseconds rounded to the nearest whole number.
-    pub fn subsec_micros(&self) -> Option<u32> {
+    pub fn subsec_micros(&self) -> Option<Microseconds> {
         self.calendar_initialized()?;
         let ss = self.reg.ssr.read().ss().bits();
-        Some(self.ss_to_us(ss))
+        Some(Microseconds(self.ss_to_us(ss)))
     }
 
     /// Returns the raw value of the synchronous subsecond counter
@@ -620,11 +620,12 @@ impl Rtc {
     /// # Panics
     ///
     /// Panics if interval is greater than 2¹⁷-1.
-    pub fn enable_wakeup(&mut self, interval: u32) {
+    pub fn enable_wakeup(&mut self, interval: impl Into<Seconds>) {
         self.reg.cr.modify(|_, w| w.wute().clear_bit());
         self.reg.isr.modify(|_, w| w.wutf().clear_bit());
         while self.reg.isr.read().wutwf().bit_is_clear() {}
 
+        let interval = interval.into().0;
         if interval > 1 << 16 {
             self.reg
                 .cr
