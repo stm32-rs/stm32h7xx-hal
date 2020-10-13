@@ -25,7 +25,8 @@ targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
 embedded-hal = "0.2.4"
-embedded-time = "0.10.0"
+#embedded-time = "0.11.0" TODO
+embedded-time = { git = "https://github.com/FluenTech/embedded-time" }
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
 stm32h7 = "^0.12.1"
