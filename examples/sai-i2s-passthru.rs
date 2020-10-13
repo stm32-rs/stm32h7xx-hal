@@ -22,7 +22,7 @@ use stm32h7xx_hal::sai::{
 };
 use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
-use stm32h7xx_hal::time::{Hertz, U32Ext};
+use stm32h7xx_hal::time::Hertz;
 
 use stm32h7xx_hal::traits::i2s::FullDuplex;
 
@@ -48,8 +48,8 @@ const APP: () = {
             .device
             .RCC
             .constrain()
-            .use_hse(16.mhz())
-            .sys_ck(400.mhz())
+            .use_hse(16u32.MHz())
+            .sys_ck(400u32.MHz())
             .pll3_p_ck(PLL3_P_HZ)
             .freeze(vos, &ctx.device.SYSCFG);
 
