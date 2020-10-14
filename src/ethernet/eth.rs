@@ -30,8 +30,7 @@ use smoltcp::{
     wire::EthernetAddress,
 };
 
-use crate::ethernet::ETH_PHY_ADDR;
-use crate::ethernet::{StationManagement, PHY};
+use crate::ethernet::StationManagement;
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
@@ -399,6 +398,8 @@ pub struct EthernetDMA<'a> {
 ///
 pub struct EthernetMAC {
     eth_mac: stm32::ETHERNET_MAC,
+    eth_phy_addr: u8,
+    clock_range: u8,
 }
 
 /// Create and initialise the ethernet driver.
@@ -409,7 +410,10 @@ pub struct EthernetMAC {
 /// clocks and GPIO configuration, and configures the ETH MAC and
 /// DMA peripherals.
 ///
-/// Brings up the PHY.
+/// This method does not initialise the external PHY. However it does return an
+/// [EthernetMAC](EthernetMAC) which implements the
+/// [StationManagement](super::StationManagement) trait. This can be used to
+/// communicate with the external PHY.
 ///
 /// # Safety
 ///
@@ -648,31 +652,42 @@ pub unsafe fn new_unchecked(
     });
 
     // MAC layer
-    let mut mac = EthernetMAC { eth_mac };
-    mac.phy_reset();
-    mac.phy_init(); // Init PHY
+    let mac = EthernetMAC {
+        eth_mac,
+        eth_phy_addr: 0,
+        clock_range: CLOCK_RANGE,
+    };
 
     let dma = EthernetDMA { ring, eth_dma };
 
     (dma, mac)
 }
 
-///
+impl EthernetMAC {
+    /// Sets the SMI address to use for the PHY
+    pub fn set_phy_addr(self, eth_phy_addr: u8) -> Self {
+        Self {
+            eth_mac: self.eth_mac,
+            eth_phy_addr,
+            clock_range: self.clock_range,
+        }
+    }
+}
+
 /// PHY Operations
-///
 impl StationManagement for EthernetMAC {
     /// Read a register over SMI.
     fn smi_read(&mut self, reg: u8) -> u16 {
         while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
         self.eth_mac.macmdioar.modify(|_, w| unsafe {
             w.pa()
-                .bits(ETH_PHY_ADDR)
+                .bits(self.eth_phy_addr)
                 .rda()
                 .bits(reg)
                 .goc()
                 .bits(0b11) // read
                 .cr()
-                .bits(CLOCK_RANGE)
+                .bits(self.clock_range)
                 .mb()
                 .set_bit()
         });
@@ -688,13 +703,13 @@ impl StationManagement for EthernetMAC {
             .write(|w| unsafe { w.md().bits(val) });
         self.eth_mac.macmdioar.modify(|_, w| unsafe {
             w.pa()
-                .bits(ETH_PHY_ADDR)
+                .bits(self.eth_phy_addr)
                 .rda()
                 .bits(reg)
                 .goc()
                 .bits(0b01) // write
                 .cr()
-                .bits(CLOCK_RANGE)
+                .bits(self.clock_range)
                 .mb()
                 .set_bit()
         });

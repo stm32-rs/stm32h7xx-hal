@@ -84,8 +84,6 @@ quadspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
-phy_ksz8081r = []
-phy_lan8742a = []
 rtc = ["chrono"]
 rt = ["stm32h7/rt"]
 usb_hs = ["synopsys-usb-otg", "synopsys-usb-otg/hs"]
@@ -146,15 +144,15 @@ required-features = ["sdmmc", "rm0433"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
-required-features = ["phy_lan8742a", "rt", "stm32h747cm7", "ethernet"]
+required-features = ["rt", "stm32h747cm7", "ethernet"]
 
 [[example]]
 name = "ethernet-rtic-stm32h747i-disco"
-required-features = ["phy_lan8742a", "rt", "stm32h747cm7", "ethernet"]
+required-features = ["rt", "stm32h747cm7", "ethernet"]
 
 [[example]]
 name = "ethernet-nucleo-h743zi2"
-required-features = ["phy_lan8742a", "rt", "revision_v", "stm32h743v", "ethernet"]
+required-features = ["rt", "revision_v", "stm32h743v", "ethernet"]
 
 [[example]]
 name = "tick_timer"
