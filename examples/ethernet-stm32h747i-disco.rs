@@ -13,6 +13,7 @@ use cortex_m_rt as rt;
 use rt::{entry, exception};
 
 #[macro_use]
+#[allow(unused)]
 mod utilities;
 
 use log::info;

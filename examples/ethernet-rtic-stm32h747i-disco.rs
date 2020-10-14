@@ -15,6 +15,7 @@ use cortex_m;
 use rtic::app;
 
 #[macro_use]
+#[allow(unused)]
 mod utilities;
 use log::info;
 

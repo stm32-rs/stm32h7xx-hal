@@ -19,7 +19,7 @@ jobs:
           - log-semihost
           - log-rtt
     env:                        # Peripheral Feature flags
-      FLAGS: rt,quadspi,sdmmc,fmc,usb_hs,rtc
+      FLAGS: rt,quadspi,sdmmc,fmc,usb_hs,rtc,ethernet
 
     steps:
       - uses: actions/checkout@v2
