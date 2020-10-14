@@ -5,7 +5,8 @@ use core::marker::PhantomData;
 use crate::rcc::ResetEnable;
 use crate::stm32::{EXTI, SYSCFG};
 
-/// Extension trait to split a GPIO peripheral in independent pins and registers
+/// Extension trait to split a GPIO peripheral into independent pins and
+/// registers
 pub trait GpioExt {
     /// The parts to split the GPIO into
     type Parts;
@@ -13,8 +14,38 @@ pub trait GpioExt {
     /// The Reset and Enable control block for this GPIO block
     type Rec: ResetEnable;
 
-    /// Splits the GPIO block into independent pins and registers
+    /// Takes the GPIO peripheral and splits it into Zero-Sized Types
+    /// (ZSTs) representing individual pins. These are public
+    /// members of the return type.
+    ///
+    /// ```
+    /// let device_peripherals = stm32::Periperhals.take().unwrap();
+    /// let ccdr = ...; // From RCC
+    ///
+    /// let gpioa = device_peripherals.GPIOA.split(ccdr.peripheral.GPIOA);
+    ///
+    /// let pa0 = gpioa.pa0; // Pin 0
+    /// ```
     fn split(self, prec: Self::Rec) -> Self::Parts;
+
+    /// As [split](GpioExt#tymethod.split), but does not reset the GPIO
+    /// peripheral in the RCC_AHB4RSTR register. However it still enables the
+    /// peripheral in RCC_AHB4ENR, so our accesses to the peripheral memory will
+    /// always be valid.
+    ///
+    /// This is useful for situations where some GPIO functionality
+    /// was already activated outside the HAL in early startup code
+    /// or a bootloader. That might be needed for watchdogs, clock
+    /// circuits, or executing from an external memory. In this
+    /// case, `split_without_reset` allows this GPIO HAL to be used
+    /// without generating unwanted edges on already initialised
+    /// pins.
+    ///
+    /// However, the user takes responsibility that the GPIO
+    /// peripheral is in a valid state already. Note that the
+    /// registers accessed and written by this HAL may change in any
+    /// patch revision.
+    fn split_without_reset(self, prec: Self::Rec) -> Self::Parts;
 }
 
 pub struct Alternate<MODE> {
@@ -142,6 +173,16 @@ macro_rules! gpio {
 
                 fn split(self, prec: rec::$Rec) -> Parts {
                     prec.enable().reset();
+
+                    Parts {
+                        $(
+                            $pxi: $PXi { _mode: PhantomData },
+                        )+
+                    }
+                }
+
+                fn split_without_reset(self, prec: rec::$Rec) -> Parts {
+                    prec.enable();
 
                     Parts {
                         $(
