@@ -8,15 +8,20 @@ use crate::hal::blocking::delay::DelayUs;
 
 use core::marker::PhantomData;
 
-use crate::stm32::{ADC1, ADC2, ADC3, ADC3_COMMON};
+#[cfg(feature = "rm0455")]
+use crate::stm32::ADC12_COMMON;
+use crate::stm32::{ADC1, ADC2};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::{ADC3, ADC3_COMMON};
 
 use crate::delay::Delay;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1};
 use crate::gpio::gpioc::{PC0, PC1, PC2, PC3, PC4, PC5};
-use crate::gpio::gpiof::{
-    PF10, PF11, PF12, PF13, PF14, PF3, PF4, PF5, PF6, PF7, PF8, PF9,
-};
+#[cfg(not(feature = "rm0455"))]
+use crate::gpio::gpiof::{PF10, PF3, PF4, PF5, PF6, PF7, PF8, PF9};
+use crate::gpio::gpiof::{PF11, PF12, PF13, PF14};
+#[cfg(not(feature = "rm0455"))]
 use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
 use crate::gpio::Analog;
 use crate::rcc::rec::AdcClkSelGetter;
@@ -30,7 +35,11 @@ const ADC_KER_CK_MAX: u32 = 36_000_000;
 #[cfg(feature = "revision_v")]
 const ADC_KER_CK_MAX: u32 = 100_000_000;
 
+#[cfg(not(feature = "rm0455"))]
 pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
+#[cfg(feature = "rm0455")]
+pub type Resolution = crate::stm32::adc1::cfgr::RES_A;
+
 trait NumberOfBits {
     fn number_of_bits(&self) -> u32;
 }
@@ -169,7 +178,7 @@ macro_rules! adc_pins {
 }
 
 macro_rules! adc_internal {
-    ($($input:ty => ($chan:expr, $en:ident)),+ $(,)*) => {
+    ([$INT_ADC:ident, $INT_ADC_COMMON:ident]; $($input:ty => ($chan:expr, $en:ident)),+ $(,)*) => {
         $(
             impl $input {
                 pub fn new() -> Self {
@@ -178,23 +187,23 @@ macro_rules! adc_internal {
 
                 /// Enables the internal voltage/sensor
                 /// ADC must be disabled.
-                pub fn enable(&mut self, _adc: &Adc<ADC3, Disabled>) {
+                pub fn enable(&mut self, _adc: &Adc<$INT_ADC, Disabled>) {
 
-                    let common = unsafe { &*ADC3_COMMON::ptr() };
+                    let common = unsafe { &*$INT_ADC_COMMON::ptr() };
 
                     common.ccr.modify(|_, w| w.$en().enabled());
                 }
                 /// Disables the internal voltage/sdissor
                 /// ADC must be disabled.
-                pub fn disable(&mut self, _adc: &Adc<ADC3, Disabled>) {
+                pub fn disable(&mut self, _adc: &Adc<$INT_ADC, Disabled>) {
 
-                    let common = unsafe { &*ADC3_COMMON::ptr() };
+                    let common = unsafe { &*$INT_ADC_COMMON::ptr() };
 
                     common.ccr.modify(|_, w| w.$en().disabled());
                 }
             }
 
-            adc_pins!(ADC3, $input => $chan);
+            adc_pins!($INT_ADC, $input => $chan);
         )+
     };
 }
@@ -253,6 +262,7 @@ adc_pins!(ADC2,
           PA5<Analog> => 19,
 );
 
+#[cfg(not(feature = "rm0455"))]
 adc_pins!(ADC3,
           // 0, 1 are Pxy_C pins
           PF9<Analog> => 2,
@@ -271,10 +281,22 @@ adc_pins!(ADC3,
           PH4<Analog> => 15,
           PH5<Analog> => 16,
 );
+#[cfg(not(feature = "rm0455"))]
 adc_internal!(
-          Vbat => (17, vbaten),
-          Temperature => (18, vsenseen),
-          Vrefint => (19, vrefen)
+    [ADC3, ADC3_COMMON];
+
+    Vbat => (17, vbaten),
+    Temperature => (18, vsenseen),
+    Vrefint => (19, vrefen)
+);
+
+#[cfg(feature = "rm0455")]
+adc_internal!(
+    [ADC2, ADC12_COMMON];
+
+    Vbat => (14, vbaten),
+    Temperature => (18, vsenseen),
+    Vrefint => (19, vrefen)
 );
 
 pub trait AdcExt<ADC>: Sized {
@@ -354,6 +376,7 @@ pub fn adc12(
     (adc1, adc2)
 }
 
+#[cfg(not(feature = "rm0455"))]
 /// Freeing both the periperhal and PREC is possible for ADC3
 impl<ED> Adc<ADC3, ED> {
     /// Releases the ADC peripheral
@@ -782,5 +805,7 @@ macro_rules! adc_hal {
 adc_hal!(
     ADC1: (adc1, Adc12), // ADC1
     ADC2: (adc2, Adc12), // ADC2
-    ADC3: (adc3, Adc3),  // ADC3
 );
+
+#[cfg(not(feature = "rm0455"))]
+adc_hal!(ADC3: (adc3, Adc3));

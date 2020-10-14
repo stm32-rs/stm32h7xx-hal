@@ -32,7 +32,9 @@ Supported Configurations
 * __stm32h743__ (Revision Y: stm32h743, stm32h742, stm32h750)
 * __stm32h753__
 * __stm32h747cm7__ (stm32h747, stm32h757)
-
+* __stm32h7b3__
+* __stm32h7b0__
+* __stm32h7a3__
 
 #### Single core parts (Cortex M7)
 In 2019 ST released hardware Revision V of the stm32h742, stm32h743,

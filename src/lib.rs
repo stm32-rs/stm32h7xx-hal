@@ -64,6 +64,9 @@ compile_error!(
         stm32h750v
         stm32h747cm7
         stm32h757cm7
+        stm32h7b3
+        stm32h7b0
+        stm32h7a3
 "
 );
 
@@ -98,10 +101,18 @@ pub use stm32h7::stm32h753v as stm32;
 pub use stm32h7::stm32h747cm7 as stm32;
 #[cfg(any(feature = "stm32h757cm7",))]
 pub use stm32h7::stm32h757cm7 as stm32;
-// TODO(dualcore): soundness of PeripheralREC macro in rcc/rec.rs
+// TODO(rm0399): soundness of PeripheralREC macro in rcc/rec.rs
 
-#[cfg(all(feature = "singlecore", feature = "dualcore"))]
-compile_error!("Cannot not select both singlecore and dualcore");
+// High Memory Integration
+#[cfg(any(
+    feature = "stm32h7b3",
+    feature = "stm32h7a3",
+    feature = "stm32h7b0",
+))]
+pub use stm32h7::stm32h7b3 as stm32;
+
+#[cfg(all(feature = "rm0433", feature = "rm0399"))]
+compile_error!("Cannot not select both rm0433 and rm0399");
 
 #[cfg(all(feature = "cm7", feature = "cm4"))]
 compile_error!("Cannot not select both CM7 and CM4");
@@ -143,7 +154,11 @@ pub mod pwm;
 pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
-#[cfg(all(feature = "device-selected", feature = "quadspi"))]
+#[cfg(all(
+    feature = "device-selected",
+    feature = "quadspi",
+    not(feature = "rm0455")
+))]
 pub mod qspi;
 #[cfg(feature = "device-selected")]
 pub mod rcc;

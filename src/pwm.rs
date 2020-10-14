@@ -45,7 +45,9 @@ use core::mem::MaybeUninit;
 
 use crate::hal;
 use crate::stm32::{lptim1, lptim3};
-use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
+use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::{LPTIM4, LPTIM5};
 use crate::stm32::{
     TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
     TIM8,
@@ -61,6 +63,8 @@ use crate::gpio::gpioa::{
 use crate::gpio::gpiob::{
     PB0, PB1, PB10, PB11, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB7, PB8, PB9,
 };
+#[cfg(feature = "rm0455")]
+use crate::gpio::gpioc::PC12;
 use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
 use crate::gpio::gpiod::{PD13, PD14, PD15};
 use crate::gpio::gpioe::{PE11, PE13, PE14, PE5, PE6, PE9};
@@ -68,7 +72,9 @@ use crate::gpio::gpiof::{PF6, PF7, PF8, PF9};
 use crate::gpio::gpiog::PG13;
 use crate::gpio::gpioh::{PH10, PH11, PH12, PH6, PH9};
 use crate::gpio::gpioi::{PI0, PI2, PI5, PI6, PI7};
+#[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11, PJ6, PJ8, PJ9};
+#[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::{Alternate, AF1, AF2, AF3, AF4, AF9};
@@ -208,16 +214,19 @@ macro_rules! pins {
             )*
         )+
     };
-    // Dual channel timer
-    ($($TIMX:ty: CH1: [$($CH1:ty),*] CH2: [$($CH2:ty),*]
-       CH1N: [$($CH1N:ty),*] CH2N: [$($CH2N:ty),*])+) => {
+    // Dual channel timer $pm
+    ($($TIMX:ty:
+       CH1: [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2: [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+       CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*])+) => {
         $(
             $(
+                $( #[ $pmeta1 ] )*
                 impl Pins<$TIMX, C1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1>;
                 }
             )*
             $(
+                $( #[ $pmeta2 ] )*
                 impl Pins<$TIMX, C2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2>;
                 }
@@ -225,25 +234,32 @@ macro_rules! pins {
         )+
     };
     // Quad channel timers
-    ($($TIMX:ty: CH1: [$($CH1:ty),*] CH2: [$($CH2:ty),*] CH3: [$($CH3:ty),*] CH4: [$($CH4:ty),*]
-       CH1N: [$($CH1N:ty),*] CH2N: [$($CH2N:ty),*] CH3N: [$($CH3N:ty),*] CH4N: [$($CH4N:ty),*])+) => {
+    ($($TIMX:ty:
+       CH1: [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2: [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+       CH3: [$($( #[ $pmeta3:meta ] )* $CH3:ty),*] CH4: [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
+       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
+       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*] CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*])+) => {
         $(
             $(
+                $( #[ $pmeta1 ] )*
                 impl Pins<$TIMX, C1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1>;
                 }
             )*
             $(
+                $( #[ $pmeta2 ] )*
                 impl Pins<$TIMX, C2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2>;
                 }
             )*
             $(
+                $( #[ $pmeta3 ] )*
                 impl Pins<$TIMX, C3> for $CH3 {
                     type Channel = Pwm<$TIMX, C3>;
                 }
             )*
             $(
+                $( #[ $pmeta4 ] )*
                 impl Pins<$TIMX, C4> for $CH4 {
                     type Channel = Pwm<$TIMX, C4>;
                 }
@@ -266,6 +282,9 @@ pins! {
         OUT: [
             PA1<Alternate<AF3>>
         ]
+}
+#[cfg(not(feature = "rm0455"))]
+pins! {
     LPTIM4:
         OUT: [
             PA2<Alternate<AF3>>
@@ -307,6 +326,8 @@ pins! {
     TIM15:
         CH1: [
             PA2<Alternate<AF4>>,
+            #[cfg(feature = "rm0455")]
+            PC12<Alternate<AF2>>,
             PE5<Alternate<AF4>>
         ]
         CH2: [
@@ -350,16 +371,19 @@ pins! {
         CH1: [
             PA8<Alternate<AF1>>,
             PE9<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK1<Alternate<AF1>>
         ]
         CH2: [
             PA9<Alternate<AF1>>,
             PE11<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ11<Alternate<AF1>>
         ]
         CH3: [
             PA10<Alternate<AF1>>,
             PE13<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ9<Alternate<AF1>>
         ]
         CH4: [
@@ -370,18 +394,21 @@ pins! {
             PA7<Alternate<AF1>>,
             PB13<Alternate<AF1>>,
             PE8<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK0<Alternate<AF1>>
         ]
         CH2N: [
             PB0<Alternate<AF1>>,
             PB14<Alternate<AF1>>,
             PE10<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF1>>
         ]
         CH3N: [
             PB1<Alternate<AF1>>,
             PB15<Alternate<AF1>>,
             PE12<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF1>>
         ]
         CH4N: []
@@ -475,17 +502,21 @@ pins! {
         CH1: [
             PC6<Alternate<AF3>>,
             PI5<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF3>>
         ]
         CH2: [
             PC7<Alternate<AF3>>,
             PI6<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ6<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF3>>
         ]
         CH3: [
             PC8<Alternate<AF3>>,
             PI7<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK0<Alternate<AF3>>
         ]
         CH4: [
@@ -496,19 +527,23 @@ pins! {
             PA5<Alternate<AF3>>,
             PA7<Alternate<AF3>>,
             PH13<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ9<Alternate<AF3>>
         ]
         CH2N: [
             PB0<Alternate<AF3>>,
             PB14<Alternate<AF3>>,
             PH14<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ7<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PJ11<Alternate<AF3>>
         ]
         CH3N: [
             PB1<Alternate<AF3>>,
             PB15<Alternate<AF3>>,
             PH15<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK1<Alternate<AF3>>
         ]
         CH4N: []
@@ -829,6 +864,9 @@ lptim_hal! {
     LPTIM1: (lptim1, Lptim1, lptim1),
     LPTIM2: (lptim2, Lptim2, lptim1),
     LPTIM3: (lptim3, Lptim3, lptim3),
+}
+#[cfg(not(feature = "rm0455"))]
+lptim_hal! {
     LPTIM4: (lptim4, Lptim4, lptim3),
     LPTIM5: (lptim5, Lptim5, lptim3),
 }

@@ -4,12 +4,14 @@
 #![no_std]
 #![no_main]
 
-use panic_itm as _;
+#[macro_use]
+#[allow(unused)]
+mod utilities;
 
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::rcc::rec::UsbClkSel;
-use stm32h7xx_hal::usb_hs::{UsbBus, USB2};
+use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
 use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
@@ -22,7 +24,7 @@ fn main() -> ! {
 
     // Power
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let vos = example_power!(pwr).freeze();
 
     // RCC
     let rcc = dp.RCC.constrain();
@@ -33,15 +35,31 @@ fn main() -> ! {
     ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
 
     // IO
-    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+    #[cfg(not(feature = "rm0455"))]
+    let (pin_dm, pin_dp) = {
+        let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
+        (
+            gpiob.pb14.into_alternate_af12(),
+            gpiob.pb15.into_alternate_af12(),
+        )
+    };
 
-    let usb = USB2 {
-        usb_global: dp.OTG2_HS_GLOBAL,
-        usb_device: dp.OTG2_HS_DEVICE,
-        usb_pwrclk: dp.OTG2_HS_PWRCLK,
-        pin_dm: gpioa.pa11.into_alternate_af10(),
-        pin_dp: gpioa.pa12.into_alternate_af10(),
-        prec: ccdr.peripheral.USB2OTG,
+    #[cfg(feature = "rm0455")]
+    let (pin_dm, pin_dp) = {
+        let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+        (
+            gpioa.pa11.into_alternate_af10(),
+            gpioa.pa12.into_alternate_af10(),
+        )
+    };
+
+    let usb = USB1 {
+        usb_global: dp.OTG1_HS_GLOBAL,
+        usb_device: dp.OTG1_HS_DEVICE,
+        usb_pwrclk: dp.OTG1_HS_PWRCLK,
+        pin_dm,
+        pin_dp,
+        prec: ccdr.peripheral.USB1OTG,
         hclk: ccdr.clocks.hclk(),
     };
 

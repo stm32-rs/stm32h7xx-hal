@@ -19,7 +19,11 @@ use core::convert::TryInto;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
-use crate::stm32::{SAI1, SAI4};
+
+use crate::stm32::SAI1;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::SAI4;
+
 use crate::time::Hertz;
 
 use crate::Never;
@@ -29,7 +33,9 @@ use crate::gpio::gpioc::{PC1, PC5};
 use crate::gpio::gpiod::PD6;
 use crate::gpio::gpioe::{PE2, PE4, PE5, PE6};
 use crate::gpio::gpiof::PF10;
-use crate::gpio::{Alternate, AF10, AF2, AF9};
+use crate::gpio::{Alternate, AF2};
+#[cfg(not(feature = "rm0455"))]
+use crate::gpio::{AF10, AF9};
 
 /// Trait for a valid combination of SAI PDM pins
 pub trait PulseDensityPins<SAI> {
@@ -127,6 +133,9 @@ pins! {
         ]
         CK3: []
         CK4: []
+}
+#[cfg(not(feature = "rm0455"))]
+pins! {
     SAI4:
         D1: [
             PB2<Alternate<AF10>>,
@@ -348,6 +357,9 @@ macro_rules! hal {
 }
 
 hal! {
-    SAI1, Sai1: (pdm_sai1),
+    SAI1, Sai1: (pdm_sai1)
+}
+#[cfg(not(feature = "rm0455"))]
+hal! {
     SAI4, Sai4: (pdm_sai4)
 }

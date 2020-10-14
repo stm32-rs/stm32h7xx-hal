@@ -16,12 +16,12 @@ use cortex_m::asm::delay as delay_cycles;
 use stm32h7xx_hal::device;
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
+use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
 use stm32h7xx_hal::sai::{
     self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, Sai, SaiChannel,
     SaiI2sExt, I2S,
 };
 use stm32h7xx_hal::stm32;
-use stm32h7xx_hal::stm32::rcc::d2ccip1r::SAI1SEL_A;
 use stm32h7xx_hal::time::{Hertz, U32Ext};
 
 use stm32h7xx_hal::traits::i2s::FullDuplex;
@@ -71,7 +71,7 @@ const APP: () = {
         codec.set_high().unwrap();
 
         // Use PLL3_P for the SAI1 clock
-        let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(SAI1SEL_A::PLL3_P);
+        let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
         let master_config =
             I2SChanConfig::new(I2SDir::Tx).set_frame_sync_active_high(true);
         let slave_config = I2SChanConfig::new(I2SDir::Rx)

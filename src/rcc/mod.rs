@@ -143,11 +143,15 @@ use crate::pwr::PowerConfiguration;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
-use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdccipr::CKPERSEL_A as CKPERSEL;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d1ccipr::CKPERSEL_A as CKPERSEL;
 
 pub mod backup;
 mod core_clocks;
@@ -448,6 +452,7 @@ impl Rcc {
 
         // See RM0433 Rev 7 Table 17. FLASH recommended number of wait
         // states and programming delay
+        #[cfg(not(feature = "rm0455"))]
         let (wait_states, progr_delay) = match vos {
             // VOS 0 range VCORE 1.26V - 1.40V
             Voltage::Scale0 => match rcc_aclk_mhz {
@@ -483,6 +488,49 @@ impl Rcc {
                 90..=134 => (2, 1),
                 135..=179 => (3, 2),
                 180..=224 => (4, 2),
+                _ => (7, 3),
+            },
+        };
+
+        // See RM0455 Rev 3 Table 15
+        #[cfg(feature = "rm0455")]
+        let (wait_states, progr_delay) = match vos {
+            // VOS 0 range VCORE 1.25V - 1.35V
+            Voltage::Scale0 => match rcc_aclk_mhz {
+                0..=41 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
+                42..=83 => (1, 0),
+                84..=125 => (2, 1),
+                126..=167 => (3, 1),
+                168..=209 => (4, 2),
+                210..=251 => (5, 2),
+                252..=280 => (6, 3),
+                _ => (7, 3),
+            },
+            // VOS 1 range VCORE 1.15V - 1.25V
+            Voltage::Scale1 => match rcc_aclk_mhz {
+                0..=37 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
+                38..=75 => (1, 0),
+                76..=113 => (2, 1),
+                114..=151 => (3, 1),
+                152..=189 => (4, 2),
+                190..=224 => (5, 2),
+                _ => (7, 3),
+            },
+            // VOS 2 range VCORE 1.05V - 1.15V
+            Voltage::Scale2 => match rcc_aclk_mhz {
+                0..=33 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
+                34..=67 => (1, 0),
+                68..=101 => (2, 1),
+                102..=135 => (3, 1),
+                136..=159 => (4, 2),
+                _ => (7, 3),
+            },
+            // VOS 3 range VCORE 0.95V - 1.05V
+            Voltage::Scale3 => match rcc_aclk_mhz {
+                0..=21 => (1, 0), // Errata? 7A3 Rev Z did not run at 0 wait-states
+                22..=43 => (1, 0),
+                44..=65 => (2, 1),
+                66..=87 => (3, 1),
                 _ => (7, 3),
             },
         };
@@ -535,7 +583,10 @@ impl Rcc {
             // set. The traceclk mux is synchronous with the system
             // clock mux, but has pll1_r_ck as an input. In order to
             // keep traceclk running, we force a pll1_r_ck.
+            #[cfg(not(feature = "rm0455"))]
             (true, None) => Some(self.config.pll1.p_ck.unwrap() / 2),
+            #[cfg(feature = "rm0455")]
+            (true, None) => Some(self.config.pll1.p_ck.unwrap() / 8),
             // Either pll1 not selected as system clock, free choice
             // of pll1_r_ck. Or pll1 is selected, assume user has set
             // a suitable pll1_r_ck frequency.
@@ -637,6 +688,7 @@ impl Rcc {
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
+        #[cfg(not(feature = "rm0455"))]
         let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
             Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
             Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
@@ -644,11 +696,23 @@ impl Rcc {
             _ => (200_000_000, 100_000_000, 50_000_000),
         };
 
+        #[cfg(feature = "rm0455")] // 7B3 / 7A3 / 7B0
+        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
+            Voltage::Scale0 => (280_000_000, 280_000_000, 140_000_000),
+            Voltage::Scale1 => (225_000_000, 225_000_000, 112_500_000),
+            Voltage::Scale2 => (160_000_000, 160_000_000, 80_000_000),
+            _ => (88_000_000, 88_000_000, 44_000_000),
+        };
+
         // Check resulting sys_d1cpre_ck
         assert!(sys_d1cpre_ck <= sys_d1cpre_ck_max);
 
-        // Get ideal AHB clock
+        // Get AHB clock or sensible default
+        #[cfg(not(feature = "rm0455"))]
         let rcc_hclk = self.config.rcc_hclk.unwrap_or(sys_d1cpre_ck / 2);
+        #[cfg(feature = "rm0455")]
+        let rcc_hclk = self.config.rcc_hclk.unwrap_or(sys_d1cpre_ck);
+
         assert!(rcc_hclk <= rcc_hclk_max);
 
         // Estimate divisor
@@ -804,7 +868,10 @@ impl Rcc {
         });
 
         // Peripheral Clock (per_ck)
+        #[cfg(not(feature = "rm0455"))]
         rcc.d1ccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
+        #[cfg(feature = "rm0455")]
+        rcc.cdccipr.modify(|_, w| w.ckpersel().variant(ckpersel));
 
         // Set timer clocks prescaler setting
         rcc.cfgr.modify(|_, w| w.timpre().variant(timpre));

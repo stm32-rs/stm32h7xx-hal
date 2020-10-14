@@ -7,8 +7,8 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 
 use stm32h7xx_hal::{
     adc,
@@ -22,14 +22,14 @@ use log::info;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -47,21 +47,33 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     // Setup ADC
-    let mut adc3 =
+    #[cfg(not(feature = "rm0455"))]
+    let mut adc =
         adc::Adc::adc3(dp.ADC3, &mut delay, ccdr.peripheral.ADC3, &ccdr.clocks);
-    adc3.set_resolution(adc::Resolution::SIXTEENBIT);
+
+    // On RM0455 parts, the temperature sensor is on ADC2
+    #[cfg(feature = "rm0455")]
+    let mut adc = adc::Adc::adc2(
+        dp.ADC2,
+        &mut delay,
+        ccdr.peripheral.ADC12,
+        &ccdr.clocks,
+    );
+
+    // Set resolution
+    adc.set_resolution(adc::Resolution::SIXTEENBIT);
 
     // Setup Temperature Sensor on the disabled ADC
     let mut channel = adc::Temperature::new();
-    channel.enable(&adc3);
+    channel.enable(&adc);
     delay.delay_us(25_u16);
-    let mut adc3 = adc3.enable();
+    let mut adc = adc.enable();
 
     let vdda = 2.500; // Volts
 
     loop {
         let word: u32 =
-            adc3.read(&mut channel).expect("Temperature read failed.");
+            adc.read(&mut channel).expect("Temperature read failed.");
 
         // Average slope
         let cal = (110.0 - 30.0)

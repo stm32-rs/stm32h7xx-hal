@@ -13,6 +13,10 @@ use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
 
+#[macro_use]
+#[path = "utilities/power.rs"]
+mod power;
+
 use panic_halt as _;
 
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
@@ -25,14 +29,11 @@ const APP: () = {
     #[init]
     fn init(mut ctx: init::Context) -> init::LateResources {
         let pwr = ctx.device.PWR.constrain();
-        let pwrcfg = pwr.freeze();
+        let pwrcfg = example_power!(pwr).freeze();
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let ccdr = rcc
-            .use_hse(25.mhz())
-            .sys_ck(400.mhz())
-            .freeze(pwrcfg, &ctx.device.SYSCFG);
+        let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // GPIO
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);

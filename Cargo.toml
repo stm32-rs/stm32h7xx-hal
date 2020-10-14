@@ -73,11 +73,13 @@ default = ["unproven"]
 unproven = ["embedded-hal/unproven"]
 device-selected = []
 revision_v = []
-singlecore = []
-dualcore = []
+rm0433 = []                     # aka. "single core" devices
+rm0399 = []                     # aka. "dual core" devices
+rm0455 = []                     # aka. "high memory integration" devices
 dsi = []
 cm4 = []
 cm7 = []
+smps = []
 quadspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
@@ -87,18 +89,25 @@ phy_lan8742a = []
 rtc = ["chrono"]
 rt = ["stm32h7/rt"]
 usb_hs = ["synopsys-usb-otg", "synopsys-usb-otg/hs"]
-stm32h742 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
-stm32h743 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
-stm32h753 = ["stm32h7/stm32h753", "device-selected", "singlecore"]
-stm32h750 = ["stm32h7/stm32h743", "device-selected", "singlecore"]
-stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
-stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
-stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v", "singlecore"]
-stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "singlecore"]
-stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "dualcore", "cm7", "dsi"]
+stm32h742 = ["stm32h7/stm32h743", "device-selected", "rm0433"]
+stm32h743 = ["stm32h7/stm32h743", "device-selected", "rm0433"]
+stm32h753 = ["stm32h7/stm32h753", "device-selected", "rm0433"]
+stm32h750 = ["stm32h7/stm32h743", "device-selected", "rm0433"]
+stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
+stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
+stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v", "rm0433"]
+stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
+stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "rm0399", "cm7", "dsi", "smps"]
+stm32h7b3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
+stm32h7b0 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
+stm32h7a3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
+# Flags for examples
 log-itm = []
 log-rtt = []
-log-semihost  = []
+log-semihost = []
+example-smps = []
+example-ldo = []
+
 
 [profile.dev]
 codegen-units = 1 # better optimizations
@@ -121,7 +130,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "vos0"
-required-features = ["revision_v"]
+required-features = ["revision_v", "rm0433"]
 
 [[example]]
 name = "fmc"
@@ -129,11 +138,11 @@ required-features = ["fmc"]
 
 [[example]]
 name = "qspi"
-required-features = ["quadspi"]
+required-features = ["quadspi", "rm0433"]
 
 [[example]]
 name = "sdmmc"
-required-features = ["sdmmc"]
+required-features = ["sdmmc", "rm0433"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
@@ -157,9 +166,12 @@ required-features = ["usb_hs"]
 
 [[example]]
 name = "usb_passthrough"
-required-features = ["usb_hs"]
+required-features = ["usb_hs", "rm0399"]
 
 [[example]]
 name = "rtc"
 required-features = ["rt", "rtc"]
 
+[[example]]
+name = "sai-i2s-passthru"
+required-features = ["rm0433"]

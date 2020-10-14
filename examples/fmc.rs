@@ -5,10 +5,13 @@
 use core::mem;
 use core::slice;
 
+#[macro_use]
+#[allow(dead_code)]
+mod utilities;
+
 use rtic::app;
 
 extern crate cortex_m;
-extern crate panic_itm;
 extern crate rtic;
 
 use stm32h7xx_hal::gpio::Speed;
@@ -116,7 +119,7 @@ const APP: () = {
 
         // Initialise power...
         let pwr = dp.PWR.constrain();
-        let pwrcfg = pwr.freeze();
+        let pwrcfg = example_power!(pwr).freeze();
 
         // Initialise clocks...
         let rcc = dp.RCC.constrain();

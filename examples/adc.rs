@@ -10,21 +10,21 @@ use log::info;
 
 use cortex_m_rt::entry;
 
-use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*};
+use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*, rcc::rec::AdcClkSel};
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
@@ -36,14 +36,13 @@ fn main() -> ! {
     //
     // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
     // otherwise
-    let ccdr = rcc
+    let mut ccdr = rcc
         .sys_ck(100.mhz())
         .per_ck(4.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
-    let d3ccipr = &unsafe { &*pac::RCC::ptr() }.d3ccipr;
-    d3ccipr.modify(|_, w| unsafe { w.adcsel().bits(0b10) });
+    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::PER);
 
     info!("");
     info!("stm32h7xx-hal example - ADC");

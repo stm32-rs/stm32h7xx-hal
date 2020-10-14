@@ -8,22 +8,20 @@ scheme in order to successfully transition from Run* mode to Run mode. For
 en explaination of Run* mode, see RM0433 Rev 7 Section 6.6.1 "System/D3
 domain modes".
 
-You can specify the power supply scheme through a builder method on
-PWR. For instance if your board uses the internal LDO to supply VCORE, you
-can replace:
+For your own code, see the
+[documentation](https://docs.rs/stm32h7xx-hal/latest/stm32h7xx_hal/pwr/index.html#smps)
+for the builder methods on `pwr`. However to make things easier for the
+examples, there are feature flags that set common power configurations.
 
-```rust
-let pwrcfg = pwr.freeze();
-```
+Flag | Situation | Applicable Boards (non-exhaustive)
+---|---|---
+`example-smps` | Board uses Internal SMPS | Any Nucleo with `-Q` suffix
+`example-ldo` | Board uses LDO, internal SMPS unconnected |
+none | Parts without internal SMPS |
 
-with
-
-```rust
-let pwrcfg = pwr.ldo().freeze();
-```
-
-The results of calling the wrong builder method for your hardware are
-undefined(!).
+The results of using the wrong power configuration for your hardware are
+undefined(!). If you can still access the debug port, load a simple example
+with the correct power configuration and power cycle the board.
 
 ## Logging
 

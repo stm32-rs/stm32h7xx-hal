@@ -7,16 +7,31 @@ use core::convert::TryInto;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};
 use crate::stm32;
-use crate::stm32::{SAI1, SAI2, SAI3, SAI4};
 use crate::time::Hertz;
 
+use crate::stm32::{SAI1, SAI2};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::{SAI3, SAI4};
+
+#[cfg(feature = "rm0455")]
+use crate::device::sai1::ch::sr;
+#[cfg(not(feature = "rm0455"))]
 use crate::device::sai4::ch::sr;
+
+#[cfg(feature = "rm0455")]
+type CH = stm32::sai1::CH;
+#[cfg(not(feature = "rm0455"))]
+type CH = stm32::sai4::CH;
+
 use crate::gpio::gpioa::{PA0, PA1, PA12, PA2};
 use crate::gpio::gpiob::PB2;
 use crate::gpio::gpioc::{PC0, PC1};
+#[cfg(not(feature = "rm0455"))]
 use crate::gpio::gpiod::{
     PD0, PD1, PD10, PD11, PD12, PD13, PD14, PD15, PD4, PD6, PD8, PD9,
 };
+#[cfg(feature = "rm0455")]
+use crate::gpio::gpiod::{PD11, PD12, PD13, PD6};
 use crate::gpio::gpioe::{
     PE0, PE11, PE12, PE13, PE14, PE2, PE3, PE4, PE5, PE6,
 };
@@ -584,14 +599,17 @@ macro_rules! i2s {
 }
 
 i2s! {
-    SAI2, Sai2: [i2s_sai1_ch_a, i2s_sai1_ch_b],
-    SAI3, Sai3: [i2s_sai2_ch_a, i2s_sai2_ch_b],
-    SAI1, Sai1: [i2s_sai3_ch_a, i2s_sai3_ch_b],
+    SAI1, Sai1: [i2s_sai1_ch_a, i2s_sai1_ch_b],
+    SAI2, Sai2: [i2s_sai2_ch_a, i2s_sai2_ch_b]
+}
+#[cfg(not(feature = "rm0455"))]
+i2s! {
+    SAI3, Sai3: [i2s_sai3_ch_a, i2s_sai3_ch_b],
     SAI4, Sai4: [i2s_sai4_ch_a, i2s_sai4_ch_b]
 }
 
 fn i2s_config_channel(
-    audio_ch: &stm32::sai4::CH,
+    audio_ch: &CH,
     mode: I2SMode,
     config: &I2SChanConfig,
     mclk_div: u8,
@@ -692,18 +710,18 @@ fn i2s_config_channel(
     }
 }
 
-fn enable_ch(audio_ch: &stm32::sai4::CH) {
+fn enable_ch(audio_ch: &CH) {
     unsafe { audio_ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS)) };
     audio_ch.cr2.modify(|_, w| w.fflush().flush());
     audio_ch.cr1.modify(|_, w| w.saien().enabled());
 }
 
-fn disable_ch(audio_ch: &stm32::sai4::CH) {
+fn disable_ch(audio_ch: &CH) {
     audio_ch.cr1.modify(|_, w| w.saien().disabled());
     while audio_ch.cr1.read().saien().bit_is_set() {}
 }
 
-fn read(audio_ch: &stm32::sai4::CH) -> nb::Result<(u32, u32), I2SError> {
+fn read(audio_ch: &CH) -> nb::Result<(u32, u32), I2SError> {
     match audio_ch.sr.read().flvl().variant() {
         Val(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
         _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
@@ -713,7 +731,7 @@ fn read(audio_ch: &stm32::sai4::CH) -> nb::Result<(u32, u32), I2SError> {
 fn send(
     left_word: u32,
     right_word: u32,
-    audio_ch: &stm32::sai4::CH,
+    audio_ch: &CH,
 ) -> nb::Result<(), I2SError> {
     // The FIFO is 8 words long. A write consists of 2 words, in stereo mode.
     // Therefore you need to wait for 3/4s to ensure 2 words are available for writing.
@@ -842,6 +860,9 @@ pins! {
             PF11<Alternate<AF10>>,
             PG10<Alternate<AF10>>
         ]
+}
+#[cfg(not(feature = "rm0455"))]
+pins! {
     SAI3:
         MCLK_A: [
             PD15<Alternate<AF6>>

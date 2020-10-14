@@ -2,8 +2,8 @@
 #![no_main]
 #![no_std]
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 
 use cortex_m_rt::entry;
 use log::info;
@@ -12,20 +12,19 @@ use stm32h7xx_hal::{gpio::Speed, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .use_hse(25.mhz())
-        .sys_ck(400.mhz())
+        .sys_ck(100.mhz())
         .pll2_strategy(rcc::PllConfigStrategy::FractionalNotLess)
         .pll2_p_ck(12_288_000.hz())
         .pll2_q_ck(6_144_000.hz())

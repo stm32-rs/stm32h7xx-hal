@@ -3,7 +3,10 @@
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
+#[cfg(feature = "rm0455")]
+use crate::gpio::gpioa::PA6;
 use crate::gpio::gpioa::{PA4, PA5};
+
 use crate::gpio::Analog;
 use crate::hal::blocking::delay::DelayUs;
 use crate::rcc::{rec, ResetEnable};
@@ -34,6 +37,8 @@ pub trait Pins<DAC> {
     type Output;
 }
 
+// DAC1
+
 impl Pins<DAC> for PA4<Analog> {
     type Output = C1<Disabled>;
 }
@@ -44,6 +49,13 @@ impl Pins<DAC> for PA5<Analog> {
 
 impl Pins<DAC> for (PA4<Analog>, PA5<Analog>) {
     type Output = (C1<Disabled>, C2<Disabled>);
+}
+
+// DAC2
+
+#[cfg(feature = "rm0455")]
+impl Pins<DAC> for PA6<Analog> {
+    type Output = C1<Disabled>;
 }
 
 pub fn dac<PINS>(_dac: DAC, _pins: PINS, prec: rec::Dac12) -> PINS::Output

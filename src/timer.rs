@@ -7,7 +7,9 @@ use core::convert::TryFrom;
 use core::marker::PhantomData;
 
 use crate::hal::timer::{CountDown, Periodic};
-use crate::stm32::{LPTIM1, LPTIM2, LPTIM3, LPTIM4, LPTIM5};
+use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::{LPTIM4, LPTIM5};
 use crate::stm32::{
     TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
     TIM6, TIM7, TIM8,
@@ -17,9 +19,13 @@ use cast::{u16, u32};
 use nb;
 use void::Void;
 
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::{cdccip2r as ccip2r, srdccipr};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::{d2ccip2r as ccip2r, d3ccipr as srdccipr};
+
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
-use crate::stm32::rcc::{d2ccip2r, d3ccipr};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
@@ -52,15 +58,18 @@ impl GetClk for LPTIM1 {
     /// Current kernel clock
     fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
         // unsafe: read only
-        let d2ccip2r = &unsafe { &*stm32::RCC::ptr() }.d2ccip2r;
+        #[cfg(not(feature = "rm0455"))]
+        let ccip2r = &unsafe { &*stm32::RCC::ptr() }.d2ccip2r;
+        #[cfg(feature = "rm0455")]
+        let ccip2r = &unsafe { &*stm32::RCC::ptr() }.cdccip2r;
 
-        match d2ccip2r.read().lptim1sel().variant() {
-            Val(d2ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
-            Val(d2ccip2r::LPTIM1SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-            Val(d2ccip2r::LPTIM1SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-            Val(d2ccip2r::LPTIM1SEL_A::LSE) => unimplemented!(),
-            Val(d2ccip2r::LPTIM1SEL_A::LSI) => unimplemented!(),
-            Val(d2ccip2r::LPTIM1SEL_A::PER) => clocks.per_ck(),
+        match ccip2r.read().lptim1sel().variant() {
+            Val(ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
+            Val(ccip2r::LPTIM1SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+            Val(ccip2r::LPTIM1SEL_A::PLL3_R) => clocks.pll3_r_ck(),
+            Val(ccip2r::LPTIM1SEL_A::LSE) => unimplemented!(),
+            Val(ccip2r::LPTIM1SEL_A::LSI) => unimplemented!(),
+            Val(ccip2r::LPTIM1SEL_A::PER) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -70,19 +79,44 @@ impl GetClk for LPTIM2 {
     /// Current kernel clock
     fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
         // unsafe: read only
-        let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
+        #[cfg(not(feature = "rm0455"))]
+        let srdccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
+        #[cfg(feature = "rm0455")]
+        let srdccipr = &unsafe { &*stm32::RCC::ptr() }.srdccipr;
 
-        match d3ccipr.read().lptim2sel().variant() {
-            Val(d3ccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-            Val(d3ccipr::LPTIM2SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-            Val(d3ccipr::LPTIM2SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-            Val(d3ccipr::LPTIM2SEL_A::LSE) => unimplemented!(),
-            Val(d3ccipr::LPTIM2SEL_A::LSI) => unimplemented!(),
-            Val(d3ccipr::LPTIM2SEL_A::PER) => clocks.per_ck(),
+        match srdccipr.read().lptim2sel().variant() {
+            Val(srdccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+            Val(srdccipr::LPTIM2SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+            Val(srdccipr::LPTIM2SEL_A::PLL3_R) => clocks.pll3_r_ck(),
+            Val(srdccipr::LPTIM2SEL_A::LSE) => unimplemented!(),
+            Val(srdccipr::LPTIM2SEL_A::LSI) => unimplemented!(),
+            Val(srdccipr::LPTIM2SEL_A::PER) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
 }
+
+#[cfg(feature = "rm0455")]
+/// LPTIM3 Kernel Clock
+impl GetClk for LPTIM3 {
+    /// Current kernel clock
+    fn get_clk(clocks: &CoreClocks) -> Option<Hertz> {
+        // unsafe: read only
+        let srdccipr = &unsafe { &*stm32::RCC::ptr() }.srdccipr;
+
+        match srdccipr.read().lptim3sel().bits() {
+            0 => Some(clocks.pclk4()),
+            1 => clocks.pll2_p_ck(),
+            2 => clocks.pll3_r_ck(),
+            3 => unimplemented!(),
+            4 => unimplemented!(),
+            5 => clocks.per_ck(),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[cfg(not(feature = "rm0455"))]
 /// LPTIM345 Kernel Clock
 macro_rules! impl_clk_lptim345 {
 	($($TIMX:ident),+) => {
@@ -94,12 +128,12 @@ macro_rules! impl_clk_lptim345 {
                     let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
 
                     match d3ccipr.read().lptim345sel().variant() {
-                        Val(d3ccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Val(d3ccipr::LPTIM345SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(d3ccipr::LPTIM345SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-                        Val(d3ccipr::LPTIM345SEL_A::LSE) => unimplemented!(),
-                        Val(d3ccipr::LPTIM345SEL_A::LSI) => unimplemented!(),
-                        Val(d3ccipr::LPTIM345SEL_A::PER) => clocks.per_ck(),
+                        Val(srdccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+                        Val(srdccipr::LPTIM345SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+                        Val(srdccipr::LPTIM345SEL_A::PLL3_R) => clocks.pll3_r_ck(),
+                        Val(srdccipr::LPTIM345SEL_A::LSE) => unimplemented!(),
+                        Val(srdccipr::LPTIM345SEL_A::LSI) => unimplemented!(),
+                        Val(srdccipr::LPTIM345SEL_A::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -107,6 +141,7 @@ macro_rules! impl_clk_lptim345 {
         )+
     }
 }
+#[cfg(not(feature = "rm0455"))]
 impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
 /// External trait for hardware timers

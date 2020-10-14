@@ -7,8 +7,8 @@ use rt::{entry, exception};
 
 extern crate cortex_m;
 
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 use log::info;
 
 use stm32h7xx_hal::ethernet;
@@ -48,14 +48,14 @@ static mut DES_RING: ethernet::DesRing = ethernet::DesRing::new();
 // the program entry point
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = stm32::Peripherals::take().unwrap();
     let mut cp = stm32::CorePeripherals::take().unwrap();
 
     // Initialise power...
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = example_power!(pwr).freeze();
 
     // Initialise SRAM3
     info!("Setup RCC...                  ");

@@ -10,11 +10,12 @@ use crate::stm32;
 
 use crate::gpio::{
     gpioa::{PA11, PA12},
-    AF10,
+    Alternate, AF10,
 };
+#[cfg(not(feature = "rm0455"))]
 use crate::gpio::{
     gpiob::{PB14, PB15},
-    Alternate, AF12,
+    AF12,
 };
 
 use crate::time::Hertz;
@@ -22,6 +23,7 @@ use crate::time::Hertz;
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
 
+#[cfg(not(feature = "rm0455"))]
 pub struct USB1 {
     pub usb_global: stm32::OTG1_HS_GLOBAL,
     pub usb_device: stm32::OTG1_HS_DEVICE,
@@ -31,7 +33,7 @@ pub struct USB1 {
     pub prec: rcc::rec::Usb1Otg,
     pub hclk: Hertz,
 }
-
+#[cfg(not(feature = "rm0455"))]
 pub struct USB2 {
     pub usb_global: stm32::OTG2_HS_GLOBAL,
     pub usb_device: stm32::OTG2_HS_DEVICE,
@@ -39,6 +41,17 @@ pub struct USB2 {
     pub pin_dm: PA11<Alternate<AF10>>,
     pub pin_dp: PA12<Alternate<AF10>>,
     pub prec: rcc::rec::Usb2Otg,
+    pub hclk: Hertz,
+}
+
+#[cfg(feature = "rm0455")]
+pub struct USB1 {
+    pub usb_global: stm32::OTG1_HS_GLOBAL,
+    pub usb_device: stm32::OTG1_HS_DEVICE,
+    pub usb_pwrclk: stm32::OTG1_HS_PWRCLK,
+    pub pin_dm: PA11<Alternate<AF10>>,
+    pub pin_dp: PA12<Alternate<AF10>>,
+    pub prec: rcc::rec::Usb1Otg,
     pub hclk: Hertz,
 }
 
@@ -87,7 +100,9 @@ usb_peripheral! {
 }
 pub type Usb1BusType = UsbBus<USB1>;
 
+#[cfg(not(feature = "rm0455"))]
 usb_peripheral! {
     USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
 }
+#[cfg(not(feature = "rm0455"))]
 pub type Usb2BusType = UsbBus<USB2>;

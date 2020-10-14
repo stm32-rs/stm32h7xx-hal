@@ -3,21 +3,21 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-#[path = "utilities/logger.rs"]
-mod logger;
+#[macro_use]
+mod utilities;
 use stm32h7xx_hal::{pac, prelude::*, rcc};
 
 use log::info;
 
 #[entry]
 fn main() -> ! {
-    logger::init();
+    utilities::logger::init();
     let dp = pac::Peripherals::take().expect("Cannot take peripherals");
 
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.vos0(&dp.SYSCFG).freeze();
+    let pwrcfg = example_power!(pwr).vos0(&dp.SYSCFG).freeze();
 
     // Constrain and Freeze clock
     // The PllConfigStrategy::Normal strategy uses the medium range VCO which has a maximum of 420 Mhz

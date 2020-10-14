@@ -91,7 +91,7 @@ pub enum Event {
 }
 
 /// Return an EXTI register for the current CPU
-#[cfg(any(feature = "singlecore"))]
+#[cfg(any(feature = "rm0433", feature = "rm0455"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
         $self.cpuimr1
@@ -122,7 +122,7 @@ macro_rules! reg_for_cpu {
     };
 }
 
-#[cfg(all(feature = "dualcore", feature = "cm7"))]
+#[cfg(all(feature = "rm0399", feature = "cm7"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
         $self.c1imr1
@@ -153,7 +153,7 @@ macro_rules! reg_for_cpu {
     };
 }
 
-#[cfg(all(feature = "dualcore", feature = "cm4"))]
+#[cfg(all(feature = "rm0399", feature = "cm4"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
         $self.c2imr1
