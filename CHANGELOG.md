@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+* **Breaking**: Replace our time types with those from [embedded-time](https://github.com/FluenTech/embedded-time). [#149](https://github.com/stm32-rs/stm32h7xx-hal/pull/149)
 * pac: Upgrade to stm32-rs v0.12.0
 
 ## [v0.7.1] 2020-09-04
