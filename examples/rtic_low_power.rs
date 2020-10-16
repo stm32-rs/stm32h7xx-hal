@@ -1,0 +1,151 @@
+//! Timers in RTIC with low power mode.
+//!
+//! After the end of init the CPU transitions into CStop mode, and D1/D2
+//! (aka. CD) transition into DStop mode.
+//!
+//! However we set the run_d3 flag, and enable Autonomous mode on the LPTIM3
+//! PREC struture. Therefore LPTIM3 continues to run and fires an interrupt that
+//! wakes the core. Following each interrupt the core returns to CStop mode.
+//!
+//! On the first rising edge on PC13, the EXTI interrupt fires. We do not clear
+//! this interrupt, so we loop in the handler forever.
+//!
+//! Nb. on dual core parts you will also need to ensure that CPU2 transitions to
+//! DStop mode.
+//!
+#![deny(warnings)]
+#![deny(unsafe_code)]
+#![no_std]
+#![no_main]
+
+extern crate panic_itm;
+extern crate rtic;
+
+use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
+
+use rtic::app;
+use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14};
+use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
+use stm32h7xx_hal::prelude::*;
+use stm32h7xx_hal::rcc::LowPowerMode;
+use stm32h7xx_hal::stm32::{LPTIM3, TIM1, TIM2};
+use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
+
+#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
+const APP: () = {
+    struct Resources {
+        timer1: Timer<TIM1>,
+        timer2: Timer<TIM2>,
+        timer3: LpTimer<LPTIM3, Enabled>,
+        led1: PI12<Output<PushPull>>,
+        led2: PI13<Output<PushPull>>,
+        led3: PI14<Output<PushPull>>,
+    }
+
+    #[init]
+    fn init(ctx: init::Context) -> init::LateResources {
+        let mut syscfg = ctx.device.SYSCFG;
+
+        // Run D3 / SRD domain
+        ctx.device.PWR.cpucr.modify(|_, w| w.run_d3().set_bit());
+
+        let pwr = ctx.device.PWR.constrain();
+        let vos = pwr.freeze();
+
+        // RCC
+        let rcc = ctx.device.RCC.constrain();
+        let ccdr = rcc
+            // D3 / SRD domain
+            .hclk(16.mhz()) // rcc_hclk4
+            .pclk4(4.mhz()) // rcc_pclk4
+            .freeze(vos, &syscfg);
+
+        // Timers
+        let mut timer1 = ctx.device.TIM1.timer(
+            250.ms(),
+            // Run in CSleep, but not CStop
+            ccdr.peripheral.TIM1.low_power(LowPowerMode::Enabled),
+            &ccdr.clocks,
+        );
+        timer1.listen(Event::TimeOut);
+
+        let mut timer2 = ctx.device.TIM2.timer(
+            500.ms(),
+            // Run in CSleep, but not CStop
+            ccdr.peripheral.TIM2.low_power(LowPowerMode::Enabled),
+            &ccdr.clocks,
+        );
+        timer2.listen(Event::TimeOut);
+
+        let mut timer3 = ctx
+            .device
+            .LPTIM3
+            .timer(
+                1000.ms(),
+                // Run in LPTIM in D3 / SRD autonomous mode
+                ccdr.peripheral.LPTIM3.low_power(LowPowerMode::Autonomous),
+                &ccdr.clocks,
+            )
+            .pause();
+        timer3.listen(Event::TimeOut);
+        let timer3 = timer3.resume();
+
+        // GPIO
+        let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
+        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
+
+        // Enter CStop mode
+        let mut scb = ctx.core.SCB;
+        scb.set_sleepdeep();
+
+        // Wakeup
+        let mut exti = ctx.device.EXTI;
+        let mut wakeup = gpioc.pc13.into_floating_input();
+        wakeup.make_interrupt_source(&mut syscfg);
+        wakeup.trigger_on_edge(&mut exti, Edge::RISING);
+        wakeup.enable_interrupt(&mut exti);
+
+        // LEDs
+        let mut led1 = gpioi.pi12.into_push_pull_output();
+        let mut led2 = gpioi.pi13.into_push_pull_output();
+        let mut led3 = gpioi.pi14.into_push_pull_output();
+
+        led1.set_high().ok();
+        led2.set_high().ok();
+        led3.set_high().ok();
+
+        init::LateResources {
+            timer1,
+            timer2,
+            timer3,
+            led1,
+            led2,
+            led3,
+        }
+    }
+
+    // RTIC inserts a default idle loop that calls asm::wfi()
+
+    #[task(binds = EXTI15_10, resources = [], priority = 1)]
+    fn exti15_10_interrupt(_: exti15_10_interrupt::Context) {
+        // Once the wakeup is triggered, we loop here forever
+    }
+
+    #[task(binds = TIM1_UP, resources = [led1, timer1], priority = 2)]
+    fn timer1_tick(ctx: timer1_tick::Context) {
+        ctx.resources.timer1.clear_irq();
+        ctx.resources.led1.toggle().unwrap();
+    }
+
+    #[task(binds = TIM2, resources = [led2, timer2], priority = 2)]
+    fn timer2_tick(ctx: timer2_tick::Context) {
+        ctx.resources.timer2.clear_irq();
+        ctx.resources.led2.toggle().unwrap();
+    }
+
+    #[task(binds = LPTIM3, resources = [led3, timer3], priority = 2)]
+    fn timer3_tick(ctx: timer3_tick::Context) {
+        ctx.resources.timer3.clear_irq();
+        ctx.resources.led3.toggle().unwrap();
+    }
+};

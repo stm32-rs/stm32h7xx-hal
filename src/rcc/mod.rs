@@ -160,7 +160,7 @@ pub mod rec;
 
 pub use core_clocks::CoreClocks;
 pub use pll::{PllConfig, PllConfigStrategy};
-pub use rec::{PeripheralREC, ResetEnable};
+pub use rec::{LowPowerMode, PeripheralREC, ResetEnable};
 
 mod mco;
 use mco::{MCO1Config, MCO2Config, MCO1, MCO2};
