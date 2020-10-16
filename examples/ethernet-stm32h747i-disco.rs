@@ -92,6 +92,8 @@ fn main() -> ! {
             dp.ETHERNET_DMA,
             &mut DES_RING,
             mac_addr.clone(),
+            ccdr.peripheral.ETH1MAC,
+            &ccdr.clocks,
         )
     };
 

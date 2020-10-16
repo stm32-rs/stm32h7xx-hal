@@ -178,6 +178,8 @@ const APP: () = {
                 ctx.device.ETHERNET_DMA,
                 &mut DES_RING,
                 mac_addr.clone(),
+                ccdr.peripheral.ETH1MAC,
+                &ccdr.clocks,
             )
         };
 
