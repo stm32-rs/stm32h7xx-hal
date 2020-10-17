@@ -536,6 +536,20 @@ macro_rules! spi {
                         }
                     }
 
+                    /// Enables the Rx DMA stream. If the DMA Rx is used, the
+                    /// reference manual recommends that this is enabled before
+                    /// enabling the DMA
+                    pub fn enable_dma_rx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.rxdmaen().enabled());
+                    }
+
+                    /// Enables the Tx DMA stream. If the DMA Tx is used, the
+                    /// reference manual recommends that this is enabled after
+                    /// enablign the DMA
+                    pub fn enable_dma_tx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
+                    }
+
                     /// Deconstructs the SPI peripheral and returns the component parts.
                     pub fn free(self) -> ($SPIX, rec::$Rec) {
                         (self.spi, rec::$Rec { _marker: PhantomData })
@@ -544,6 +558,11 @@ macro_rules! spi {
 
                 impl<EN> Spi<$SPIX, EN, $TY>
                 {
+                    /// Returns a mutable reference to the inner peripheral
+                    pub fn inner_mut(&mut self) -> &mut $SPIX {
+                        &mut self.spi
+                    }
+
                     /// Enable interrupts for the given `event`:
                     ///  - Received data ready to be read (RXP)
                     ///  - Transmit data register empty (TXP)

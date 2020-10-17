@@ -134,10 +134,6 @@ pub mod adc;
 pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod delay;
-#[deprecated(
-    since = "0.8.0",
-    note = "The DMA API will be completely replaced in a future release"
-)]
 #[cfg(feature = "device-selected")]
 pub mod dma;
 #[cfg(all(
