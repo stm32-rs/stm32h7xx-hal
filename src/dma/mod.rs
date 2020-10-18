@@ -27,6 +27,9 @@ mod macros;
 #[cfg(not(feature = "rm0455"))] // Remove when fixed upstream
 pub mod dma; // DMA1 and DMA2
 
+#[cfg(not(feature = "rm0455"))] // Remove when fixed upstream
+pub mod bdma;
+
 pub mod traits;
 use traits::{sealed::Bits, Direction, Stream, TargetAddress};
 
@@ -70,13 +73,6 @@ pub enum DmaDirection {
 #[derive(Debug, Clone, Copy)]
 pub struct PeripheralToMemory;
 
-impl Bits<u8> for PeripheralToMemory {
-    #[inline(always)]
-    fn bits(self) -> u8 {
-        0
-    }
-}
-
 impl Direction for PeripheralToMemory {
     fn new() -> Self {
         PeripheralToMemory
@@ -93,13 +89,6 @@ pub struct MemoryToMemory<T> {
     _data: PhantomData<T>,
 }
 
-impl<T> Bits<u8> for MemoryToMemory<T> {
-    #[inline(always)]
-    fn bits(self) -> u8 {
-        2
-    }
-}
-
 impl<T> Direction for MemoryToMemory<T> {
     fn new() -> Self {
         Self { _data: PhantomData }
@@ -113,13 +102,6 @@ impl<T> Direction for MemoryToMemory<T> {
 /// DMA from a memory location to a peripheral.
 #[derive(Debug, Clone, Copy)]
 pub struct MemoryToPeripheral;
-
-impl Bits<u8> for MemoryToPeripheral {
-    #[inline(always)]
-    fn bits(self) -> u8 {
-        1
-    }
-}
 
 impl Direction for MemoryToPeripheral {
     fn new() -> Self {
@@ -506,7 +488,7 @@ where
         stream.disable();
 
         // Set peripheral to memory mode
-        stream.set_direction(DIR::new());
+        stream.set_direction(DIR::direction());
 
         // Enable bufferable transfers
         #[cfg(not(feature = "rm0455"))]

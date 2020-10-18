@@ -13,7 +13,7 @@ pub(crate) mod sealed {
     }
     pub trait Sealed {}
 }
-use sealed::{Bits, Sealed};
+use sealed::Sealed;
 
 /// Trait for DMA streams types.
 pub trait Stream: Sealed {
@@ -121,7 +121,7 @@ pub trait Stream: Sealed {
     fn set_peripheral_increment(&mut self, increment: bool);
 
     /// Set the direction (dir) of the DMA stream.
-    fn set_direction<D: Direction>(&mut self, direction: D);
+    fn set_direction(&mut self, direction: DmaDirection);
 
     #[cfg(not(feature = "rm0455"))]
     /// Enable bufferable transfers
@@ -193,7 +193,7 @@ pub trait Stream: Sealed {
 }
 
 /// DMA direction.
-pub trait Direction: Bits<u8> {
+pub trait Direction {
     /// Creates a new instance of the type.
     fn new() -> Self;
 
