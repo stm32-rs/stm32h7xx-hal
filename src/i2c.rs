@@ -82,6 +82,7 @@ where
 #[derive(Debug)]
 pub struct I2c<I2C> {
     i2c: I2C,
+    rx_dma_enable: bool,
 }
 
 pub trait I2cExt<I2C>: Sized {
@@ -310,12 +311,18 @@ macro_rules! i2c {
                     // Enable the peripheral
                     i2c.cr1.write(|w| w.pe().set_bit());
 
-                    I2c { i2c }
+                    I2c { i2c, rx_dma_enable: false }
                 }
 
                 /// Returns a reference to the inner peripheral
                 pub fn inner(&self) -> &$I2CX {
                     &self.i2c
+                }
+
+                /// Enable the DMA mode for reception
+                pub fn rx_dma(&mut self, enable: bool) {
+                    self.rx_dma_enable = enable;
+                    self.i2c.cr1.modify(|_,w| w.rxdmaen().bit(enable));
                 }
 
                 /// Start listening for `event`
@@ -529,11 +536,13 @@ macro_rules! i2c {
                             .automatic()
                     });
 
-                    for byte in buffer {
-                        // Wait until we have received something
-                        busy_wait!(self.i2c, rxne, is_not_empty);
+                    if !self.rx_dma_enable {
+                        for byte in buffer {
+                            // Wait until we have received something
+                            busy_wait!(self.i2c, rxne, is_not_empty);
 
-                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                            *byte = self.i2c.rxdr.read().rxdata().bits();
+                        }
                     }
 
                     // automatic STOP
@@ -574,11 +583,13 @@ macro_rules! i2c {
                         .automatic()
                 });
 
-                for byte in buffer {
-                    // Wait until we have received something
-                    busy_wait!(self.i2c, rxne, is_not_empty);
+                if !self.rx_dma_enable {
+                    for byte in buffer {
+                        // Wait until we have received something
+                        busy_wait!(self.i2c, rxne, is_not_empty);
 
-                    *byte = self.i2c.rxdr.read().rxdata().bits();
+                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                    }
                 }
 
                 // automatic STOP

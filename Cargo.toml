@@ -180,5 +180,9 @@ name = "dma"
 required-features = ["rm0433"]
 
 [[example]]
+name = "i2c4_bdma"
+required-features = ["rm0433"]
+
+[[example]]
 name = "spi_dma"
 required-features = ["rm0433"]
