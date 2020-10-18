@@ -1,5 +1,6 @@
 //! Example of Memory to Memory Transfer with the DMA
 
+#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]

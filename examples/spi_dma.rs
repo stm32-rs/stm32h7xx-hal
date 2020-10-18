@@ -1,5 +1,6 @@
 //! Example that transmits SPI data using the DMA
 
+#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -115,7 +116,7 @@ fn main() -> ! {
     });
 
     // Wait for transfer to complete
-    while transfer.get_transfer_complete_flag() == false {}
+    while !transfer.get_transfer_complete_flag() {}
 
     info!("Transfer complete!");
 
