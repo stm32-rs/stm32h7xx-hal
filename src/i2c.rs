@@ -313,6 +313,11 @@ macro_rules! i2c {
                     I2c { i2c }
                 }
 
+                /// Returns a reference to the inner peripheral
+                pub fn inner(&self) -> &$I2CX {
+                    &self.i2c
+                }
+
                 /// Start listening for `event`
                 pub fn listen(&mut self, event: Event) {
                     self.i2c.cr1.modify(|_,w| {

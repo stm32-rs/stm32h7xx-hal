@@ -10,6 +10,7 @@ use super::{
 use core::marker::PhantomData;
 
 use crate::{
+    i2c::I2c,
     pac::{self, BDMA, DMAMUX2},
     rcc::{rec, rec::ResetEnable},
     //serial::{Rx, Tx},
@@ -478,4 +479,6 @@ peripheral_target_address!(
     (pac::SPI6, txdr, u8, M2P, DMAReq::SPI6_TX_DMA),
     (pac::I2C4, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
     (pac::I2C4, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
+    (INNER, I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
+    (INNER, I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
 );
