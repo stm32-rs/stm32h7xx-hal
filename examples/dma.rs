@@ -67,7 +67,7 @@ fn main() -> ! {
         unsafe { mem::transmute(buf) }
     };
     // Save a copy on the stack so we can check it later
-    let source_buffer_cloned = source_buffer.clone();
+    let source_buffer_cloned = *source_buffer;
 
     // Setup DMA
     //
@@ -91,7 +91,7 @@ fn main() -> ! {
     transfer.start(|_| {});
 
     // Wait for transfer to complete
-    while transfer.get_transfer_complete_flag() == false {}
+    while !transfer.get_transfer_complete_flag() {}
 
     // Now the target memory is actually initialised
     let target_buffer: &'static mut [u32; 20] =
