@@ -95,14 +95,14 @@ fn main() -> ! {
     transfer.start(|i2c| {
         // This closure runs right after enabling the stream
 
-        // Issue the first part of the I2C transaction
-        //
-        // We use a dummy buffer to tell the I2C HAL the length of the
-        // transaction
+        // Issue the first part of an I2C transaction to read data from a
+        // touchscreen
 
-        let mut pt: [u8; 10] = [0; 10];
-        // Read data from a random touchscreen
-        i2c.write_read(0x28 >> 1, &[0x41, 0xE4], &mut pt).unwrap();
+        // Write register index
+        i2c.write(0xBA >> 1, &[0x41, 0xE4]).unwrap();
+
+        // Start a read of 10 bytes
+        i2c.master_read(0xBA >> 1, 10, i2c::Stop::Automatic);
     });
 
     // Enter CStop mode on wfi
