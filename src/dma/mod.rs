@@ -8,6 +8,11 @@
 //! Peripheral transfers, double buffering is supported only for Peripheral To
 //! Memory and Memory to Peripheral transfers.
 //!
+//! Given that the Cortex-M7 core is capable of reordering accesses between
+//! normal and device memory, we insert DMB instructions to ensure correct
+//! operation. See ARM DAI 0321A, Section 3.2 which discusses the use of DMB
+//! instructions in DMA controller configuration.
+//!
 //! Adapted from
 //! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs
 
@@ -586,6 +591,14 @@ where
         // "Preceding reads and writes cannot be moved past subsequent writes"
         compiler_fence(Ordering::Release);
 
+        // Ensure that all transfers to normal memory complete before
+        // subsequent memory transfers.
+        //
+        // The memory buffer is almost certainly in normal memory, so we ensure
+        // that all transfers there complete before proceeding to enable
+        // the stream
+        cortex_m::asm::dmb();
+
         unsafe {
             self.stream.enable();
         }
@@ -695,6 +708,14 @@ where
         self.stream.set_number_of_transfers(buf_len as u16);
         let old_buf = self.buf.replace(new_buf);
 
+        // Ensure that all transfers to normal memory complete before
+        // subsequent memory transfers.
+        //
+        // The new memory buffer is almost certainly in normal memory, so we
+        // ensure that all transfers there complete before proceeding to enable
+        // the stream
+        cortex_m::asm::dmb();
+
         // "Preceding reads and writes cannot be moved past subsequent writes"
         compiler_fence(Ordering::Release);
 
@@ -709,6 +730,11 @@ where
     pub fn free(mut self) -> (STREAM, PERIPHERAL, BUF, Option<BUF>) {
         self.stream.disable();
         compiler_fence(Ordering::SeqCst);
+
+        // Ensure that the transfer to device memory that disables the stream is
+        // complete before subsequent memory transfers
+        cortex_m::asm::dmb();
+
         self.stream.clear_interrupts();
 
         unsafe {
@@ -890,6 +916,14 @@ where
         self.stream.set_number_of_transfers(buf_len as u16);
         self.buf.replace(new_buf);
 
+        // Ensure that all transfers to normal memory complete before
+        // subsequent memory transfers.
+        //
+        // The new memory buffer is almost certainly in normal memory, so we
+        // ensure that all transfers there complete before proceeding to enable
+        // the stream
+        cortex_m::asm::dmb();
+
         // "Preceding reads and writes cannot be moved past subsequent writes"
         compiler_fence(Ordering::Release);
 
@@ -913,5 +947,9 @@ where
 
         // "No re-ordering of reads and writes across this point is allowed"
         compiler_fence(Ordering::SeqCst);
+
+        // Ensure that the transfer to device memory that disables the stream is
+        // complete before subsequent memory transfers
+        cortex_m::asm::dmb();
     }
 }
