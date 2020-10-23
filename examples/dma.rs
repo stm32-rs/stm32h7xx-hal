@@ -13,8 +13,9 @@ mod utilities;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use stm32h7xx_hal::dma::{
-    config::DmaConfig, dma::StreamsTuple, traits::Direction, MemoryToMemory,
-    Transfer,
+    dma::{DmaConfig, StreamsTuple},
+    traits::Direction,
+    MemoryToMemory, Transfer,
 };
 
 use log::info;

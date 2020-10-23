@@ -15,10 +15,19 @@ pub(crate) mod sealed {
 }
 use sealed::Sealed;
 
-/// Trait for DMA streams types.
+/// Minimal trait for DMA streams
 pub trait Stream: Sealed {
-    /// Number of the register stream.
+    /// Number of the stream register
     const NUMBER: usize;
+
+    /// Configuration structure for this stream.
+    type Config: Copy + Debug;
+
+    /// Structure representing interrupts
+    type Interrupts: Copy + Debug;
+
+    /// Apply the configation structure to this stream.
+    fn apply_config(&mut self, config: Self::Config);
 
     /// Clear all interrupts for the DMA stream.
     fn clear_interrupts(&mut self);
@@ -26,44 +35,11 @@ pub trait Stream: Sealed {
     /// Clear transfer complete interrupt (tcif) for the DMA stream.
     fn clear_transfer_complete_interrupt(&mut self);
 
-    /// Clear half transfer interrupt (htif) for the DMA stream.
-    fn clear_half_transfer_interrupt(&mut self);
-
     /// Clear transfer error interrupt (teif) for the DMA stream.
     fn clear_transfer_error_interrupt(&mut self);
 
-    /// Clear direct mode error interrupt (dmeif) for the DMA stream.
-    fn clear_direct_mode_error_interrupt(&mut self);
-
-    /// Clear fifo error interrupt (feif) for the DMA stream.
-    fn clear_fifo_error_interrupt(&mut self);
-
     /// Get transfer complete flag.
     fn get_transfer_complete_flag() -> bool;
-
-    /// Get half transfer flag.
-    fn get_half_transfer_flag() -> bool;
-
-    /// Set the peripheral address (par) for the DMA stream.
-    unsafe fn set_peripheral_address(&mut self, value: u32);
-
-    /// Set the memory address (m0ar) for the DMA stream.
-    unsafe fn set_memory_address(&mut self, value: u32);
-
-    /// Get the memory address (m0ar) for the DMA stream.
-    fn get_memory_address(&self) -> u32;
-
-    /// Set the double buffer address (m1ar) for the DMA stream.
-    unsafe fn set_memory_double_buffer_address(&mut self, value: u32);
-
-    /// Get the double buffer address (m1ar) for the DMA stream.
-    fn get_memory_double_buffer_address(&self) -> u32;
-
-    /// Set the number of transfers (ndt) for the DMA stream.
-    fn set_number_of_transfers(&mut self, value: u16);
-
-    /// Get the number of transfers (ndt) for the DMA stream.
-    fn get_number_of_transfers() -> u16;
 
     /// Enable the DMA stream.
     ///
@@ -83,11 +59,62 @@ pub trait Stream: Sealed {
     /// stream's interrupt flags if the stream is active.
     fn disable(&mut self);
 
-    /// Sets the corresponding DMAMUX request line for this stream
+    /// Sets the request or trigger line for this stream
     fn set_request_line(&mut self, request_line: u8);
 
-    /// Set the priority (pl) the DMA stream.
+    /// Set the priority the DMA stream.
     fn set_priority(&mut self, priority: config::Priority);
+
+    /// Disable all interrupts for the DMA stream.
+    fn disable_interrupts(&mut self);
+
+    /// Configure interrupts for the DMA stream
+    fn enable_interrupts(&mut self, interrupts: Self::Interrupts);
+
+    /// Get the value of all the interrupts for this DMA stream
+    fn get_interrupts_enable() -> Self::Interrupts;
+
+    /// Enable/disable the transfer complete interrupt (tcie) of the DMA stream.
+    fn set_transfer_complete_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
+
+    /// Enable/disable the transfer error interrupt (teie) of the DMA stream.
+    fn set_transfer_error_interrupt_enable(
+        &mut self,
+        transfer_error_interrupt: bool,
+    );
+}
+
+/// Trait for Double-Buffered DMA streams
+pub trait DoubleBufferedStream: Stream + Sealed {
+    /// Set the peripheral address (par) for the DMA stream.
+    unsafe fn set_peripheral_address(&mut self, value: u32);
+
+    /// Set the memory address (m0ar) for the DMA stream.
+    unsafe fn set_memory_address(&mut self, value: u32);
+
+    /// Get the memory address (m0ar) for the DMA stream.
+    fn get_memory_address(&self) -> u32;
+
+    /// Set the double buffer address (m1ar) for the DMA stream.
+    unsafe fn set_memory_double_buffer_address(&mut self, value: u32);
+
+    /// Get the double buffer address (m1ar) for the DMA stream.
+    fn get_memory_double_buffer_address(&self) -> u32;
+
+    /// Enable/disable memory increment (minc) for the DMA stream.
+    fn set_memory_increment(&mut self, increment: bool);
+
+    /// Enable/disable peripheral increment (pinc) for the DMA stream.
+    fn set_peripheral_increment(&mut self, increment: bool);
+
+    /// Set the number of transfers (ndt) for the DMA stream.
+    fn set_number_of_transfers(&mut self, value: u16);
+
+    /// Get the number of transfers (ndt) for the DMA stream.
+    fn get_number_of_transfers() -> u16;
 
     /// Set the memory size (msize) for the DMA stream.
     ///
@@ -99,6 +126,7 @@ pub trait Stream: Sealed {
     ///     * 0 -> byte
     ///     * 1 -> half word
     ///     * 2 -> word
+    ///     * 3 -> double workd
     unsafe fn set_memory_size(&mut self, size: u8);
 
     /// Set the peripheral memory size (psize) for the DMA stream.
@@ -114,12 +142,6 @@ pub trait Stream: Sealed {
     ///     * 2 -> word
     unsafe fn set_peripheral_size(&mut self, size: u8);
 
-    /// Enable/disable memory increment (minc) for the DMA stream.
-    fn set_memory_increment(&mut self, increment: bool);
-
-    /// Enable/disable peripheral increment (pinc) for the DMA stream.
-    fn set_peripheral_increment(&mut self, increment: bool);
-
     /// Set the direction (dir) of the DMA stream.
     fn set_direction(&mut self, direction: DmaDirection);
 
@@ -127,69 +149,26 @@ pub trait Stream: Sealed {
     /// Enable bufferable transfers
     fn set_trbuff(&mut self, trbuff: bool);
 
-    /// Convenience method to configure the 4 common interrupts for the DMA stream.
-    fn set_interrupts_enable(
-        &mut self,
-        transfer_complete: bool,
-        half_transfer: bool,
-        transfer_error: bool,
-        direct_mode_error: bool,
-    );
-
-    /// Convenience method to get the value of the 4 common interrupts for the
-    /// DMA stream.
-    ///
-    /// The order of the returns are: `transfer_complete`, `half_transfer`,
-    /// `transfer_error` and `direct_mode_error`.
-    fn get_interrupts_enable() -> (bool, bool, bool, bool);
-
-    /// Enable/disable the transfer complete interrupt (tcie) of the DMA stream.
-    fn set_transfer_complete_interrupt_enable(
-        &mut self,
-        transfer_complete_interrupt: bool,
-    );
-
-    /// Enable/disable the half transfer interrupt (htie) of the DMA stream.
-    fn set_half_transfer_interrupt_enable(
-        &mut self,
-        half_transfer_interrupt: bool,
-    );
-
-    /// Enable/disable the transfer error interrupt (teie) of the DMA stream.
-    fn set_transfer_error_interrupt_enable(
-        &mut self,
-        transfer_error_interrupt: bool,
-    );
-
-    /// Enable/disable the direct mode error interrupt (dmeie) of the DMA stream.
-    fn set_direct_mode_error_interrupt_enable(
-        &mut self,
-        direct_mode_error_interrupt: bool,
-    );
-
-    /// Enable/disable the fifo error interrupt (feie) of the DMA stream.
-    fn set_fifo_error_interrupt_enable(&mut self, fifo_error_interrupt: bool);
-
     /// Enable/disable the double buffer (dbm) of the DMA stream.
     fn set_double_buffer(&mut self, double_buffer: bool);
 
-    /// Set the fifo threshold (fcr.fth) of the DMA stream.
-    fn set_fifo_threshold(&mut self, fifo_threshold: config::FifoThreshold);
-
-    /// Enable/disable the fifo (dmdis) of the DMA stream.
-    fn set_fifo_enable(&mut self, fifo_enable: bool);
-
-    /// Set memory burst mode (mburst) of the DMA stream.
-    fn set_memory_burst(&mut self, memory_burst: config::BurstMode);
-
-    /// Set peripheral burst mode (pburst) of the DMA stream.
-    fn set_peripheral_burst(&mut self, peripheral_burst: config::BurstMode);
-
-    /// Get the current fifo level (fs) of the DMA stream.
-    fn fifo_level() -> FifoLevel;
-
     /// Get which buffer is currently in use by the DMA.
     fn current_buffer() -> CurrentBuffer;
+}
+
+/// Trait for Master DMA streams
+///
+/// TODO
+#[allow(unused)]
+pub trait MasterStream: Stream + Sealed {}
+
+/// Trait for the configuration of Double-Buffered DMA streams
+pub trait DoubleBufferedConfig {
+    /// Returns if the Double Buffer is enabled in the configuration
+    fn is_double_buffered(&self) -> bool;
+
+    /// Returns if the FIFO is enabled in the configuation
+    fn is_fifo_enabled(&self) -> bool;
 }
 
 /// DMA direction.

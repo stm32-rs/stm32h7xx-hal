@@ -36,7 +36,10 @@ pub mod dma; // DMA1 and DMA2
 pub mod bdma;
 
 pub mod traits;
-use traits::{sealed::Bits, Direction, Stream, TargetAddress};
+use traits::{
+    sealed::Bits, Direction, DoubleBufferedConfig, DoubleBufferedStream,
+    Stream, TargetAddress,
+};
 
 /// Errors.
 #[derive(PartialEq)]
@@ -211,6 +214,11 @@ pub mod config {
         /// Very high priority.
         VeryHigh,
     }
+    impl Default for Priority {
+        fn default() -> Self {
+            Priority::Medium
+        }
+    }
 
     impl Bits<u8> for Priority {
         fn bits(self) -> u8 {
@@ -271,144 +279,6 @@ pub mod config {
             }
         }
     }
-
-    /// Contains the complete set of configuration for a DMA stream.
-    #[derive(Debug, Clone, Copy)]
-    pub struct DmaConfig {
-        pub(crate) priority: Priority,
-        pub(crate) memory_increment: bool,
-        pub(crate) peripheral_increment: bool,
-        pub(crate) transfer_complete_interrupt: bool,
-        pub(crate) half_transfer_interrupt: bool,
-        pub(crate) transfer_error_interrupt: bool,
-        pub(crate) direct_mode_error_interrupt: bool,
-        pub(crate) fifo_error_interrupt: bool,
-        pub(crate) double_buffer: bool,
-        pub(crate) fifo_threshold: FifoThreshold,
-        pub(crate) fifo_enable: bool,
-        pub(crate) memory_burst: BurstMode,
-        pub(crate) peripheral_burst: BurstMode,
-    }
-
-    impl Default for DmaConfig {
-        fn default() -> Self {
-            Self {
-                priority: Priority::Medium,
-                memory_increment: false,
-                peripheral_increment: false,
-                transfer_complete_interrupt: false,
-                half_transfer_interrupt: false,
-                transfer_error_interrupt: false,
-                direct_mode_error_interrupt: false,
-                fifo_error_interrupt: false,
-                double_buffer: false,
-                fifo_threshold: FifoThreshold::QuarterFull,
-                fifo_enable: false,
-                memory_burst: BurstMode::NoBurst,
-                peripheral_burst: BurstMode::NoBurst,
-            }
-        }
-    }
-
-    impl DmaConfig {
-        /// Set the priority.
-        #[inline(always)]
-        pub fn priority(mut self, priority: Priority) -> Self {
-            self.priority = priority;
-            self
-        }
-
-        /// Set the memory_increment.
-        #[inline(always)]
-        pub fn memory_increment(mut self, memory_increment: bool) -> Self {
-            self.memory_increment = memory_increment;
-            self
-        }
-        /// Set the peripheral_increment.
-        #[inline(always)]
-        pub fn peripheral_increment(
-            mut self,
-            peripheral_increment: bool,
-        ) -> Self {
-            self.peripheral_increment = peripheral_increment;
-            self
-        }
-        /// Set the transfer_complete_interrupt.
-        #[inline(always)]
-        pub fn transfer_complete_interrupt(
-            mut self,
-            transfer_complete_interrupt: bool,
-        ) -> Self {
-            self.transfer_complete_interrupt = transfer_complete_interrupt;
-            self
-        }
-        /// Set the half_transfer_interrupt.
-        #[inline(always)]
-        pub fn half_transfer_interrupt(
-            mut self,
-            half_transfer_interrupt: bool,
-        ) -> Self {
-            self.half_transfer_interrupt = half_transfer_interrupt;
-            self
-        }
-        /// Set the transfer_error_interrupt.
-        #[inline(always)]
-        pub fn transfer_error_interrupt(
-            mut self,
-            transfer_error_interrupt: bool,
-        ) -> Self {
-            self.transfer_error_interrupt = transfer_error_interrupt;
-            self
-        }
-        /// Set the direct_mode_error_interrupt.
-        #[inline(always)]
-        pub fn direct_mode_error_interrupt(
-            mut self,
-            direct_mode_error_interrupt: bool,
-        ) -> Self {
-            self.direct_mode_error_interrupt = direct_mode_error_interrupt;
-            self
-        }
-        /// Set the fifo_error_interrupt.
-        #[inline(always)]
-        pub fn fifo_error_interrupt(
-            mut self,
-            fifo_error_interrupt: bool,
-        ) -> Self {
-            self.fifo_error_interrupt = fifo_error_interrupt;
-            self
-        }
-        /// Set the double_buffer.
-        #[inline(always)]
-        pub fn double_buffer(mut self, double_buffer: bool) -> Self {
-            self.double_buffer = double_buffer;
-            self
-        }
-        /// Set the fifo_threshold.
-        #[inline(always)]
-        pub fn fifo_threshold(mut self, fifo_threshold: FifoThreshold) -> Self {
-            self.fifo_threshold = fifo_threshold;
-            self
-        }
-        /// Set the fifo_enable.
-        #[inline(always)]
-        pub fn fifo_enable(mut self, fifo_enable: bool) -> Self {
-            self.fifo_enable = fifo_enable;
-            self
-        }
-        /// Set the memory_burst.
-        #[inline(always)]
-        pub fn memory_burst(mut self, memory_burst: BurstMode) -> Self {
-            self.memory_burst = memory_burst;
-            self
-        }
-        /// Set the peripheral_burst.
-        #[inline(always)]
-        pub fn peripheral_burst(mut self, peripheral_burst: BurstMode) -> Self {
-            self.peripheral_burst = peripheral_burst;
-            self
-        }
-    }
 }
 
 /// DMA Transfer.
@@ -429,47 +299,30 @@ where
     transfer_length: u16,
 }
 
-impl<STREAM, PERIPHERAL, DIR, BUF> Transfer<STREAM, PERIPHERAL, DIR, BUF>
+impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
+    Transfer<STREAM, PERIPHERAL, DIR, BUF>
 where
-    STREAM: Stream,
+    STREAM: DoubleBufferedStream + Stream<Config = CONFIG>,
+    CONFIG: DoubleBufferedConfig,
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
     BUF: WriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>
         + 'static,
 {
     /// Applies all fields in DmaConfig.
-    fn apply_config(&mut self, config: config::DmaConfig) {
+    fn apply_config(&mut self, config: CONFIG) {
         let msize =
             mem::size_of::<<PERIPHERAL as TargetAddress<DIR>>::MemSize>() / 2;
 
         self.stream.clear_interrupts();
-        self.stream.set_priority(config.priority);
+
         // NOTE(unsafe) These values are correct because of the invariants of TargetAddress
         unsafe {
             self.stream.set_memory_size(msize as u8);
             self.stream.set_peripheral_size(msize as u8);
         }
-        self.stream.set_memory_increment(config.memory_increment);
-        self.stream
-            .set_peripheral_increment(config.peripheral_increment);
-        self.stream.set_transfer_complete_interrupt_enable(
-            config.transfer_complete_interrupt,
-        );
-        self.stream
-            .set_half_transfer_interrupt_enable(config.half_transfer_interrupt);
-        self.stream.set_transfer_error_interrupt_enable(
-            config.transfer_error_interrupt,
-        );
-        self.stream.set_direct_mode_error_interrupt_enable(
-            config.direct_mode_error_interrupt,
-        );
-        self.stream
-            .set_fifo_error_interrupt_enable(config.fifo_error_interrupt);
-        self.stream.set_double_buffer(config.double_buffer);
-        self.stream.set_fifo_threshold(config.fifo_threshold);
-        self.stream.set_fifo_enable(config.fifo_enable);
-        self.stream.set_memory_burst(config.memory_burst);
-        self.stream.set_peripheral_burst(config.peripheral_burst);
+
+        self.stream.apply_config(config);
     }
 
     /// Configures the DMA source and destination and applies supplied
@@ -488,7 +341,7 @@ where
         peripheral: PERIPHERAL,
         mut memory: BUF,
         mut double_buf: Option<BUF>,
-        config: config::DmaConfig,
+        config: CONFIG,
     ) -> Self {
         stream.disable();
 
@@ -517,9 +370,9 @@ where
         let is_mem2mem = DIR::direction() == DmaDirection::MemoryToMemory;
         if is_mem2mem {
             // Fifo must be enabled for memory to memory
-            if !config.fifo_enable {
+            if !config.is_fifo_enabled() {
                 panic!("Fifo disabled.");
-            } else if config.double_buffer {
+            } else if config.is_double_buffered() {
                 panic!("Double buffering enabled.");
             }
         } else {
@@ -548,9 +401,8 @@ where
             }
             Some(db_len)
         } else {
-            // Double buffer mode must not be enabled if we haven't been given a
-            // second buffer
-            if config.double_buffer {
+            if config.is_double_buffered() {
+                // Error if we expected a double buffer but none was specified
                 panic!("No second buffer.");
             }
             None
@@ -570,7 +422,6 @@ where
 
         let mut transfer = Self {
             stream,
-            //_channel: PhantomData,
             peripheral,
             _direction: PhantomData,
             buf: Some(memory),
@@ -759,28 +610,10 @@ where
         self.stream.clear_transfer_complete_interrupt();
     }
 
-    /// Clear half transfer interrupt (htif) for the DMA stream.
-    #[inline(always)]
-    pub fn clear_half_transfer_interrupt(&mut self) {
-        self.stream.clear_half_transfer_interrupt();
-    }
-
     /// Clear transfer error interrupt (teif) for the DMA stream.
     #[inline(always)]
     pub fn clear_transfer_error_interrupt(&mut self) {
         self.stream.clear_transfer_error_interrupt();
-    }
-
-    /// Clear direct mode error interrupt (dmeif) for the DMA stream.
-    #[inline(always)]
-    pub fn clear_direct_mode_error_interrupt(&mut self) {
-        self.stream.clear_direct_mode_error_interrupt();
-    }
-
-    /// Clear fifo error interrupt (feif) for the DMA stream.
-    #[inline(always)]
-    pub fn clear_fifo_error_interrupt(&mut self) {
-        self.stream.clear_fifo_error_interrupt();
     }
 
     /// Get the underlying stream of the transfer.

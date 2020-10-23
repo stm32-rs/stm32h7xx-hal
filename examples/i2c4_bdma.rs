@@ -13,7 +13,8 @@ use core::{mem, mem::MaybeUninit};
 mod utilities;
 
 use stm32h7xx_hal::dma::{
-    bdma::StreamsTuple, config::DmaConfig, PeripheralToMemory, Transfer,
+    bdma::{BdmaConfig, StreamsTuple},
+    PeripheralToMemory, Transfer,
 };
 
 use stm32h7xx_hal::prelude::*;
@@ -82,7 +83,7 @@ fn main() -> ! {
         ccdr.peripheral.BDMA.low_power(LowPowerMode::Autonomous),
     );
 
-    let config = DmaConfig::default().memory_increment(true);
+    let config = BdmaConfig::default().memory_increment(true);
 
     let mut transfer: Transfer<_, _, PeripheralToMemory, _> = Transfer::init(
         streams.0,

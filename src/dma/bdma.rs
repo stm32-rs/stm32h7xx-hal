@@ -4,8 +4,7 @@ use super::{
     config,
     traits::sealed::{Bits, Sealed},
     traits::*,
-    CurrentBuffer, DmaDirection, FifoLevel, MemoryToPeripheral,
-    PeripheralToMemory,
+    CurrentBuffer, DmaDirection, MemoryToPeripheral, PeripheralToMemory,
 };
 use core::marker::PhantomData;
 
@@ -51,6 +50,92 @@ impl Instance for BDMA {
     }
 
     const DMA_MUX_STREAM_OFFSET: usize = 0;
+}
+
+/// BDMA interrupts
+#[derive(Debug, Clone, Copy)]
+pub struct BdmaInterrupts {
+    transfer_complete: bool,
+    transfer_error: bool,
+    half_transfer: bool,
+}
+
+/// Contains the complete set of configuration for a DMA stream.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct BdmaConfig {
+    pub(crate) priority: config::Priority,
+    pub(crate) memory_increment: bool,
+    pub(crate) peripheral_increment: bool,
+    pub(crate) transfer_complete_interrupt: bool,
+    pub(crate) half_transfer_interrupt: bool,
+    pub(crate) transfer_error_interrupt: bool,
+    pub(crate) double_buffer: bool,
+}
+
+impl DoubleBufferedConfig for BdmaConfig {
+    #[inline(always)]
+    fn is_double_buffered(&self) -> bool {
+        self.double_buffer
+    }
+
+    #[inline(always)]
+    fn is_fifo_enabled(&self) -> bool {
+        false // No FIFO for BDMA
+    }
+}
+
+impl BdmaConfig {
+    /// Set the priority.
+    #[inline(always)]
+    pub fn priority(mut self, priority: config::Priority) -> Self {
+        self.priority = priority;
+        self
+    }
+    /// Set the memory_increment.
+    #[inline(always)]
+    pub fn memory_increment(mut self, memory_increment: bool) -> Self {
+        self.memory_increment = memory_increment;
+        self
+    }
+    /// Set the peripheral_increment.
+    #[inline(always)]
+    pub fn peripheral_increment(mut self, peripheral_increment: bool) -> Self {
+        self.peripheral_increment = peripheral_increment;
+        self
+    }
+    /// Set the transfer_complete_interrupt.
+    #[inline(always)]
+    pub fn transfer_complete_interrupt(
+        mut self,
+        transfer_complete_interrupt: bool,
+    ) -> Self {
+        self.transfer_complete_interrupt = transfer_complete_interrupt;
+        self
+    }
+    /// Set the half_transfer_interrupt.
+    #[inline(always)]
+    pub fn half_transfer_interrupt(
+        mut self,
+        half_transfer_interrupt: bool,
+    ) -> Self {
+        self.half_transfer_interrupt = half_transfer_interrupt;
+        self
+    }
+    /// Set the transfer_error_interrupt.
+    #[inline(always)]
+    pub fn transfer_error_interrupt(
+        mut self,
+        transfer_error_interrupt: bool,
+    ) -> Self {
+        self.transfer_error_interrupt = transfer_error_interrupt;
+        self
+    }
+    /// Set the double_buffer.
+    #[inline(always)]
+    pub fn double_buffer(mut self, double_buffer: bool) -> Self {
+        self.double_buffer = double_buffer;
+        self
+    }
 }
 
 /// Stream 0 on BDMA
@@ -124,7 +209,7 @@ impl<I: Instance> StreamsTuple<I> {
     }
 }
 
-// Macro that creates a struct representing a stream on either DMA controller
+// Macro that creates a struct representing a stream on either BDMA controller
 //
 // The implementation does the heavy lifting of mapping to the right fields on
 // the stream
@@ -137,6 +222,22 @@ macro_rules! bdma_stream {
             impl<I: Instance> Stream for $name<I> {
 
                 const NUMBER: usize = $number;
+                type Config = BdmaConfig;
+                type Interrupts = BdmaInterrupts;
+
+                fn apply_config(&mut self, config: BdmaConfig) {
+                    self.set_priority(config.priority);
+                    self.set_memory_increment(config.memory_increment);
+                    self.set_peripheral_increment(config.peripheral_increment);
+                    self.set_transfer_complete_interrupt_enable(
+                        config.transfer_complete_interrupt
+                    );
+                    self.set_half_transfer_interrupt_enable(config.half_transfer_interrupt);
+                    self.set_transfer_error_interrupt_enable(
+                        config.transfer_error_interrupt
+                    );
+                    self.set_double_buffer(config.double_buffer);
+               }
 
                 #[inline(always)]
                 fn clear_interrupts(&mut self) {
@@ -144,10 +245,10 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w
-                        .$tcif().set_bit() //Clear transfer complete interrupt flag
-                        .$htif().set_bit() //Clear half transfer interrupt flag
-                        .$teif().set_bit() //Clear transfer error interrupt flag
-                        .$gif().set_bit() //Clear global interrupt flag
+                                    .$tcif().set_bit() //Clear transfer complete interrupt flag
+                                    .$htif().set_bit() //Clear half transfer interrupt flag
+                                    .$teif().set_bit() //Clear transfer error interrupt flag
+                                    .$gif().set_bit() //Clear global interrupt flag
                     );
                 }
 
@@ -160,29 +261,11 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
-                fn clear_half_transfer_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$htif().set_bit());
-                }
-
-                #[inline(always)]
                 fn clear_transfer_error_interrupt(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$teif().set_bit());
-                }
-
-                #[inline(always)]
-                fn clear_direct_mode_error_interrupt(&mut self) {
-
-                }
-
-                #[inline(always)]
-                fn clear_fifo_error_interrupt(&mut self) {
-
                 }
 
                 #[inline(always)]
@@ -193,12 +276,105 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
-                fn get_half_transfer_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$isr.read().$htisr().bit_is_set()
+                unsafe fn enable(&mut self) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = &*I::ptr();
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.en().set_bit());
                 }
 
+                #[inline(always)]
+                fn is_enabled() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.read().en().bit_is_set()
+                }
+
+                fn disable(&mut self) {
+                    if Self::is_enabled() {
+                        //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                        let dma = unsafe { &*I::ptr() };
+
+                        // Aborting an on-going transfer might cause interrupts to fire, disable
+                        // them
+                        let interrupts = Self::get_interrupts_enable();
+                        self.disable_interrupts();
+
+                        dma.ch[Self::NUMBER].cr.modify(|_, w| w.en().clear_bit());
+                        while Self::is_enabled() {}
+
+                        self.clear_interrupts();
+                        self.enable_interrupts(interrupts);
+                    }
+                }
+
+                #[inline(always)]
+                fn set_request_line(&mut self, request_line: u8) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dmamux = unsafe { &*I::mux_ptr() };
+                    unsafe {
+                        dmamux.ccr[Self::NUMBER + I::DMA_MUX_STREAM_OFFSET]
+                            .modify(|_, w| w.dmareq_id().bits(request_line));
+                    }
+                }
+
+                #[inline(always)]
+                fn set_priority(&mut self, priority: config::Priority) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.pl().bits(priority.bits()));
+                }
+
+                #[inline(always)]
+                fn disable_interrupts(&mut self) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w
+                                                   .tcie().clear_bit()
+                                                   .teie().clear_bit()
+                                                   .htie().clear_bit()
+                    );
+                }
+
+                #[inline(always)]
+                fn enable_interrupts(&mut self, interrupt: Self::Interrupts) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w
+                                                   .tcie().bit(interrupt.transfer_complete)
+                                                   .teie().bit(interrupt.transfer_error)
+                                                   .htie().bit(interrupt.half_transfer)
+                    );
+                }
+
+                #[inline(always)]
+                fn get_interrupts_enable() -> Self::Interrupts {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    let cr = dma.ch[Self::NUMBER].cr.read();
+
+                    BdmaInterrupts {
+                        transfer_complete: cr.tcie().bit_is_set(),
+                        half_transfer: cr.htie().bit_is_set(),
+                        transfer_error: cr.teie().bit_is_set()
+                    }
+                }
+
+                #[inline(always)]
+                fn set_transfer_complete_interrupt_enable(&mut self, transfer_complete_interrupt: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
+                }
+
+                #[inline(always)]
+                fn set_transfer_error_interrupt_enable(&mut self, transfer_error_interrupt: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
+                }
+            }
+
+            impl<I: Instance> DoubleBufferedStream for $name<I> {
                 #[inline(always)]
                 unsafe fn set_peripheral_address(&mut self, value: u32) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
@@ -247,57 +423,6 @@ macro_rules! bdma_stream {
                     let dma = unsafe { &*I::ptr() };
                     dma.ch[Self::NUMBER].ndtr.read().ndt().bits()
                 }
-
-                #[inline(always)]
-                unsafe fn enable(&mut self) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = &*I::ptr();
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.en().set_bit());
-                }
-
-                #[inline(always)]
-                fn is_enabled() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.read().en().bit_is_set()
-                }
-
-                fn disable(&mut self) {
-                    if Self::is_enabled() {
-                        //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                        let dma = unsafe { &*I::ptr() };
-
-                        // Aborting an on-going transfer might cause interrupts to fire, disable
-                        // them
-                        let (tc, ht, te, dm) = Self::get_interrupts_enable();
-                        self
-                            .set_interrupts_enable(false, false, false, false);
-
-                        dma.ch[Self::NUMBER].cr.modify(|_, w| w.en().clear_bit());
-                        while Self::is_enabled() {}
-
-                        self.clear_interrupts();
-                        self.set_interrupts_enable(tc, ht, te, dm);
-                    }
-                }
-
-                #[inline(always)]
-                fn set_request_line(&mut self, request_line: u8) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dmamux = unsafe { &*I::mux_ptr() };
-                    unsafe {
-                        dmamux.ccr[Self::NUMBER + I::DMA_MUX_STREAM_OFFSET]
-                            .modify(|_, w| w.dmareq_id().bits(request_line));
-                    }
-                }
-
-                #[inline(always)]
-                fn set_priority(&mut self, priority: config::Priority) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.pl().bits(priority.bits()));
-                }
-
                 #[inline(always)]
                 unsafe fn set_memory_size(&mut self, size: u8) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
@@ -345,66 +470,7 @@ macro_rules! bdma_stream {
                 #[inline(always)]
                 #[cfg(not(feature = "rm0455"))]
                 fn set_trbuff(&mut self, _trbuff: bool) {
-
-                }
-
-                #[inline(always)]
-                fn set_interrupts_enable(
-                    &mut self,
-                    transfer_complete: bool,
-                    half_transfer: bool,
-                    transfer_error: bool,
-                    _direct_mode_error: bool,
-                )
-                {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w
-                        .tcie().bit(transfer_complete)
-                        .htie().bit(half_transfer)
-                        .teie().bit(transfer_error)
-                                                   // No dmeie
-                    );
-                }
-
-                #[inline(always)]
-                fn get_interrupts_enable() -> (bool, bool, bool, bool) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    let cr = dma.ch[Self::NUMBER].cr.read();
-                    (cr.tcie().bit_is_set(), cr.htie().bit_is_set(),
-                        cr.teie().bit_is_set(), false) // No dmeie
-                }
-
-                #[inline(always)]
-                fn set_transfer_complete_interrupt_enable(&mut self, transfer_complete_interrupt: bool) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
-                }
-
-                #[inline(always)]
-                fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
-                }
-
-                #[inline(always)]
-                fn set_transfer_error_interrupt_enable(&mut self, transfer_error_interrupt: bool) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
-                }
-
-                #[inline(always)]
-                fn set_direct_mode_error_interrupt_enable(&mut self, _direct_mode_error_interrupt: bool) {
-
-                }
-
-                #[inline(always)]
-                fn set_fifo_error_interrupt_enable(&mut self, _fifo_error_interrupt: bool) {
-
+                    // BDMA does not have a TRBUFF bit
                 }
 
                 #[inline(always)]
@@ -415,30 +481,6 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
-                fn set_fifo_threshold(&mut self, _fifo_threshold: config::FifoThreshold) {
-
-                }
-
-                #[inline(always)]
-                fn set_fifo_enable(&mut self, _fifo_enable: bool) {
-
-                }
-
-                #[inline(always)]
-                fn set_memory_burst(&mut self, _memory_burst: config::BurstMode) {
-
-                }
-
-                #[inline(always)]
-                fn set_peripheral_burst(&mut self, _peripheral_burst: config::BurstMode) {
-
-                }
-
-                #[inline(always)]
-                fn fifo_level() -> FifoLevel {
-                    FifoLevel::Invalid
-                }
-
                 fn current_buffer() -> CurrentBuffer {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
@@ -447,6 +489,30 @@ macro_rules! bdma_stream {
                     } else {
                         CurrentBuffer::FirstBuffer
                     }
+                }
+            }
+
+            impl<I: Instance> $name<I> {
+                #[inline(always)]
+                pub fn clear_half_transfer_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$ifcr.write(|w| w.$htif().set_bit());
+                }
+
+                #[inline(always)]
+                pub fn get_half_transfer_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$isr.read().$htisr().bit_is_set()
+                }
+
+                #[inline(always)]
+                pub fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
                 }
             }
         )+
