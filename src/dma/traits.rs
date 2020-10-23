@@ -21,7 +21,7 @@ pub trait Stream: Sealed {
     const NUMBER: usize;
 
     /// Configuration structure for this stream.
-    type Config: Copy + Debug;
+    type Config;
 
     /// Structure representing interrupts
     type Interrupts: Copy + Debug;
