@@ -2,13 +2,24 @@
 
 ## [Unreleased]
 
-* **Breaking**: Ethernet PHY configuration feature flags removed. The user must now instantiate an instance of the PHY type in order to configure the PHY.
+## [0.8.0] 2020-10-26
+
+* **Breaking**: Ethernet PHY configuration feature flags removed. The user must
+  now instantiate an instance of the PHY type in order to configure the PHY.
 * pac: Upgrade to stm32-rs v0.12.0
+* devices: Add support for 7B3, 7B0, 7A3
+* Add USB support
+* Add I2S support
+* Add RTC support
+* Add LPTIM support
+* Add DMA support, but the current API is depreciated and will be replaced
 * timer: add tick_timer and set_tick_freq to configure the timer's counter frequency [#144](https://github.com/stm32-rs/stm32h7xx-hal/pull/144)
 * Add RTC support [#143](https://github.com/stm32-rs/stm32h7xx-hal/pull/143)
 * pwr: add PowerConfiguration to ensure VoltageScale isn't modified from pwr.freeze() to rcc.freeze() [#141](https://github.com/stm32-rs/stm32h7xx-hal/pull/141)
 * impl Copy, Clone, PartialEq for enums [#139](https://github.com/stm32-rs/stm32h7xx-hal/pull/139)
 * ethernet: automatically configure MDC clock based on hclk
+* time: add types for microseconds and nanoseconds
+* rec: add `low_power` methods for configuring peripherals
 
 ## [v0.7.1] 2020-09-04
 
@@ -88,7 +99,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...HEAD
+[v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.5.0...v0.6.0
