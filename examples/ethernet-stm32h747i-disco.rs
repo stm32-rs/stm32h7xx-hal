@@ -13,13 +13,14 @@ use cortex_m_rt as rt;
 use rt::{entry, exception};
 
 #[macro_use]
+#[allow(unused)]
 mod utilities;
 
 use log::info;
 
-use stm32h7xx_hal::ethernet;
 use stm32h7xx_hal::gpio::Speed::*;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
+use stm32h7xx_hal::{ethernet, ethernet::PHY};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Locally administered MAC address
@@ -84,15 +85,23 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.pclk4().0, 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
-    let (_eth_dma, mut eth_mac) = unsafe {
+    let (_eth_dma, eth_mac) = unsafe {
         ethernet::new_unchecked(
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
             dp.ETHERNET_DMA,
             &mut DES_RING,
             mac_addr.clone(),
+            ccdr.peripheral.ETH1MAC,
+            &ccdr.clocks,
         )
     };
+
+    // Initialise ethernet PHY...
+    let mut lan8742a = ethernet::phy::LAN8742A::new(eth_mac.set_phy_addr(0));
+    lan8742a.phy_reset();
+    lan8742a.phy_init();
+
     unsafe {
         ethernet::enable_interrupt();
         cp.NVIC.set_priority(stm32::Interrupt::ETH, 196); // Mid prio
@@ -106,7 +115,7 @@ fn main() -> ! {
     loop {
         // Ethernet
         let eth_last = eth_up;
-        eth_up = eth_mac.phy_poll_link();
+        eth_up = lan8742a.poll_link();
         match eth_up {
             true => link_led.set_low(),
             _ => link_led.set_high(),

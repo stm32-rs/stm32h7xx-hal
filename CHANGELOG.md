@@ -2,11 +2,13 @@
 
 ## [Unreleased]
 
+* **Breaking**: Ethernet PHY configuration feature flags removed. The user must now instantiate an instance of the PHY type in order to configure the PHY.
 * pac: Upgrade to stm32-rs v0.12.0
 * timer: add tick_timer and set_tick_freq to configure the timer's counter frequency [#144](https://github.com/stm32-rs/stm32h7xx-hal/pull/144)
 * Add RTC support [#143](https://github.com/stm32-rs/stm32h7xx-hal/pull/143)
 * pwr: add PowerConfiguration to ensure VoltageScale isn't modified from pwr.freeze() to rcc.freeze() [#141](https://github.com/stm32-rs/stm32h7xx-hal/pull/141)
 * impl Copy, Clone, PartialEq for enums [#139](https://github.com/stm32-rs/stm32h7xx-hal/pull/139)
+* ethernet: automatically configure MDC clock based on hclk
 
 ## [v0.7.1] 2020-09-04
 

@@ -1,10 +1,8 @@
 //! Pulse Width Modulation (PWM)
 //!
 //! PWM output is avaliable for the advanced control timers (`TIM1`, `TIM8`),
-//! the general purpose timers (`TIM[2-5]`) and the Low-power timers
-//! (`LPTIM[1-5]`).
-//!
-//! TODO: `TIM[12-17]`
+//! the general purpose timers (`TIM[2-5]`, `TIM[12-17]`) and the Low-power
+//! timers (`LPTIM[1-5]`).
 //!
 //! Timers support up to 4 simultaneous PWM output channels
 //!
@@ -307,22 +305,6 @@ pins! {
         ]
         CH1N: []
         CH2N: []
-    TIM13:
-        CH1: [
-            PA6<Alternate<AF9>>,
-            PF8<Alternate<AF9>>
-        ]
-        CH2: []
-        CH1N: []
-        CH2N: []
-    TIM14:
-        CH1: [
-            PA7<Alternate<AF9>>,
-            PF9<Alternate<AF9>>
-        ]
-        CH2: []
-        CH1N: []
-        CH2N: []
     TIM15:
         CH1: [
             PA2<Alternate<AF4>>,
@@ -340,8 +322,24 @@ pins! {
         ]
         CH2N: []
 }
-// More single channel timers
+// Single channel timers
 pins! {
+    TIM13:
+        CH1: [
+            PA6<Alternate<AF9>>,
+            PF8<Alternate<AF9>>
+        ]
+        CH2: []
+        CH1N: []
+        CH2N: []
+    TIM14:
+        CH1: [
+            PA7<Alternate<AF9>>,
+            PF9<Alternate<AF9>>
+        ]
+        CH2: []
+        CH1N: []
+        CH2N: []
     TIM16:
         CH1: [
             PB8<Alternate<AF1>>,
@@ -720,6 +718,32 @@ macro_rules! tim_pin_hal {
         )+
     };
 }
+
+// Dual channel timers
+tim_pin_hal! {
+    TIM12: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM12: (C2, cc2e, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+}
+tim_pin_hal! {
+    TIM15: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM15: (C2, cc2e, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+}
+
+// Single channel timers
+tim_pin_hal! {
+    TIM13: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM14: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM16: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM17: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+
+// Quad channel timers
 tim_pin_hal! {
     TIM1: (C1, cc1e, ccmr1_output, oc1pe, oc1m, ccr1, u16),
     TIM1: (C2, cc2e, ccmr1_output, oc2pe, oc2m, ccr2, u16),

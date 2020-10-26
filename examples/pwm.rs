@@ -28,6 +28,7 @@ fn main() -> ! {
     // Acquire the GPIOE peripheral. This also enables the clock for
     // GPIOE in the RCC register.
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
     // Select PWM output pins
     let pins = (
@@ -64,6 +65,18 @@ fn main() -> ! {
     info!("100%");
     pwm.set_duty(max);
     asm::bkpt();
+
+    let mut pwm = dp.TIM12.pwm(
+        gpiob.pb14.into_alternate_af2(),
+        10.khz(),
+        ccdr.peripheral.TIM12,
+        &ccdr.clocks,
+    );
+
+    // Output PWM on PB14
+    let max = pwm.get_max_duty();
+    pwm.set_duty(max / 2);
+    pwm.enable();
 
     loop {}
 }

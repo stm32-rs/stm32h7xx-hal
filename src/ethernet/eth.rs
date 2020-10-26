@@ -22,7 +22,9 @@
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
+use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
+
 use smoltcp::{
     self,
     phy::{self, DeviceCapabilities},
@@ -30,35 +32,13 @@ use smoltcp::{
     wire::EthernetAddress,
 };
 
-use crate::ethernet::ETH_PHY_ADDR;
-use crate::ethernet::{StationManagement, PHY};
+use crate::ethernet::StationManagement;
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
 const ETH_BUF_SIZE: usize = 1536;
 const ETH_NUM_TD: usize = 4;
 const ETH_NUM_RD: usize = 4;
-
-#[allow(dead_code)]
-mod cr_consts {
-    /* For HCLK 60-100 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_42: u8 = 0;
-    /* For HCLK 100-150 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_62: u8 = 1;
-    /* For HCLK 20-35 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_16: u8 = 2;
-    /* For HCLK 35-60 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_26: u8 = 3;
-    /* For HCLK 150-250 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_102: u8 = 4;
-    /* For HCLK 250-300 MHz */
-    pub const ETH_MACMIIAR_CR_HCLK_DIV_124: u8 = 5;
-}
-use self::cr_consts::*;
-
-// set clock range in MAC MII address register
-// 200 MHz AHB clock = eth_hclk
-const CLOCK_RANGE: u8 = ETH_MACMIIAR_CR_HCLK_DIV_102;
 
 /// Transmit and Receive Descriptor fields
 #[allow(dead_code)]
@@ -399,6 +379,8 @@ pub struct EthernetDMA<'a> {
 ///
 pub struct EthernetMAC {
     eth_mac: stm32::ETHERNET_MAC,
+    eth_phy_addr: u8,
+    clock_range: u8,
 }
 
 /// Create and initialise the ethernet driver.
@@ -409,32 +391,40 @@ pub struct EthernetMAC {
 /// clocks and GPIO configuration, and configures the ETH MAC and
 /// DMA peripherals.
 ///
-/// Brings up the PHY.
+/// This method does not initialise the external PHY. However it does return an
+/// [EthernetMAC](EthernetMAC) which implements the
+/// [StationManagement](super::StationManagement) trait. This can be used to
+/// communicate with the external PHY.
 ///
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
-pub unsafe fn new_unchecked(
+pub unsafe fn new_unchecked<'a>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,
-    ring: &mut DesRing,
+    ring: &'a mut DesRing,
     mac_addr: EthernetAddress,
-) -> (EthernetDMA, EthernetMAC) {
+    prec: rec::Eth1Mac,
+    clocks: &CoreClocks,
+) -> (EthernetDMA<'a>, EthernetMAC) {
     // RCC
     {
         let rcc = &*stm32::RCC::ptr();
         let syscfg = &*stm32::SYSCFG::ptr();
 
+        // Ensure syscfg is enabled (for PMCR)
         rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
-        rcc.ahb1enr.modify(|_, w| {
-            w.eth1macen()
-                .set_bit()
-                .eth1txen()
-                .set_bit()
-                .eth1rxen()
-                .set_bit()
-        });
+
+        // AHB1 ETH1MACEN
+        prec.enable();
+
+        // Also need to enable the transmission and reception clocks, which
+        // don't have prec objects. They don't have prec objects because they
+        // can't be reset.
+        rcc.ahb1enr
+            .modify(|_, w| w.eth1txen().set_bit().eth1rxen().set_bit());
+
         syscfg.pmcr.modify(|_, w| w.epis().bits(0b100)); // RMII
     }
 
@@ -648,31 +638,58 @@ pub unsafe fn new_unchecked(
     });
 
     // MAC layer
-    let mut mac = EthernetMAC { eth_mac };
-    mac.phy_reset();
-    mac.phy_init(); // Init PHY
+
+    // Set the MDC clock frequency in the range 1MHz - 2.5MHz
+    let hclk_mhz = clocks.hclk().0 / 1_000_000;
+    let csr_clock_range = match hclk_mhz {
+        0..=34 => 2,    // Divide by 16
+        35..=59 => 3,   // Divide by 26
+        60..=99 => 0,   // Divide by 42
+        100..=149 => 1, // Divide by 62
+        150..=249 => 4, // Divide by 102
+        250..=310 => 5, // Divide by 124
+        _ => panic!(
+            "HCLK results in MDC clock > 2.5MHz even for the \
+             highest CSR clock divider"
+        ),
+    };
+
+    let mac = EthernetMAC {
+        eth_mac,
+        eth_phy_addr: 0,
+        clock_range: csr_clock_range,
+    };
 
     let dma = EthernetDMA { ring, eth_dma };
 
     (dma, mac)
 }
 
-///
+impl EthernetMAC {
+    /// Sets the SMI address to use for the PHY
+    pub fn set_phy_addr(self, eth_phy_addr: u8) -> Self {
+        Self {
+            eth_mac: self.eth_mac,
+            eth_phy_addr,
+            clock_range: self.clock_range,
+        }
+    }
+}
+
 /// PHY Operations
-///
 impl StationManagement for EthernetMAC {
     /// Read a register over SMI.
     fn smi_read(&mut self, reg: u8) -> u16 {
         while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
         self.eth_mac.macmdioar.modify(|_, w| unsafe {
             w.pa()
-                .bits(ETH_PHY_ADDR)
+                .bits(self.eth_phy_addr)
                 .rda()
                 .bits(reg)
                 .goc()
                 .bits(0b11) // read
                 .cr()
-                .bits(CLOCK_RANGE)
+                .bits(self.clock_range)
                 .mb()
                 .set_bit()
         });
@@ -688,13 +705,13 @@ impl StationManagement for EthernetMAC {
             .write(|w| unsafe { w.md().bits(val) });
         self.eth_mac.macmdioar.modify(|_, w| unsafe {
             w.pa()
-                .bits(ETH_PHY_ADDR)
+                .bits(self.eth_phy_addr)
                 .rda()
                 .bits(reg)
                 .goc()
                 .bits(0b01) // write
                 .cr()
-                .bits(CLOCK_RANGE)
+                .bits(self.clock_range)
                 .mb()
                 .set_bit()
         });

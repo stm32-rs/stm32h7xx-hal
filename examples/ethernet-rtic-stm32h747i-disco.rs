@@ -15,6 +15,7 @@ use cortex_m;
 use rtic::app;
 
 #[macro_use]
+#[allow(unused)]
 mod utilities;
 use log::info;
 
@@ -27,10 +28,10 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
 
 use gpio::Speed::*;
-use stm32h7xx_hal::ethernet;
 use stm32h7xx_hal::gpio;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
+use stm32h7xx_hal::{ethernet, ethernet::PHY};
 use stm32h7xx_hal::{prelude::*, stm32};
 
 use core::sync::atomic::{AtomicU32, Ordering};
@@ -117,7 +118,7 @@ impl<'a, 'b> Net<'a, 'b> {
 const APP: () = {
     struct Resources {
         net: Net<'static, 'static>,
-        eth_mac: ethernet::EthernetMAC,
+        lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
         link_led: gpio::gpioi::PI14<gpio::Output<gpio::PushPull>>,
     }
 
@@ -177,8 +178,17 @@ const APP: () = {
                 ctx.device.ETHERNET_DMA,
                 &mut DES_RING,
                 mac_addr.clone(),
+                ccdr.peripheral.ETH1MAC,
+                &ccdr.clocks,
             )
         };
+
+        // Initialise ethernet PHY...
+        let mut lan8742a = ethernet::phy::LAN8742A::new(eth_mac);
+        lan8742a.phy_reset();
+        lan8742a.phy_init();
+        // The eth_dma should not be used until the PHY reports the link is up
+
         unsafe {
             ethernet::enable_interrupt();
         }
@@ -192,16 +202,16 @@ const APP: () = {
 
         init::LateResources {
             net,
-            eth_mac,
+            lan8742a,
             link_led,
         }
     }
 
-    #[idle(resources = [eth_mac, link_led])]
+    #[idle(resources = [lan8742a, link_led])]
     fn idle(ctx: idle::Context) -> ! {
         loop {
             // Ethernet
-            match ctx.resources.eth_mac.phy_poll_link() {
+            match ctx.resources.lan8742a.poll_link() {
                 true => ctx.resources.link_led.set_low(),
                 _ => ctx.resources.link_led.set_high(),
             }

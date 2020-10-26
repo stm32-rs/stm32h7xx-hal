@@ -1,6 +1,5 @@
 //! SMSC LAN8742A Ethernet PHY
 
-use crate::ethernet::eth::EthernetMAC;
 use crate::ethernet::{StationManagement, PHY};
 
 #[allow(dead_code)]
@@ -44,12 +43,16 @@ mod phy_consts {
 }
 use self::phy_consts::*;
 
-/// Private implementation of PHY
-impl PHY for EthernetMAC {
+/// SMSC LAN8742A Ethernet PHY
+pub struct LAN8742A<MAC: StationManagement> {
+    mac: MAC,
+}
+
+impl<MAC: StationManagement> PHY for LAN8742A<MAC> {
     /// Reset PHY and wait for it to come out of reset.
     fn phy_reset(&mut self) {
-        self.smi_write(PHY_REG_BCR, PHY_REG_BCR_RESET);
-        while self.smi_read(PHY_REG_BCR) & PHY_REG_BCR_RESET
+        self.mac.smi_write(PHY_REG_BCR, PHY_REG_BCR_RESET);
+        while self.mac.smi_read(PHY_REG_BCR) & PHY_REG_BCR_RESET
             == PHY_REG_BCR_RESET
         {}
     }
@@ -60,19 +63,23 @@ impl PHY for EthernetMAC {
         self.smi_write_ext(PHY_REG_WUCSR, 0);
 
         // Enable auto-negotiation
-        self.smi_write(
+        self.mac.smi_write(
             PHY_REG_BCR,
             PHY_REG_BCR_AN | PHY_REG_BCR_ANRST | PHY_REG_BCR_100M,
         );
     }
 }
 
-/// Public functions for the KSZ8081
-impl EthernetMAC {
+/// Public functions for the LAN8742A
+impl<MAC: StationManagement> LAN8742A<MAC> {
+    pub fn new(mac: MAC) -> Self {
+        LAN8742A { mac }
+    }
+
     /// Poll PHY to determine link status.
-    pub fn phy_poll_link(&mut self) -> bool {
-        let bsr = self.smi_read(PHY_REG_BSR);
-        let ssr = self.smi_read(PHY_REG_SSR);
+    pub fn poll_link(&mut self) -> bool {
+        let bsr = self.mac.smi_read(PHY_REG_BSR);
+        let ssr = self.mac.smi_read(PHY_REG_SSR);
 
         // No link without autonegotiate
         if bsr & PHY_REG_BSR_ANDONE == 0 {
@@ -96,7 +103,7 @@ impl EthernetMAC {
     }
 
     pub fn link_established(&mut self) -> bool {
-        self.phy_poll_link()
+        self.poll_link()
     }
 
     pub fn block_until_link(&mut self) {
@@ -105,9 +112,9 @@ impl EthernetMAC {
 
     // Writes a value to an extended PHY register in MMD address space
     fn smi_write_ext(&mut self, reg_addr: u16, reg_data: u16) {
-        self.smi_write(PHY_REG_CTL, 0x0003); // set address
-        self.smi_write(PHY_REG_ADDAR, reg_addr);
-        self.smi_write(PHY_REG_CTL, 0x4003); // set data
-        self.smi_write(PHY_REG_ADDAR, reg_data);
+        self.mac.smi_write(PHY_REG_CTL, 0x0003); // set address
+        self.mac.smi_write(PHY_REG_ADDAR, reg_addr);
+        self.mac.smi_write(PHY_REG_CTL, 0x4003); // set data
+        self.mac.smi_write(PHY_REG_ADDAR, reg_data);
     }
 }
