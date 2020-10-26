@@ -568,9 +568,6 @@ macro_rules! lptim_hal {
                     // Counter Reset
                     self.tim.cr.write(|w| w.countrst().set_bit().enable().enabled());
 
-                    // Ensure write is committed
-                    cortex_m::asm::dsb();
-
                     while self.tim.cr.read().countrst().bit_is_set() {}
                 }
 
@@ -676,14 +673,8 @@ macro_rules! lptim_hal {
                     // Write CFGR: LPTIM must be disabled
                     self.tim.cfgr.modify(|_, w| w.presc().variant(prescale));
 
-                    // Ensure write is committed
-                    cortex_m::asm::dsb();
-
                     // Enable
                     self.tim.cr.write(|w| w.enable().enabled());
-
-                    // Ensure write is committed
-                    cortex_m::asm::dsb();
 
                     // Write ARR: LPTIM must be enabled
                     self.tim.arr.write(|w| w.arr().bits(arr as u16));
