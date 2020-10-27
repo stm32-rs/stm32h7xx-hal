@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.8.0] 2020-10-26
+## [v0.8.0] 2020-10-26
 
 * **Breaking**: Ethernet PHY configuration feature flags removed. The user must
   now instantiate an instance of the PHY type in order to configure the PHY.
