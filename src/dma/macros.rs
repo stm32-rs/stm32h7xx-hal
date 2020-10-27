@@ -13,7 +13,7 @@ macro_rules! peripheral_target_address {
 macro_rules! peripheral_target_instance {
     (($peripheral:ty, $register:ident $(($TRBUFF:ident))*, $size:ty,
       $dir:ty $(, $mux:expr)*)) => {
-        unsafe impl TargetAddress<$dir> for &mut $peripheral {
+        unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
             fn address(&self) -> u32 {
                 &self.$register as *const _ as u32
@@ -29,9 +29,9 @@ macro_rules! peripheral_target_instance {
         }
     };
 
-    ((INNER, $peripheral:ty, $register:ident $(($TRBUFF:ident))*, $size:ty,
+    ((INNER: $peripheral:ty, $register:ident $(($TRBUFF:ident))*, $size:ty,
       $dir:ty $(, $mux:expr)*)) => {
-        unsafe impl TargetAddress<$dir> for &mut $peripheral {
+        unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
             fn address(&self) -> u32 {
                 &self.inner().$register as *const _ as u32
@@ -49,7 +49,7 @@ macro_rules! peripheral_target_instance {
 
     (($peripheral:ty, $channel:ident.$register:ident, $size:ty,
       $dir:ty $(, $mux:expr)*)) => {
-        unsafe impl TargetAddress<$dir> for &mut $peripheral {
+        unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
             fn address(&self) -> u32 {
                 &self.$channel.$register as *const _ as u32

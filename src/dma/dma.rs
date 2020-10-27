@@ -13,6 +13,7 @@ use crate::{
     pac::{self, DMA1, DMA2, DMAMUX1},
     rcc::{rec, rec::ResetEnable},
     //serial::{Rx, Tx},
+    spi,
 };
 
 use core::ops::Deref;
@@ -763,6 +764,22 @@ peripheral_target_address!(
     (pac::SPI1, txdr, u8, M2P, DMAReq::SPI1_TX_DMA),
     (pac::SPI2, rxdr, u8, P2M, DMAReq::SPI2_RX_DMA),
     (pac::SPI2, txdr, u8, M2P, DMAReq::SPI2_TX_DMA),
+    (
+        // SPI peripheral must be disabled to configure DMA
+        INNER: spi::Spi<pac::SPI2, spi::Disabled, u8>,
+        rxdr,
+        u8,
+        P2M,
+        DMAReq::SPI2_RX_DMA
+    ),
+    (
+        // SPI peripheral must be disabled to configure DMA
+        INNER: spi::Spi<pac::SPI2, spi::Disabled, u8>,
+        txdr,
+        u8,
+        M2P,
+        DMAReq::SPI2_TX_DMA
+    ),
     (pac::SPI3, rxdr, u8, P2M, DMAReq::SPI3_RX_DMA),
     (pac::SPI3, txdr, u8, M2P, DMAReq::SPI3_TX_DMA),
     (pac::SPI4, rxdr, u8, P2M, DMAReq::SPI4_RX_DMA),

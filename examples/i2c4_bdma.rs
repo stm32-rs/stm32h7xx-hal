@@ -87,7 +87,7 @@ fn main() -> ! {
 
     let mut transfer: Transfer<_, _, PeripheralToMemory, _> = Transfer::init(
         streams.0,
-        &mut i2c,               // Mutable reference to I2C HAL
+        i2c,
         unsafe { &mut BUFFER }, // uninitialised memory
         None,
         config,

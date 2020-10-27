@@ -69,7 +69,7 @@ fn main() -> ! {
     );
 
     // SPI must be disabled to configure DMA
-    let mut spi = spi.disable();
+    let spi = spi.disable();
 
     // Initialise the source buffer, without taking any references to
     // uninitialisated memory
@@ -93,27 +93,23 @@ fn main() -> ! {
 
     let config = DmaConfig::default().memory_increment(true);
 
-    let mut transfer: Transfer<_, _, MemoryToPeripheral, _> = Transfer::init(
-        streams.0,
-        spi.inner_mut(), // Mutable reference to SPI register block
-        buffer,
-        None,
-        config,
-    );
+    let mut transfer: Transfer<_, _, MemoryToPeripheral, _> =
+        Transfer::init(streams.0, spi, buffer, None, config);
 
     transfer.start(|spi| {
         // This closure runs right after enabling the stream
 
         // Enable DMA Tx buffer by setting the TXDMAEN bit in the SPI_CFG1
         // register
-        spi.cfg1.modify(|_, w| w.txdmaen().enabled());
+        spi.inner_mut().cfg1.modify(|_, w| w.txdmaen().enabled());
 
         // Enable the SPI by setting the SPE bit
-        spi.cr1
+        spi.inner_mut()
+            .cr1
             .write(|w| w.ssi().slave_not_selected().spe().enabled());
 
         // write CSTART to start a transaction in master mode
-        spi.cr1.modify(|_, w| w.cstart().started());
+        spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
     });
 
     // Wait for transfer to complete

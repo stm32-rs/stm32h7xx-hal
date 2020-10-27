@@ -559,6 +559,11 @@ macro_rules! spi {
                 impl<EN> Spi<$SPIX, EN, $TY>
                 {
                     /// Returns a mutable reference to the inner peripheral
+                    pub fn inner(&self) -> &$SPIX {
+                        &self.spi
+                    }
+
+                    /// Returns a mutable reference to the inner peripheral
                     pub fn inner_mut(&mut self) -> &mut $SPIX {
                         &mut self.spi
                     }
