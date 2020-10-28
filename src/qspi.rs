@@ -341,9 +341,13 @@ impl Qspi {
             _ => panic!("Invalid QSPI frequency requested"),
         };
 
-        // Write the prescaler
-        regs.cr
-            .write(|w| unsafe { w.prescaler().bits(divisor as u8) });
+        // Write the prescaler and the SSHIFT bit. Note that SSHIFT is required because it appears
+        // that the QSPI may have signal contention issues when reading. SSHIFT forces the read to
+        // occur on the falling edge instead of the rising edge. Refer to
+        // https://github.com/quartiq/stabilizer/issues/101 for more information
+        regs.cr.write(|w| unsafe {
+            w.prescaler().bits(divisor as u8).sshift().set_bit()
+        });
 
         match bank {
             Bank::One => regs.cr.modify(|_, w| w.fsel().clear_bit()),
