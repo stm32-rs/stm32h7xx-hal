@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -89,17 +90,12 @@ fn main() -> ! {
 
 fn toggle_led(on_or_off: bool) {
     free(|cs| {
-        match LED.borrow(cs).borrow_mut().as_mut() {
-            Some(b) => {
-                (if on_or_off {
-                    b.set_high().unwrap();
-                } else {
-                    b.set_low().unwrap();
-                })
+        if let Some(b) = LED.borrow(cs).borrow_mut().as_mut() {
+            if on_or_off {
+                b.set_high().unwrap();
+            } else {
+                b.set_low().unwrap();
             }
-
-            // This should never happen
-            None => (),
         }
     });
 }
@@ -109,12 +105,8 @@ fn EXTI9_5() {
     info!("EXTI9_5 fired!");
     toggle_led(true);
     free(|cs| {
-        match BUTTON2_PIN.borrow(cs).borrow_mut().as_mut() {
-            // Clear the push button interrupt
-            Some(b) => b.clear_interrupt_pending_bit(),
-
-            // This should never happen
-            None => (),
+        if let Some(b) = BUTTON2_PIN.borrow(cs).borrow_mut().as_mut() {
+            b.clear_interrupt_pending_bit()
         }
 
         // Signal that the interrupt fired
@@ -127,12 +119,8 @@ fn EXTI3() {
     info!("EXTI3 fired!");
     toggle_led(false);
     free(|cs| {
-        match BUTTON1_PIN.borrow(cs).borrow_mut().as_mut() {
-            // Clear the push button interrupt
-            Some(b) => b.clear_interrupt_pending_bit(),
-
-            // This should never happen
-            None => (),
+        if let Some(b) = BUTTON1_PIN.borrow(cs).borrow_mut().as_mut() {
+            b.clear_interrupt_pending_bit()
         }
 
         // Signal that the interrupt fired
