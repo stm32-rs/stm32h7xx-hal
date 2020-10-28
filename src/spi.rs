@@ -490,6 +490,8 @@ macro_rules! spi {
                                 .msbfirst()
                                 .ssm()
                                 .bit(config.managed_cs == false)
+                                .ssoe()
+                                .bit(config.managed_cs == true)
                                 .mssi()
                                 .bits(cycle_delay)
                                 .ioswp()
