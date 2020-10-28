@@ -484,7 +484,7 @@ macro_rules! spi {
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                         // Calculate the CS->transaction cycle delay bits.
-                        let cycle_delay: u8 = {
+                        let (start_cycle_delay, interdata_cycle_delay) = {
                             let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
 
                             // If the cs-delay is specified as non-zero, add 1 to the delay cycles
@@ -498,7 +498,13 @@ macro_rules! spi {
                                 delay = 0xF;
                             }
 
-                            delay as u8
+                            // If CS suspends while data is inactive, we also require an
+                            // "inter-data" delay.
+                            if config.suspend_when_inactive {
+                                (delay as u8, delay as u8)
+                            } else {
+                                (delay as u8, 0_u8)
+                            }
                         };
 
                         // The calculated cycle delay may not be more than 4 bits wide for the
@@ -529,9 +535,9 @@ macro_rules! spi {
                                 .ssoe()
                                 .bit(config.managed_cs == true)
                                 .mssi()
-                                .bits(cycle_delay)
+                                .bits(start_cycle_delay)
                                 .midi()
-                                .bits(cycle_delay)
+                                .bits(interdata_cycle_delay)
                                 .ioswp()
                                 .bit(config.swap_miso_mosi == true)
                                 .comm()
