@@ -2,7 +2,7 @@
 // https://www.electro-smith.com/daisy
 
 #![allow(unused_macros)]
-//#![deny(warnings)]
+#![deny(warnings)]
 //#![deny(unsafe_code)]
 
 #![no_main]
