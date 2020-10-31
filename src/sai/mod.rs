@@ -258,6 +258,14 @@ macro_rules! sai_hal {
                     };
                 }
 
+                /// Enable DMA for the SAI peripheral.
+                pub fn enable_dma(&mut self, channel: SaiChannel) {
+                    match channel {
+                        SaiChannel::ChannelA => self.rb.cha.cr1.modify(|_, w| w.dmaen().enabled()),
+                        SaiChannel::ChannelB => self.rb.chb.cr1.modify(|_, w| w.dmaen().enabled()),
+                    };
+                }
+
                 /// Releases the SAI peripheral
                 pub fn free(self) -> ($SAIX, rec::$Rec) {
                     // Refer to RM0433 Rev 7 51.4.15 Disabling the SAI
