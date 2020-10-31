@@ -32,11 +32,17 @@ pub trait Stream: Sealed {
     /// Clear all interrupts for the DMA stream.
     fn clear_interrupts(&mut self);
 
+    /// Clear half transfer interrupt (htif) for the DMA stream.
+    fn clear_half_transfer_interrupt(&mut self);
+
     /// Clear transfer complete interrupt (tcif) for the DMA stream.
     fn clear_transfer_complete_interrupt(&mut self);
 
     /// Clear transfer error interrupt (teif) for the DMA stream.
     fn clear_transfer_error_interrupt(&mut self);
+
+    /// Get half transfer flag.
+    fn get_half_transfer_flag() -> bool;
 
     /// Get transfer complete flag.
     fn get_transfer_complete_flag() -> bool;
@@ -73,6 +79,12 @@ pub trait Stream: Sealed {
 
     /// Get the value of all the interrupts for this DMA stream
     fn get_interrupts_enable() -> Self::Interrupts;
+
+    /// Enable/disable the half transfer interrupt (htie) of the DMA stream.
+    fn set_half_transfer_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
 
     /// Enable/disable the transfer complete interrupt (tcie) of the DMA stream.
     fn set_transfer_complete_interrupt_enable(
@@ -148,6 +160,9 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     #[cfg(not(feature = "rm0455"))]
     /// Enable bufferable transfers
     fn set_trbuff(&mut self, trbuff: bool);
+
+    /// Enable/disable circular buffering for the DMA stream.
+    fn set_circular_buffer(&mut self, circular_buffer: bool);
 
     /// Enable/disable the double buffer (dbm) of the DMA stream.
     fn set_double_buffer(&mut self, double_buffer: bool);

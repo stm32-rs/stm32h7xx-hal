@@ -92,6 +92,7 @@ pub struct DmaConfig {
     pub(crate) transfer_error_interrupt: bool,
     pub(crate) direct_mode_error_interrupt: bool,
     pub(crate) fifo_error_interrupt: bool,
+    pub(crate) circular_buffer: bool,
     pub(crate) double_buffer: bool,
     pub(crate) fifo_threshold: config::FifoThreshold,
     pub(crate) fifo_enable: bool,
@@ -110,6 +111,7 @@ impl Default for DmaConfig {
             transfer_error_interrupt: false,
             direct_mode_error_interrupt: false,
             fifo_error_interrupt: false,
+            circular_buffer: false,
             double_buffer: false,
             fifo_threshold: config::FifoThreshold::QuarterFull,
             fifo_enable: false,
@@ -191,6 +193,12 @@ impl DmaConfig {
     #[inline(always)]
     pub fn fifo_error_interrupt(mut self, fifo_error_interrupt: bool) -> Self {
         self.fifo_error_interrupt = fifo_error_interrupt;
+        self
+    }
+    /// Set the circular_buffer.
+    #[inline(always)]
+    pub fn circular_buffer(mut self, circular_buffer: bool) -> Self {
+        self.circular_buffer = circular_buffer;
         self
     }
     /// Set the double_buffer.
@@ -337,6 +345,7 @@ macro_rules! dma_stream {
                     );
                     self
                         .set_fifo_error_interrupt_enable(config.fifo_error_interrupt);
+                    self.set_circular_buffer(config.circular_buffer);
                     self.set_double_buffer(config.double_buffer);
                     self.set_fifo_threshold(config.fifo_threshold);
                     self.set_fifo_enable(config.fifo_enable);
@@ -359,6 +368,14 @@ macro_rules! dma_stream {
                 }
 
                 #[inline(always)]
+                fn clear_half_transfer_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$ifcr.write(|w| w.$htif().set_bit());
+                }
+
+                #[inline(always)]
                 fn clear_transfer_complete_interrupt(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
@@ -372,6 +389,13 @@ macro_rules! dma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$teif().set_bit());
+                }
+
+                #[inline(always)]
+                fn get_half_transfer_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$isr.read().$htisr().bit_is_set()
                 }
 
                 #[inline(always)]
@@ -470,6 +494,13 @@ macro_rules! dma_stream {
                         direct_mode_error: cr.dmeie().bit_is_set(),
                         fifo_error: fcr.feie().bit_is_set()
                     }
+                }
+
+                #[inline(always)]
+                fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.st[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
                 }
 
                 #[inline(always)]
@@ -584,6 +615,13 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.st[Self::NUMBER].cr.modify(|_, w| w.trbuff().bit(trbuff));
+                }
+
+                #[inline(always)]
+                fn set_circular_buffer(&mut self, circular_buffer: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.st[Self::NUMBER].cr.modify(|_, w| w.circ().bit(circular_buffer));
                 }
 
                 #[inline(always)]
@@ -791,4 +829,13 @@ peripheral_target_address!(
 peripheral_target_address!(
     (pac::USART1, rdr(TRBUFF), u8, P2M, DMAReq::USART1_RX_DMA),
     (pac::USART1, tdr(TRBUFF), u8, M2P, DMAReq::USART1_TX_DMA),
+);
+
+peripheral_target_address!(
+    (pac::SAI1, cha.dr, u32, M2P, DMAReq::SAI1A_DMA),
+    (pac::SAI1, chb.dr, u32, P2M, DMAReq::SAI1B_DMA),
+    (pac::SAI2, cha.dr, u32, M2P, DMAReq::SAI2A_DMA),
+    (pac::SAI2, chb.dr, u32, P2M, DMAReq::SAI2B_DMA),
+    (pac::SAI3, cha.dr, u32, M2P, DMAReq::SAI3_A_DMA),
+    (pac::SAI3, chb.dr, u32, P2M, DMAReq::SAI3_B_DMA),
 );

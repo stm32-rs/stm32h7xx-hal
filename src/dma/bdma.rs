@@ -253,6 +253,14 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
+                fn clear_half_transfer_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$ifcr.write(|w| w.$htif().set_bit());
+                }
+
+                #[inline(always)]
                 fn clear_transfer_complete_interrupt(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
@@ -266,6 +274,13 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$teif().set_bit());
+                }
+
+                #[inline(always)]
+                fn get_half_transfer_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    dma.$isr.read().$htisr().bit_is_set()
                 }
 
                 #[inline(always)]
@@ -357,6 +372,13 @@ macro_rules! bdma_stream {
                         half_transfer: cr.htie().bit_is_set(),
                         transfer_error: cr.teie().bit_is_set()
                     }
+                }
+
+                #[inline(always)]
+                fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
                 }
 
                 #[inline(always)]
@@ -474,6 +496,13 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
+                fn set_circular_buffer(&mut self, circular_buffer: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let dma = unsafe { &*I::ptr() };
+                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.circ().bit(circular_buffer));
+                }
+
+                #[inline(always)]
                 fn set_double_buffer(&mut self, double_buffer: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
@@ -547,4 +576,6 @@ peripheral_target_address!(
     (pac::I2C4, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
     (INNER: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
     (INNER: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
+    (pac::SAI4, cha.dr, u32, M2P, DMAReq::SAI4_A_DMA),
+    (pac::SAI4, chb.dr, u32, P2M, DMAReq::SAI4_B_DMA),
 );
