@@ -239,7 +239,7 @@ macro_rules! sai_hal {
                     };
                 }
 
-                /// Used to operate the audio block(s) with an external SAI for synchoniozation
+                /// Used to operate the audio block(s) with an external SAI for synchronization
                 /// Refer to RM0433 rev 7 section 51.4.4 for valid values
                 ///
                 /// In short 0-3 maps SAI1-4 with the ones pointing to self being reserved.
@@ -249,7 +249,7 @@ macro_rules! sai_hal {
                     unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
                 }
 
-                /// Synchoniazation output for other SAI blocks
+                /// Synchronization output for other SAI blocks
                 pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
                     match channel {
                         Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b01) ) },
