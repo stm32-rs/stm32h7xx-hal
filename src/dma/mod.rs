@@ -604,6 +604,12 @@ where
         self.stream.clear_interrupts();
     }
 
+    /// Clear half transfer interrupt (htif) for the DMA stream.
+    #[inline(always)]
+    pub fn clear_half_transfer_interrupt(&mut self) {
+        self.stream.clear_half_transfer_interrupt();
+    }
+
     /// Clear transfer complete interrupt (tcif) for the DMA stream.
     #[inline(always)]
     pub fn clear_transfer_complete_interrupt(&mut self) {
@@ -625,6 +631,11 @@ where
     /// discouraged.
     pub unsafe fn get_stream(&mut self) -> &mut STREAM {
         &mut self.stream
+    }
+
+    #[inline(always)]
+    pub fn get_half_transfer_flag(&self) -> bool {
+        STREAM::get_half_transfer_flag()
     }
 
     #[inline(always)]

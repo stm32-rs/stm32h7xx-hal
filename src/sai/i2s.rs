@@ -323,7 +323,7 @@ pub struct I2S {
 }
 impl INTERFACE for I2S {}
 
-/// Trait to extend SAI periperhals
+/// Trait to extend SAI peripherals
 pub trait SaiI2sExt<SAI>: Sized {
     type Rec: ResetEnable;
     fn i2s_ch_a<PINS, T>(
@@ -444,7 +444,7 @@ macro_rules! i2s {
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
 
-                    // Configure SAI peripeheral
+                    // Configure SAI peripheral
                     let mut per_sai = Sai {
                         rb: sai,
                         master_channel: SaiChannel::ChannelA,
@@ -511,7 +511,7 @@ macro_rules! i2s {
                         .try_into()
                         .expect("SAI kernel clock is out of range for required MCLK");
 
-                    // Configure SAI peripeheral
+                    // Configure SAI peripheral
                     let mut per_sai = Sai {
                         rb: sai,
                         master_channel: SaiChannel::ChannelB,

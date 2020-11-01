@@ -176,6 +176,10 @@ name = "sai-i2s-passthru"
 required-features = ["rm0433"]
 
 [[example]]
+name = "sai_dma_passthru"
+required-features = ["rm0433"]
+
+[[example]]
 name = "dma"
 required-features = ["rm0433"]
 
