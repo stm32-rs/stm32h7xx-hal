@@ -461,9 +461,10 @@ impl Qspi {
     /// output to input. Refer to
     /// https://github.com/quartiq/stabilizer/issues/101 for more information.
     ///
-    /// To avoid this, this HAL sets the SSHIFT bit in the CR register. With
-    /// this bit set, the QSPI receiver sampling point is delayed by an extra
-    /// half cycle.
+    /// Although it doesn't stop the possible bus contention, this HAL sets the
+    /// SSHIFT bit in the CR register. With this bit set, the QSPI receiver
+    /// sampling point is delayed by an extra half cycle. Then the receiver
+    /// sampling point is after the bus contention.
     ///
     /// # Args
     /// * `addr` - The address to read data from.
