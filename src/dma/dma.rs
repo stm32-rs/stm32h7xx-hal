@@ -798,32 +798,11 @@ type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
 
 peripheral_target_address!(
-    (pac::SPI1, rxdr, u8, P2M, DMAReq::SPI1_RX_DMA),
-    (pac::SPI1, txdr, u8, M2P, DMAReq::SPI1_TX_DMA),
-    (pac::SPI2, rxdr, u8, P2M, DMAReq::SPI2_RX_DMA),
-    (pac::SPI2, txdr, u8, M2P, DMAReq::SPI2_TX_DMA),
-    (
-        // SPI peripheral must be disabled to configure DMA
-        INNER: spi::Spi<pac::SPI2, spi::Disabled, u8>,
-        rxdr,
-        u8,
-        P2M,
-        DMAReq::SPI2_RX_DMA
-    ),
-    (
-        // SPI peripheral must be disabled to configure DMA
-        INNER: spi::Spi<pac::SPI2, spi::Disabled, u8>,
-        txdr,
-        u8,
-        M2P,
-        DMAReq::SPI2_TX_DMA
-    ),
-    (pac::SPI3, rxdr, u8, P2M, DMAReq::SPI3_RX_DMA),
-    (pac::SPI3, txdr, u8, M2P, DMAReq::SPI3_TX_DMA),
-    (pac::SPI4, rxdr, u8, P2M, DMAReq::SPI4_RX_DMA),
-    (pac::SPI4, txdr, u8, M2P, DMAReq::SPI4_TX_DMA),
-    (pac::SPI5, rxdr, u8, P2M, DMAReq::SPI5_RX_DMA),
-    (pac::SPI5, txdr, u8, M2P, DMAReq::SPI5_TX_DMA)
+    (SPI: pac::SPI1, rxdr, txdr, [u8, u16], DMAReq::SPI1_RX_DMA, DMAReq::SPI1_TX_DMA),
+    (SPI: pac::SPI2, rxdr, txdr, [u8, u16], DMAReq::SPI2_RX_DMA, DMAReq::SPI2_TX_DMA),
+    (SPI: pac::SPI3, rxdr, txdr, [u8, u16], DMAReq::SPI3_RX_DMA, DMAReq::SPI3_TX_DMA),
+    (SPI: pac::SPI4, rxdr, txdr, [u8, u16], DMAReq::SPI4_RX_DMA, DMAReq::SPI4_TX_DMA),
+    (SPI: pac::SPI5, rxdr, txdr, [u8, u16], DMAReq::SPI5_RX_DMA, DMAReq::SPI5_TX_DMA)
 );
 
 peripheral_target_address!(
