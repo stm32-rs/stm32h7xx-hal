@@ -1,4 +1,6 @@
 //! BDMA
+//!
+//! For RM0455 parts, only BDMA2 is implemented
 
 use super::{
     config,
@@ -10,17 +12,30 @@ use core::marker::PhantomData;
 
 use crate::{
     i2c::I2c,
-    pac::{self, BDMA, DMAMUX2},
+    pac,
     rcc::{rec, rec::ResetEnable},
     //serial::{Rx, Tx},
+    spi,
 };
+
+#[cfg(not(feature = "rm0455"))]
+use crate::pac::{BDMA, DMAMUX2};
+
+#[cfg(feature = "rm0455")]
+use crate::pac::{BDMA2, DMAMUX2};
 
 use core::ops::Deref;
 
+#[cfg(not(feature = "rm0455"))]
 impl Sealed for BDMA {}
+#[cfg(feature = "rm0455")]
+impl Sealed for BDMA2 {}
 
 /// Type aliases for register blocks
+#[cfg(not(feature = "rm0455"))]
 pub type BDMARegisterBlock = pac::bdma::RegisterBlock;
+#[cfg(feature = "rm0455")]
+pub type BDMARegisterBlock = pac::bdma2::RegisterBlock;
 pub type DMAMUXRegisterBlock = pac::dmamux2::RegisterBlock;
 
 /// Trait that represents an instance of a BDMA peripheral
@@ -36,12 +51,30 @@ pub trait Instance: Deref<Target = BDMARegisterBlock> + Sealed {
     const DMA_MUX_STREAM_OFFSET: usize;
 }
 
+#[cfg(not(feature = "rm0455"))]
 impl Instance for BDMA {
     type Rec = rec::Bdma;
 
     #[inline(always)]
     fn ptr() -> *const BDMARegisterBlock {
         BDMA::ptr()
+    }
+
+    #[inline(always)]
+    fn mux_ptr() -> *const DMAMUXRegisterBlock {
+        DMAMUX2::ptr()
+    }
+
+    const DMA_MUX_STREAM_OFFSET: usize = 0;
+}
+
+#[cfg(feature = "rm0455")]
+impl Instance for BDMA2 {
+    type Rec = rec::Bdma;
+
+    #[inline(always)]
+    fn ptr() -> *const BDMARegisterBlock {
+        BDMA2::ptr()
     }
 
     #[inline(always)]
@@ -562,20 +595,46 @@ bdma_stream!(
 );
 
 /// Type alias for the DMA Request Multiplexer
+///
+/// TODO: Needs fixing upstream for RM0455
+#[cfg(not(feature = "rm0455"))]
 pub type DMAReq = pac::dmamux2::ccr::DMAREQ_ID_A;
 
 type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
 
+#[cfg(not(feature = "rm0455"))]
 peripheral_target_address!(
     (pac::LPUART1, rdr, u8, P2M, DMAReq::LPUART1_RX_DMA),
     (pac::LPUART1, tdr, u8, M2P, DMAReq::LPUART1_TX_DMA),
-    (pac::SPI6, rxdr, u8, P2M, DMAReq::SPI6_RX_DMA),
-    (pac::SPI6, txdr, u8, M2P, DMAReq::SPI6_TX_DMA),
+    (
+        SPI: pac::SPI6,
+        rxdr,
+        txdr,
+        [u8, u16],
+        DMAReq::SPI6_RX_DMA,
+        DMAReq::SPI6_TX_DMA
+    ),
     (pac::I2C4, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
     (pac::I2C4, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
     (INNER: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
     (INNER: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
+);
+
+#[cfg(not(feature = "rm0455"))]
+peripheral_target_address!(
     (pac::SAI4, cha.dr, u32, M2P, DMAReq::SAI4_A_DMA),
     (pac::SAI4, chb.dr, u32, P2M, DMAReq::SAI4_B_DMA),
+);
+
+// TODO: Remove when fixed upstream
+#[cfg(feature = "rm0455")]
+peripheral_target_address!(
+    (pac::LPUART1, rdr, u8, P2M, 9),
+    (pac::LPUART1, tdr, u8, M2P, 10),
+    (SPI: pac::SPI6, rxdr, txdr, [u8, u16], 11, 12),
+    (pac::I2C4, rxdr, u8, P2M, 13),
+    (pac::I2C4, txdr, u8, M2P, 14),
+    (INNER: I2c<pac::I2C4>, rxdr, u8, P2M, 13),
+    (INNER: I2c<pac::I2C4>, txdr, u8, M2P, 14),
 );

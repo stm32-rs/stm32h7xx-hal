@@ -76,15 +76,20 @@ fn main() -> ! {
     }
 
     // Setup the DMA transfer on stream 0
-    //
-    // We need to specify the direction with a type annotation
+    #[cfg(not(feature = "rm0455"))]
     let streams = StreamsTuple::new(
         dp.BDMA,
+        ccdr.peripheral.BDMA.low_power(LowPowerMode::Autonomous),
+    );
+    #[cfg(feature = "rm0455")]
+    let streams = StreamsTuple::new(
+        dp.BDMA2,
         ccdr.peripheral.BDMA.low_power(LowPowerMode::Autonomous),
     );
 
     let config = BdmaConfig::default().memory_increment(true);
 
+    // We need to specify the direction with a type annotation
     let mut transfer: Transfer<_, _, PeripheralToMemory, _> = Transfer::init(
         streams.0,
         i2c,
