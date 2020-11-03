@@ -199,12 +199,23 @@ impl Config {
     }
 
     /// CS pin is automatically managed by the SPI peripheral.
+    ///
+    /// # Note
+    /// SPI is configured in "endless transaction" mode, which means that the SPI CSn pin will
+    /// assert when the first data is sent and will not de-assert.
+    ///
+    /// If CSn should be de-asserted between each data transfer, use `suspend_when_inactive()` as
+    /// well.
     pub fn manage_cs(mut self) -> Self {
         self.managed_cs = true;
         self
     }
 
     /// Suspend a transaction automatically if data is not available in the FIFO.
+    ///
+    /// # Note
+    /// This will de-assert CSn when no data is available for transmission and hardware is managing
+    /// the CSn pin.
     pub fn suspend_when_inactive(mut self) -> Self {
         self.suspend_when_inactive = true;
         self
