@@ -4,22 +4,21 @@
 #![allow(unused_macros)]
 #![deny(warnings)]
 //#![deny(unsafe_code)]
-
 #![no_main]
 #![no_std]
 
 use cortex_m::asm;
 
-use cortex_m_rt::{entry};
+use cortex_m_rt::entry;
 
-use stm32h7xx_hal as hal;
-use hal::stm32;
-use hal::{ prelude::*, pac };
-use hal::hal::digital::v2::OutputPin;
-use hal::rcc::{ rec::Sai1ClkSel };
-use hal::sai::{ self, SaiI2sExt, SaiChannel };
 use hal::dma;
+use hal::hal::digital::v2::OutputPin;
+use hal::rcc::rec::Sai1ClkSel;
+use hal::sai::{self, SaiChannel, SaiI2sExt};
+use hal::stm32;
 use hal::time::Hertz;
+use hal::{pac, prelude::*};
+use stm32h7xx_hal as hal;
 
 use pac::interrupt;
 
@@ -28,11 +27,10 @@ use log::info;
 #[macro_use]
 mod utilities;
 
-
 // = global constants =========================================================
 
 // 32 samples * 2 audio channels * 2 buffers
-const DMA_BUFFER_LENGTH:usize = 32 * 2 * 2;
+const DMA_BUFFER_LENGTH: usize = 32 * 2 * 2;
 
 const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 
@@ -41,14 +39,12 @@ const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // But not less than so targetting 257
 const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 
-
 // = static data ==============================================================
 
 #[link_section = ".sram3"]
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
-
 
 // = entry ====================================================================
 
@@ -61,7 +57,9 @@ fn main() -> ! {
     let dp = hal::pac::Peripherals::take().unwrap();
     let pwr = dp.PWR.constrain();
     let vos = pwr.freeze();
-    let ccdr = dp.RCC.constrain()
+    let ccdr = dp
+        .RCC
+        .constrain()
         .use_hse(16.mhz())
         .sys_ck(400.mhz())
         .pll3_p_ck(PLL3_P_HZ)
@@ -69,7 +67,6 @@ fn main() -> ! {
 
     // enable sai1 peripheral and set clock to pll3
     let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
-
 
     // - configure pins ---------------------------------------------------
 
@@ -85,38 +82,43 @@ fn main() -> ! {
         Some(gpioe.pe3.into_alternate_af6()), // SD_B
     );
 
-
     // - configure dma1 -------------------------------------------------------
 
-    let dma1_streams = dma::dma::StreamsTuple::new(dp.DMA1, ccdr.peripheral.DMA1);
+    let dma1_streams =
+        dma::dma::StreamsTuple::new(dp.DMA1, ccdr.peripheral.DMA1);
 
     // dma1 stream 0
-    let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] = unsafe { &mut TX_BUFFER };
+    let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
+        unsafe { &mut TX_BUFFER };
     let dma_config = dma::dma::DmaConfig::default()
         .priority(dma::config::Priority::High)
         .memory_increment(true)
         .peripheral_increment(false)
         .circular_buffer(true)
         .fifo_enable(false);
-    let mut dma1_str0: dma::Transfer<_, _, dma::MemoryToPeripheral, _> = dma::Transfer::init(
-        dma1_streams.0,
-        unsafe { pac::Peripherals::steal().SAI1 },
-        tx_buffer,
-        None,
-        dma_config,
-    );
+    let mut dma1_str0: dma::Transfer<_, _, dma::MemoryToPeripheral, _> =
+        dma::Transfer::init(
+            dma1_streams.0,
+            unsafe { pac::Peripherals::steal().SAI1 },
+            tx_buffer,
+            None,
+            dma_config,
+        );
 
     // dma1 stream 1
-    let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] = unsafe { &mut RX_BUFFER };
-    let dma_config = dma_config.transfer_complete_interrupt(true)
-                               .half_transfer_interrupt(true);
-    let mut dma1_str1: dma::Transfer<_, _, dma::PeripheralToMemory, _> = dma::Transfer::init(
-        dma1_streams.1,
-        unsafe { pac::Peripherals::steal().SAI1 },
-        rx_buffer,
-        None,
-        dma_config,
-    );
+    let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
+        unsafe { &mut RX_BUFFER };
+    let dma_config = dma_config
+        .transfer_complete_interrupt(true)
+        .half_transfer_interrupt(true);
+    let mut dma1_str1: dma::Transfer<_, _, dma::PeripheralToMemory, _> =
+        dma::Transfer::init(
+            dma1_streams.1,
+            unsafe { pac::Peripherals::steal().SAI1 },
+            rx_buffer,
+            None,
+            dma_config,
+        );
 
     // - configure sai ----------------------------------------------------
 
@@ -140,18 +142,18 @@ fn main() -> ! {
         Some(sai1_rx_config),
     );
 
-
     // - reset ak4556 codec -----------------------------------------------
 
     ak4556_reset.set_low().unwrap();
-    asm::delay(480_000);  // ~ 1ms (datasheet specifies minimum 150ns)
+    asm::delay(480_000); // ~ 1ms (datasheet specifies minimum 150ns)
     ak4556_reset.set_high().unwrap();
-
 
     // - start audio ------------------------------------------------------
 
     // unmask interrupt handler for dma 1, stream 1
-    unsafe { pac::NVIC::unmask(pac::Interrupt::DMA1_STR1); }
+    unsafe {
+        pac::NVIC::unmask(pac::Interrupt::DMA1_STR1);
+    }
 
     dma1_str1.start(|_sai1_rb| {
         sai1.enable_dma(SaiChannel::ChannelB);
@@ -162,19 +164,20 @@ fn main() -> ! {
 
         // wait until sai1's fifo starts to receive data
         info!("sai1 fifo waiting to receive data");
-        while sai1_rb.cha.sr.read().flvl().is_empty() { }
+        while sai1_rb.cha.sr.read().flvl().is_empty() {}
         info!("audio started");
 
         sai1.enable();
     });
 
-
     // - dma1 stream 1 interrupt handler --------------------------------------
 
-    type TransferDma1Str1 = dma::Transfer<dma::dma::Stream1<stm32::DMA1>,
-                                          stm32::SAI1,
-                                          dma::PeripheralToMemory,
-                                          &'static mut [u32; 128]>;
+    type TransferDma1Str1 = dma::Transfer<
+        dma::dma::Stream1<stm32::DMA1>,
+        stm32::SAI1,
+        dma::PeripheralToMemory,
+        &'static mut [u32; 128],
+    >;
 
     static mut TRANSFER_DMA1_STR1: Option<TransferDma1Str1> = None;
     unsafe {
@@ -183,8 +186,10 @@ fn main() -> ! {
 
     #[interrupt]
     fn DMA1_STR1() {
-        let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] = unsafe { &mut TX_BUFFER };
-        let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] = unsafe { &mut RX_BUFFER };
+        let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
+            unsafe { &mut TX_BUFFER };
+        let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
+            unsafe { &mut RX_BUFFER };
 
         let stereo_block_length = tx_buffer.len() / 2;
 
@@ -214,7 +219,6 @@ fn main() -> ! {
             }
         }
     }
-
 
     // - main loop ------------------------------------------------------------
 
