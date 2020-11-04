@@ -345,6 +345,10 @@ impl Qspi {
         // that the QSPI may have signal contention issues when reading. SSHIFT forces the read to
         // occur on the falling edge instead of the rising edge. Refer to
         // https://github.com/quartiq/stabilizer/issues/101 for more information
+        //
+        // This is also noted in the docstring for the read() method.
+        //
+        // SSHIFT must not be set in DDR mode.
         regs.cr.write(|w| unsafe {
             w.prescaler().bits(divisor as u8).sshift().set_bit()
         });
@@ -451,9 +455,16 @@ impl Qspi {
     /// Read data over the QSPI interface.
     ///
     /// # Note
-    /// There is an issue where the QSPI peripheral will erroneously drive the output pins for an
-    /// extra half clock cycle before IO is swapped from output to input. Refer to
+    ///
+    /// Without any dummy cycles, the QSPI peripheral will erroneously drive the
+    /// output pins for an extra half clock cycle before IO is swapped from
+    /// output to input. Refer to
     /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+    ///
+    /// Although it doesn't stop the possible bus contention, this HAL sets the
+    /// SSHIFT bit in the CR register. With this bit set, the QSPI receiver
+    /// sampling point is delayed by an extra half cycle. Then the receiver
+    /// sampling point is after the bus contention.
     ///
     /// # Args
     /// * `addr` - The address to read data from.
