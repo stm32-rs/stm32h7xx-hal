@@ -65,7 +65,7 @@ use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
 use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
 
 use crate::stm32;
-use crate::stm32::spi1::cfg1::MBR_A as MBR;
+use crate::stm32::spi1::{cfg1::MBR_A as MBR, cfg2::COMM_A as COMM};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
@@ -124,6 +124,19 @@ where
 {
 }
 
+/// Specifies the communication mode of the SPI interface.
+#[derive(Copy, Clone)]
+pub enum CommunicationMode {
+    /// Both RX and TX are used.
+    FullDuplex,
+
+    /// Only the SPI TX functionality is used.
+    Transmitter,
+
+    /// Only the SPI RX functionality is used.
+    Receiver,
+}
+
 /// A structure for specifying SPI configuration.
 ///
 /// This structure uses builder semantics to generate the configuration.
@@ -141,6 +154,8 @@ pub struct Config {
     swap_miso_mosi: bool,
     cs_delay: f32,
     managed_cs: bool,
+    suspend_when_inactive: bool,
+    communication_mode: CommunicationMode,
 }
 
 impl Config {
@@ -154,6 +169,8 @@ impl Config {
             swap_miso_mosi: false,
             cs_delay: 0.0,
             managed_cs: false,
+            suspend_when_inactive: false,
+            communication_mode: CommunicationMode::FullDuplex,
         }
     }
 
@@ -182,8 +199,31 @@ impl Config {
     }
 
     /// CS pin is automatically managed by the SPI peripheral.
+    ///
+    /// # Note
+    /// SPI is configured in "endless transaction" mode, which means that the SPI CSn pin will
+    /// assert when the first data is sent and will not de-assert.
+    ///
+    /// If CSn should be de-asserted between each data transfer, use `suspend_when_inactive()` as
+    /// well.
     pub fn manage_cs(mut self) -> Self {
         self.managed_cs = true;
+        self
+    }
+
+    /// Suspend a transaction automatically if data is not available in the FIFO.
+    ///
+    /// # Note
+    /// This will de-assert CSn when no data is available for transmission and hardware is managing
+    /// the CSn pin.
+    pub fn suspend_when_inactive(mut self) -> Self {
+        self.suspend_when_inactive = true;
+        self
+    }
+
+    /// Select the communication mode of the SPI bus.
+    pub fn communication_mode(mut self, mode: CommunicationMode) -> Self {
+        self.communication_mode = mode;
         self
     }
 }
@@ -455,7 +495,7 @@ macro_rules! spi {
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                         // Calculate the CS->transaction cycle delay bits.
-                        let cycle_delay: u8 = {
+                        let (start_cycle_delay, interdata_cycle_delay) = {
                             let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
 
                             // If the cs-delay is specified as non-zero, add 1 to the delay cycles
@@ -469,11 +509,22 @@ macro_rules! spi {
                                 delay = 0xF;
                             }
 
-                            delay as u8
+                            // If CS suspends while data is inactive, we also require an
+                            // "inter-data" delay.
+                            if config.suspend_when_inactive {
+                                (delay as u8, delay as u8)
+                            } else {
+                                (delay as u8, 0_u8)
+                            }
                         };
 
                         // The calculated cycle delay may not be more than 4 bits wide for the
                         // configuration register.
+                        let communication_mode = match config.communication_mode {
+                            CommunicationMode::Transmitter => COMM::TRANSMITTER,
+                            CommunicationMode::Receiver => COMM::RECEIVER,
+                            CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
+                        };
 
                         // mstr: master configuration
                         // lsbfrst: MSB first
@@ -488,14 +539,20 @@ macro_rules! spi {
                                 .master()
                                 .lsbfrst()
                                 .msbfirst()
+                                .ssom()
+                                .bit(config.suspend_when_inactive)
                                 .ssm()
                                 .bit(config.managed_cs == false)
+                                .ssoe()
+                                .bit(config.managed_cs == true)
                                 .mssi()
-                                .bits(cycle_delay)
+                                .bits(start_cycle_delay)
+                                .midi()
+                                .bits(interdata_cycle_delay)
                                 .ioswp()
                                 .bit(config.swap_miso_mosi == true)
                                 .comm()
-                                .full_duplex()
+                                .variant(communication_mode)
                         });
 
                         // spe: enable the SPI bus
