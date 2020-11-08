@@ -1,20 +1,20 @@
 //! Demo for STM32H747I-NUCLEO eval board using the Real Time Interrupt-driven Concurrency (RTIC)
 //! framework.
 //!
-//! This example demonstrates using DMA to continuously write a data stream over SPI.
+//! This example demonstrates using DMA to write data over a TX-only SPI interface.
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
 use core::{mem, mem::MaybeUninit};
 
+use cortex_m;
 use embedded_hal::digital::v2::OutputPin;
 use rtic::app;
 
 #[macro_use]
 #[allow(unused)]
 mod utilities;
-use log::info;
 
 use hal::prelude::*;
 use stm32h7xx_hal as hal;
@@ -34,11 +34,12 @@ static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
 const APP: () = {
     struct Resources {
         transfer: hal::dma::Transfer<
-            hal::dma::dma::Stream0<hal::stm32::DMA1>,
+            hal::dma::dma::Stream1<hal::stm32::DMA1>,
             hal::spi::Spi<hal::stm32::SPI2, hal::spi::Disabled, u8>,
             hal::dma::MemoryToPeripheral,
             &'static mut [u8; BUFFER_SIZE],
         >,
+        cs: hal::gpio::gpiob::PB12<hal::gpio::Output<hal::gpio::PushPull>>,
     }
 
     #[init]
@@ -54,14 +55,21 @@ const APP: () = {
         let ccdr = rcc
             .sys_ck(200.mhz())
             .hclk(200.mhz())
+            .pll1_q_ck(200.mhz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
 
         // Initialize a SPI transmitter on SPI2.
         let spi = {
-            let mosi = gpiob.pb15.into_alternate_af5();
-            let sck = gpiob.pb13.into_alternate_af5();
+            let mosi = gpiob
+                .pb15
+                .into_alternate_af5()
+                .set_speed(hal::gpio::Speed::VeryHigh);
+            let sck = gpiob
+                .pb13
+                .into_alternate_af5()
+                .set_speed(hal::gpio::Speed::VeryHigh);
             let config = hal::spi::Config::new(hal::spi::MODE_0)
                 .communication_mode(hal::spi::CommunicationMode::Transmitter);
 
@@ -76,7 +84,10 @@ const APP: () = {
             spi.disable()
         };
 
-        let mut cs = gpiob.pb12.into_push_pull_output();
+        let mut cs = gpiob
+            .pb12
+            .into_push_pull_output()
+            .set_speed(hal::gpio::Speed::VeryHigh);
         cs.set_high().unwrap();
 
         // Initialize our transmit buffer.
@@ -104,38 +115,45 @@ const APP: () = {
             .memory_increment(true)
             .transfer_complete_interrupt(true);
 
-        let mut transfer: hal::dma::Transfer<
+        let transfer: hal::dma::Transfer<
             _,
             _,
             hal::dma::MemoryToPeripheral,
             _,
-        > = hal::dma::Transfer::init(streams.0, spi, buffer, None, config);
+        > = hal::dma::Transfer::init(streams.1, spi, buffer, None, config);
 
-        transfer.start(|spi| {
-            // For this example, we will always drive CSn as we are simply streaming data over SPI.
-            cs.set_low().unwrap();
-
-            // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
-            spi.inner_mut().cfg1.modify(|_, w| w.txdmaen().enabled());
-            spi.inner_mut().cr1.modify(|_, w| w.spe().enabled());
-            spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
-
-            // The transaction immediately begins as the TX FIFO is now being filled by DMA.
-        });
-
-        init::LateResources { transfer }
+        init::LateResources { transfer, cs }
     }
 
-    #[task(binds=DMA1_STR0, resources=[transfer])]
+    #[task(binds=DMA1_STR1, resources=[transfer, cs], priority=2)]
     fn dma_complete(ctx: dma_complete::Context) {
-        info!("DMA transmission completed!");
-
         // If desired, the transfer can scheduled again here to continue transmitting.
+        ctx.resources.cs.set_high().unwrap();
         ctx.resources.transfer.clear_transfer_complete_interrupt();
     }
 
-    #[idle]
-    fn idle(_c: idle::Context) -> ! {
-        loop {}
+    #[idle(resources=[transfer, cs])]
+    fn idle(mut ctx: idle::Context) -> ! {
+        // Start the DMA transfer over SPI.
+        let mut cs = ctx.resources.cs;
+        ctx.resources.transfer.lock(|transfer| {
+            cs.lock(|cs| {
+                transfer.start(|spi| {
+                    // Set CS low for the transfer.
+                    cs.set_low().unwrap();
+
+                    // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
+                    spi.enable_dma_tx();
+                    spi.inner_mut().cr1.modify(|_, w| w.spe().enabled());
+                    spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
+
+                    // The transaction immediately begins as the TX FIFO is now being filled by DMA.
+                });
+            });
+        });
+
+        loop {
+            cortex_m::asm::nop();
+        }
     }
 };
