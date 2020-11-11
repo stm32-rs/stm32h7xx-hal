@@ -8,7 +8,6 @@
 
 use core::{mem, mem::MaybeUninit};
 
-use cortex_m;
 use embedded_hal::digital::v2::OutputPin;
 use rtic::app;
 
@@ -67,7 +66,7 @@ const APP: () = {
                 .into_alternate_af5()
                 .set_speed(hal::gpio::Speed::VeryHigh);
             let sck = gpiob
-                .pb13
+                .pb10
                 .into_alternate_af5()
                 .set_speed(hal::gpio::Speed::VeryHigh);
             let config = hal::spi::Config::new(hal::spi::MODE_0)
@@ -126,10 +125,16 @@ const APP: () = {
     }
 
     #[task(binds=DMA1_STR1, resources=[transfer, cs], priority=2)]
-    fn dma_complete(ctx: dma_complete::Context) {
+    fn dma_complete(mut ctx: dma_complete::Context) {
         // If desired, the transfer can scheduled again here to continue transmitting.
-        ctx.resources.cs.set_high().unwrap();
+        let cs = &mut ctx.resources.cs;
         ctx.resources.transfer.clear_transfer_complete_interrupt();
+        ctx.resources.transfer.pause(|spi| {
+            // At this point, the DMA transfer is done, but the data is still in the SPI output
+            // FIFO. Wait for it to complete before disabling CS.
+            while spi.inner().sr.read().txc().bit_is_clear() {}
+            cs.set_high().unwrap();
+        });
     }
 
     #[idle(resources=[transfer, cs])]
