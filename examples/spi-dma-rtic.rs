@@ -6,7 +6,7 @@
 #![no_main]
 #![no_std]
 
-use core::{mem, mem::MaybeUninit};
+use core::mem::MaybeUninit;
 
 use embedded_hal::digital::v2::OutputPin;
 use rtic::app;
@@ -91,8 +91,10 @@ const APP: () = {
 
         // Initialize our transmit buffer.
         let buffer: &'static mut [u8; BUFFER_SIZE] = {
-            let buf: &mut [MaybeUninit<u8>; BUFFER_SIZE] =
-                unsafe { mem::transmute(&mut BUFFER) };
+            let buf: &mut [MaybeUninit<u8>; BUFFER_SIZE] = unsafe {
+                &mut *(&mut BUFFER as *mut MaybeUninit<[u8; BUFFER_SIZE]>
+                    as *mut [MaybeUninit<u8>; BUFFER_SIZE])
+            };
 
             for (i, value) in buf.iter_mut().enumerate() {
                 unsafe {
@@ -100,7 +102,10 @@ const APP: () = {
                 }
             }
 
-            unsafe { mem::transmute(buf) }
+            unsafe {
+                &mut *(buf as *mut [MaybeUninit<u8>; BUFFER_SIZE]
+                    as *mut [u8; BUFFER_SIZE])
+            }
         };
 
         let streams = hal::dma::dma::StreamsTuple::new(
