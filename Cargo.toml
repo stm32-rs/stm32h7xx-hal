@@ -40,7 +40,7 @@ synopsys-usb-otg = { version = "^0.2.2", features = ["cortex-m"], optional = tru
 [dependencies.smoltcp]
 version = "0.6.0"
 default-features = false
-features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-tcp", "socket-raw"]
+features = ["ethernet", "proto-ipv4"]
 optional = true
 
 [dependencies.chrono]
