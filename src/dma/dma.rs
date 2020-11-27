@@ -528,31 +528,23 @@ macro_rules! dma_stream {
                 }
 
                 #[inline(always)]
-                unsafe fn set_memory_address(&mut self, value: u32) {
+                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: u32) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value));
+                    match buffer {
+                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value)),
+                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value)),
+                    }
                 }
 
                 #[inline(always)]
-                fn get_memory_address(&self) -> u32 {
+                fn get_memory_address(&self, buffer: CurrentBuffer) -> u32 {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.st[Self::NUMBER].m0ar.read().m0a().bits()
-                }
-
-                #[inline(always)]
-                unsafe fn set_memory_double_buffer_address(&mut self, value: u32) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value));
-                }
-
-                #[inline(always)]
-                fn get_memory_double_buffer_address(&self) -> u32 {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.st[Self::NUMBER].m1ar.read().m1a().bits()
+                    match buffer {
+                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.read().m0a().bits(),
+                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.read().m1a().bits(),
+                    }
                 }
 
                 #[inline(always)]
@@ -635,9 +627,9 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
                     if dma.st[Self::NUMBER].cr.read().ct().bit_is_set() {
-                        CurrentBuffer::DoubleBuffer
+                        CurrentBuffer::Buffer1
                     } else {
-                        CurrentBuffer::FirstBuffer
+                        CurrentBuffer::Buffer0
                     }
                 }
             }
