@@ -32,7 +32,7 @@ mod macros;
 #[cfg(not(feature = "rm0455"))] // Remove when fixed upstream
 pub mod dma; // DMA1 and DMA2
 
-pub mod bdma;
+// pub mod bdma;
 
 pub mod traits;
 use traits::{
@@ -177,9 +177,9 @@ impl From<u8> for FifoLevel {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CurrentBuffer {
     /// The first buffer (m0ar) is in use.
-    Buffer0,
+    Buffer0 = 0,
     /// The second buffer (m1ar) is in use.
-    Buffer1,
+    Buffer1 = 1,
 }
 
 impl Not for CurrentBuffer {
@@ -478,98 +478,73 @@ where
         &mut self,
         mut new_buf: BUF,
     ) -> Result<(BUF, CurrentBuffer), DMAError<BUF>> {
-        if self.buf[1].is_some()
-            && DIR::direction() != DmaDirection::MemoryToMemory
-        {
+        // NOTE(unsafe) We now own this buffer and we won't call any &mut
+        // methods on it until the end of the DMA transfer
+        let (new_buf_ptr, new_buf_len) = unsafe { new_buf.write_buffer() };
+
+        if let Some(buf) = STREAM::get_current_buffer() {
+            // Double buffer mode, swap the inactive buffer.
+            let buf = !buf;
+
             if !STREAM::get_transfer_complete_flag() {
                 return Err(DMAError::NotReady(new_buf));
             }
             self.stream.clear_transfer_complete_interrupt();
-            // NOTE(unsafe) We now own this buffer and we won't call any &mut
-            // methods on it until the end of the DMA transfer
-            let (new_buf_ptr, new_buf_len) = unsafe { new_buf.write_buffer() };
 
             // We can't change the transfer length while double buffering
-            if new_buf_len < usize::from(self.transfer_length) {
+            if new_buf_len != usize::from(self.transfer_length) {
                 return Err(DMAError::SmallBuffer(new_buf));
             }
 
-            if STREAM::current_buffer() == CurrentBuffer::Buffer1 {
-                unsafe {
-                    self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as u32);
-                }
-                // Check if an overrun occurred, the buffer address won't be
-                // updated in that case
-                if self.stream.get_memory_address(CurrentBuffer::Buffer0) != new_buf_ptr as u32 {
-                    self.stream.clear_transfer_complete_interrupt();
-                    return Err(DMAError::Overrun(new_buf));
-                }
-
-                // "Subsequent reads and writes cannot be moved ahead of
-                // preceding reads"
-                compiler_fence(Ordering::Acquire);
-
-                let old_buf = self.buf[0].replace(new_buf);
-
-                // We always have a buffer, so unwrap can't fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::Buffer0));
-            } else {
-                unsafe {
-                    self.stream
-                        .set_memory_address(CurrentBuffer::Buffer1, new_buf_ptr as u32);
-                }
-                // Check if an overrun occurred, the buffer address won't be
-                // updated in that case
-                if self.stream.get_memory_address(CurrentBuffer::Buffer1)
-                    != new_buf_ptr as u32
-                {
-                    self.stream.clear_transfer_complete_interrupt();
-                    return Err(DMAError::Overrun(new_buf));
-                }
-
-                // "Subsequent reads and writes cannot be moved ahead of
-                // preceding reads"
-                compiler_fence(Ordering::Acquire);
-
-                let old_buf = self.buf[1].replace(new_buf);
-
-                // double buffering, unwrap can never fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::Buffer1));
+            unsafe {
+                self.stream.set_memory_address(buf, new_buf_ptr as u32);
             }
+            // Check if an overrun occurred, the buffer address won't be
+            // updated in that case
+            if self.stream.get_memory_address(buf) != new_buf_ptr as u32 {
+                self.stream.clear_transfer_complete_interrupt();
+                return Err(DMAError::Overrun(new_buf));
+            }
+
+            // "Subsequent reads and writes cannot be moved ahead of
+            // preceding reads"
+            compiler_fence(Ordering::Acquire);
+
+            let old_buf = self.buf[buf as usize].replace(new_buf);
+
+            // We always have a buffer, so unwrap can't fail
+            Ok((old_buf.unwrap(), buf))
+        } else {
+            self.stream.disable();
+            self.stream.clear_transfer_complete_interrupt();
+
+            // "No re-ordering of reads and writes across this point is allowed"
+            compiler_fence(Ordering::SeqCst);
+
+            unsafe {
+                self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as u32);
+            }
+            self.stream.set_number_of_transfers(new_buf_len as u16);
+            
+            let old_buf = self.buf[0].replace(new_buf);
+
+            // Ensure that all transfers to normal memory complete before
+            // subsequent memory transfers.
+            //
+            // The new memory buffer is almost certainly in normal memory, so we
+            // ensure that all transfers there complete before proceeding to enable
+            // the stream
+            cortex_m::asm::dmb();
+
+            // "Preceding reads and writes cannot be moved past subsequent writes"
+            compiler_fence(Ordering::Release);
+
+            unsafe {
+                self.stream.enable();
+            }
+
+            Ok((old_buf.unwrap(), CurrentBuffer::Buffer0))
         }
-        self.stream.disable();
-        self.stream.clear_transfer_complete_interrupt();
-
-        // "No re-ordering of reads and writes across this point is allowed"
-        compiler_fence(Ordering::SeqCst);
-
-        // NOTE(unsafe) We now own this buffer and we won't call any &mut
-        // methods on it until the end of the DMA transfer
-        let buf_len = unsafe {
-            let (buf_ptr, buf_len) = new_buf.write_buffer();
-
-            self.stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as u32);
-            buf_len
-        };
-        self.stream.set_number_of_transfers(buf_len as u16);
-        let old_buf = self.buf[0].replace(new_buf);
-
-        // Ensure that all transfers to normal memory complete before
-        // subsequent memory transfers.
-        //
-        // The new memory buffer is almost certainly in normal memory, so we
-        // ensure that all transfers there complete before proceeding to enable
-        // the stream
-        cortex_m::asm::dmb();
-
-        // "Preceding reads and writes cannot be moved past subsequent writes"
-        compiler_fence(Ordering::Release);
-
-        unsafe {
-            self.stream.enable();
-        }
-
-        Ok((old_buf.unwrap(), CurrentBuffer::Buffer0))
     }
 
     /// Stops the stream and returns the underlying resources.
@@ -678,7 +653,7 @@ where
             }
             self.stream.clear_transfer_complete_interrupt();
 
-            let current_buffer = STREAM::current_buffer();
+            let current_buffer = STREAM::get_current_buffer().unwrap();
             // double buffering, unwrap can never fail
             let db = if current_buffer == CurrentBuffer::Buffer1 {
                 self.buf[0].take().unwrap()

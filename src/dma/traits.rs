@@ -161,8 +161,11 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     /// Enable/disable the double buffer (dbm) of the DMA stream.
     fn set_double_buffer(&mut self, double_buffer: bool);
 
-    /// Get which buffer is currently in use by the DMA.
-    fn current_buffer() -> CurrentBuffer;
+    /// Set the current buffer.
+    fn set_current_buffer(buffer: CurrentBuffer);
+
+    /// Get which buffer is currently in use by the DMA when in double buffer mode.
+    fn get_current_buffer() -> Option<CurrentBuffer>;
 }
 
 /// Trait for Master DMA streams
