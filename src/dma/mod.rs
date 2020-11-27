@@ -291,8 +291,7 @@ where
     stream: STREAM,
     peripheral: PERIPHERAL,
     _direction: PhantomData<DIR>,
-    buf: Option<BUF>,
-    double_buf: Option<BUF>,
+    buf: [Option<BUF>; 2],
     // Used when double buffering
     transfer_length: u16,
 }
@@ -421,8 +420,7 @@ where
             stream,
             peripheral,
             _direction: PhantomData,
-            buf: Some(memory),
-            double_buf,
+            buf: [Some(memory), double_buf],
             transfer_length: n_transfers,
         };
         transfer.apply_config(config);
@@ -480,7 +478,7 @@ where
         &mut self,
         mut new_buf: BUF,
     ) -> Result<(BUF, CurrentBuffer), DMAError<BUF>> {
-        if self.double_buf.is_some()
+        if self.buf[1].is_some()
             && DIR::direction() != DmaDirection::MemoryToMemory
         {
             if !STREAM::get_transfer_complete_flag() {
@@ -511,7 +509,7 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.buf.replace(new_buf);
+                let old_buf = self.buf[0].replace(new_buf);
 
                 // We always have a buffer, so unwrap can't fail
                 return Ok((old_buf.unwrap(), CurrentBuffer::Buffer0));
@@ -533,7 +531,7 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.double_buf.replace(new_buf);
+                let old_buf = self.buf[1].replace(new_buf);
 
                 // double buffering, unwrap can never fail
                 return Ok((old_buf.unwrap(), CurrentBuffer::Buffer1));
@@ -554,7 +552,7 @@ where
             buf_len
         };
         self.stream.set_number_of_transfers(buf_len as u16);
-        let old_buf = self.buf.replace(new_buf);
+        let old_buf = self.buf[0].replace(new_buf);
 
         // Ensure that all transfers to normal memory complete before
         // subsequent memory transfers.
@@ -588,8 +586,8 @@ where
         unsafe {
             let stream = ptr::read(&self.stream);
             let peripheral = ptr::read(&self.peripheral);
-            let buf = ptr::read(&self.buf);
-            let double_buf = ptr::read(&self.double_buf);
+            let buf = ptr::read(&self.buf[0]);
+            let double_buf = ptr::read(&self.buf[1]);
             mem::forget(self);
             (stream, peripheral, buf.unwrap(), double_buf)
         }
@@ -672,7 +670,7 @@ where
     where
         F: FnOnce(BUF, CurrentBuffer) -> (BUF, T),
     {
-        if self.double_buf.is_some()
+        if self.buf[1].is_some()
             && DIR::direction() != DmaDirection::MemoryToMemory
         {
             if !STREAM::get_transfer_complete_flag() {
@@ -683,9 +681,9 @@ where
             let current_buffer = STREAM::current_buffer();
             // double buffering, unwrap can never fail
             let db = if current_buffer == CurrentBuffer::Buffer1 {
-                self.buf.take().unwrap()
+                self.buf[0].take().unwrap()
             } else {
-                self.double_buf.take().unwrap()
+                self.buf[1].take().unwrap()
             };
             let r = f(db, !current_buffer);
             let mut new_buf = r.0;
@@ -722,7 +720,7 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                self.buf.replace(new_buf);
+                self.buf[0].replace(new_buf);
                 return Ok(r.1);
             } else {
                 self.stream
@@ -737,7 +735,7 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                self.double_buf.replace(new_buf);
+                self.buf[1].replace(new_buf);
                 return Ok(r.1);
             }
         }
@@ -748,14 +746,14 @@ where
         compiler_fence(Ordering::SeqCst);
 
         // Can never fail, we never let the Transfer without a buffer
-        let old_buf = self.buf.take().unwrap();
+        let old_buf = self.buf[0].take().unwrap();
         let r = f(old_buf, CurrentBuffer::Buffer0);
         let mut new_buf = r.0;
 
         let (buf_ptr, buf_len) = new_buf.write_buffer();
         self.stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as u32);
         self.stream.set_number_of_transfers(buf_len as u16);
-        self.buf.replace(new_buf);
+        self.buf[0].replace(new_buf);
 
         // Ensure that all transfers to normal memory complete before
         // subsequent memory transfers.
