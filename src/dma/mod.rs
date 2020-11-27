@@ -24,7 +24,7 @@ use core::{
     ptr,
     sync::atomic::{compiler_fence, Ordering},
 };
-use embedded_dma::WriteBuffer;
+use embedded_dma::StaticWriteBuffer;
 
 #[macro_use]
 mod macros;
@@ -286,8 +286,7 @@ where
     STREAM: Stream,
     PERIPHERAL: TargetAddress<DIR>,
     DIR: Direction,
-    BUF: WriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>
-        + 'static,
+    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     stream: STREAM,
     peripheral: PERIPHERAL,
@@ -305,8 +304,7 @@ where
     CONFIG: DoubleBufferedConfig,
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
-    BUF: WriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>
-        + 'static,
+    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     /// Applies all fields in DmaConfig.
     fn apply_config(&mut self, config: CONFIG) {
@@ -782,8 +780,7 @@ where
     STREAM: Stream,
     PERIPHERAL: TargetAddress<DIR>,
     DIR: Direction,
-    BUF: WriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>
-        + 'static,
+    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     fn drop(&mut self) {
         self.stream.disable();
