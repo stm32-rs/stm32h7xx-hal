@@ -15,8 +15,8 @@ macro_rules! peripheral_target_instance {
       $dir:ty $(, $mux:expr)*)) => {
         unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.$register as *const _ as u32
+            fn address(&self) -> usize {
+                &self.$register as *const _ as usize
             }
 
             type MemSize = $size;
@@ -33,8 +33,8 @@ macro_rules! peripheral_target_instance {
         // Access via PAC peripheral structures implies u8 sizing, as the sizing is unknown.
         unsafe impl TargetAddress<M2P> for $peripheral {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.$txreg as *const _ as u32
+            fn address(&self) -> usize {
+                &self.$txreg as *const _ as usize
             }
 
             type MemSize = u8;
@@ -44,8 +44,8 @@ macro_rules! peripheral_target_instance {
 
         unsafe impl TargetAddress<P2M> for $peripheral {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.$rxreg as *const _ as u32
+            fn address(&self) -> usize {
+                &self.$rxreg as *const _ as usize
             }
 
             type MemSize = u8;
@@ -57,8 +57,8 @@ macro_rules! peripheral_target_instance {
         $(
         unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.inner().$txreg as *const _ as u32
+            fn address(&self) -> usize {
+                &self.inner().$txreg as *const _ as usize
             }
 
             type MemSize = $size;
@@ -68,8 +68,8 @@ macro_rules! peripheral_target_instance {
 
         unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.inner().$rxreg as *const _ as u32
+            fn address(&self) -> usize {
+                &self.inner().$rxreg as *const _ as usize
             }
 
             type MemSize = $size;
@@ -83,8 +83,8 @@ macro_rules! peripheral_target_instance {
       $dir:ty $(, $mux:expr)*)) => {
         unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.inner().$register as *const _ as u32
+            fn address(&self) -> usize {
+                &self.inner().$register as *const _ as usize
             }
 
             type MemSize = $size;
@@ -101,8 +101,8 @@ macro_rules! peripheral_target_instance {
       $dir:ty $(, $mux:expr)*)) => {
         unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
-            fn address(&self) -> u32 {
-                &self.$channel.$register as *const _ as u32
+            fn address(&self) -> usize {
+                &self.$channel.$register as *const _ as usize
             }
 
             type MemSize = $size;

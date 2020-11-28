@@ -102,13 +102,13 @@ pub trait Stream: Sealed {
 /// Trait for Double-Buffered DMA streams
 pub trait DoubleBufferedStream: Stream + Sealed {
     /// Set the peripheral address (par) for the DMA stream.
-    unsafe fn set_peripheral_address(&mut self, value: u32);
+    unsafe fn set_peripheral_address(&mut self, value: usize);
 
     /// Set the memory address (m0ar) for the DMA stream.
-    unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: u32);
+    unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: usize);
 
     /// Get the memory address (m0ar) for the DMA stream.
-    fn get_memory_address(&self, buffer: CurrentBuffer) -> u32;
+    fn get_memory_address(&self, buffer: CurrentBuffer) -> usize;
 
     /// Enable/disable memory increment (minc) for the DMA stream.
     fn set_memory_increment(&mut self, increment: bool);
@@ -210,7 +210,7 @@ pub unsafe trait TargetAddress<D: Direction> {
     type MemSize;
 
     /// The address to be used by the DMA stream
-    fn address(&self) -> u32;
+    fn address(&self) -> usize;
 
     /// An optional associated request line
     const REQUEST_LINE: Option<u8> = None;

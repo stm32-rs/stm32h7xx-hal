@@ -521,30 +521,31 @@ macro_rules! dma_stream {
 
             impl<I: Instance> DoubleBufferedStream for $name<I> {
                 #[inline(always)]
-                unsafe fn set_peripheral_address(&mut self, value: u32) {
+                unsafe fn set_peripheral_address(&mut self, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].par.write(|w| w.pa().bits(value));
+                    dma.st[Self::NUMBER].par.write(|w| w.pa().bits(value as u32));
                 }
 
                 #[inline(always)]
-                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: u32) {
+                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
                     match buffer {
-                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value)),
-                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value)),
+                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value as u32)),
+                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value as u32)),
                     }
                 }
 
                 #[inline(always)]
-                fn get_memory_address(&self, buffer: CurrentBuffer) -> u32 {
+                fn get_memory_address(&self, buffer: CurrentBuffer) -> usize {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    match buffer {
+                    let addr = match buffer {
                         CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.read().m0a().bits(),
                         CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.read().m1a().bits(),
-                    }
+                    };
+                    addr as usize
                 }
 
                 #[inline(always)]

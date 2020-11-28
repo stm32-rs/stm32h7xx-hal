@@ -120,21 +120,21 @@ impl Direction for MemoryToPeripheral {
 }
 
 unsafe impl TargetAddress<Self> for MemoryToMemory<u8> {
-    fn address(&self) -> u32 {
+    fn address(&self) -> usize {
         unimplemented!()
     }
     type MemSize = u8;
 }
 
 unsafe impl TargetAddress<Self> for MemoryToMemory<u16> {
-    fn address(&self) -> u32 {
+    fn address(&self) -> usize {
         unimplemented!()
     }
     type MemSize = u16;
 }
 
 unsafe impl TargetAddress<Self> for MemoryToMemory<u32> {
-    fn address(&self) -> u32 {
+    fn address(&self) -> usize {
         unimplemented!()
     }
     type MemSize = u32;
@@ -360,7 +360,7 @@ where
         //
         // Must be a valid memory address
         unsafe {
-            stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as u32);
+            stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as usize);
         }
 
         let is_mem2mem = DIR::direction() == DmaDirection::MemoryToMemory;
@@ -390,9 +390,9 @@ where
             unsafe {
                 if is_mem2mem {
                     // Double buffer is the source in mem2mem mode
-                    stream.set_peripheral_address(db_ptr as u32);
+                    stream.set_peripheral_address(db_ptr as usize);
                 } else {
-                    stream.set_memory_address(CurrentBuffer::Buffer1, db_ptr as u32);
+                    stream.set_memory_address(CurrentBuffer::Buffer1, db_ptr as usize);
                 }
             }
             Some(db_len)
@@ -482,9 +482,9 @@ where
         // methods on it until the end of the DMA transfer
         let (new_buf_ptr, new_buf_len) = unsafe { new_buf.write_buffer() };
 
-        if let Some(buf) = STREAM::get_current_buffer() {
+        if let Some(active_buffer) = STREAM::get_current_buffer() {
             // Double buffer mode, swap the inactive buffer.
-            let buf = !buf;
+            let inactive_buffer = !active_buffer;
 
             if !STREAM::get_transfer_complete_flag() {
                 return Err(DMAError::NotReady(new_buf));
@@ -497,11 +497,11 @@ where
             }
 
             unsafe {
-                self.stream.set_memory_address(buf, new_buf_ptr as u32);
+                self.stream.set_memory_address(inactive_buffer, new_buf_ptr as usize);
             }
             // Check if an overrun occurred, the buffer address won't be
             // updated in that case
-            if self.stream.get_memory_address(buf) != new_buf_ptr as u32 {
+            if self.stream.get_memory_address(inactive_buffer) != new_buf_ptr as usize {
                 self.stream.clear_transfer_complete_interrupt();
                 return Err(DMAError::Overrun(new_buf));
             }
@@ -510,7 +510,7 @@ where
             // preceding reads"
             compiler_fence(Ordering::Acquire);
 
-            let old_buf = self.buf[buf as usize].replace(new_buf);
+            let old_buf = self.buf[inactive as usize].replace(new_buf);
 
             // We always have a buffer, so unwrap can't fail
             Ok((old_buf.unwrap(), buf))
@@ -522,7 +522,7 @@ where
             compiler_fence(Ordering::SeqCst);
 
             unsafe {
-                self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as u32);
+                self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as usize);
             }
             self.stream.set_number_of_transfers(new_buf_len as u16);
             
@@ -666,7 +666,7 @@ where
 
             // We can't change the transfer length while double buffering
             assert!(
-                new_buf_len >= usize::from(self.transfer_length),
+                new_buf_len != usize::from(self.transfer_length),
                 "Second Buffer not big enough"
             );
 
@@ -683,11 +683,11 @@ where
             }
 
             if current_buffer == CurrentBuffer::Buffer1 {
-                self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as u32);
+                self.stream.set_memory_address(CurrentBuffer::Buffer0, new_buf_ptr as usize);
 
                 // Check again if an overrun occurred, the buffer address won't
                 // be updated in that case
-                if self.stream.get_memory_address(CurrentBuffer::Buffer0) != new_buf_ptr as u32 {
+                if self.stream.get_memory_address(CurrentBuffer::Buffer0) != new_buf_ptr as usize {
                     panic!("Overrun");
                 }
 
@@ -699,9 +699,9 @@ where
                 return Ok(r.1);
             } else {
                 self.stream
-                    .set_memory_address(CurrentBuffer::Buffer1, new_buf_ptr as u32);
+                    .set_memory_address(CurrentBuffer::Buffer1, new_buf_ptr as usize);
                 if self.stream.get_memory_address(CurrentBuffer::Buffer1)
-                    != new_buf_ptr as u32
+                    != new_buf_ptr as usize
                 {
                     panic!("Overrun");
                 }
@@ -726,7 +726,7 @@ where
         let mut new_buf = r.0;
 
         let (buf_ptr, buf_len) = new_buf.write_buffer();
-        self.stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as u32);
+        self.stream.set_memory_address(CurrentBuffer::Buffer0, buf_ptr as usize);
         self.stream.set_number_of_transfers(buf_len as u16);
         self.buf[0].replace(new_buf);
 
