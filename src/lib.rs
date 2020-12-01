@@ -40,6 +40,7 @@
 //!
 //! Others
 //!
+//! * [Cyclic Redundancy Check (CRC)](crate::crc)
 //! * [Random Number Generator](crate::rng)
 //! * [System Window Watchdog](crate::watchdog)
 
@@ -130,6 +131,8 @@ pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
+#[cfg(feature = "device-selected")]
+pub mod crc;
 #[cfg(feature = "device-selected")]
 pub mod dac;
 #[cfg(feature = "device-selected")]

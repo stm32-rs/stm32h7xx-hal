@@ -181,3 +181,7 @@ required-features = ["rm0433"]
 [[example]]
 name = "spi-dma-rtic"
 required-features = ["rm0433","rt"]
+
+[[example]]
+name = "crc"
+required-features = ["rt"]
