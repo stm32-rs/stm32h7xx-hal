@@ -105,7 +105,11 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     unsafe fn set_peripheral_address(&mut self, value: usize);
 
     /// Set the memory address (m0ar) for the DMA stream.
-    unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: usize);
+    unsafe fn set_memory_address(
+        &mut self,
+        buffer: CurrentBuffer,
+        value: usize,
+    );
 
     /// Get the memory address (m0ar) for the DMA stream.
     fn get_memory_address(&self, buffer: CurrentBuffer) -> usize;
@@ -161,11 +165,11 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     /// Enable/disable the double buffer (dbm) of the DMA stream.
     fn set_double_buffer(&mut self, double_buffer: bool);
 
-    /// Set the current buffer.
-    fn set_current_buffer(buffer: CurrentBuffer);
-
     /// Get which buffer is currently in use by the DMA when in double buffer mode.
-    fn get_current_buffer() -> Option<CurrentBuffer>;
+    fn get_current_buffer() -> CurrentBuffer;
+
+    /// Get which buffer is currently not in use by the DMA when in double buffer mode.
+    fn get_inactive_buffer() -> Option<CurrentBuffer>;
 }
 
 /// Trait for Master DMA streams
