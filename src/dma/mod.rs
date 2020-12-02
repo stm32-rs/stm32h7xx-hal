@@ -490,7 +490,7 @@ where
                 // between reading the CT bit and poisoning the inactive address, this
                 // write will fail and lead to a transfer error (TEIF) and disable
                 // the stream.
-                // If DMA wins the race by the time we write the new valid addressi
+                // If DMA wins the race by the time we write the new valid address
                 // (below), it gets a bus error and errors/stops.
                 unsafe {
                     self.stream.set_memory_address(inactive, 0xffff_ffffusize);
