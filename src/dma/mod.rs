@@ -22,7 +22,7 @@ use core::{
     mem,
     ops::Not,
     ptr,
-    sync::atomic::{compiler_fence, Ordering},
+    sync::atomic::{fence, Ordering},
 };
 use embedded_dma::StaticWriteBuffer;
 
@@ -421,16 +421,9 @@ where
     where
         F: FnOnce(&mut PERIPHERAL),
     {
-        // "Preceding reads and writes cannot be moved past subsequent writes"
-        compiler_fence(Ordering::Release);
-
-        // Ensure that all transfers to normal memory complete before
-        // subsequent memory transfers.
-        //
-        // The memory buffer is almost certainly in normal memory, so we ensure
-        // that all transfers there complete before proceeding to enable
-        // the stream
-        cortex_m::asm::dmb();
+        // Preserve the instruction and bus ordering of preceding buffer access
+        // to the subsequent access by the DMA peripheral due to enabling it.
+        fence(Ordering::SeqCst);
 
         unsafe {
             self.stream.enable();
@@ -465,22 +458,25 @@ where
     /// * This must be called immediately after a transfer complete
     ///   event to ensure no repeated transfers into/out of the same buffer.
     /// * A `NotReady` error will be returned if this method is called
-    ///   before the end of a transfer and the closure won't be executed.
+    ///   before a transfer is completed and the closure won't be executed.
     /// * A `SmallBuffer` error will be returned if the size of the buffer
     ///   returned by the closure does not match the current transfer size.
-    /// * The DMA may run into the poison address and throw an error if
-    ///   any of following conditions happen:
-    ///   * `SmallBuffer` error.
-    ///   * The closure `f` takes too long to return and a buffer overrun occurs.
+    /// * The DMA may overrun and access the poison address causing a bus error
+    ///   and disabling of the stream if any of following conditions happen:
+    ///   * `SmallBuffer` error
+    ///   * The closure `f` takes too long to return
+    /// * If the buffer address poisoning itself fails because the DMA has overrun,
+    ///   the closure will still be called and the buffer address is updated but
+    ///   the DMA stream will error (TEIF) and disable itself.
     pub fn next_transfer_with<F, T>(&mut self, func: F) -> Result<T, DMAError>
     where
         F: FnOnce(BUF, CurrentBuffer) -> (BUF, T),
     {
-        let (double, inactive) = match STREAM::get_inactive_buffer() {
+        let (single_buffer, inactive) = match STREAM::get_inactive_buffer() {
             None => {
                 // Single buffer mode
                 self.stream.disable();
-                (false, CurrentBuffer::Buffer0)
+                (true, CurrentBuffer::Buffer0)
             }
             Some(inactive) => {
                 // Double buffer mode
@@ -489,25 +485,26 @@ where
                     return Err(DMAError::NotReady);
                 }
                 // Poison the peripheral's inactive memory address to get a memory
-                // error instead of potentially silent corruption if the DMA peripheral
-                // wins the race to the inactive buffer.
-                // NOTE(safety): Memory corruption will still occur in the "incactive"
-                // buffer if an DMA overrun occurs between reading the CT bit and poisoning
-                // the address.
+                // error instead of potentially silent corruption.
+                // If DMA wins the race (overrun) to the inactive buffer
+                // between reading the CT bit and poisoning the inactive address, this
+                // write will fail and lead to a transfer error (TEIF) and disable
+                // the stream.
+                // If DMA wins the race by the time we write the new valid addressi
+                // (below), it gets a bus error and errors/stops.
                 unsafe {
                     self.stream.set_memory_address(inactive, 0xffff_ffffusize);
                 }
-                (true, inactive)
+                (false, inactive)
             }
         };
 
         // Protect the instruction sequence of preceding DMA disable/inactivity
         // verification/poisoning and subsequent (old completed) buffer content
         // access.
-        compiler_fence(Ordering::SeqCst);
-        // Also protect the corresponding data access sequence.
-        // NOTE: The data cache also needs to be flushed (if used).
-        cortex_m::asm::dmb();
+        // Cortex-M7: Also protect the corresponding data access sequence.
+        // NOTE: The data cache also needs to be flushed (if enabled).
+        fence(Ordering::SeqCst);
 
         // This buffer is inactive now and can be accessed.
         // NOTE(panic): We always hold ownership in lieu of the DMA peripheral.
@@ -523,19 +520,22 @@ where
         self.buf[inactive as usize].replace(buf);
 
         // Protect the instruction sequence of preceding (new) buffer content access
-        // and subsequent DMA enable/address update.
-        compiler_fence(Ordering::SeqCst);
-        // Also protect the corresponding data access sequence.
-        // NOTE: The data cache also needs to be flushed (if used).
-        cortex_m::asm::dmb();
+        // and subsequent DMA enable/address update. See the matching fence() above.
+        fence(Ordering::SeqCst);
 
-        if !double {
+        if single_buffer {
+            // Set length before the writing the new valid address.
             self.stream.set_number_of_transfers(buf_len as u16);
         } else if buf_len != usize::from(self.transfer_length) {
             // We can't change the transfer length while double buffering
             return Err(DMAError::SmallBuffer);
         }
 
+        // NOTE(double buffer mode):
+        // Up to here, if the DMA starts accessing the poisoned inactive buffer (overrun)
+        // this will lead to a bus error and disable DMA.
+        // This write can not fail since the DMA is not accessing the corresponding buffer
+        // yet or has hit the poison address and errored disabling itself.
         unsafe {
             self.stream.set_memory_address(inactive, buf_ptr as usize);
         }
@@ -543,7 +543,7 @@ where
         // Acknowledge the TCIF.
         self.stream.clear_transfer_complete_interrupt();
 
-        if !double {
+        if single_buffer {
             unsafe {
                 self.stream.enable();
             }
@@ -555,31 +555,37 @@ where
     /// Changes the buffer and restarts or continues a double buffer
     /// transfer. This must be called immediately after a transfer complete
     /// event. Returns the old buffer together with its `CurrentBuffer`. If an
-    /// error occurs, this method will return the new buffer with the error.
+    /// error occurs, this method will return the old or new buffer with the error.
     ///
-    /// This method will clear the transfer complete flag on entry, it will also
-    /// clear it again if an overrun occurs during its execution. Moreover, if
+    /// This method will clear the transfer complete flag. Moreover, if
     /// an overrun occurs, the stream will be disabled and the transfer error
     /// flag will be set. This method can be called before the end of an ongoing
     /// transfer only if not using double buffering, in that case, the current
     /// transfer will be canceled and a new one will be started. A `NotReady`
-    /// error will be returned if this method is called before the end of a
-    /// transfer while double buffering.
+    /// error together with the new buffer will be returned if this method is called
+    /// before the end of a transfer while double buffering. A `SmallBuffer` error
+    /// together with the old buffer will be returned if the new buffer size does not
+    /// match the ongoing transfer size.
     pub fn next_transfer(
         &mut self,
         new_buf: BUF,
     ) -> Result<(BUF, CurrentBuffer), DMAError> {
-        self.next_transfer_with(|old, current| (new_buf, (old, current)))
+        let mut buf = new_buf;
+        let current = self.next_transfer_with(|mut old, current| {
+            core::mem::swap(&mut old, &mut buf);
+            (old, current)
+        })?;
+        // TODO: return buf on Err
+        Ok((buf, current))
     }
 
     /// Stops the stream and returns the underlying resources.
     pub fn free(mut self) -> (STREAM, PERIPHERAL, BUF, Option<BUF>) {
         self.stream.disable();
-        compiler_fence(Ordering::SeqCst);
 
-        // Ensure that the transfer to device memory that disables the stream is
-        // complete before subsequent memory transfers
-        cortex_m::asm::dmb();
+        // Protect the instruction and bus sequence of the preceding disable and
+        // the subsequent buffer access.
+        fence(Ordering::SeqCst);
 
         self.stream.clear_interrupts();
 
@@ -650,11 +656,8 @@ where
     fn drop(&mut self) {
         self.stream.disable();
 
-        // "No re-ordering of reads and writes across this point is allowed"
-        compiler_fence(Ordering::SeqCst);
-
-        // Ensure that the transfer to device memory that disables the stream is
-        // complete before subsequent memory transfers
-        cortex_m::asm::dmb();
+        // Protect the instruction and bus sequence of the preceding disable and
+        // the subsequent buffer access.
+        fence(Ordering::SeqCst);
     }
 }
