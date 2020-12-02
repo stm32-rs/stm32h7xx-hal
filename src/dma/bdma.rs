@@ -431,30 +431,31 @@ macro_rules! bdma_stream {
 
             impl<I: Instance> DoubleBufferedStream for $name<I> {
                 #[inline(always)]
-                unsafe fn set_peripheral_address(&mut self, value: u32) {
+                unsafe fn set_peripheral_address(&mut self, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
-                    dma.ch[Self::NUMBER].par.write(|w| w.pa().bits(value));
+                    dma.ch[Self::NUMBER].par.write(|w| w.pa().bits(value as u32));
                 }
 
                 #[inline(always)]
-                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: u32) {
+                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
                     match buffer {
-                        CurrentBuffer::Buffer0 => dma.ch[Self::NUMBER].m0ar.write(|w| w.ma().bits(value)),
-                        CurrentBuffer::Buffer1 => dma.ch[Self::NUMBER].m1ar.write(|w| w.ma().bits(value)),
+                        CurrentBuffer::Buffer0 => dma.ch[Self::NUMBER].m0ar.write(|w| w.ma().bits(value as u32)),
+                        CurrentBuffer::Buffer1 => dma.ch[Self::NUMBER].m1ar.write(|w| w.ma().bits(value as u32)),
                     }
                 }
 
                 #[inline(always)]
-                fn get_memory_address(&self, buffer: CurrentBuffer) -> u32 {
+                fn get_memory_address(&self, buffer: CurrentBuffer) -> usize {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    match buffer {
+                    let addr = match buffer {
                         CurrentBuffer::Buffer0 => dma.ch[Self::NUMBER].m0ar.read().ma().bits(),
                         CurrentBuffer::Buffer1 => dma.ch[Self::NUMBER].m1ar.read().ma().bits(),
-                    }
+                    };
+                    addr as usize
                 }
 
                 #[inline(always)]
@@ -535,13 +536,29 @@ macro_rules! bdma_stream {
                 }
 
                 #[inline(always)]
-                fn current_buffer() -> CurrentBuffer {
+                fn get_current_buffer() -> CurrentBuffer {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
                     if dma.ch[Self::NUMBER].cr.read().ct().bit_is_set() {
-                        CurrentBuffer::Buffer1
-                    } else {
                         CurrentBuffer::Buffer0
+                    } else {
+                        CurrentBuffer::Buffer1
+                    }
+                }
+
+                #[inline(always)]
+                fn get_inactive_buffer() -> Option<CurrentBuffer> {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    let cr = dma.ch[Self::NUMBER].cr.read();
+                    if cr.dbm().bit_is_set() {
+                        Some(if cr.ct().bit_is_set() {
+                            CurrentBuffer::Buffer0
+                        } else {
+                            CurrentBuffer::Buffer1
+                        })
+                    } else {
+                        None
                     }
                 }
             }

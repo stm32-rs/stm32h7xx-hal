@@ -32,7 +32,7 @@ mod macros;
 #[cfg(not(feature = "rm0455"))] // Remove when fixed upstream
 pub mod dma; // DMA1 and DMA2
 
-// pub mod bdma;
+pub mod bdma;
 
 pub mod traits;
 use traits::{

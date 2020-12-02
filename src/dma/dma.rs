@@ -624,15 +624,18 @@ macro_rules! dma_stream {
                     dma.st[Self::NUMBER].cr.modify(|_, w| w.dbm().bit(double_buffer));
                 }
 
+                #[inline(always)]
                 fn get_current_buffer() -> CurrentBuffer {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
-                    match dma.st[Self::NUMBER].cr.read().ct().bit_is_set() {
-                        false => CurrentBuffer::Buffer0,
-                        true => CurrentBuffer::Buffer1,
+                    if dma.st[Self::NUMBER].cr.read().ct().bit_is_set() {
+                        CurrentBuffer::Buffer0
+                    } else {
+                        CurrentBuffer::Buffer1
                     }
                 }
 
+                #[inline(always)]
                 fn get_inactive_buffer() -> Option<CurrentBuffer> {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
