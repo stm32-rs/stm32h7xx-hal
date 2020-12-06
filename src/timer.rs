@@ -423,7 +423,7 @@ macro_rules! hal {
 
                 /// Read the counter of the TIM peripheral
                 pub fn counter(&self) -> u32 {
-                    self.tim.cnt.read().bits()
+                    self.tim.cnt.read().cnt().bits().into()
                 }
 
                 /// Start listening for `event`
@@ -731,12 +731,12 @@ macro_rules! lptim_hal {
                 pub fn counter(&self) -> u32 {
                     loop {
                         // Read once
-                        let count1 = self.tim.cnt.read().bits();
+                        let count1 = self.tim.cnt.read().cnt().bits();
 
                         // Read twice - see RM0433 Rev 7. 43.4.14
-                        let count2 = self.tim.cnt.read().bits();
+                        let count2 = self.tim.cnt.read().cnt().bits();
 
-                        if count1 == count2 { return count2; }
+                        if count1 == count2 { return count2.into(); }
                     }
                 }
 
