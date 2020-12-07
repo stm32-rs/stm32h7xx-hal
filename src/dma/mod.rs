@@ -481,7 +481,7 @@ where
     pub fn next_transfer(
         &mut self,
         mut new_buf: BUF,
-    ) -> Result<(BUF, CurrentBuffer), DMAError<BUF>> {
+    ) -> Result<(BUF, CurrentBuffer, usize), DMAError<BUF>> {
         if self.double_buf.is_some()
             && DIR::direction() != DmaDirection::MemoryToMemory
         {
@@ -513,10 +513,10 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.buf.replace(new_buf);
-
                 // We always have a buffer, so unwrap can't fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::FirstBuffer));
+                let old_buf = self.buf.replace(new_buf).unwrap();
+
+                return Ok((old_buf, CurrentBuffer::FirstBuffer, 0));
             } else {
                 unsafe {
                     self.stream
@@ -535,10 +535,10 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.double_buf.replace(new_buf);
-
                 // double buffering, unwrap can never fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::DoubleBuffer));
+                let old_buf = self.double_buf.replace(new_buf).unwrap();
+
+                return Ok((old_buf, CurrentBuffer::DoubleBuffer, 0));
             }
         }
         self.stream.disable();
@@ -546,6 +546,9 @@ where
 
         // "No re-ordering of reads and writes across this point is allowed"
         compiler_fence(Ordering::SeqCst);
+
+        // Check how many data in the transfer are remaining.
+        let remaining_data = STREAM::get_number_of_transfers();
 
         // NOTE(unsafe) We now own this buffer and we won't call any &mut
         // methods on it until the end of the DMA transfer
@@ -556,7 +559,9 @@ where
             buf_len
         };
         self.stream.set_number_of_transfers(buf_len as u16);
-        let old_buf = self.buf.replace(new_buf);
+
+        // We own the buffer now, so unwrap is always safe.
+        let old_buf = self.buf.replace(new_buf).unwrap();
 
         // Ensure that all transfers to normal memory complete before
         // subsequent memory transfers.
@@ -573,7 +578,7 @@ where
             self.stream.enable();
         }
 
-        Ok((old_buf.unwrap(), CurrentBuffer::FirstBuffer))
+        Ok((old_buf, CurrentBuffer::FirstBuffer, remaining_data as usize))
     }
 
     /// Stops the stream and returns the underlying resources.
