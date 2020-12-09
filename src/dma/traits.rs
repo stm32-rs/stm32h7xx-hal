@@ -104,14 +104,14 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     /// Set the peripheral address (par) for the DMA stream.
     unsafe fn set_peripheral_address(&mut self, value: usize);
 
-    /// Set the memory address (m0ar) for the DMA stream.
+    /// Set the memory address (m0ar or m1ar) for the DMA stream.
     unsafe fn set_memory_address(
         &mut self,
         buffer: CurrentBuffer,
         value: usize,
     );
 
-    /// Get the memory address (m0ar) for the DMA stream.
+    /// Get the memory address (m0ar or m1ar) for the DMA stream.
     fn get_memory_address(&self, buffer: CurrentBuffer) -> usize;
 
     /// Enable/disable memory increment (minc) for the DMA stream.

@@ -160,9 +160,9 @@ impl From<u8> for FifoLevel {
 /// Which DMA buffer is in use.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CurrentBuffer {
-    /// The first buffer (m0ar) is in use.
+    /// The first buffer (m0ar).
     Buffer0 = 0,
-    /// The second buffer (m1ar) is in use.
+    /// The second buffer (m1ar).
     Buffer1 = 1,
 }
 
