@@ -335,6 +335,7 @@ where
     ///   `DmaConfig` while initializing a memory to memory transfer.
     /// * When double buffering is enabled but the `double_buf` argument is
     ///   `None`.
+    /// * When the transfer length is greater than (2^16 - 1)
     pub fn init(
         mut stream: STREAM,
         peripheral: PERIPHERAL,
@@ -408,10 +409,15 @@ where
         };
 
         let n_transfers = if let Some(db) = db_len {
-            buf_len.min(db) as u16
+            buf_len.min(db)
         } else {
-            buf_len as u16
+            buf_len
         };
+        assert!(
+            n_transfers <= 65535,
+            "Hardware does not support more than 65535 transfers"
+        );
+        let n_transfers = n_transfers as u16;
         stream.set_number_of_transfers(n_transfers);
 
         // Set the DMAMUX request line if needed
