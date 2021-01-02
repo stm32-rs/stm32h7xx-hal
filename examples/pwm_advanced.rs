@@ -1,7 +1,7 @@
 //! PWM example using 'advanced' features
-//! 
+//!
 //! This was tested on a NUCLEO-H743ZI2 board (MB1364) with the following connections:
-//! 
+//!
 //! LD3 (PB14) - TIM12 PWM output
 //! LD2 (PE1) - GPIO indicating fault status of TIM1
 //! USER button (PC13) - active high button, with pull-down enabled to set idle state; press button to clear TIM1 fault
@@ -19,10 +19,10 @@
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::{pac, prelude::*};
 use stm32h7xx_hal::hal::digital::v2::{InputPin, OutputPin};
-use stm32h7xx_hal::pwm::Polarity;
 use stm32h7xx_hal::pwm::FaultMonitor;
+use stm32h7xx_hal::pwm::Polarity;
+use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
 
@@ -118,8 +118,7 @@ fn main() -> ! {
         if t1control.is_fault_active() {
             // Fault is active, turn on LED
             ld2.set_high().unwrap();
-        }
-        else {
+        } else {
             // Fault is not active
             ld2.set_low().unwrap();
         }

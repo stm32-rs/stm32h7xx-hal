@@ -830,7 +830,7 @@ macro_rules! tim_hal {
 
             impl PwmAdvExt for $TIMX {
                 type Rec = rec::$Rec;
-            
+
                 fn pwm_advanced<PINS, CHANNEL, COMP>(
                     self,
                     _pins: PINS,
@@ -841,17 +841,17 @@ macro_rules! tim_hal {
                     PINS: Pins<Self, CHANNEL, COMP>
                 {
                     prec.enable().reset();
-            
+
                     let clk = $TIMX::get_clk(clocks)
                         .expect("Timer input clock not running!")
                         .0;
-            
+
                     // Write prescale 0
                     self.psc.write(|w| w.psc().bits(0));
-            
+
                     // Set TOP value to max
                     self.arr.write(|w| w.arr().bits(<$typ>::MAX));
-            
+
                     PwmBuilder {
                         _tim: PhantomData,
                         _pins: PhantomData,
@@ -871,7 +871,7 @@ macro_rules! tim_hal {
             {
                 pub fn finalize(self) -> (PwmControl<$TIMX, FAULT>, PINS::Channel) {
                     let tim = unsafe { &*$TIMX::ptr() };
-                    
+
                     $(
                         // BDTR: Advanced-control timers
                         // Set CCxP = OCxREF / CCxNP = !OCxREF
@@ -893,7 +893,7 @@ macro_rules! tim_hal {
 
                     let freq: Hertz = freq.into();
                     let reload: u32 = self.base_freq.0 / freq.0; // u32
-            
+
                     let prescale = match $bits {
                         16 => {
                             // Division factor is (PSC + 1)
@@ -903,14 +903,14 @@ macro_rules! tim_hal {
                         },
                         _ => 0      // No prescale required for 32-bit timer
                     };
-            
+
                     // Write prescale
                     tim.psc.write(|w| w.psc().bits(prescale as u16));
-            
+
                     // Set TOP value
                     let top = reload / (prescale + 1);
                     tim.arr.write(|w| w.arr().bits(top as $typ));
-            
+
                     self
                 }
 
@@ -926,7 +926,7 @@ macro_rules! tim_hal {
                 /// Set the period; PWM count runs from 0 to period, repeating every (period+1) counts
                 pub fn period(self, period: $typ) -> Self {
                     let tim = unsafe { &*$TIMX::ptr() };
-                    
+
                     tim.arr.write(|w| w.arr().bits(period));
 
                     self
@@ -1030,7 +1030,7 @@ macro_rules! tim_hal {
                         //  BKP = 0 for active low, 1 for active high
                         // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
                         unsafe { tim.$bdtr.write(|w| w.bkf().bits(1).aoe().clear_bit().bke().set_bit().bkp().bit(bkp)); }
-                        
+
                         // AF1:
                         //  BKINE = 1 -> break input enabled
                         //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
