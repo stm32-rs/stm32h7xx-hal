@@ -422,7 +422,9 @@ pins! {
     TIM15:
         CH1(ComplementaryDisabled): [
             PA2<Alternate<AF4>>,
-            PE5<Alternate<AF4>>
+            PE5<Alternate<AF4>>,
+            #[cfg(feature = "rm0455")]
+            PC12<Alternate<AF2>>
         ]
         CH2(ComplementaryImpossible): [
             PA3<Alternate<AF4>>,
@@ -519,6 +521,7 @@ pins! {
             PA6<Alternate<AF1>>,
             PB12<Alternate<AF1>>,
             PE15<Alternate<AF1>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK2<Alternate<AF1>>
         ]
     TIM2:
@@ -664,6 +667,7 @@ pins! {
             PA6<Alternate<AF3>>,
             PG2<Alternate<AF3>>,
             PI4<Alternate<AF3>>,
+            #[cfg(not(feature = "stm32h7b0"))]
             PK2<Alternate<AF3>>
         ]
 }
