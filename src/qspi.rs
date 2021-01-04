@@ -416,7 +416,17 @@ impl Qspi {
     /// # Args
     /// * `addr` - The address to write data to.
     /// * `data` - An array of data to transfer over the QSPI interface.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` is greater than the size of the QSPI
+    /// hardware FIFO (32 bytes).
     pub fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), QspiError> {
+        assert!(
+            data.len() <= 32,
+            "Transactions larger than the QSPI FIFO are currently unsupported"
+        );
+
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
@@ -469,7 +479,17 @@ impl Qspi {
     /// # Args
     /// * `addr` - The address to read data from.
     /// * `dest` - An array to store the result of the read into.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` is greater than the size of the QSPI
+    /// hardware FIFO (32 bytes).
     pub fn read(&mut self, addr: u8, dest: &mut [u8]) -> Result<(), QspiError> {
+        assert!(
+            dest.len() <= 32,
+            "Transactions larger than the QSPI FIFO are currently unsupported"
+        );
+
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
