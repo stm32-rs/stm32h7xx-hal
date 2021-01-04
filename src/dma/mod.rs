@@ -467,8 +467,11 @@ where
 
     /// Changes the buffer and restarts or continues a double buffer
     /// transfer. This must be called immediately after a transfer complete
-    /// event. Returns the old buffer together with its `CurrentBuffer`. If an
-    /// error occurs, this method will return the new buffer with the error.
+    /// event. Returns (old_buffer, `CurrentBuffer`, remaining), where
+    /// `old_buffer` is the old buffer, `CurrentBuffer` indicates which buffer
+    /// the data represents, and `remaining` indicates the number of remaining
+    /// data in the transfer. If an error occurs, this method will return the
+    /// new buffer with the error.
     ///
     /// This method will clear the transfer complete flag on entry, it will also
     /// clear it again if an overrun occurs during its execution. Moreover, if
@@ -481,7 +484,7 @@ where
     pub fn next_transfer(
         &mut self,
         mut new_buf: BUF,
-    ) -> Result<(BUF, CurrentBuffer), DMAError<BUF>> {
+    ) -> Result<(BUF, CurrentBuffer, usize), DMAError<BUF>> {
         if self.double_buf.is_some()
             && DIR::direction() != DmaDirection::MemoryToMemory
         {
@@ -513,10 +516,10 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.buf.replace(new_buf);
-
                 // We always have a buffer, so unwrap can't fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::FirstBuffer));
+                let old_buf = self.buf.replace(new_buf).unwrap();
+
+                return Ok((old_buf, CurrentBuffer::FirstBuffer, 0));
             } else {
                 unsafe {
                     self.stream
@@ -535,10 +538,10 @@ where
                 // preceding reads"
                 compiler_fence(Ordering::Acquire);
 
-                let old_buf = self.double_buf.replace(new_buf);
-
                 // double buffering, unwrap can never fail
-                return Ok((old_buf.unwrap(), CurrentBuffer::DoubleBuffer));
+                let old_buf = self.double_buf.replace(new_buf).unwrap();
+
+                return Ok((old_buf, CurrentBuffer::DoubleBuffer, 0));
             }
         }
         self.stream.disable();
@@ -546,6 +549,9 @@ where
 
         // "No re-ordering of reads and writes across this point is allowed"
         compiler_fence(Ordering::SeqCst);
+
+        // Check how many data in the transfer are remaining.
+        let remaining_data = STREAM::get_number_of_transfers();
 
         // NOTE(unsafe) We now own this buffer and we won't call any &mut
         // methods on it until the end of the DMA transfer
@@ -556,7 +562,9 @@ where
             buf_len
         };
         self.stream.set_number_of_transfers(buf_len as u16);
-        let old_buf = self.buf.replace(new_buf);
+
+        // We own the buffer now, so unwrap is always safe.
+        let old_buf = self.buf.replace(new_buf).unwrap();
 
         // Ensure that all transfers to normal memory complete before
         // subsequent memory transfers.
@@ -573,7 +581,7 @@ where
             self.stream.enable();
         }
 
-        Ok((old_buf.unwrap(), CurrentBuffer::FirstBuffer))
+        Ok((old_buf, CurrentBuffer::FirstBuffer, remaining_data as usize))
     }
 
     /// Stops the stream and returns the underlying resources.
@@ -651,6 +659,10 @@ where
     /// error will be returned if this method is called before the end of a
     /// transfer while double buffering and the closure won't be executed.
     ///
+    /// The closure accepts the current buffer, the `CurrentBuffer` indicating
+    /// which buffer is provided, and a `remaining` parameter indicating the
+    /// number of transfers not completed in the DMA transfer.
+    ///
     /// # Panics
     ///
     /// This method will panic when double buffering and one or both of the
@@ -672,7 +684,7 @@ where
         f: F,
     ) -> Result<T, DMAError<()>>
     where
-        F: FnOnce(BUF, CurrentBuffer) -> (BUF, T),
+        F: FnOnce(BUF, CurrentBuffer, usize) -> (BUF, T),
     {
         if self.double_buf.is_some()
             && DIR::direction() != DmaDirection::MemoryToMemory
@@ -689,7 +701,7 @@ where
             } else {
                 self.double_buf.take().unwrap()
             };
-            let r = f(db, !current_buffer);
+            let r = f(db, !current_buffer, 0);
             let mut new_buf = r.0;
             let (new_buf_ptr, new_buf_len) = new_buf.write_buffer();
 
@@ -749,9 +761,11 @@ where
         // "No re-ordering of reads and writes across this point is allowed"
         compiler_fence(Ordering::SeqCst);
 
+        let remaining_data = STREAM::get_number_of_transfers();
+
         // Can never fail, we never let the Transfer without a buffer
         let old_buf = self.buf.take().unwrap();
-        let r = f(old_buf, CurrentBuffer::FirstBuffer);
+        let r = f(old_buf, CurrentBuffer::FirstBuffer, remaining_data as usize);
         let mut new_buf = r.0;
 
         let (buf_ptr, buf_len) = new_buf.write_buffer();
