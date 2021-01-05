@@ -521,38 +521,31 @@ macro_rules! dma_stream {
 
             impl<I: Instance> DoubleBufferedStream for $name<I> {
                 #[inline(always)]
-                unsafe fn set_peripheral_address(&mut self, value: u32) {
+                unsafe fn set_peripheral_address(&mut self, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].par.write(|w| w.pa().bits(value));
+                    dma.st[Self::NUMBER].par.write(|w| w.pa().bits(value as u32));
                 }
 
                 #[inline(always)]
-                unsafe fn set_memory_address(&mut self, value: u32) {
+                unsafe fn set_memory_address(&mut self, buffer: CurrentBuffer, value: usize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value));
+                    match buffer {
+                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.write(|w| w.m0a().bits(value as u32)),
+                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value as u32)),
+                    }
                 }
 
                 #[inline(always)]
-                fn get_memory_address(&self) -> u32 {
+                fn get_memory_address(&self, buffer: CurrentBuffer) -> usize {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.st[Self::NUMBER].m0ar.read().m0a().bits()
-                }
-
-                #[inline(always)]
-                unsafe fn set_memory_double_buffer_address(&mut self, value: u32) {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = &*I::ptr();
-                    dma.st[Self::NUMBER].m1ar.write(|w| w.m1a().bits(value));
-                }
-
-                #[inline(always)]
-                fn get_memory_double_buffer_address(&self) -> u32 {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.st[Self::NUMBER].m1ar.read().m1a().bits()
+                    let addr = match buffer {
+                        CurrentBuffer::Buffer0 => dma.st[Self::NUMBER].m0ar.read().m0a().bits(),
+                        CurrentBuffer::Buffer1 => dma.st[Self::NUMBER].m1ar.read().m1a().bits(),
+                    };
+                    addr as usize
                 }
 
                 #[inline(always)]
@@ -631,13 +624,30 @@ macro_rules! dma_stream {
                     dma.st[Self::NUMBER].cr.modify(|_, w| w.dbm().bit(double_buffer));
                 }
 
-                fn current_buffer() -> CurrentBuffer {
+                #[inline(always)]
+                fn get_current_buffer() -> CurrentBuffer {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
                     if dma.st[Self::NUMBER].cr.read().ct().bit_is_set() {
-                        CurrentBuffer::DoubleBuffer
+                        CurrentBuffer::Buffer0
                     } else {
-                        CurrentBuffer::FirstBuffer
+                        CurrentBuffer::Buffer1
+                    }
+                }
+
+                #[inline(always)]
+                fn get_inactive_buffer() -> Option<CurrentBuffer> {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let dma = unsafe { &*I::ptr() };
+                    let cr = dma.st[Self::NUMBER].cr.read();
+                    if cr.dbm().bit_is_set() {
+                        Some(if cr.ct().bit_is_set() {
+                            CurrentBuffer::Buffer0
+                        } else {
+                            CurrentBuffer::Buffer1
+                        })
+                    } else {
+                        None
                     }
                 }
             }

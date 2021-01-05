@@ -102,19 +102,17 @@ pub trait Stream: Sealed {
 /// Trait for Double-Buffered DMA streams
 pub trait DoubleBufferedStream: Stream + Sealed {
     /// Set the peripheral address (par) for the DMA stream.
-    unsafe fn set_peripheral_address(&mut self, value: u32);
+    unsafe fn set_peripheral_address(&mut self, value: usize);
 
-    /// Set the memory address (m0ar) for the DMA stream.
-    unsafe fn set_memory_address(&mut self, value: u32);
+    /// Set the memory address (m0ar or m1ar) for the DMA stream.
+    unsafe fn set_memory_address(
+        &mut self,
+        buffer: CurrentBuffer,
+        value: usize,
+    );
 
-    /// Get the memory address (m0ar) for the DMA stream.
-    fn get_memory_address(&self) -> u32;
-
-    /// Set the double buffer address (m1ar) for the DMA stream.
-    unsafe fn set_memory_double_buffer_address(&mut self, value: u32);
-
-    /// Get the double buffer address (m1ar) for the DMA stream.
-    fn get_memory_double_buffer_address(&self) -> u32;
+    /// Get the memory address (m0ar or m1ar) for the DMA stream.
+    fn get_memory_address(&self, buffer: CurrentBuffer) -> usize;
 
     /// Enable/disable memory increment (minc) for the DMA stream.
     fn set_memory_increment(&mut self, increment: bool);
@@ -138,7 +136,7 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     ///     * 0 -> byte
     ///     * 1 -> half word
     ///     * 2 -> word
-    ///     * 3 -> double workd
+    ///     * 3 -> double word
     unsafe fn set_memory_size(&mut self, size: u8);
 
     /// Set the peripheral memory size (psize) for the DMA stream.
@@ -167,8 +165,11 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     /// Enable/disable the double buffer (dbm) of the DMA stream.
     fn set_double_buffer(&mut self, double_buffer: bool);
 
-    /// Get which buffer is currently in use by the DMA.
-    fn current_buffer() -> CurrentBuffer;
+    /// Get which buffer is currently in use by the DMA when in double buffer mode.
+    fn get_current_buffer() -> CurrentBuffer;
+
+    /// Get which buffer is currently not in use by the DMA when in double buffer mode.
+    fn get_inactive_buffer() -> Option<CurrentBuffer>;
 }
 
 /// Trait for Master DMA streams
@@ -213,7 +214,7 @@ pub unsafe trait TargetAddress<D: Direction> {
     type MemSize;
 
     /// The address to be used by the DMA stream
-    fn address(&self) -> u32;
+    fn address(&self) -> usize;
 
     /// An optional associated request line
     const REQUEST_LINE: Option<u8> = None;
