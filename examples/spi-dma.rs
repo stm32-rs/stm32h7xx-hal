@@ -1,4 +1,11 @@
 //! Example that transmits SPI data using the DMA
+//!
+//! The first part of the example transmits 10 bytes over SPI.
+//!
+//! The maximum transfer length for DMA1/DMA2 is limited to 65_535 items by
+//! hardware. The second part of this example demonstrates splitting a transfer
+//! into chunks and using the `next_transfer_with` method to start each part of
+//! the transfer.
 
 #![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
@@ -25,7 +32,10 @@ use log::info;
 //
 // The runtime does not initialise these SRAM banks
 #[link_section = ".axisram.buffers"]
-static mut BUFFER: MaybeUninit<[u8; 10]> = MaybeUninit::uninit();
+static mut SHORT_BUFFER: MaybeUninit<[u8; 10]> = MaybeUninit::uninit();
+
+#[link_section = ".axisram.buffers"]
+static mut LONG_BUFFER: MaybeUninit<[u32; 0x8000]> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -53,7 +63,7 @@ fn main() -> ! {
     let sck = gpioa.pa12.into_alternate_af5();
     let miso = gpioc.pc2.into_alternate_af5();
     let mosi = gpioc.pc3.into_alternate_af5();
-    let _nss = gpioa.pa11.into_alternate_af5();
+    let _nss = gpioa.pa11.into_alternate_af5(); // SS/CS not used in this example
 
     info!("");
     info!("stm32h7xx-hal example - SPI DMA");
@@ -73,13 +83,25 @@ fn main() -> ! {
 
     // Initialise the source buffer, without taking any references to
     // uninitialisated memory
-    let buffer: &'static mut [u8; 10] = {
+    let short_buffer: &'static mut [u8; 10] = {
         let buf: &mut [MaybeUninit<u8>; 10] =
-            unsafe { mem::transmute(&mut BUFFER) };
+            unsafe { mem::transmute(&mut SHORT_BUFFER) };
 
         for (i, value) in buf.iter_mut().enumerate() {
             unsafe {
                 value.as_mut_ptr().write(i as u8 + 96); // 0x60, 0x61, 0x62...
+            }
+        }
+        unsafe { mem::transmute(buf) }
+    };
+    // view u32 buffer as u8. Endianess is undefined (little-endian on STM32H7)
+    let long_buffer: &'static mut [u8; 0x2_0010] = {
+        let buf: &mut [MaybeUninit<u32>; 0x8004] =
+            unsafe { mem::transmute(&mut LONG_BUFFER) };
+
+        for (i, value) in buf.iter_mut().enumerate() {
+            unsafe {
+                value.as_mut_ptr().write(i as u32);
             }
         }
         unsafe { mem::transmute(buf) }
@@ -94,14 +116,14 @@ fn main() -> ! {
     let config = DmaConfig::default().memory_increment(true);
 
     let mut transfer: Transfer<_, _, MemoryToPeripheral, _> =
-        Transfer::init(streams.0, spi, buffer, None, config);
+        Transfer::init(streams.0, spi, &mut short_buffer[..], None, config);
 
     transfer.start(|spi| {
         // This closure runs right after enabling the stream
 
         // Enable DMA Tx buffer by setting the TXDMAEN bit in the SPI_CFG1
         // register
-        spi.inner_mut().cfg1.modify(|_, w| w.txdmaen().enabled());
+        spi.enable_dma_tx();
 
         // Enable the SPI by setting the SPE bit
         spi.inner_mut()
@@ -115,7 +137,44 @@ fn main() -> ! {
     // Wait for transfer to complete
     while !transfer.get_transfer_complete_flag() {}
 
-    info!("Transfer complete!");
+    info!("Continuing with chunked transfer!");
+
+    // Split the long buffer into chunks: Hardware supports 65_535 max.
+    //
+    // The last chunk will be length 16, compared to all the others which will
+    // be length 32_768.
+    for mut chunk in &mut long_buffer.chunks_mut(32_768) {
+        // Using `next_transfer_with`
+        let _current = transfer
+            .next_transfer_with(|mut old, current, remaining| {
+                // Check that we really did complete the current transfer
+                assert_eq!(remaining, 0);
+
+                mem::swap(&mut old, &mut chunk);
+
+                (old, current)
+            })
+            .unwrap();
+
+        // Using `next_transfer`: this is equivalent to the above (except the
+        // assert) but less flexible
+        //transfer.next_transfer(chunk).unwrap();
+
+        // Wait for transfer to complete
+        while !transfer.get_transfer_complete_flag() {}
+    }
+
+    transfer.pause(|spi| {
+        // At this point, the DMA transfer is done, but the data is still in the
+        // SPI output FIFO. Wait for it to complete
+        while spi.inner().sr.read().txc().bit_is_clear() {}
+    });
+
+    info!("Chunked transfer complete!");
+
+    let (_stream, _spi, _, _) = transfer.free();
+
+    // We could re-use the stream or spi here
 
     loop {}
 }

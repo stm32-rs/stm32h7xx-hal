@@ -184,7 +184,7 @@ name = "dma"
 required-features = ["rm0433"]
 
 [[example]]
-name = "spi_dma"
+name = "spi-dma"
 required-features = ["rm0433"]
 
 [[example]]
