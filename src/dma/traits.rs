@@ -172,11 +172,52 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     fn get_inactive_buffer() -> Option<CurrentBuffer>;
 }
 
-/// Trait for Master DMA streams
-///
-/// TODO
+/// Trait for Master DMA (MDMA) streams
 #[allow(unused)]
-pub trait MasterStream: Stream + Sealed {}
+pub trait MasterStream: Stream + Sealed {
+    /// Set the source for the Master DMA stream
+    unsafe fn set_source_address(&mut self, value: usize);
+
+    /// Set the destination for the Master DMA stream
+    unsafe fn set_destination_address(&mut self, value: usize);
+
+    /// Set the trigger source as software (true) or hardware (false)
+    fn set_software_triggered(&mut self, sw_triggered: bool);
+
+    /// Set the number of bytes to be transferred in a single transfer
+    fn set_transfer_bytes(&mut self, value: u8);
+
+    /// Apply the configation structure to this
+    /// stream. SINCOS/DINCOS are set based on the source_size /
+    /// destination_size if not specified by the config structure.
+    fn apply_config_with_size(
+        &mut self,
+        config: <Self as Stream>::Config,
+        source_size: mdma::MdmaSize,
+        destination_size: mdma::MdmaSize,
+    );
+
+    /// Set the source size (s_size) for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// This must have the same alignment of the buffer used in the transfer.
+    unsafe fn set_source_size(&mut self, size: mdma::MdmaSize);
+
+    /// Set the source offset for the DMA stream.
+    unsafe fn set_source_offset(&mut self, offset: mdma::MdmaSize);
+
+    /// Set the destination size (d_size) for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// This must have the same alignment of the peripheral data used in the
+    /// transfer.
+    unsafe fn set_destination_size(&mut self, size: mdma::MdmaSize);
+
+    /// Set the destination offset for the DMA stream.
+    unsafe fn set_destination_offset(&mut self, offset: mdma::MdmaSize);
+}
 
 /// Trait for the configuration of Double-Buffered DMA streams
 pub trait DoubleBufferedConfig {

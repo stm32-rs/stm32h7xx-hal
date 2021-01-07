@@ -33,11 +33,12 @@ mod macros;
 pub mod dma; // DMA1 and DMA2
 
 pub mod bdma;
+pub mod mdma;
 
 pub mod traits;
 use traits::{
     sealed::Bits, Direction, DoubleBufferedConfig, DoubleBufferedStream,
-    Stream, TargetAddress,
+    MasterStream, Stream, TargetAddress,
 };
 
 /// Errors.
@@ -270,7 +271,6 @@ where
     STREAM: Stream,
     PERIPHERAL: TargetAddress<DIR>,
     DIR: Direction,
-    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     stream: STREAM,
     peripheral: PERIPHERAL,
@@ -587,7 +587,6 @@ where
     STREAM: Stream<Config = CONFIG>,
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
-    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     /// Starts the transfer, the closure will be executed right after enabling
     /// the stream.
@@ -676,7 +675,6 @@ where
     STREAM: Stream,
     PERIPHERAL: TargetAddress<DIR>,
     DIR: Direction,
-    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
 {
     fn drop(&mut self) {
         self.stream.disable();
@@ -684,5 +682,145 @@ where
         // Protect the instruction and bus sequence of the preceding disable and
         // the subsequent buffer access.
         fence(Ordering::SeqCst);
+    }
+}
+
+// -------- MDMA --------
+
+impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF, BUF_WORD>
+    Transfer<STREAM, PERIPHERAL, DIR, BUF>
+where
+    STREAM: MasterStream + Stream<Config = CONFIG>,
+    DIR: Direction,
+    PERIPHERAL: TargetAddress<DIR>,
+    BUF: StaticWriteBuffer<Word = BUF_WORD>, // Buf can be sized independently
+                                             // from the peripheral
+{
+    /// Applies all fields in MdmaConfig.
+    fn apply_config_master(&mut self, config: CONFIG) {
+        let peripheral_size = mdma::MdmaSize::from_type::<
+            <PERIPHERAL as TargetAddress<DIR>>::MemSize,
+        >();
+        let memory_size = mdma::MdmaSize::from_type::<BUF_WORD>();
+
+        let (s_size, d_size) = match DIR::direction() {
+            DmaDirection::PeripheralToMemory => (peripheral_size, memory_size),
+            DmaDirection::MemoryToPeripheral => (memory_size, peripheral_size),
+            DmaDirection::MemoryToMemory => (memory_size, memory_size),
+        };
+
+        self.stream.clear_interrupts();
+
+        // NOTE(unsafe) These values are correct for the generic types on
+        // Transfer
+        unsafe {
+            self.stream.set_source_size(s_size);
+            self.stream.set_destination_size(d_size);
+        }
+
+        // Apply config, including offsets for this combination of configation
+        // and source/destination sizes
+        self.stream.apply_config_with_size(config, s_size, d_size);
+    }
+
+    /// Configures the DMA source and destination and applies supplied
+    /// configuration. In a memory to memory transfer, the `second_buf` argument
+    /// is the source of the data. If double buffering is enabled, the number of
+    /// transfers will be the minimum length of `memory` and `double_buf`.
+    ///
+    /// # Panics
+    ///
+    /// * When a memory-memory transfer is specified but the `second_buf`
+    /// argument is `None`.
+    ///
+    /// * When the transfer length is greater than 128 bytes.
+    pub fn init_master(
+        mut stream: STREAM,
+        peripheral: PERIPHERAL,
+        mut memory: BUF,
+        mut second_buf: Option<BUF>,
+        config: CONFIG,
+    ) -> Self {
+        stream.disable();
+
+        // TODO
+        assert!(
+            DIR::direction() == DmaDirection::PeripheralToMemory
+                || DIR::direction() == DmaDirection::MemoryToMemory,
+            "M2P not yet supported."
+        );
+
+        // NOTE(unsafe) We now own this buffer and we won't call any &mut
+        // methods on it until the end of the DMA transfer
+        let (buf_ptr, buf_len) = unsafe { memory.write_buffer() };
+
+        // Set the memory address
+        //
+        // # Safety
+        //
+        // Must be a valid memory address
+        unsafe {
+            stream.set_destination_address(buf_ptr as usize);
+        }
+
+        let is_mem2mem = DIR::direction() == DmaDirection::MemoryToMemory;
+        if is_mem2mem {
+            // must have 2nd buffer
+            if let Some(ref mut sb) = second_buf {
+                // NOTE(unsafe) We now own this buffer and we won't call any &mut
+                // methods on it until the end of the DMA transfer
+
+                let (sb_ptr, sb_len) = unsafe { sb.write_buffer() };
+
+                // second buffer is the source in mem2mem mode
+                unsafe {
+                    stream.set_source_address(sb_ptr as usize);
+                }
+                assert_eq!(buf_len, sb_len);
+            } else {
+                panic!("must have second buffer");
+            }
+        } else {
+            // Must not have a second-buffer
+
+            // Set the peripheral address as the source
+            //
+            // # Safety
+            //
+            // Must be a valid peripheral address
+            unsafe {
+                stream.set_source_address(peripheral.address());
+            }
+        }
+
+        // Set trigger source
+        stream.set_software_triggered(is_mem2mem);
+
+        // TODO needs fixing when memory is not the source
+        let source_word_bytes = mem::size_of::<BUF_WORD>();
+
+        // Set transfer length
+        let transfer_bytes = buf_len * source_word_bytes;
+        assert!(
+            transfer_bytes <= 128,
+            "Hardware does not support more than 128 bytes in a single transfer"
+        );
+        stream.set_transfer_bytes(transfer_bytes as u8);
+
+        // // Set the DMAMUX request line if needed
+        // if let Some(request_line) = PERIPHERAL::REQUEST_LINE {
+        //     stream.set_request_line(request_line);
+        // }
+
+        let mut transfer = Self {
+            stream,
+            peripheral,
+            _direction: PhantomData,
+            buf: [Some(memory), second_buf],
+            transfer_length: 0, // Not used by master dma
+        };
+        transfer.apply_config_master(config);
+
+        transfer
     }
 }
