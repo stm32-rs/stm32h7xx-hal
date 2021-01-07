@@ -421,32 +421,6 @@ where
         transfer
     }
 
-    /// Starts the transfer, the closure will be executed right after enabling
-    /// the stream.
-    pub fn start<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut PERIPHERAL),
-    {
-        // Preserve the instruction and bus ordering of preceding buffer access
-        // to the subsequent access by the DMA peripheral due to enabling it.
-        fence(Ordering::SeqCst);
-
-        unsafe {
-            self.stream.enable();
-        }
-        f(&mut self.peripheral);
-    }
-
-    /// Pauses the dma stream, the closure will be executed right before
-    /// disabling the stream.
-    pub fn pause<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut PERIPHERAL),
-    {
-        f(&mut self.peripheral);
-        self.stream.disable()
-    }
-
     /// Changes the buffer and restarts or continues a transfer.
     /// The closure is called with the old completed buffer as arguments and
     /// must return `(BUF, T)` where `BUF` is the new buffer
@@ -595,6 +569,52 @@ where
         Ok((buf, current, last_remaining))
     }
 
+    /// Clear half transfer interrupt (htif) for the DMA stream.
+    #[inline(always)]
+    pub fn clear_half_transfer_interrupt(&mut self) {
+        self.stream.clear_half_transfer_interrupt();
+    }
+
+    #[inline(always)]
+    pub fn get_half_transfer_flag(&self) -> bool {
+        STREAM::get_half_transfer_flag()
+    }
+}
+
+impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
+    Transfer<STREAM, PERIPHERAL, DIR, BUF>
+where
+    STREAM: Stream<Config = CONFIG>,
+    DIR: Direction,
+    PERIPHERAL: TargetAddress<DIR>,
+    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
+{
+    /// Starts the transfer, the closure will be executed right after enabling
+    /// the stream.
+    pub fn start<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut PERIPHERAL),
+    {
+        // Preserve the instruction and bus ordering of preceding buffer access
+        // to the subsequent access by the DMA peripheral due to enabling it.
+        fence(Ordering::SeqCst);
+
+        unsafe {
+            self.stream.enable();
+        }
+        f(&mut self.peripheral);
+    }
+
+    /// Pauses the dma stream, the closure will be executed right before
+    /// disabling the stream.
+    pub fn pause<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut PERIPHERAL),
+    {
+        f(&mut self.peripheral);
+        self.stream.disable()
+    }
+
     /// Stops the stream and returns the underlying resources.
     pub fn free(mut self) -> (STREAM, PERIPHERAL, BUF, Option<BUF>) {
         self.stream.disable();
@@ -621,12 +641,6 @@ where
         self.stream.clear_interrupts();
     }
 
-    /// Clear half transfer interrupt (htif) for the DMA stream.
-    #[inline(always)]
-    pub fn clear_half_transfer_interrupt(&mut self) {
-        self.stream.clear_half_transfer_interrupt();
-    }
-
     /// Clear transfer complete interrupt (tcif) for the DMA stream.
     #[inline(always)]
     pub fn clear_transfer_complete_interrupt(&mut self) {
@@ -648,11 +662,6 @@ where
     /// discouraged.
     pub unsafe fn get_stream(&mut self) -> &mut STREAM {
         &mut self.stream
-    }
-
-    #[inline(always)]
-    pub fn get_half_transfer_flag(&self) -> bool {
-        STREAM::get_half_transfer_flag()
     }
 
     #[inline(always)]
