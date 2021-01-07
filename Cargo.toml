@@ -186,3 +186,6 @@ required-features = ["rm0433","rt"]
 [[example]]
 name = "crc"
 required-features = ["crc", "rt"]
+
+[patch.crates-io]
+stm32h7 = { git = "https://github.com/stm32-rs/stm32-rs-nightlies" }
