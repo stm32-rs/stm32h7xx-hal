@@ -90,7 +90,7 @@ fn main() -> ! {
     let config = BdmaConfig::default().memory_increment(true);
 
     // We need to specify the direction with a type annotation
-    let mut transfer: Transfer<_, _, PeripheralToMemory, _> = Transfer::init(
+    let mut transfer: Transfer<_, _, PeripheralToMemory, _, _> = Transfer::init(
         streams.0,
         i2c,
         unsafe { &mut BUFFER }, // uninitialised memory

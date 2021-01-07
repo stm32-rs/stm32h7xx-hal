@@ -96,7 +96,7 @@ fn main() -> ! {
         .peripheral_increment(false)
         .circular_buffer(true)
         .fifo_enable(false);
-    let mut dma1_str0: dma::Transfer<_, _, dma::MemoryToPeripheral, _> =
+    let mut dma1_str0: dma::Transfer<_, _, dma::MemoryToPeripheral, _, _> =
         dma::Transfer::init(
             dma1_streams.0,
             unsafe { pac::Peripherals::steal().SAI1 },
@@ -111,7 +111,7 @@ fn main() -> ! {
     let dma_config = dma_config
         .transfer_complete_interrupt(true)
         .half_transfer_interrupt(true);
-    let mut dma1_str1: dma::Transfer<_, _, dma::PeripheralToMemory, _> =
+    let mut dma1_str1: dma::Transfer<_, _, dma::PeripheralToMemory, _, _> =
         dma::Transfer::init(
             dma1_streams.1,
             unsafe { pac::Peripherals::steal().SAI1 },
@@ -177,6 +177,7 @@ fn main() -> ! {
         stm32::SAI1,
         dma::PeripheralToMemory,
         &'static mut [u32; 128],
+        dma::DBTransfer,
     >;
 
     static mut TRANSFER_DMA1_STR1: Option<TransferDma1Str1> = None;

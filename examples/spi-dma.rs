@@ -115,7 +115,7 @@ fn main() -> ! {
 
     let config = DmaConfig::default().memory_increment(true);
 
-    let mut transfer: Transfer<_, _, MemoryToPeripheral, _> =
+    let mut transfer: Transfer<_, _, MemoryToPeripheral, _, _> =
         Transfer::init(streams.0, spi, &mut short_buffer[..], None, config);
 
     transfer.start(|spi| {
