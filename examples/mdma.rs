@@ -25,7 +25,7 @@ use log::info;
 //
 // The runtime does not initialise AXI SRAM banks.
 #[link_section = ".axisram.buffers"]
-static mut SOURCE_BUFFER: MaybeUninit<[u32; 20]> = MaybeUninit::uninit();
+static mut SOURCE_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -51,8 +51,8 @@ fn main() -> ! {
 
     // Initialise the source buffer without taking any references to
     // uninitialisated memory
-    let source_buffer: &'static mut [u32; 20] = {
-        let buf: &mut [MaybeUninit<u32>; 20] =
+    let source_buffer: &'static mut [u32; 200] = {
+        let buf: &mut [MaybeUninit<u32>; 200] =
             unsafe { mem::transmute(&mut SOURCE_BUFFER) };
 
         for value in buf.iter_mut() {
@@ -68,7 +68,7 @@ fn main() -> ! {
     //
 
     // Target buffer on the stack
-    let mut target_buffer: [u32; 20] = [0; 20];
+    let mut target_buffer: [u32; 200] = [0; 200];
 
     // Setup DMA
     let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
@@ -87,6 +87,11 @@ fn main() -> ! {
             config,
         );
 
+    // Block of 800 bytes, MDMA checks other streams every 128 bytes
+    assert_eq!(transfer.get_block_bytes(), 800);
+    assert_eq!(transfer.get_transfer_bytes(), 128);
+
+    // Start block
     transfer.start(|_| {});
 
     // Wait for transfer to complete
@@ -96,7 +101,7 @@ fn main() -> ! {
     let (stream, _mem2mem, _target, source_buffer_opt) = transfer.free();
     let source_buffer = source_buffer_opt.unwrap();
 
-    assert_eq!(target_buffer, [0x11223344; 20]);
+    assert_eq!(target_buffer, [0x11223344; 200]);
 
     info!("Example 1: Memory to TCM DMA completed successfully");
 
@@ -105,7 +110,10 @@ fn main() -> ! {
     //
 
     // Reset source buffer
-    *source_buffer = [0xAABBCCDD; 20];
+    *source_buffer = [0xAABBCCDD; 200];
+
+    // New target buffer on the stack
+    let mut target_buffer: [u32; 20] = [0; 20];
 
     let config = MdmaConfig::default()
         .source_increment(MdmaIncrement::Increment)
@@ -131,10 +139,9 @@ fn main() -> ! {
     assert_eq!(
         target_buffer,
         [
-            0xCCDDAABB, 0x11223344, 0xCCDDAABB, 0x11223344, 0xCCDDAABB,
-            0x11223344, 0xCCDDAABB, 0x11223344, 0xCCDDAABB, 0x11223344,
-            0xCCDDAABB, 0x11223344, 0xCCDDAABB, 0x11223344, 0xCCDDAABB,
-            0x11223344, 0xCCDDAABB, 0x11223344, 0xCCDDAABB, 0x11223344,
+            0xCCDDAABB, 0, 0xCCDDAABB, 0, 0xCCDDAABB, 0, 0xCCDDAABB, 0,
+            0xCCDDAABB, 0, 0xCCDDAABB, 0, 0xCCDDAABB, 0, 0xCCDDAABB, 0,
+            0xCCDDAABB, 0, 0xCCDDAABB, 0,
         ]
     );
 
@@ -146,7 +153,7 @@ fn main() -> ! {
     // Example 3: TCM to TCM with offset
     //
 
-    let mut source_buffer_tcm = [1u8, 2, 3, 4];
+    let mut source_buffer_tcm = [1u8, 2];
     // unsafe: we must ensure source_buffer_tcm lives long enough
     let source_buffer: &'static mut [u8] =
         unsafe { mem::transmute(&mut source_buffer_tcm[..]) };
@@ -165,19 +172,23 @@ fn main() -> ! {
             config,
         );
 
-    // Transfer length is limited to the minimum number of bytes that are valid
+    // Block length is limited to the minimum number of bytes that are valid
     // for both buffers
-    assert_eq!(transfer.get_transfer_bytes(), 3);
+    assert_eq!(transfer.get_block_bytes(), 2);
 
     transfer.start(|_| {});
 
     // Wait for transfer to complete
     while !transfer.get_transfer_complete_flag() {}
 
-    assert_eq!(source_buffer_tcm, [1, 2, 3, 4]);
+    // Value returned by `get_block_bytes` decrements during the transfer,
+    // reaching zero at the end
+    assert_eq!(transfer.get_block_bytes(), 0);
+
+    assert_eq!(source_buffer_tcm, [1, 2]);
     assert_eq!(
         target_buffer,
-        [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3]
+        [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
     );
 
     info!("Example 3: TCM to TCM DMA with offset completed successfully");
