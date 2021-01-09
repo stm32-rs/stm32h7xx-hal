@@ -17,6 +17,7 @@
 //! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs
 
 use core::{
+    cmp,
     fmt::Debug,
     marker::PhantomData,
     mem,
@@ -696,37 +697,78 @@ where
     BUF: StaticWriteBuffer<Word = BUF_WORD>, // Buf can be sized independently
                                              // from the peripheral
 {
-    /// Applies all fields in MdmaConfig.
-    fn apply_config_master(&mut self, config: CONFIG) {
+    /// For a given configuration, determine the size and offset for the source
+    /// and destination
+    ///
+    /// Returns ((s_size, d_size), (s_offset, d_offset))
+    fn source_destination_size_offset(
+        config: &CONFIG,
+    ) -> (
+        (mdma::MdmaSize, mdma::MdmaSize),
+        (mdma::MdmaSize, mdma::MdmaSize),
+    ) {
         let peripheral_size = mdma::MdmaSize::from_type::<
             <PERIPHERAL as TargetAddress<DIR>>::MemSize,
         >();
         let memory_size = mdma::MdmaSize::from_type::<BUF_WORD>();
 
-        let (s_size, d_size) = match DIR::direction() {
-            DmaDirection::PeripheralToMemory => (peripheral_size, memory_size),
-            DmaDirection::MemoryToPeripheral => (memory_size, peripheral_size),
-            DmaDirection::MemoryToMemory => (memory_size, memory_size),
-        };
+        STREAM::source_destination_size_offset(
+            &config,
+            peripheral_size,
+            memory_size,
+            DIR::direction(),
+        )
+    }
 
+    /// Applies all fields in MdmaConfig.
+    fn apply_config_master(&mut self, config: CONFIG) {
         self.stream.clear_interrupts();
+
+        let (
+            (source_size, destination_size),
+            (source_offset, destination_offset),
+        ) = Self::source_destination_size_offset(&config);
 
         // NOTE(unsafe) These values are correct for the generic types on
         // Transfer
         unsafe {
-            self.stream.set_source_size(s_size);
-            self.stream.set_destination_size(d_size);
+            self.stream.set_source_size(source_size);
+            self.stream.set_destination_size(destination_size);
+            self.stream.set_source_offset(source_offset);
+            self.stream.set_destination_offset(destination_offset);
         }
 
         // Apply config, including offsets for this combination of configation
         // and source/destination sizes
-        self.stream.apply_config_with_size(config, s_size, d_size);
+        self.stream.apply_config(config);
+    }
+
+    /// Calculates the maximum number of bytes that can be transferred
+    ///
+    /// s_len: The number of input words of s_size available
+    /// d_len: The number of input words of d_size available
+    fn transfer_bytes(config: &CONFIG, s_len: usize, d_len: usize) -> usize {
+        let ((s_size, d_size), (s_offset, d_offset)) =
+            Self::source_destination_size_offset(&config);
+
+        let s_bytes = s_len * s_size.n_bytes();
+        // Include a virtual gap at the end
+        let s_plus_gap = s_bytes + s_offset.n_bytes() - s_size.n_bytes();
+        // Bytes = Number of steps * Element size
+        let s_bytes = (s_plus_gap / s_offset.n_bytes()) * s_size.n_bytes();
+
+        let d_bytes = d_len * d_size.n_bytes();
+        // Include a virtual gap at the end
+        let d_plus_gap = d_bytes + d_offset.n_bytes() - d_size.n_bytes();
+        // Bytes = Number of steps * Element size
+        let d_bytes = (d_plus_gap / d_offset.n_bytes()) * d_size.n_bytes();
+
+        cmp::min(s_bytes, d_bytes)
     }
 
     /// Configures the DMA source and destination and applies supplied
     /// configuration. In a memory to memory transfer, the `second_buf` argument
-    /// is the source of the data. If double buffering is enabled, the number of
-    /// transfers will be the minimum length of `memory` and `double_buf`.
+    /// is the source of the data.
     ///
     /// # Panics
     ///
@@ -764,7 +806,7 @@ where
         }
 
         let is_mem2mem = DIR::direction() == DmaDirection::MemoryToMemory;
-        if is_mem2mem {
+        let source_len = if is_mem2mem {
             // must have 2nd buffer
             if let Some(ref mut sb) = second_buf {
                 // NOTE(unsafe) We now own this buffer and we won't call any &mut
@@ -776,7 +818,8 @@ where
                 unsafe {
                     stream.set_source_address(sb_ptr as usize);
                 }
-                assert_eq!(buf_len, sb_len);
+
+                sb_len
             } else {
                 panic!("must have second buffer");
             }
@@ -791,23 +834,28 @@ where
             unsafe {
                 stream.set_source_address(peripheral.address());
             }
-        }
+
+            0
+        };
 
         // Set trigger source
         stream.set_software_triggered(is_mem2mem);
 
-        // TODO needs fixing when memory is not the source
-        let source_word_bytes = mem::size_of::<BUF_WORD>();
-
         // Set transfer length
-        let transfer_bytes = buf_len * source_word_bytes;
+        let transfer_bytes =
+            Self::m_number_of_bytes(&config, source_len, buf_len); // s, d
         assert!(
             transfer_bytes <= 128,
             "Hardware does not support more than 128 bytes in a single transfer"
         );
-        stream.set_transfer_bytes(transfer_bytes as u8);
 
-        // // Set the DMAMUX request line if needed
+        //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
+        // to be within both source and destination buffers
+        unsafe {
+            stream.set_transfer_bytes(transfer_bytes as u8);
+        }
+
+        // // Set the request line if not software triggered
         // if let Some(request_line) = PERIPHERAL::REQUEST_LINE {
         //     stream.set_request_line(request_line);
         // }
@@ -822,5 +870,10 @@ where
         transfer.apply_config_master(config);
 
         transfer
+    }
+
+    #[inline(always)]
+    pub fn get_transfer_bytes(&self) -> u8 {
+        STREAM::get_transfer_bytes()
     }
 }

@@ -6,7 +6,7 @@ use super::{
     config,
     traits::sealed::{Bits, Sealed},
     traits::*,
-    MemoryToPeripheral, PeripheralToMemory,
+    DmaDirection, MemoryToPeripheral, PeripheralToMemory,
 };
 
 use core::marker::PhantomData;
@@ -65,6 +65,15 @@ impl MdmaSize {
             4 => MdmaSize::Word,
             8 => MdmaSize::DoubleWord,
             _ => unreachable!(),
+        }
+    }
+    /// Returns the size in bytes of the Source/Destination size
+    pub fn n_bytes(&self) -> usize {
+        match self {
+            MdmaSize::Byte => 1,
+            MdmaSize::HalfWord => 2,
+            MdmaSize::Word => 4,
+            MdmaSize::DoubleWord => 8,
         }
     }
 }
@@ -509,29 +518,38 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
-                fn set_transfer_bytes(&mut self, value: u8) {
+                unsafe fn set_transfer_bytes(&mut self, value: u8) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.tcr.modify(|_, w| unsafe { w.tlen().bits(value - 1) });
-                    mdma.$channel.bndtr.modify(|_, w| unsafe { w.bndt().bits(value as u32) });
+                    let mdma = &*I::ptr();
+                    mdma.$channel.tcr.modify(|_, w| w.tlen().bits(value - 1));
+                    mdma.$channel.bndtr.modify(|_, w| w.bndt().bits(value as u32));
                 }
 
-                /// Apply all fields in the configation structure to this
-                /// stream. SINCOS/DINCOS are set based on the source_size /
-                /// destination_size if not specified by the config structure.
                 #[inline(always)]
-                fn apply_config_with_size(&mut self,
-                                              config: <Self as Stream>::Config,
-                                              source_size: MdmaSize,
-                                              destination_size: MdmaSize) {
-                    self.apply_config(config);
+                fn get_transfer_bytes() -> u8 {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tcr.read().tlen().bits() + 1
+                }
 
-                    //NOTE(unsafe) We only set the offset if it is larger or
-                    // equal to the source/destination size
-                    unsafe {
-                        self.set_source_offset(match config.source_increment {
-                            MdmaIncrement::IncrementWithOffset(source_offset) |
-                            MdmaIncrement::DecrementWithOffset(source_offset) => {
+                fn source_destination_size_offset(
+                    config: &MdmaConfig,
+                    peripheral_size: MdmaSize,
+                    memory_size: MdmaSize,
+                    direction: DmaDirection,
+                ) -> (
+                    (MdmaSize, MdmaSize),
+                    (MdmaSize, MdmaSize),
+                ) {
+                    let (source_size, destination_size) = match direction {
+                        DmaDirection::PeripheralToMemory => (peripheral_size, memory_size),
+                        DmaDirection::MemoryToPeripheral => (memory_size, peripheral_size),
+                        DmaDirection::MemoryToMemory => (memory_size, memory_size),
+                    };
+
+                    let source_offset = match config.source_increment {
+                        MdmaIncrement::IncrementWithOffset(source_offset)
+                            | MdmaIncrement::DecrementWithOffset(source_offset) => {
                                 assert!(source_offset >= source_size);
 
                                 // TODO: If source/destination is AHB and DBURST
@@ -540,19 +558,23 @@ macro_rules! mdma_stream {
                                 // unpredictable.
 
                                 source_offset
-                            },
-                            _ => source_size
-                        });
-                        self.set_destination_offset(match config.destination_increment {
-                            MdmaIncrement::IncrementWithOffset(destination_offset) |
-                            MdmaIncrement::DecrementWithOffset(destination_offset) => {
+                            }
+                        _ => source_size,
+                    };
+                    let destination_offset = match config.destination_increment {
+                        MdmaIncrement::IncrementWithOffset(destination_offset)
+                            | MdmaIncrement::DecrementWithOffset(destination_offset) => {
                                 assert!(destination_offset >= destination_size);
 
                                 destination_offset
-                            },
-                            _ => destination_size
-                        });
-                    }
+                            }
+                        _ => destination_size,
+                    };
+
+                    (
+                        (source_size, destination_size),
+                        (source_offset, destination_offset),
+                    )
                 }
 
                 #[inline(always)]
