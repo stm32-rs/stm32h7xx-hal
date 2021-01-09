@@ -108,6 +108,9 @@ pub struct MdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) destination_increment: MdmaIncrement,
     pub(crate) source_increment: MdmaIncrement,
+    pub(crate) word_endianness_exchange: bool,
+    pub(crate) half_word_endianness_exchange: bool,
+    pub(crate) byte_endianness_exchange: bool,
     pub(crate) transfer_complete_interrupt: bool,
     pub(crate) transfer_error_interrupt: bool,
     pub(crate) block_transfer_complete_interrupt: bool,
@@ -135,6 +138,27 @@ impl MdmaConfig {
     #[inline(always)]
     pub fn source_increment(mut self, source_increment: MdmaIncrement) -> Self {
         self.source_increment = source_increment;
+        self
+    }
+    /// Set word endianness exchange. Applies when the destination is
+    /// 64-bit. Otherwise don't care
+    #[inline(always)]
+    pub fn word_endianness_exchange(mut self, exchange: bool) -> Self {
+        self.word_endianness_exchange = exchange;
+        self
+    }
+    /// Set half word endianness exchange. Applies when the destination is a
+    /// 64,32-bit. Otherwise don't care
+    #[inline(always)]
+    pub fn half_word_endianness_exchange(mut self, exchange: bool) -> Self {
+        self.half_word_endianness_exchange = exchange;
+        self
+    }
+    /// Set byte endianness exchange. Applies when the destination is
+    /// 64,32,16-bit. Otherwise don't care
+    #[inline(always)]
+    pub fn byte_endianness_exchange(mut self, exchange: bool) -> Self {
+        self.byte_endianness_exchange = exchange;
         self
     }
     /// Set the transfer_complete_interrupt
@@ -284,6 +308,15 @@ macro_rules! mdma_stream {
 
                     self.set_transfer_complete_interrupt_enable(
                         config.transfer_complete_interrupt
+                    );
+                    self.set_word_endianness_exchange(
+                        config.word_endianness_exchange
+                    );
+                    self.set_half_word_endianness_exchange(
+                        config.half_word_endianness_exchange
+                    );
+                    self.set_byte_endianness_exchange(
+                        config.byte_endianness_exchange
                     );
                     self.set_transfer_error_interrupt_enable(
                         config.transfer_error_interrupt
@@ -483,7 +516,7 @@ macro_rules! mdma_stream {
                     mdma.$channel.bndtr.modify(|_, w| unsafe { w.bndt().bits(value as u32) });
                 }
 
-                /// Apply the configation structure to this
+                /// Apply all fields in the configation structure to this
                 /// stream. SINCOS/DINCOS are set based on the source_size /
                 /// destination_size if not specified by the config structure.
                 #[inline(always)]
@@ -572,6 +605,28 @@ macro_rules! mdma_stream {
                     let is_dtcm: bool = (address >= 0x2000_0000 && address < 0x2002_0000);
 
                     is_itcm || is_dtcm
+                }
+
+                #[inline(always)]
+                pub fn set_word_endianness_exchange(&mut self, exchange: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to
+                    // the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.wex().bit(exchange));
+                }
+                #[inline(always)]
+                pub fn set_half_word_endianness_exchange(&mut self, exchange: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to
+                    // the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.hex().bit(exchange));
+                }
+                #[inline(always)]
+                pub fn set_byte_endianness_exchange(&mut self, exchange: bool) {
+                    //NOTE(unsafe) We only access the registers that belongs to
+                    // the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.bex().bit(exchange));
                 }
 
                 #[inline(always)]
