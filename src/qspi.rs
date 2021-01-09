@@ -119,6 +119,7 @@ pub struct Config {
     address_size: AddressSize,
     dummy_cycles: u8,
     sampling_edge: SamplingEdge,
+    fifo_threshold: u8,
 }
 
 impl Config {
@@ -135,6 +136,7 @@ impl Config {
             address_size: AddressSize::EightBit,
             dummy_cycles: 0,
             sampling_edge: SamplingEdge::Falling,
+            fifo_threshold: 1,
         }
     }
 
@@ -187,6 +189,21 @@ impl Config {
     /// contention.
     pub fn sampling_edge(mut self, sampling_edge: SamplingEdge) -> Self {
         self.sampling_edge = sampling_edge;
+        self
+    }
+
+    /// Specify the number of bytes in the FIFO that will set the FIFO threshold
+    /// flag. Must be in the range 1-32 inclusive.
+    ///
+    /// In indirect write mode, this is the number of free bytes that will raise
+    /// the FIFO threshold flag.
+    ///
+    /// In indirect read mode, this is the number of valid pending bytes that
+    /// will raise the FIFO threshold flag.
+    pub fn fifo_threshold(mut self, threshold: u8) -> Self {
+        debug_assert!(threshold > 0 && threshold <= 32);
+
+        self.fifo_threshold = threshold;
         self
     }
 }
@@ -487,6 +504,8 @@ impl Qspi {
                 .bits(divisor as u8)
                 .sshift()
                 .bit(config.sampling_edge == SamplingEdge::Falling)
+                .fthres()
+                .bits(config.fifo_threshold - 1)
         });
 
         match bank {
