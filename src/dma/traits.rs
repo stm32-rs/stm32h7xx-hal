@@ -184,15 +184,26 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the trigger source as software (true) or hardware (false)
     fn set_software_triggered(&mut self, sw_triggered: bool);
 
+    /// Set the trigger mode: buffer (0), block (1), repeated block (2),
+    /// linked-list (3)
+    fn set_trigger_mode(&mut self, trigger_mode: u8);
+
     /// Set the number of bytes in each transfer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
-    /// other channels.
+    /// other channels
     unsafe fn set_transfer_bytes(&mut self, value: u8);
 
     /// Get the number of bytes in each transfer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
-    /// other channels.
+    /// other channels
     fn get_transfer_bytes() -> u8;
+
+    /// Set the number of bytes to be transferred in each block
+    unsafe fn set_block_bytes(&mut self, value: u32);
+
+    /// Get the number of bytes remaining in the current block. This decrements
+    /// during the transfer, reaching zero at the end of the block
+    fn get_block_bytes() -> u32;
 
     /// For a given configuration, determine the size and offset for the source
     /// and destination

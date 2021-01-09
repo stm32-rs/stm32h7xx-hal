@@ -747,7 +747,7 @@ where
     ///
     /// s_len: The number of input words of s_size available
     /// d_len: The number of input words of d_size available
-    fn transfer_bytes(config: &CONFIG, s_len: usize, d_len: usize) -> usize {
+    fn m_number_of_bytes(config: &CONFIG, s_len: usize, d_len: usize) -> usize {
         let ((s_size, d_size), (s_offset, d_offset)) =
             Self::source_destination_size_offset(&config);
 
@@ -838,21 +838,29 @@ where
             0
         };
 
+        // This method always configures a block transfer
+        stream.set_trigger_mode(1);
+
         // Set trigger source
         stream.set_software_triggered(is_mem2mem);
 
-        // Set transfer length
-        let transfer_bytes =
+        // Set block length
+        let block_number_of_bytes =
             Self::m_number_of_bytes(&config, source_len, buf_len); // s, d
         assert!(
-            transfer_bytes <= 128,
-            "Hardware does not support more than 128 bytes in a single transfer"
+            block_number_of_bytes <= 65536,
+            "Hardware does not support more than 65536 bytes in a single transfer"
         );
+        // Set transfer length (within the block). If block_number_of_bytes is
+        // not a integer multiple of transfer_bytes, the last transfer will be
+        // shorter
+        let transfer_bytes = cmp::min(128, block_number_of_bytes);
 
         //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
         // to be within both source and destination buffers
         unsafe {
             stream.set_transfer_bytes(transfer_bytes as u8);
+            stream.set_block_bytes(block_number_of_bytes as u32);
         }
 
         // // Set the request line if not software triggered
@@ -875,5 +883,9 @@ where
     #[inline(always)]
     pub fn get_transfer_bytes(&self) -> u8 {
         STREAM::get_transfer_bytes()
+    }
+    #[inline(always)]
+    pub fn get_block_bytes(&self) -> u32 {
+        STREAM::get_block_bytes()
     }
 }

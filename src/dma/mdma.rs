@@ -518,11 +518,17 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
+                fn set_trigger_mode(&mut self, trigger_mode: u8) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tcr.modify(|_, w| unsafe { w.trgm().bits(trigger_mode) });
+                }
+
+                #[inline(always)]
                 unsafe fn set_transfer_bytes(&mut self, value: u8) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.tlen().bits(value - 1));
-                    mdma.$channel.bndtr.modify(|_, w| w.bndt().bits(value as u32));
                 }
 
                 #[inline(always)]
@@ -530,6 +536,20 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.tcr.read().tlen().bits() + 1
+                }
+
+                #[inline(always)]
+                unsafe fn set_block_bytes(&mut self, value: u32) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = &*I::ptr();
+                    mdma.$channel.bndtr.modify(|_, w| w.bndt().bits(value));
+                }
+
+                #[inline(always)]
+                fn get_block_bytes() -> u32 {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.bndtr.read().bndt().bits()
                 }
 
                 fn source_destination_size_offset(
