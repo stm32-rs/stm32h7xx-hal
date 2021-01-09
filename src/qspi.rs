@@ -50,7 +50,7 @@ use crate::{
     time::Hertz,
 };
 
-use core::ptr;
+use core::{marker::PhantomData, ptr};
 
 /// Represents operation modes of the QSPI interface.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -365,6 +365,17 @@ pub trait QspiExt {
         CONFIG: Into<Config>;
 }
 
+/// Interrupt events
+#[derive(Copy, Clone, PartialEq)]
+pub enum Event {
+    /// FIFO Threashold
+    FIFOThreashold,
+    /// Transfer complete
+    Complete,
+    /// Tranfer error
+    Error,
+}
+
 pub struct Qspi {
     rb: stm32::QUADSPI,
 }
@@ -441,7 +452,7 @@ impl Qspi {
         // Configure the communication method for QSPI.
         regs.ccr.write(|w| unsafe {
             w.fmode()
-                .bits(0)
+                .bits(0) // indirect mode
                 .dmode()
                 .bits(config.mode.reg_value())
                 .admode()
@@ -490,9 +501,47 @@ impl Qspi {
         Qspi { rb: regs }
     }
 
-    /// Check if the QSPI peripheral is currently busy with a transaction.
+    /// Deconstructs the QSPI HAL and returns the component parts
+    pub fn free(self) -> (stm32::QUADSPI, rec::Qspi) {
+        (
+            self.rb,
+            rec::Qspi {
+                _marker: PhantomData,
+            },
+        )
+    }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &stm32::QUADSPI {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut stm32::QUADSPI {
+        &mut self.rb
+    }
+
+    /// Check if the QSPI peripheral is currently busy with a transaction
     pub fn is_busy(&self) -> bool {
         self.rb.sr.read().busy().bit_is_set()
+    }
+
+    /// Enable interrupts for the given `event`
+    pub fn listen(&mut self, event: Event) {
+        self.rb.cr.modify(|_, w| match event {
+            Event::FIFOThreashold => w.ftie().set_bit(),
+            Event::Complete => w.tcie().set_bit(),
+            Event::Error => w.teie().set_bit(),
+        });
+    }
+
+    /// Disable interrupts for the given `event`
+    pub fn unlisten(&mut self, event: Event) {
+        self.rb.cr.modify(|_, w| match event {
+            Event::FIFOThreashold => w.ftie().clear_bit(),
+            Event::Complete => w.tcie().clear_bit(),
+            Event::Error => w.teie().clear_bit(),
+        });
     }
 
     fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {
@@ -510,6 +559,9 @@ impl Qspi {
     ///
     /// # Args
     /// * `mode` - The newly desired mode of the interface.
+    ///
+    /// # Errors
+    /// Returns QspiError::Busy if an operation is ongoing
     pub fn configure_mode(&mut self, mode: QspiMode) -> Result<(), QspiError> {
         if self.is_busy() {
             return Err(QspiError::Busy);
@@ -521,6 +573,38 @@ impl Qspi {
                 .dmode()
                 .bits(mode.reg_value())
         });
+
+        Ok(())
+    }
+
+    /// Begin a write over the QSPI interface. This is mostly useful for use with
+    /// DMA or if you are managing the read yourself. If you want to complete a
+    /// whole transaction, see the [`write`](#method.write) method.
+    ///
+    /// # Args
+    /// * `addr` - The address to write data to. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    pub fn begin_write(
+        &mut self,
+        addr: u32,
+        length: usize,
+    ) -> Result<(), QspiError> {
+        if self.is_busy() {
+            return Err(QspiError::Busy);
+        }
+
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
+
+        // Write the length
+        self.rb
+            .dlr
+            .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
+
+        // Configure the mode to indirect write.
+        self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b00) });
+
+        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
 
         Ok(())
     }
@@ -542,22 +626,7 @@ impl Qspi {
             "Transactions larger than the QSPI FIFO are currently unsupported"
         );
 
-        if self.is_busy() {
-            return Err(QspiError::Busy);
-        }
-
-        // Clear the transfer complete flag.
-        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
-
-        // Write the length
-        self.rb
-            .dlr
-            .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
-
-        // Configure the mode to indirect write.
-        self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b00) });
-
-        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+        self.begin_write(addr, data.len())?;
 
         // Write data to the FIFO in a byte-wise manner.
         unsafe {
@@ -571,6 +640,39 @@ impl Qspi {
 
         // Wait for the peripheral to indicate it is no longer busy.
         while self.is_busy() {}
+
+        Ok(())
+    }
+
+    /// Begin a read over the QSPI interface. This is mostly useful for use with
+    /// DMA or if you are managing the read yourself. If you want to complete a
+    /// whole transaction, see the [`read`](#method.read) method.
+    ///
+    /// # Args
+    /// * `addr` - The address to read data from. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    pub fn begin_read(
+        &mut self,
+        addr: u32,
+        length: usize,
+    ) -> Result<(), QspiError> {
+        if self.is_busy() {
+            return Err(QspiError::Busy);
+        }
+
+        // Clear the transfer complete flag.
+        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
+
+        // Write the length that should be read.
+        self.rb
+            .dlr
+            .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
+
+        // Configure the mode to indirect read.
+        self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b01) });
+
+        // Write the address to force the read to start.
+        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
 
         Ok(())
     }
@@ -596,23 +698,8 @@ impl Qspi {
             "Transactions larger than the QSPI FIFO are currently unsupported"
         );
 
-        if self.is_busy() {
-            return Err(QspiError::Busy);
-        }
-
-        // Clear the transfer complete flag.
-        self.rb.fcr.modify(|_, w| w.ctcf().set_bit());
-
-        // Write the length that should be read.
-        self.rb
-            .dlr
-            .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
-
-        // Configure the mode to indirect read.
-        self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b01) });
-
-        // Write the address to force the read to start.
-        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+        // Begin the read operation
+        self.begin_read(addr, dest.len())?;
 
         // Wait for the transaction to complete
         while self.rb.sr.read().tcf().bit_is_clear() {}
