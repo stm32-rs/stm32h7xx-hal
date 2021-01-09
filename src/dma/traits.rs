@@ -200,17 +200,28 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the trigger source as software (true) or hardware (false)
     fn set_software_triggered(&mut self, sw_triggered: bool);
 
-    /// Set the number of bytes to be transferred in a single transfer
-    fn set_transfer_bytes(&mut self, value: u8);
+    /// Set the number of bytes in each transfer. This is the number of bytes
+    /// that are transferred on this stream before checking for MDMA requests on
+    /// other channels.
+    unsafe fn set_transfer_bytes(&mut self, value: u8);
 
-    /// Apply the configation structure to this
-    /// stream. SINCOS/DINCOS are set based on the source_size /
-    /// destination_size if not specified by the config structure.
-    fn apply_config_with_size(
-        &mut self,
-        config: <Self as Stream>::Config,
-        source_size: mdma::MdmaSize,
-        destination_size: mdma::MdmaSize,
+    /// Get the number of bytes in each transfer. This is the number of bytes
+    /// that are transferred on this stream before checking for MDMA requests on
+    /// other channels.
+    fn get_transfer_bytes() -> u8;
+
+    /// For a given configuration, determine the size and offset for the source
+    /// and destination
+    ///
+    /// Returns ((s_size, d_size), (s_offset, d_offset))
+    fn source_destination_size_offset(
+        config: &Self::Config,
+        peripheral_size: mdma::MdmaSize,
+        memory_size: mdma::MdmaSize,
+        direction: DmaDirection,
+    ) -> (
+        (mdma::MdmaSize, mdma::MdmaSize),
+        (mdma::MdmaSize, mdma::MdmaSize),
     );
 
     /// Set the source size (s_size) for the DMA stream.
