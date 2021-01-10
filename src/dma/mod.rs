@@ -857,14 +857,23 @@ where
 
     /// Configures the DMA source and destination and applies supplied
     /// configuration. In a memory to memory transfer, the `second_buf` argument
-    /// is the source of the data.
+    /// is the source of the data
     ///
     /// # Panics
     ///
     /// * When a memory-memory transfer is specified but the `second_buf`
     /// argument is `None`.
     ///
-    /// * When the transfer length is greater than 128 bytes.
+    /// * When the length is greater than 65536 bytes.
+    ///
+    /// * When `config` specifies a `source_increment` that is smaller than the
+    /// source size.
+    ///
+    /// * When `config` specifies a `destination_increment` that is smaller than
+    /// the destination size.
+    ///
+    /// * When `config` specifies a `transfer_length` that is not a multiple of
+    /// both the source and destination sizes.
     pub fn init_master(
         mut stream: STREAM,
         peripheral: PERIPHERAL,
@@ -926,9 +935,6 @@ where
 
             0
         };
-
-        // This method always configures a block transfer
-        stream.set_trigger_mode(1);
 
         // Set trigger source
         stream.set_software_triggered(is_mem2mem);

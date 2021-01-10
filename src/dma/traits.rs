@@ -202,7 +202,7 @@ pub trait MasterStream: Stream + Sealed {
 
     /// Set the trigger mode: buffer (0), block (1), repeated block (2),
     /// linked-list (3)
-    fn set_trigger_mode(&mut self, trigger_mode: u8);
+    fn set_trigger_mode(&mut self, trigger_mode: mdma::MdmaTrigger);
 
     /// Set the number of bytes in each transfer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
@@ -242,6 +242,9 @@ pub trait MasterStream: Stream + Sealed {
     /// This must have the same alignment of the buffer used in the transfer.
     unsafe fn set_source_size(&mut self, size: mdma::MdmaSize);
 
+    /// Get the source size for the DMA stream.
+    fn get_source_size() -> mdma::MdmaSize;
+
     /// Set the source offset for the DMA stream.
     unsafe fn set_source_offset(&mut self, offset: mdma::MdmaSize);
 
@@ -252,6 +255,9 @@ pub trait MasterStream: Stream + Sealed {
     /// This must have the same alignment of the peripheral data used in the
     /// transfer.
     unsafe fn set_destination_size(&mut self, size: mdma::MdmaSize);
+
+    /// Get the destination size for the DMA stream.
+    fn get_destination_size() -> mdma::MdmaSize;
 
     /// Set the destination offset for the DMA stream.
     unsafe fn set_destination_offset(&mut self, offset: mdma::MdmaSize);
