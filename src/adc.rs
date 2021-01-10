@@ -14,7 +14,6 @@ use crate::stm32::{ADC1, ADC2};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::{ADC3, ADC3_COMMON};
 
-use crate::delay::Delay;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1};
 use crate::gpio::gpioc::{PC0, PC1, PC2, PC3, PC4, PC5};
@@ -304,7 +303,7 @@ pub trait AdcExt<ADC>: Sized {
 
     fn adc(
         self,
-        delay: &mut Delay,
+        delay: &mut impl DelayUs<u8>,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Adc<ADC, Disabled>;
@@ -344,7 +343,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
 pub fn adc12(
     adc1: ADC1,
     adc2: ADC2,
-    delay: &mut Delay,
+    delay: &mut impl DelayUs<u8>,
     prec: rec::Adc12,
     clocks: &CoreClocks,
 ) -> (Adc<ADC1, Disabled>, Adc<ADC2, Disabled>) {
@@ -403,7 +402,7 @@ macro_rules! adc_hal {
                 type Rec = rec::$Rec;
 
 	            fn adc(self,
-                       delay: &mut Delay,
+                       delay: &mut impl DelayUs<u8>,
                        prec: rec::$Rec,
                        clocks: &CoreClocks) -> Adc<$ADC, Disabled>
 	            {
@@ -416,7 +415,7 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adcX(adc: $ADC, delay: &mut Delay,
+                pub fn $adcX(adc: $ADC, delay: &mut impl DelayUs<u8>,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
                     // Consume ADC register block, produce Self with default
@@ -455,7 +454,7 @@ macro_rules! adc_hal {
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
-                pub fn power_up(&mut self, delay: &mut Delay) {
+                pub fn power_up(&mut self, delay: &mut impl DelayUs<u8>) {
                     // Refer to RM0433 Rev 6 - Chapter 24.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().clear_bit()
