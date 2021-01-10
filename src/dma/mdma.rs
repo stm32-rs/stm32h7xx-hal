@@ -1,5 +1,26 @@
 //! Master DMA
 //!
+//! The Master DMA has a wide variety of configuration options for
+//! packing/unpacking data and swapping endianness. It is primarily intended for
+//! use with peripherals and memory regions with ports on the 64-bit AXI bus
+//! matrix. Unlike DMA1/DMA2, it can access TCM memory regions via the Cortex-M7
+//! AHBS port.
+//!
+//! ## Stream Transfer Requests
+//!
+//! MDMA stream transfer requests can originate from either hardware or
+//! software. When a stream request is asserted, it starts either a Buffer,
+//! Block, Repeated Block or Linked List transfer as specified with
+//! [`trigger_mode`](MdmaConfig#method.trigger_mode).
+//!
+//! Unlike DMA1/DMA2, it is valid to assign the same request line to multiple
+//! MDMA streams. Additionally there are multiple requests lines to choose from
+//! for each target peripheral. For this reason, hardware request lines are
+//! specified as part of the [`MdmaConfig`](MdmaConfig) instead of being
+//! inferred from the peripheral type. If no hardware request line is specified,
+//! then the request line originates from software and the transfer is started
+//! immediately when [`enable`](Stream0#method.enable) is called.
+//!
 //!
 
 use super::{
@@ -41,6 +62,59 @@ impl Instance for MDMA {
     fn ptr() -> *const MDMARegisterBlock {
         MDMA::ptr()
     }
+}
+
+/// MDMA Stream Transfer Requests
+#[derive(Debug, Clone, Copy)]
+pub enum MdmaTransferRequest {
+    Dma1Tcif0 = 0,
+    Dma1Tcif1,
+    Dma1Tcif2,
+    Dma1Tcif3,
+    Dma1Tcif4,
+    Dma1Tcif5,
+    Dma1Tcif6,
+    Dma1Tcif7,
+    Dma2Tcif0,
+    Dma2Tcif1,
+    Dma2Tcif2,
+    Dma2Tcif3,
+    Dma2Tcif4,
+    Dma2Tcif5,
+    Dma2Tcif6,
+    Dma2Tcif7,
+    /// LTDC line interrupt
+    LtdcLiIt = 16,
+    /// JPEG input FIFO threshold
+    JpegIftTrg,
+    /// JPEG input FIFO not full
+    JpegIfntTrg,
+    /// JPEG output FIFO threshold
+    JpegOftTrg,
+    /// JPEG output FIFO not empty
+    JpegOfneTrg,
+    /// JPEG end of conversion
+    JpegOecTrg,
+    /// QUADSPI FIFO threshold
+    QuadspiFtTrg,
+    /// QUADSPI FIFO transfer complete
+    QuadspiTcTrg,
+    /// DMA2D CLUT transfer complete
+    Dma2dClutTrg,
+    /// DMA2D transfer complete
+    Dma2dTcTrg,
+    /// DMA2D transfer watermark
+    Dma2dTwTrg,
+    /// DSI tearing effect
+    DsiTeTrg,
+    /// DSI end of refresh
+    DsiEorTrg,
+    /// SDMMC1 internal DMA buffer end
+    Sdmmc1BuffendTrg,
+    /// SDMMC1 command end
+    Sdmmc1CmdEndTrg,
+    /// SDMMC1 end of data
+    Sdmmc1DataEndTrg,
 }
 
 /// MDMA Source/Destination sizes
@@ -139,12 +213,13 @@ pub struct MdmaInterrupts {
     channel_transfer_complete: bool,
 }
 
-/// Contains the complete set of configuration for a DMA stream.
+/// Contains the complete set of configuration for a MDMA stream.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) destination_increment: MdmaIncrement,
     pub(crate) source_increment: MdmaIncrement,
+    pub(crate) transfer_request: Option<MdmaTransferRequest>,
     pub(crate) trigger_mode: MdmaTrigger,
     pub(crate) transfer_length: Option<u8>,
     pub(crate) word_endianness_exchange: bool,
@@ -177,6 +252,22 @@ impl MdmaConfig {
     #[inline(always)]
     pub fn source_increment(mut self, source_increment: MdmaIncrement) -> Self {
         self.source_increment = source_increment;
+        self
+    }
+    /// Sets a hardware transfer request line. Unlike DMA1/DMA2, it is valid to
+    /// use the same hardware transfer request line for multiple streams
+    #[inline(always)]
+    pub fn hardware_transfer_request(
+        mut self,
+        transfer_request: MdmaTransferRequest,
+    ) -> Self {
+        self.transfer_request = Some(transfer_request);
+        self
+    }
+    /// Sets a software-triggered transfer request line. This is the default
+    #[inline(always)]
+    pub fn software_transfer_request(mut self) -> Self {
+        self.transfer_request = None;
         self
     }
     /// Sets the trigger mode. If the trigger mode is `Buffer`, then the MDMA
@@ -373,6 +464,11 @@ macro_rules! mdma_stream {
                     self.set_destination_increment(config.destination_increment);
                     self
                         .set_source_increment(config.source_increment);
+
+                    self.set_software_triggered(config.transfer_request.is_none());
+                    if let Some(transfer_request) = config.transfer_request {
+                        self.set_trigger_selection(transfer_request as u8);
+                    }
                     self.set_trigger_mode(config.trigger_mode);
 
                     // Custom transfer length if specified
@@ -597,6 +693,13 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.tcr.modify(|_, w| w.swrm().bit(sw_triggered));
+                }
+
+                #[inline(always)]
+                fn set_trigger_selection(&mut self, trigger: u8) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tbr.modify(|_, w| unsafe { w.tsel().bits(trigger) });
                 }
 
                 #[inline(always)]
