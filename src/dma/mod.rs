@@ -833,7 +833,7 @@ where
     }
 
     /// Calculates the maximum number of bytes that can be transferred in an
-    /// MDMA block. The length is reffered to the source size
+    /// MDMA block. The length is referred to the source size
     ///
     /// * `s_len`: The number of input words of s_size available. `None` if the
     /// source is a peripheral

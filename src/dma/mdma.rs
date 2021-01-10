@@ -213,6 +213,27 @@ impl Default for MdmaIncrement {
     }
 }
 
+/// MDMA Packing/Alignment mode
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MdmaPackingAlignment {
+    /// Source data is packed/unpacked into the destination data size
+    Packed,
+    /// Source data is extended/truncated into the destination data size. Source
+    /// data smaller than the destination is right-aligned and padded with zeros
+    ExtendTruncate,
+    /// Source data is extended/truncated into the destination data size. Source
+    /// data smaller than the destination is right-aligned and sign-extended.
+    ExtendSignExtend,
+    /// Source data is extended/truncated into the destination data size. Source
+    /// data smaller than the destination is left-aligned and padded with zeros
+    ExtendLeftAligned,
+}
+impl Default for MdmaPackingAlignment {
+    fn default() -> Self {
+        MdmaPackingAlignment::Packed
+    }
+}
+
 /// MDMA trigger mode
 #[derive(Debug, Clone, Copy)]
 pub enum MdmaTrigger {
@@ -250,6 +271,7 @@ pub struct MdmaConfig {
     pub(crate) transfer_request: Option<MdmaTransferRequest>,
     pub(crate) trigger_mode: MdmaTrigger,
     pub(crate) buffer_length: Option<u8>,
+    pub(crate) packing_alignment: MdmaPackingAlignment,
     pub(crate) word_endianness_exchange: bool,
     pub(crate) half_word_endianness_exchange: bool,
     pub(crate) byte_endianness_exchange: bool,
@@ -326,6 +348,13 @@ impl MdmaConfig {
         );
 
         self.buffer_length = Some(bytes);
+        self
+    }
+    /// Set the MDMA packing and alignment. When the source and destination have
+    /// the same storage type, this has no effect
+    #[inline(always)]
+    pub fn packing_alignment(mut self, packing: MdmaPackingAlignment) -> Self {
+        self.packing_alignment = packing;
         self
     }
     /// Set word endianness exchange. Applies when the destination is
@@ -521,6 +550,9 @@ macro_rules! mdma_stream {
                         }
                     }
 
+                    self.set_packing_alignment(
+                        config.packing_alignment
+                    );
                     self.set_word_endianness_exchange(
                         config.word_endianness_exchange
                     );
@@ -879,6 +911,23 @@ macro_rules! mdma_stream {
                     is_itcm || is_dtcm
                 }
 
+                #[inline(always)]
+                pub fn set_packing_alignment(&mut self, pack: MdmaPackingAlignment) {
+                    use MdmaPackingAlignment::*;
+
+                    //NOTE(unsafe) We only access the registers that belongs to
+                    // the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tcr.modify(|_,w| unsafe {
+                        w
+                            .pke().bit(pack == Packed)
+                            .pam().bits(match pack {
+                                ExtendSignExtend => 0b01,
+                                ExtendLeftAligned => 0b10,
+                                _ => 0b00,
+                            })
+                    });
+                }
                 #[inline(always)]
                 pub fn set_word_endianness_exchange(&mut self, exchange: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to
