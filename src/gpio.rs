@@ -89,9 +89,9 @@ pub enum Speed {
 /// GPIO Edge selection
 #[derive(Copy, Clone, PartialEq)]
 pub enum Edge {
-    RISING,
-    FALLING,
-    RISING_FALLING,
+    Rising,
+    Falling,
+    RisingFalling,
 }
 
 /// Alternate function 0 (type state)
@@ -299,15 +299,15 @@ macro_rules! gpio {
                 /// Generate interrupt on rising edge, falling edge or both
                 fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                     match edge {
-                        Edge::RISING => {
+                        Edge::Rising => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::FALLING => {
+                        Edge::Falling => {
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::RISING_FALLING => {
+                        Edge::RisingFalling => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                         }
@@ -746,15 +746,15 @@ macro_rules! gpio {
                     /// Generate interrupt on rising edge, falling edge or both
                     fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                         match edge {
-                            Edge::RISING => {
+                            Edge::Rising => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::FALLING => {
+                            Edge::Falling => {
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::RISING_FALLING => {
+                            Edge::RisingFalling => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                             }
