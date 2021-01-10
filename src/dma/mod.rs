@@ -960,15 +960,15 @@ where
             "Hardware does not support more than 65536 bytes in a single transfer"
         );
         // Set transfer length (within the block). If block_number_of_bytes is
-        // not a integer multiple of transfer_bytes, the last transfer will be
+        // not a integer multiple of buffer_bytes, the last buffer will be
         // shorter
-        let transfer_bytes = cmp::min(128, block_number_of_bytes);
+        let buffer_bytes = cmp::min(128, block_number_of_bytes);
         // This is overriden if set in `config`
 
         //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
         // to be within both source and destination buffers
         unsafe {
-            stream.set_transfer_bytes(transfer_bytes as u8);
+            stream.set_buffer_bytes(buffer_bytes as u8);
             stream.set_block_bytes(block_number_of_bytes as u32);
         }
 
@@ -985,8 +985,8 @@ where
     }
 
     #[inline(always)]
-    pub fn get_transfer_bytes(&self) -> u8 {
-        STREAM::get_transfer_bytes()
+    pub fn get_buffer_bytes(&self) -> u8 {
+        STREAM::get_buffer_bytes()
     }
     #[inline(always)]
     pub fn get_block_bytes(&self) -> u32 {

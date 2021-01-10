@@ -6,6 +6,34 @@
 //! matrix. Unlike DMA1/DMA2, it can access TCM memory regions via the Cortex-M7
 //! AHBS port.
 //!
+//! ## Trigger Modes
+//!
+//! #### Block Trigger (default)
+//!
+//! In this mode, each transfer results in the transfer of up to 65536 bytes of
+//! data. The MDMA checks for other higher priority every 128 bytes, although
+//! the [`buffer_length`](MdmaConfig#method.buffer_length) method can be use to
+//! configure a smaller interval.
+//!
+//! #### Buffer Trigger
+//!
+//! In Buffer mode, each trigger results in the transfer of up to 128 bytes of
+//! data. If a larger transfer was configured, the MDMA stream must be triggered
+//! again to continue the transfer. This behaviour is useful alongside hardware
+//! triggers when transferring to/from peripheral FIFOs.
+//!
+//! In the reference manual, the words Buffer and Transfer are used
+//! interchangeably, for example in the TLEN field. To avoid confusion with
+//! other types of transfers, we use only the word Buffer.
+//!
+//! #### Repeated Block Mode
+//!
+//! TODO
+//!
+//! #### Linked List Mode
+//!
+//! TODO
+//!
 //! ## Stream Transfer Requests
 //!
 //! MDMA stream transfer requests can originate from either hardware or
@@ -166,15 +194,15 @@ impl MdmaSize {
 #[derive(Debug, Clone, Copy)]
 pub enum MdmaIncrement {
     Fixed,
-    /// Increment by one source/destination element each transfer
+    /// Increment by one source/destination element each element
     Increment,
-    /// Decrement by one source/destination element each transfer
+    /// Decrement by one source/destination element each element
     Decrement,
-    /// Increment by the given offset each transfer. The offset must be larger
+    /// Increment by the given offset each element. The offset must be larger
     /// or equal to the source/destination element size, otherwise the stream
     /// initialisation will panic
     IncrementWithOffset(MdmaSize),
-    /// Decrement by the given offset each transfer. The offset must be larger
+    /// Decrement by the given offset each element. The offset must be larger
     /// or equal to the source/destination element size, otherwise the stream
     /// initialisation will panic
     DecrementWithOffset(MdmaSize),
@@ -221,7 +249,7 @@ pub struct MdmaConfig {
     pub(crate) source_increment: MdmaIncrement,
     pub(crate) transfer_request: Option<MdmaTransferRequest>,
     pub(crate) trigger_mode: MdmaTrigger,
-    pub(crate) transfer_length: Option<u8>,
+    pub(crate) buffer_length: Option<u8>,
     pub(crate) word_endianness_exchange: bool,
     pub(crate) half_word_endianness_exchange: bool,
     pub(crate) byte_endianness_exchange: bool,
@@ -277,27 +305,27 @@ impl MdmaConfig {
         self.trigger_mode = trigger;
         self
     }
-    /// Sets the length of each transfer. For the MDMA this is the length of
+    /// Sets the length of each buffer. For the MDMA this is the length of
     /// data to be transferred without checking for requests on other channels.
     ///
     /// Normally the MDMA is configured to trigger a block transfer
-    /// (TRGM=0b01). Each block consists of one of more transfers. If
-    /// `trigger_mode` is set to `Buffer` instead, then each transfer must be
+    /// (TRGM=0b01). Each block consists of one of more buffers. If
+    /// `trigger_mode` is set to `Buffer` instead, then each buffer must be
     /// triggered individually.
     ///
-    /// The transfer length is specified in bytes, and must be a multiple of
+    /// The buffer length is specified in bytes, and must be a multiple of
     /// both the source and destination sizes.
     ///
-    /// If the number of bytes in the block is not a multiple of the transfer
-    /// length, then the final transfer will be shorter than the others.
+    /// If the number of bytes in the block is not a multiple of the buffer
+    /// length, then the final buffer will be shorter than the others.
     #[inline(always)]
-    pub fn transfer_length(mut self, bytes: u8) -> Self {
+    pub fn buffer_length(mut self, bytes: u8) -> Self {
         debug_assert!(
             bytes <= 128,
-            "Hardware only supports transfers up to 128 bytes"
+            "Hardware only supports buffers up to 128 bytes"
         );
 
-        self.transfer_length = Some(bytes);
+        self.buffer_length = Some(bytes);
         self
     }
     /// Set word endianness exchange. Applies when the destination is
@@ -471,25 +499,25 @@ macro_rules! mdma_stream {
                     }
                     self.set_trigger_mode(config.trigger_mode);
 
-                    // Custom transfer length if specified
-                    if let Some(transfer_length) = config.transfer_length {
+                    // Custom buffer length if specified
+                    if let Some(buffer_length) = config.buffer_length {
                         // Up to 128 bytes
-                        assert!(transfer_length <= 128);
-                        // Length of the transfer must be less than the length
+                        assert!(buffer_length <= 128);
+                        // Length of the buffer must be less than the length
                         // of the block
-                        assert!(transfer_length as u32 <= Self::get_block_bytes());
-                        // Length of the transfer must be a multiple of the
+                        assert!(buffer_length as u32 <= Self::get_block_bytes());
+                        // Length of the buffer must be a multiple of the
                         // source size
-                        assert_eq!(transfer_length as usize %
+                        assert_eq!(buffer_length as usize %
                                    Self::get_source_size().n_bytes(), 0);
-                        // Length of the transfer must be a multiple of the
+                        // Length of the buffer must be a multiple of the
                         // destination size
-                        assert_eq!(transfer_length as usize %
+                        assert_eq!(buffer_length as usize %
                                    Self::get_destination_size().n_bytes(), 0);
 
-                        // Replace calculated transfer length
+                        // Replace calculated buffer length
                         unsafe {
-                            self.set_transfer_bytes(transfer_length);
+                            self.set_buffer_bytes(buffer_length);
                         }
                     }
 
@@ -713,14 +741,14 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
-                unsafe fn set_transfer_bytes(&mut self, value: u8) {
+                unsafe fn set_buffer_bytes(&mut self, value: u8) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.tlen().bits(value - 1));
                 }
 
                 #[inline(always)]
-                fn get_transfer_bytes() -> u8 {
+                fn get_buffer_bytes() -> u8 {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.tcr.read().tlen().bits() + 1
