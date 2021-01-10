@@ -1,4 +1,38 @@
-//! Delays
+//! Delay providers
+//!
+//! There are currently two delay providers. In general you should prefer to use
+//! [Delay](Delay), however if you do not have access to `SYST` you can use
+//! [DelayFromCountDownTimer](DelayFromCountDownTimer) with any timer that
+//! implements the [CountDown](embedded_hal::timer::CountDown) trait. This can be
+//! useful if you're using [RTIC](https://rtic.rs)'s schedule API, which occupies
+//! the `SYST` peripheral.
+//!
+//! # Examples
+//!
+//! ## Delay
+//!
+//! ```no_run
+//! let mut delay = Delay::new(core.SYST, device.clocks);
+//!
+//! delay.delay_ms(500);
+//!
+//! // Release SYST from the delay
+//! let syst = delay.free();
+//! ```
+//!
+//! ## DelayFromCountDownTimer
+//!
+//! ```no_run
+//! let timer2 = device
+//!     .TIM2
+//!     .timer(100.ms(), device.peripheral.TIM2, &mut device.clocks);
+//! let mut delay = DelayFromCountDownTimer::new(timer2);
+//!
+//! delay.delay_ms(500);
+//!
+//! // Release the timer from the delay
+//! let timer2 = delay.free();
+//! ```
 
 use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;
