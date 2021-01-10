@@ -218,28 +218,28 @@ macro_rules! hal {
                     self.pause();
 
                     // Reset counter
-                    self.tim.cnt.reset();
+                    self.reset_counter();
 
                     // UEV event occours on next overflow
-                    self.tim.cr1.modify(|_, w| w.urs().counter_only());
-                    self.clear_uif_bit();
+                    self.urs_counter_only();
+                    self.clear_irq();
 
                     // Set PSC and ARR
                     self.set_freq(timeout);
 
                     // Generate an update event to force an update of the ARR register. This ensures
                     // the first timer cycle is of the specified duration.
-                    self.tim.egr.write(|w| w.ug().set_bit());
+                    self.apply_freq();
 
                     // Start counter
                     self.resume()
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
-                    if self.tim.sr.read().uif().bit_is_clear() {
+                    if self.is_irq_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
-                        self.clear_uif_bit();
+                        self.clear_irq();
                         Ok(())
                     }
                 }
@@ -270,8 +270,8 @@ macro_rules! hal {
                     timer.pause();
 
                     // UEV event occours on next overflow
-                    timer.tim.cr1.modify(|_, w| w.urs().counter_only());
-                    timer.clear_uif_bit();
+                    timer.urs_counter_only();
+                    timer.clear_irq();
 
                     // Set PSC and ARR
                     timer.set_tick_freq(frequency);
@@ -279,7 +279,7 @@ macro_rules! hal {
                     // Generate an update event to force an update of the ARR
                     // register. This ensures the first timer cycle is of the
                     // specified duration.
-                    timer.tim.egr.write(|w| w.ug().set_bit());
+                    timer.apply_freq();
 
                     // Start counter
                     timer.resume();
@@ -386,11 +386,6 @@ macro_rules! hal {
                     self.tim.egr.write(|w| w.ug().set_bit());
                 }
 
-                /// Clear uif bit
-                pub fn clear_uif_bit(&mut self) {
-                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
-                }
-
                 /// Pauses the TIM peripheral
                 pub fn pause(&mut self) {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
@@ -399,6 +394,11 @@ macro_rules! hal {
                 /// Resume (unpause) the TIM peripheral
                 pub fn resume(&mut self) {
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                /// Set Update Request Source to counter overflow/underflow only
+                pub fn urs_counter_only(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.urs().counter_only());
                 }
 
                 /// Reset the counter of the TIM peripheral
@@ -429,6 +429,11 @@ macro_rules! hal {
                             self.tim.dier.write(|w| w.uie().clear_bit());
                         }
                     }
+                }
+
+                /// Check if Update Interrupt flag is cleared
+                pub fn is_irq_clear(&mut self) -> bool {
+                    self.tim.sr.read().uif().bit_is_clear()
                 }
 
                 /// Clears interrupt flag
