@@ -200,6 +200,9 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the trigger source as software (true) or hardware (false)
     fn set_software_triggered(&mut self, sw_triggered: bool);
 
+    /// Set the hardware trigger selection source
+    fn set_trigger_selection(&mut self, trigger: u8);
+
     /// Set the trigger mode: buffer (0), block (1), repeated block (2),
     /// linked-list (3)
     fn set_trigger_mode(&mut self, trigger_mode: mdma::MdmaTrigger);

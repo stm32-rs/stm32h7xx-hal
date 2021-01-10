@@ -832,30 +832,47 @@ where
         self.stream.apply_config(config);
     }
 
-    /// Calculates the maximum number of bytes that can be transferred
+    /// Calculates the maximum number of bytes that can be transferred in an
+    /// MDMA block. The length is reffered to the source size
     ///
-    /// s_len: The number of input words of s_size available
-    /// d_len: The number of input words of d_size available
-    fn m_number_of_bytes(config: &CONFIG, s_len: usize, d_len: usize) -> usize {
+    /// * `s_len`: The number of input words of s_size available. `None` if the
+    /// source is a peripheral
+    /// * `d_len`: The number of input words of d_size available. `None` if the
+    /// destination is a peripheral
+    ///
+    /// `s_len` and `d_len` cannot both be peripherals (None)
+    fn m_number_of_bytes(
+        config: &CONFIG,
+        s_len: Option<usize>,
+        d_len: Option<usize>,
+    ) -> usize {
         let ((s_size, d_size), (s_offset, d_offset)) =
             Self::source_destination_size_offset(&config);
 
-        let s_bytes = s_len * s_size.n_bytes();
-        // Include a virtual gap at the end
-        let s_plus_gap = s_bytes + s_offset.n_bytes() - s_size.n_bytes();
-        // Bytes = Number of steps * Element size
-        let s_bytes = (s_plus_gap / s_offset.n_bytes()) * s_size.n_bytes();
+        let len_to_bytes = |len, size: usize, offset: usize| {
+            let bytes = len * size;
+            // Include a virtual gap at the end
+            let plus_gap = bytes + offset - size;
+            // Bytes = Number of elements * SOURCE data size
+            (plus_gap / offset) * s_size.n_bytes()
+        };
 
-        let d_bytes = d_len * d_size.n_bytes();
-        // Include a virtual gap at the end
-        let d_plus_gap = d_bytes + d_offset.n_bytes() - d_size.n_bytes();
-        // Bytes = Number of steps * Element size
-        let d_bytes = (d_plus_gap / d_offset.n_bytes()) * d_size.n_bytes();
+        let s_bytes = s_len
+            .map(|len| len_to_bytes(len, s_size.n_bytes(), s_offset.n_bytes()));
+        let d_bytes = d_len
+            .map(|len| len_to_bytes(len, d_size.n_bytes(), d_offset.n_bytes()));
 
-        cmp::min(s_bytes, d_bytes)
+        // Ignore None - from a memory point of view, we can read infinite bytes
+        // from a peripheral
+        match (s_bytes, d_bytes) {
+            (Some(s), Some(d)) => cmp::min(s, d),
+            (Some(s), None) => s,
+            (None, Some(d)) => d,
+            (None, None) => unreachable!(),
+        }
     }
 
-    /// Configures the DMA source and destination and applies supplied
+    /// Configures the MDMA source and destination and applies supplied
     /// configuration. In a memory to memory transfer, the `second_buf` argument
     /// is the source of the data
     ///
@@ -883,65 +900,61 @@ where
     ) -> Self {
         stream.disable();
 
-        // TODO
-        assert!(
-            DIR::direction() == DmaDirection::PeripheralToMemory
-                || DIR::direction() == DmaDirection::MemoryToMemory,
-            "M2P not yet supported."
-        );
-
         // NOTE(unsafe) We now own this buffer and we won't call any &mut
         // methods on it until the end of the DMA transfer
         let (buf_ptr, buf_len) = unsafe { memory.write_buffer() };
 
-        // Set the memory address
-        //
-        // # Safety
-        //
-        // Must be a valid memory address
-        unsafe {
-            stream.set_destination_address(buf_ptr as usize);
-        }
+        let (source_len, destination_len) = match DIR::direction() {
+            DmaDirection::MemoryToMemory => {
+                // must have 2nd buffer
+                if let Some(ref mut sb) = second_buf {
+                    // NOTE(unsafe) We now own this buffer and we won't call any &mut
+                    // methods on it until the end of the DMA transfer
 
-        let is_mem2mem = DIR::direction() == DmaDirection::MemoryToMemory;
-        let source_len = if is_mem2mem {
-            // must have 2nd buffer
-            if let Some(ref mut sb) = second_buf {
-                // NOTE(unsafe) We now own this buffer and we won't call any &mut
-                // methods on it until the end of the DMA transfer
+                    let (sb_ptr, sb_len) = unsafe { sb.write_buffer() };
 
-                let (sb_ptr, sb_len) = unsafe { sb.write_buffer() };
+                    // second buffer is the source in mem2mem mode
+                    unsafe {
+                        stream.set_source_address(sb_ptr as usize);
+                        stream.set_destination_address(buf_ptr as usize);
+                    }
 
-                // second buffer is the source in mem2mem mode
+                    (Some(sb_len), Some(buf_len))
+                } else {
+                    panic!("must have second buffer");
+                }
+            }
+            DmaDirection::MemoryToPeripheral => {
+                // Set the source/destination address
+                //
+                // # Safety
+                //
+                // Must be a valid source/destination address
                 unsafe {
-                    stream.set_source_address(sb_ptr as usize);
+                    stream.set_source_address(buf_ptr as usize);
+                    stream.set_destination_address(peripheral.address());
                 }
 
-                sb_len
-            } else {
-                panic!("must have second buffer");
+                (Some(buf_len), None)
             }
-        } else {
-            // Must not have a second-buffer
+            DmaDirection::PeripheralToMemory => {
+                // Set the source/destination address
+                //
+                // # Safety
+                //
+                // Must be a valid source/destination address
+                unsafe {
+                    stream.set_source_address(peripheral.address());
+                    stream.set_destination_address(buf_ptr as usize);
+                }
 
-            // Set the peripheral address as the source
-            //
-            // # Safety
-            //
-            // Must be a valid peripheral address
-            unsafe {
-                stream.set_source_address(peripheral.address());
+                (None, Some(buf_len))
             }
-
-            0
         };
-
-        // Set trigger source
-        stream.set_software_triggered(is_mem2mem);
 
         // Set block length
         let block_number_of_bytes =
-            Self::m_number_of_bytes(&config, source_len, buf_len); // s, d
+            Self::m_number_of_bytes(&config, source_len, destination_len);
         assert!(
             block_number_of_bytes <= 65536,
             "Hardware does not support more than 65536 bytes in a single transfer"
@@ -950,6 +963,7 @@ where
         // not a integer multiple of transfer_bytes, the last transfer will be
         // shorter
         let transfer_bytes = cmp::min(128, block_number_of_bytes);
+        // This is overriden if set in `config`
 
         //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
         // to be within both source and destination buffers
@@ -957,11 +971,6 @@ where
             stream.set_transfer_bytes(transfer_bytes as u8);
             stream.set_block_bytes(block_number_of_bytes as u32);
         }
-
-        // // Set the request line if not software triggered
-        // if let Some(request_line) = PERIPHERAL::REQUEST_LINE {
-        //     stream.set_request_line(request_line);
-        // }
 
         let mut transfer = Self {
             stream,
