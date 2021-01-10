@@ -74,7 +74,7 @@ fn main() -> ! {
     let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
 
     let config = MdmaConfig::default()
-        // increment by one element per transfer
+        // increment by one element per element
         .destination_increment(MdmaIncrement::Increment)
         .source_increment(MdmaIncrement::Increment);
 
@@ -89,7 +89,7 @@ fn main() -> ! {
 
     // Block of 800 bytes, MDMA checks other streams every 128 bytes
     assert_eq!(transfer.get_block_bytes(), 800);
-    assert_eq!(transfer.get_transfer_bytes(), 128);
+    assert_eq!(transfer.get_buffer_bytes(), 128);
 
     // Start block
     transfer.start(|_| {});

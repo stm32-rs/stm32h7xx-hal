@@ -191,15 +191,15 @@ pub trait MasterStream: Stream + Sealed {
     /// linked-list (3)
     fn set_trigger_mode(&mut self, trigger_mode: mdma::MdmaTrigger);
 
-    /// Set the number of bytes in each transfer. This is the number of bytes
+    /// Set the number of bytes in each buffer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
     /// other channels
-    unsafe fn set_transfer_bytes(&mut self, value: u8);
+    unsafe fn set_buffer_bytes(&mut self, value: u8);
 
-    /// Get the number of bytes in each transfer. This is the number of bytes
+    /// Get the number of bytes in each buffer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
     /// other channels
-    fn get_transfer_bytes() -> u8;
+    fn get_buffer_bytes() -> u8;
 
     /// Set the number of bytes to be transferred in each block
     unsafe fn set_block_bytes(&mut self, value: u32);
