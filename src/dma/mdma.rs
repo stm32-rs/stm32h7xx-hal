@@ -67,6 +67,16 @@ impl MdmaSize {
             _ => unreachable!(),
         }
     }
+    /// Returns MdmaSize from the register value
+    pub fn from_register(val: u8) -> Self {
+        match val {
+            0 => MdmaSize::Byte,
+            1 => MdmaSize::HalfWord,
+            2 => MdmaSize::Word,
+            3 => MdmaSize::DoubleWord,
+            _ => unreachable!(),
+        }
+    }
     /// Returns the size in bytes of the Source/Destination size
     pub fn n_bytes(&self) -> usize {
         match self {
@@ -101,6 +111,24 @@ impl Default for MdmaIncrement {
     }
 }
 
+/// MDMA trigger mode
+#[derive(Debug, Clone, Copy)]
+pub enum MdmaTrigger {
+    /// Each MDMA request triggers a buffer transfer
+    Buffer = 0b00,
+    /// Each MDMA request triggers a block transfer
+    Block = 0b01,
+    /// Each MDMA request triggers a repeated block transfer (Not Supported)
+    RepeatedBlock = 0b10,
+    /// Each MDMA request triggers a linked-link transfer (Not Supported)
+    LinkedList = 0b11,
+}
+impl Default for MdmaTrigger {
+    fn default() -> Self {
+        MdmaTrigger::Block
+    }
+}
+
 /// MDMA interrupts
 #[derive(Debug, Clone, Copy)]
 pub struct MdmaInterrupts {
@@ -117,6 +145,8 @@ pub struct MdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) destination_increment: MdmaIncrement,
     pub(crate) source_increment: MdmaIncrement,
+    pub(crate) trigger_mode: MdmaTrigger,
+    pub(crate) transfer_length: Option<u8>,
     pub(crate) word_endianness_exchange: bool,
     pub(crate) half_word_endianness_exchange: bool,
     pub(crate) byte_endianness_exchange: bool,
@@ -134,7 +164,7 @@ impl MdmaConfig {
         self.priority = priority;
         self
     }
-    /// Set the destination_increment
+    /// Set the destination increment
     #[inline(always)]
     pub fn destination_increment(
         mut self,
@@ -143,10 +173,40 @@ impl MdmaConfig {
         self.destination_increment = destination_increment;
         self
     }
-    /// Set the source_increment
+    /// Set the source increment
     #[inline(always)]
     pub fn source_increment(mut self, source_increment: MdmaIncrement) -> Self {
         self.source_increment = source_increment;
+        self
+    }
+    /// Sets the trigger mode. If the trigger mode is `Buffer`, then the MDMA
+    /// must be repeatedly triggered to complete a block transfer.
+    #[inline(always)]
+    pub fn trigger_mode(mut self, trigger: MdmaTrigger) -> Self {
+        self.trigger_mode = trigger;
+        self
+    }
+    /// Sets the length of each transfer. For the MDMA this is the length of
+    /// data to be transferred without checking for requests on other channels.
+    ///
+    /// Normally the MDMA is configured to trigger a block transfer
+    /// (TRGM=0b01). Each block consists of one of more transfers. If
+    /// `trigger_mode` is set to `Buffer` instead, then each transfer must be
+    /// triggered individually.
+    ///
+    /// The transfer length is specified in bytes, and must be a multiple of
+    /// both the source and destination sizes.
+    ///
+    /// If the number of bytes in the block is not a multiple of the transfer
+    /// length, then the final transfer will be shorter than the others.
+    #[inline(always)]
+    pub fn transfer_length(mut self, bytes: u8) -> Self {
+        debug_assert!(
+            bytes <= 128,
+            "Hardware only supports transfers up to 128 bytes"
+        );
+
+        self.transfer_length = Some(bytes);
         self
     }
     /// Set word endianness exchange. Applies when the destination is
@@ -310,14 +370,33 @@ macro_rules! mdma_stream {
                 fn apply_config(&mut self, config: MdmaConfig) {
                     self.set_priority(config.priority);
 
-                    // We do not set DINCOS/SINCOS here
                     self.set_destination_increment(config.destination_increment);
                     self
                         .set_source_increment(config.source_increment);
+                    self.set_trigger_mode(config.trigger_mode);
 
-                    self.set_transfer_complete_interrupt_enable(
-                        config.transfer_complete_interrupt
-                    );
+                    // Custom transfer length if specified
+                    if let Some(transfer_length) = config.transfer_length {
+                        // Up to 128 bytes
+                        assert!(transfer_length <= 128);
+                        // Length of the transfer must be less than the length
+                        // of the block
+                        assert!(transfer_length as u32 <= Self::get_block_bytes());
+                        // Length of the transfer must be a multiple of the
+                        // source size
+                        assert_eq!(transfer_length as usize %
+                                   Self::get_source_size().n_bytes(), 0);
+                        // Length of the transfer must be a multiple of the
+                        // destination size
+                        assert_eq!(transfer_length as usize %
+                                   Self::get_destination_size().n_bytes(), 0);
+
+                        // Replace calculated transfer length
+                        unsafe {
+                            self.set_transfer_bytes(transfer_length);
+                        }
+                    }
+
                     self.set_word_endianness_exchange(
                         config.word_endianness_exchange
                     );
@@ -326,6 +405,9 @@ macro_rules! mdma_stream {
                     );
                     self.set_byte_endianness_exchange(
                         config.byte_endianness_exchange
+                    );
+                    self.set_transfer_complete_interrupt_enable(
+                        config.transfer_complete_interrupt
                     );
                     self.set_transfer_error_interrupt_enable(
                         config.transfer_error_interrupt
@@ -518,10 +600,12 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
-                fn set_trigger_mode(&mut self, trigger_mode: u8) {
+                fn set_trigger_mode(&mut self, trigger_mode: MdmaTrigger) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.tcr.modify(|_, w| unsafe { w.trgm().bits(trigger_mode) });
+                    mdma.$channel.tcr.modify(|_, w| unsafe {
+                        w.trgm().bits(trigger_mode as u8)
+                    });
                 }
 
                 #[inline(always)]
@@ -605,6 +689,13 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
+                fn get_source_size() -> MdmaSize {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    MdmaSize::from_register(mdma.$channel.tcr.read().ssize().bits())
+                }
+
+                #[inline(always)]
                 unsafe fn set_source_offset(&mut self, offset: MdmaSize) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
@@ -616,6 +707,13 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.dsize().bits(size as u8));
+                }
+
+                #[inline(always)]
+                fn get_destination_size() -> MdmaSize {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    MdmaSize::from_register(mdma.$channel.tcr.read().dsize().bits())
                 }
 
                 #[inline(always)]
