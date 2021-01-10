@@ -603,6 +603,7 @@ impl Qspi {
     /// # Args
     /// * `addr` - The address to write data to. If the address size is less
     ///            than 32-bit, then unused bits are discarded.
+    /// * `length` - The length of the write operation in bytes
     pub fn begin_write(
         &mut self,
         addr: u32,
@@ -670,6 +671,7 @@ impl Qspi {
     /// # Args
     /// * `addr` - The address to read data from. If the address size is less
     ///            than 32-bit, then unused bits are discarded.
+    /// * `length` - The length of the read operation in bytes
     pub fn begin_read(
         &mut self,
         addr: u32,
