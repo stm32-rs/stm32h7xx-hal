@@ -275,7 +275,7 @@ pub trait MasterStream: Stream + Sealed {
     /// Clear buffer transfer complete interrupt (tcif) for the DMA stream.
     fn clear_buffer_transfer_complete_interrupt(&mut self);
 
-    /// Get buffertransfer complete flag.
+    /// Get the buffer transfer complete flag (tcif)
     fn get_buffer_transfer_complete_flag() -> bool;
 
     /// Enable/disable the block transfer complete interrupt (btie) of the DMA
@@ -288,7 +288,7 @@ pub trait MasterStream: Stream + Sealed {
     /// Clear block transfer complete interrupt (btif) for the DMA stream.
     fn clear_block_transfer_complete_interrupt(&mut self);
 
-    /// Get block transfer complete flag.
+    /// Get the block transfer complete (btif)
     fn get_block_transfer_complete_flag() -> bool;
 
     /// Enable/disable the block repeat transfer complete interrupt (brtie) of the
@@ -301,7 +301,7 @@ pub trait MasterStream: Stream + Sealed {
     /// Clear block repeat transfer complete interrupt (brtif) for the DMA stream.
     fn clear_block_repeat_transfer_complete_interrupt(&mut self);
 
-    /// Get block repeat transfer complete flag.
+    /// Get the block repeat transfer complete flag (brtif)
     fn get_block_repeat_transfer_complete_flag() -> bool;
 }
 

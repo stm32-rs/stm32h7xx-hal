@@ -992,4 +992,15 @@ where
     pub fn get_block_bytes(&self) -> u32 {
         STREAM::get_block_bytes()
     }
+
+    /// Get the buffer transfer complete flag (tcif)
+    #[inline(always)]
+    pub fn get_buffer_transfer_complete_flag(&self) -> bool {
+        STREAM::get_buffer_transfer_complete_flag()
+    }
+    /// Get the block transfer complete (btif)
+    #[inline(always)]
+    pub fn get_block_transfer_complete_flag(&self) -> bool {
+        STREAM::get_block_transfer_complete_flag()
+    }
 }
