@@ -257,9 +257,9 @@ impl Default for MdmaTrigger {
 pub struct MdmaInterrupts {
     transfer_complete: bool,
     transfer_error: bool,
+    buffer_transfer_complete: bool,
     block_transfer_complete: bool,
     block_repeat_transfer_complete: bool,
-    channel_transfer_complete: bool,
 }
 
 /// Contains the complete set of configuration for a MDMA stream.
@@ -277,9 +277,9 @@ pub struct MdmaConfig {
     pub(crate) byte_endianness_exchange: bool,
     pub(crate) transfer_complete_interrupt: bool,
     pub(crate) transfer_error_interrupt: bool,
+    pub(crate) buffer_transfer_complete_interrupt: bool,
     pub(crate) block_transfer_complete_interrupt: bool,
     pub(crate) block_repeat_transfer_complete_interrupt: bool,
-    pub(crate) channel_transfer_complete_interrupt: bool,
 }
 
 impl MdmaConfig {
@@ -396,6 +396,16 @@ impl MdmaConfig {
         self.transfer_error_interrupt = transfer_error_interrupt;
         self
     }
+    /// Set the buffer_transfer_complete_interrupt
+    #[inline(always)]
+    pub fn buffer_transfer_complete_interrupt(
+        mut self,
+        buffer_transfer_complete_interrupt: bool,
+    ) -> Self {
+        self.buffer_transfer_complete_interrupt =
+            buffer_transfer_complete_interrupt;
+        self
+    }
     /// Set the block_transfer_complete_interrupt
     #[inline(always)]
     pub fn block_transfer_complete_interrupt(
@@ -414,16 +424,6 @@ impl MdmaConfig {
     ) -> Self {
         self.block_repeat_transfer_complete_interrupt =
             block_repeat_transfer_complete_interrupt;
-        self
-    }
-    /// Set the channel_transfer_complete_interrupt
-    #[inline(always)]
-    pub fn channel_transfer_complete_interrupt(
-        mut self,
-        channel_transfer_complete_interrupt: bool,
-    ) -> Self {
-        self.channel_transfer_complete_interrupt =
-            channel_transfer_complete_interrupt;
         self
     }
 }
@@ -568,14 +568,14 @@ macro_rules! mdma_stream {
                     self.set_transfer_error_interrupt_enable(
                         config.transfer_error_interrupt
                     );
+                    self.set_buffer_transfer_complete_interrupt_enable(
+                        config.buffer_transfer_complete_interrupt
+                    );
                     self.set_block_transfer_complete_interrupt_enable(
                         config.block_transfer_complete_interrupt
                     );
                     self.set_block_repeat_transfer_complete_interrupt_enable(
                         config.block_repeat_transfer_complete_interrupt
-                    );
-                    self.set_channel_transfer_complete_interrupt_enable(
-                        config.channel_transfer_complete_interrupt
                     );
                 }
 
@@ -585,12 +585,12 @@ macro_rules! mdma_stream {
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w
-                        .cltcif().set_bit() //Clear transfer complete interrupt flag
-                        .cteif().set_bit() //Clear transfer error interrupt flag
+                        .cctcif().set_bit() //Clear transfer complete flag
+                        .cteif().set_bit() //Clear transfer error flag
 
+                        .cltcif().set_bit() //Clear buffer transfer complete flag
                         .cbtif().set_bit() //Clear block transfer complete flag
                         .cbrtif().set_bit() //Clear block repeat transfer complete flag
-                        .cctcif().set_bit() //Clear channel transfer complete flag
                     );
                 }
 
@@ -607,14 +607,14 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.ifcr.write(|w| w.cltcif().set_bit());
+                    mdma.$channel.ifcr.write(|w| w.cctcif().set_bit());
                 }
 
                 #[inline(always)]
                 fn get_transfer_complete_flag() -> bool {
                     //NOTE(unsafe) Atomic read with no side effects
                     let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.isr.read().tcif().bit_is_set()
+                    mdma.$channel.isr.read().ctcif().bit_is_set()
                 }
 
                 #[inline(always)]
@@ -676,11 +676,11 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w
-                                                   .tcie().clear_bit()
-                                                   .teie().clear_bit()
-                                                   .btie().clear_bit()
-                                                   .brtie().clear_bit()
-                                                   .ctcie().clear_bit()
+                                            .ctcie().clear_bit()
+                                            .teie().clear_bit()
+                                            .tcie().clear_bit()
+                                            .btie().clear_bit()
+                                            .brtie().clear_bit()
                     );
                 }
 
@@ -689,11 +689,11 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w
-                                                   .tcie().bit(interrupt.transfer_complete)
-                                                   .teie().bit(interrupt.transfer_error)
-                                                   .btie().bit(interrupt.block_transfer_complete)
-                                                   .brtie().bit(interrupt.block_repeat_transfer_complete)
-                                                   .ctcie().bit(interrupt.channel_transfer_complete)
+                                            .ctcie().bit(interrupt.transfer_complete)
+                                            .teie().bit(interrupt.transfer_error)
+                                            .tcie().bit(interrupt.buffer_transfer_complete)
+                                            .btie().bit(interrupt.block_transfer_complete)
+                                            .brtie().bit(interrupt.block_repeat_transfer_complete)
                     );
                 }
 
@@ -704,11 +704,11 @@ macro_rules! mdma_stream {
                     let cr = dma.$channel.cr.read();
 
                     MdmaInterrupts {
-                        transfer_complete: cr.tcie().bit_is_set(),
+                        transfer_complete: cr.ctcie().bit_is_set(),
                         transfer_error: cr.teie().bit_is_set(),
+                        buffer_transfer_complete: cr.teie().bit_is_set(),
                         block_transfer_complete: cr.btie().bit_is_set(),
                         block_repeat_transfer_complete: cr.brtie().bit_is_set(),
-                        channel_transfer_complete: cr.teie().bit_is_set(),
                     }
                 }
 
@@ -716,7 +716,7 @@ macro_rules! mdma_stream {
                 fn set_transfer_complete_interrupt_enable(&mut self, transfer_complete_interrupt: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.cr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
+                    mdma.$channel.cr.modify(|_, w| w.ctcie().bit(transfer_complete_interrupt));
                 }
 
                 #[inline(always)]
@@ -885,6 +885,78 @@ macro_rules! mdma_stream {
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.dincos().bits(offset as u8));
                 }
+
+                #[inline(always)]
+                fn clear_buffer_transfer_complete_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.ifcr.write(|w| w.cltcif().set_bit());
+                }
+
+                #[inline(always)]
+                fn get_buffer_transfer_complete_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.isr.read().tcif().bit_is_set()
+                }
+
+                #[inline(always)]
+                fn clear_block_transfer_complete_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.ifcr.write(|w| w.cbtif().set_bit());
+                }
+
+                #[inline(always)]
+                fn get_block_transfer_complete_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.isr.read().btif().bit_is_set()
+                }
+
+                #[inline(always)]
+                fn clear_block_repeat_transfer_complete_interrupt(&mut self) {
+                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+                    // that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.ifcr.write(|w| w.cbrtif().set_bit());
+                }
+
+                #[inline(always)]
+                fn get_block_repeat_transfer_complete_flag() -> bool {
+                    //NOTE(unsafe) Atomic read with no side effects
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.isr.read().brtif().bit_is_set()
+                }
+
+                #[inline(always)]
+                fn set_buffer_transfer_complete_interrupt_enable(
+                    &mut self, buffer_transfer_complete_interrupt: bool)
+                {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.ctcie().bit(buffer_transfer_complete_interrupt));
+                }
+
+                #[inline(always)]
+                fn set_block_transfer_complete_interrupt_enable(
+                    &mut self, block_transfer_complete_interrupt: bool)
+                {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.btie().bit(block_transfer_complete_interrupt));
+                }
+
+                #[inline(always)]
+                fn set_block_repeat_transfer_complete_interrupt_enable(
+                    &mut self, block_repeat_transfer_complete_interrupt: bool)
+                {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.cr.modify(|_, w| w.brtie().bit(block_repeat_transfer_complete_interrupt));
+                }
             }
 
             impl<I: Instance> $name<I> {
@@ -947,78 +1019,6 @@ macro_rules! mdma_stream {
                     // the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.bex().bit(exchange));
-                }
-
-                #[inline(always)]
-                pub fn clear_block_transfer_complete_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.ifcr.write(|w| w.cbtif().set_bit());
-                }
-
-                #[inline(always)]
-                pub fn get_block_transfer_complete_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.isr.read().btif().bit_is_set()
-                }
-
-                #[inline(always)]
-                pub fn clear_block_repeat_transfer_complete_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.ifcr.write(|w| w.cbrtif().set_bit());
-                }
-
-                #[inline(always)]
-                pub fn get_block_repeat_transfer_complete_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.isr.read().brtif().bit_is_set()
-                }
-
-                #[inline(always)]
-                pub fn clear_channel_transfer_complete_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.ifcr.write(|w| w.cctcif().set_bit());
-                }
-
-                #[inline(always)]
-                pub fn get_channel_transfer_complete_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.isr.read().ctcif().bit_is_set()
-                }
-
-                #[inline(always)]
-                pub fn set_block_transfer_complete_interrupt_enable(
-                    &mut self, block_transfer_complete_interrupt: bool)
-                {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.cr.modify(|_, w| w.btie().bit(block_transfer_complete_interrupt));
-                }
-
-                #[inline(always)]
-                pub fn set_block_repeat_transfer_complete_interrupt_enable(
-                    &mut self, block_repeat_transfer_complete_interrupt: bool)
-                {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.cr.modify(|_, w| w.brtie().bit(block_repeat_transfer_complete_interrupt));
-                }
-
-                #[inline(always)]
-                pub fn set_channel_transfer_complete_interrupt_enable(
-                    &mut self, channel_transfer_complete_interrupt: bool)
-                {
-                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.cr.modify(|_, w| w.ctcie().bit(channel_transfer_complete_interrupt));
                 }
 
                 #[inline(always)]
