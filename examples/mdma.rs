@@ -78,14 +78,20 @@ fn main() -> ! {
         .destination_increment(MdmaIncrement::Increment)
         .source_increment(MdmaIncrement::Increment);
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> =
+    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> = {
+        // Extend the lifetime of our data on the stack. We assert that it lives
+        // as long as this transfer
+        let target: &'static mut [u32; 200] =
+            unsafe { mem::transmute(&mut target_buffer) };
+
         Transfer::init_master(
             streams.0,
             MemoryToMemory::new(),
-            unsafe { mem::transmute(&mut target_buffer) }, // Dest: TCM (stack)
-            Some(source_buffer),                           // Source: AXISRAM
+            target,              // Dest: TCM (stack)
+            Some(source_buffer), // Source: AXISRAM
             config,
-        );
+        )
+    };
 
     // Block of 800 bytes, MDMA checks other streams every 128 bytes
     assert_eq!(transfer.get_block_bytes(), 800);
@@ -122,14 +128,27 @@ fn main() -> ! {
         ))
         .half_word_endianness_exchange(true);
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> =
+    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> = {
+        let target: &'static mut [u32; 20] =
+            unsafe { mem::transmute(&mut target_buffer) };
+
+        // Note that our source and destination buffers now have different types
+        // (they are arrays with different lengths). We pass slices instead, and
+        // the HAL takes the length into account.
+
         Transfer::init_master(
             stream,
             MemoryToMemory::new(),
-            unsafe { mem::transmute(&mut target_buffer) }, // Dest: TCM (stack)
-            Some(source_buffer),                           // Source: AXISRAM
+            &mut target[..],              // Dest: TCM (stack)
+            Some(&mut source_buffer[..]), // Source: AXISRAM
             config,
-        );
+        )
+    };
+
+    // Block length is limited to the minimum number of bytes that are valid for
+    // both buffers. For this configuration, it is only possible to write 40
+    // bytes (10 words) to the target buffer before reaching the end.
+    assert_eq!(transfer.get_block_bytes(), 40);
 
     transfer.start(|_| {});
 
@@ -163,18 +182,21 @@ fn main() -> ! {
         MdmaIncrement::IncrementWithOffset(MdmaSize::DoubleWord),
     );
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u8>, _> =
+    let mut transfer: Transfer<_, _, MemoryToMemory<u8>, _> = {
+        // Be very careful when using an unsafe transmute in the init call like
+        // this because the target_buffer type will be transmuted to the source
+        // type. In this case it's ok at the source_buffer is a slice [u8]. But
+        // if both source and target types were arrays, length of the target
+        // array would be lost.
+
         Transfer::init_master(
             streams.1,
             MemoryToMemory::new(),
             unsafe { mem::transmute(&mut target_buffer[..]) }, // Dest: TCM (stack)
             Some(source_buffer), // Source: TCM (stack)
             config,
-        );
-
-    // Block length is limited to the minimum number of bytes that are valid
-    // for both buffers
-    assert_eq!(transfer.get_block_bytes(), 2);
+        )
+    };
 
     transfer.start(|_| {});
 
