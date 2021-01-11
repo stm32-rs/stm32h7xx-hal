@@ -264,6 +264,45 @@ pub trait MasterStream: Stream + Sealed {
 
     /// Set the destination offset for the DMA stream.
     unsafe fn set_destination_offset(&mut self, offset: mdma::MdmaSize);
+
+    /// Enable/disable the buffer transfer complete interrupt (tcie) of the
+    /// DMA stream.
+    fn set_buffer_transfer_complete_interrupt_enable(
+        &mut self,
+        buffer_transfer_complete_interrupt: bool,
+    );
+
+    /// Clear buffer transfer complete interrupt (tcif) for the DMA stream.
+    fn clear_buffer_transfer_complete_interrupt(&mut self);
+
+    /// Get buffertransfer complete flag.
+    fn get_buffer_transfer_complete_flag() -> bool;
+
+    /// Enable/disable the block transfer complete interrupt (btie) of the DMA
+    /// stream.
+    fn set_block_transfer_complete_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
+
+    /// Clear block transfer complete interrupt (btif) for the DMA stream.
+    fn clear_block_transfer_complete_interrupt(&mut self);
+
+    /// Get block transfer complete flag.
+    fn get_block_transfer_complete_flag() -> bool;
+
+    /// Enable/disable the block repeat transfer complete interrupt (brtie) of the
+    /// DMA stream.
+    fn set_block_repeat_transfer_complete_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
+
+    /// Clear block repeat transfer complete interrupt (brtif) for the DMA stream.
+    fn clear_block_repeat_transfer_complete_interrupt(&mut self);
+
+    /// Get block repeat transfer complete flag.
+    fn get_block_repeat_transfer_complete_flag() -> bool;
 }
 
 /// Trait for the configuration of Double-Buffered DMA streams
