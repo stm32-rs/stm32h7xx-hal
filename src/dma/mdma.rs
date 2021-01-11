@@ -504,10 +504,7 @@ impl<I: Instance> StreamsTuple<I> {
 // The implementation does the heavy lifting of mapping to the right fields on
 // the stream
 macro_rules! mdma_stream {
-    ($(($name:ident, $channel:ident, $number:expr,
-        $ifcr:ident, $tcif:ident, $htif:ident, $teif:ident, $gif:ident,
-        $isr:ident, $tcisr:ident, $htisr:ident)
-    ),+$(,)*) => {
+    ($( ($name:ident, $channel:ident, $number:expr) ),+$(,)*) => {
         $(
             impl<I: Instance> Stream for $name<I> {
 
@@ -1056,16 +1053,14 @@ macro_rules! mdma_stream {
 }
 
 mdma_stream!(
-    // Note: the field names start from one, unlike the RM where they start from
-    // zero. May need updating if it gets fixed upstream.
-    (Stream0, ch0, 0, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1),
-    (Stream1, ch1, 1, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2),
-    (Stream2, ch2, 2, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3),
-    (Stream3, ch3, 3, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4),
-    (Stream4, ch4, 4, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5),
-    (Stream5, ch5, 5, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6),
-    (Stream6, ch6, 6, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7),
-    (Stream7, ch7, 7, ifcr, ctcif8, chtif8, cteif8, cgif8, isr, tcif8, htif8),
+    (Stream0, ch0, 0),
+    (Stream1, ch1, 1),
+    (Stream2, ch2, 2),
+    (Stream3, ch3, 3),
+    (Stream4, ch4, 4),
+    (Stream5, ch5, 5),
+    (Stream6, ch6, 6),
+    (Stream7, ch7, 7),
 );
 
 /// Type alias for the DMA Request Multiplexer
