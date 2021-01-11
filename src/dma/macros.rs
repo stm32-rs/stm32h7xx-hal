@@ -74,6 +74,24 @@ macro_rules! peripheral_target_instance {
         }
     };
 
+    // HAL target only, generic
+    ((INNER: $hal:ty, $register:ident, $size:ty,
+      $dir:ty $(, $mux:expr)*)) => {
+
+        // HAL implementation
+        unsafe impl TargetAddress<$dir> for $hal {
+            #[inline(always)]
+            fn address(&self) -> usize {
+                &self.inner().$register as *const _ as usize
+            }
+
+            type MemSize = $size;
+            $(
+                const REQUEST_LINE: Option<u8> = Some($mux as u8);
+            )*
+        }
+    };
+
     // PAC and HAL targets for SPI peripheral
     ((SPI: $peripheral:ty, $rxreg:ident, $txreg:ident, [$($size:ty),+],
       $rxmux:expr, $txmux:expr)) => {
@@ -102,29 +120,29 @@ macro_rules! peripheral_target_instance {
             const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
         }
 
-        // For each size
+        // HAL implementation For each size
         $(
-        unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.inner().$txreg as *const _ as usize
+            unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
+                #[inline(always)]
+                fn address(&self) -> usize {
+                    &self.inner().$txreg as *const _ as usize
+                }
+
+                type MemSize = $size;
+
+                const REQUEST_LINE: Option<u8> = Some($txmux as u8);
             }
 
-            type MemSize = $size;
+            unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
+                #[inline(always)]
+                fn address(&self) -> usize {
+                    &self.inner().$rxreg as *const _ as usize
+                }
 
-            const REQUEST_LINE: Option<u8> = Some($txmux as u8);
-        }
+                type MemSize = $size;
 
-        unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.inner().$rxreg as *const _ as usize
+                const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
             }
-
-            type MemSize = $size;
-
-            const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
-        }
         )+
     };
 

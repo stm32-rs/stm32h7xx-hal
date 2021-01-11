@@ -1069,10 +1069,15 @@ pub type DMAReq = pac::dmamux2::ccr::DMAREQ_ID_A;
 type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
 
-// peripheral_target_address!((
-//     QSPI: pac::QUADSPI,
-//     rdr,
-//     u8,
-//     P2M,
-//     DMAReq::USART1_RX_DMA
-// ),);
+// Access the QSPI data register as a u32 for bus access efficiency. The MDMA
+// itself can be used to pack/unpack to/from u8/u16.
+#[cfg(not(feature = "rm0455"))]
+peripheral_target_address!(
+    (pac::QUADSPI, dr, u32, P2M),
+    (pac::QUADSPI, dr, u32, M2P),
+);
+#[cfg(all(feature = "quadspi", not(feature = "rm0455")))]
+peripheral_target_address!(
+    (INNER: crate::qspi::Qspi, dr, u32, P2M),
+    (INNER: crate::qspi::Qspi, dr, u32, M2P),
+);
