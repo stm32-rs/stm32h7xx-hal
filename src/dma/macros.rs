@@ -29,8 +29,11 @@ macro_rules! peripheral_target_instance {
         }
     };
 
-    ((SPI: $peripheral:ty, $rxreg:ident, $txreg:ident, [$($size:ty),+], $rxmux:expr, $txmux:expr)) => {
-        // Access via PAC peripheral structures implies u8 sizing, as the sizing is unknown.
+    ((SPI: $peripheral:ty, $rxreg:ident, $txreg:ident, [$($size:ty),+],
+      $rxmux:expr, $txmux:expr)) => {
+
+        // Access via PAC peripheral structures implies u8 sizing, as the sizing
+        // is unknown.
         unsafe impl TargetAddress<M2P> for $peripheral {
             #[inline(always)]
             fn address(&self) -> usize {
@@ -53,29 +56,29 @@ macro_rules! peripheral_target_instance {
             const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
         }
 
-        // For each size
+        // HAL implementation For each size
         $(
-        unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.inner().$txreg as *const _ as usize
+            unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
+                #[inline(always)]
+                fn address(&self) -> usize {
+                    &self.inner().$txreg as *const _ as usize
+                }
+
+                type MemSize = $size;
+
+                const REQUEST_LINE: Option<u8> = Some($txmux as u8);
             }
 
-            type MemSize = $size;
+            unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
+                #[inline(always)]
+                fn address(&self) -> usize {
+                    &self.inner().$rxreg as *const _ as usize
+                }
 
-            const REQUEST_LINE: Option<u8> = Some($txmux as u8);
-        }
+                type MemSize = $size;
 
-        unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.inner().$rxreg as *const _ as usize
+                const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
             }
-
-            type MemSize = $size;
-
-            const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
-        }
         )+
     };
 
