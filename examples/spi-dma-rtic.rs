@@ -3,6 +3,7 @@
 //!
 //! This example demonstrates using DMA to write data over a TX-only SPI interface.
 #![deny(warnings)]
+#![allow(clippy::type_complexity)]
 #![no_main]
 #![no_std]
 
@@ -37,6 +38,7 @@ const APP: () = {
             hal::spi::Spi<hal::stm32::SPI2, hal::spi::Disabled, u8>,
             hal::dma::MemoryToPeripheral,
             &'static mut [u8; BUFFER_SIZE],
+            hal::dma::DBTransfer,
         >,
         cs: hal::gpio::gpiob::PB12<hal::gpio::Output<hal::gpio::PushPull>>,
     }
@@ -123,6 +125,7 @@ const APP: () = {
             _,
             _,
             hal::dma::MemoryToPeripheral,
+            _,
             _,
         > = hal::dma::Transfer::init(streams.1, spi, buffer, None, config);
 

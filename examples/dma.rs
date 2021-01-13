@@ -81,13 +81,14 @@ fn main() -> ! {
         .peripheral_increment(true) // source mem
         .fifo_enable(true);
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> = Transfer::init(
-        streams.4,
-        MemoryToMemory::new(),
-        unsafe { mem::transmute(&mut TARGET_BUFFER) }, // Uninitialised memory
-        Some(source_buffer),
-        config,
-    );
+    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> =
+        Transfer::init(
+            streams.4,
+            MemoryToMemory::new(),
+            unsafe { mem::transmute(&mut TARGET_BUFFER) }, // Uninitialised memory
+            Some(source_buffer),
+            config,
+        );
 
     transfer.start(|_| {});
 
