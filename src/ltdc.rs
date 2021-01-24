@@ -7,7 +7,7 @@ use crate::rcc::rec::ResetEnable;
 use crate::rcc::{rec, CoreClocks};
 use crate::stm32;
 use crate::stm32::LTDC;
-use crate::traits::lcd_display::{
+use embedded_display_controller::{
     DisplayConfiguration, DisplayController, DisplayControllerLayer,
     PixelFormat, PixelWord,
 };

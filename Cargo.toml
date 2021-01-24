@@ -38,6 +38,7 @@ bare-metal = "1.0.0"
 sdio-host = { version = "0.4", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
 synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
+embedded-display-controller = { version = "^0.1.0", optional = true }
 
 [dependencies.smoltcp]
 version = "0.7.0"
@@ -82,7 +83,7 @@ dsi = []
 cm4 = []
 cm7 = []
 smps = []
-ltdc = []
+ltdc = ["embedded-display-controller"]
 quadspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
