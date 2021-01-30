@@ -59,9 +59,9 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 static mut DES_RING: ethernet::DesRing = ethernet::DesRing::new();
 
 /// Net storage with static initialisation - another global singleton
-pub struct NetStorageStatic<'a, 'b> {
+pub struct NetStorageStatic<'a> {
     ip_addrs: [IpCidr; 1],
-    socket_set_entries: [Option<SocketSetItem<'a, 'b>>; 8],
+    socket_set_entries: [Option<SocketSetItem<'a>>; 8],
     neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; 8],
     routes_storage: [Option<(IpCidr, Route)>; 1],
 }
@@ -73,13 +73,13 @@ static mut STORE: NetStorageStatic = NetStorageStatic {
     routes_storage: [None; 1],
 };
 
-pub struct Net<'a: 'b, 'b> {
-    iface: EthernetInterface<'a, 'a, 'a, ethernet::EthernetDMA<'a>>,
-    sockets: SocketSet<'a, 'a, 'b>,
+pub struct Net<'a> {
+    iface: EthernetInterface<'a, ethernet::EthernetDMA<'a>>,
+    sockets: SocketSet<'a>,
 }
-impl<'a, 'b> Net<'a, 'b> {
+impl<'a> Net<'a> {
     pub fn new(
-        store: &'static mut NetStorageStatic<'a, 'b>,
+        store: &'static mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<'a>,
         ethernet_addr: EthernetAddress,
     ) -> Self {
@@ -117,7 +117,7 @@ impl<'a, 'b> Net<'a, 'b> {
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        net: Net<'static, 'static>,
+        net: Net<'static>,
         lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
         link_led: gpio::gpioi::PI14<gpio::Output<gpio::PushPull>>,
     }
