@@ -102,7 +102,7 @@ const APP: () = {
         let mut exti = ctx.device.EXTI;
         let mut wakeup = gpioc.pc13.into_floating_input();
         wakeup.make_interrupt_source(&mut syscfg);
-        wakeup.trigger_on_edge(&mut exti, Edge::RISING);
+        wakeup.trigger_on_edge(&mut exti, Edge::Rising);
         wakeup.enable_interrupt(&mut exti);
 
         // LEDs

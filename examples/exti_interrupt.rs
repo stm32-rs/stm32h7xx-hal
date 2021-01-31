@@ -56,13 +56,13 @@ fn main() -> ! {
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
     let mut button1 = gpioe.pe3.into_pull_up_input();
     button1.make_interrupt_source(&mut syscfg);
-    button1.trigger_on_edge(&mut exti, Edge::RISING);
+    button1.trigger_on_edge(&mut exti, Edge::Rising);
     button1.enable_interrupt(&mut exti);
 
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let mut button2 = gpioc.pc5.into_pull_up_input();
     button2.make_interrupt_source(&mut syscfg);
-    button2.trigger_on_edge(&mut exti, Edge::RISING);
+    button2.trigger_on_edge(&mut exti, Edge::Rising);
     button2.enable_interrupt(&mut exti);
 
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
