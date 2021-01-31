@@ -39,9 +39,9 @@ stm32-fmc = { version = "0.2", optional = true }
 synopsys-usb-otg = { version = "^0.2.2", features = ["cortex-m"], optional = true }
 
 [dependencies.smoltcp]
-version = "0.6.0"
+version = "0.7.0"
 default-features = false
-features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-tcp", "socket-raw"]
+features = ["ethernet", "proto-ipv4"]
 optional = true
 
 [dependencies.chrono]
@@ -65,7 +65,7 @@ usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 
 [dev-dependencies.smoltcp]
-version = "0.6.0"
+version = "0.7.0"
 default-features = false
 features = ["ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
