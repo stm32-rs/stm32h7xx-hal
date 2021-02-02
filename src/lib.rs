@@ -147,6 +147,8 @@ pub mod dma;
 ))]
 pub mod ethernet;
 #[cfg(feature = "device-selected")]
+pub mod dfsdm;
+#[cfg(feature = "device-selected")]
 pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
