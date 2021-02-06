@@ -36,7 +36,7 @@ paste = "1.0.1"
 bare-metal = "1.0.0"
 sdio-host = { version = "0.4", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
-synopsys-usb-otg = { version = "^0.2.2", features = ["cortex-m"], optional = true }
+synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
 
 [dependencies.smoltcp]
 version = "0.7.0"
