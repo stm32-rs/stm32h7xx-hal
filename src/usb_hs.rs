@@ -6,18 +6,17 @@ use crate::rcc;
 use crate::stm32;
 
 use crate::gpio::{
-    gpioa::{PA11, PA12},
+    gpioa::{PA11, PA12, PA3, PA5},
+    gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5},
+    gpioc::{PC0, PC2, PC3},
+    gpioh::PH4,
+    gpioi::PI11,
     Alternate, AF10,
 };
 
 #[cfg(not(feature = "rm0455"))]
 use crate::gpio::{
-    gpioa::{PA3, PA5},
-    gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB14, PB15, PB5},
-    gpioc::PC0,
-    gpioc::{PC2, PC3},
-    gpioh::PH4,
-    gpioi::PI11,
+    gpiob::{PB14, PB15},
     AF12,
 };
 
@@ -110,7 +109,6 @@ usb_peripheral! {
 #[cfg(not(feature = "rm0455"))]
 pub type Usb2BusType = UsbBus<USB2>;
 
-#[cfg(not(feature = "rm0455"))]
 pub struct USB1_ULPI {
     pub usb_global: stm32::OTG1_HS_GLOBAL,
     pub usb_device: stm32::OTG1_HS_DEVICE,
@@ -131,50 +129,42 @@ pub struct USB1_ULPI {
     pub ulpi_d7: PB5<Alternate<AF10>>,
 }
 
-#[cfg(not(feature = "rm0455"))]
 pub enum Usb1UlpiDirPin {
     PC2(PC2<Alternate<AF10>>),
     PI11(PI11<Alternate<AF10>>),
 }
 
-#[cfg(not(feature = "rm0455"))]
 impl From<PI11<Alternate<AF10>>> for Usb1UlpiDirPin {
     fn from(v: PI11<Alternate<AF10>>) -> Self {
         Usb1UlpiDirPin::PI11(v)
     }
 }
 
-#[cfg(not(feature = "rm0455"))]
 impl From<PC2<Alternate<AF10>>> for Usb1UlpiDirPin {
     fn from(v: PC2<Alternate<AF10>>) -> Self {
         Usb1UlpiDirPin::PC2(v)
     }
 }
 
-#[cfg(not(feature = "rm0455"))]
 pub enum Usb1UlpiNxtPin {
     PC3(PC3<Alternate<AF10>>),
     PH4(PH4<Alternate<AF10>>),
 }
 
-#[cfg(not(feature = "rm0455"))]
 impl From<PH4<Alternate<AF10>>> for Usb1UlpiNxtPin {
     fn from(v: PH4<Alternate<AF10>>) -> Self {
         Usb1UlpiNxtPin::PH4(v)
     }
 }
 
-#[cfg(not(feature = "rm0455"))]
 impl From<PC3<Alternate<AF10>>> for Usb1UlpiNxtPin {
     fn from(v: PC3<Alternate<AF10>>) -> Self {
         Usb1UlpiNxtPin::PC3(v)
     }
 }
 
-#[cfg(not(feature = "rm0455"))]
 unsafe impl Sync for USB1_ULPI {}
 
-#[cfg(not(feature = "rm0455"))]
 unsafe impl UsbPeripheral for USB1_ULPI {
     const REGISTERS: *const () = stm32::OTG1_HS_GLOBAL::ptr() as *const ();
 
@@ -206,5 +196,4 @@ unsafe impl UsbPeripheral for USB1_ULPI {
         synopsys_usb_otg::PhyType::ExternalHighSpeed
     }
 }
-#[cfg(not(feature = "rm0455"))]
 pub type Usb1UlpiBusType = UsbBus<USB1_ULPI>;

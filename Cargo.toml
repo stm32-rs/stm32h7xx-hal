@@ -8,7 +8,8 @@ authors = ["Andrew Straw <strawman@astraw.com>",
            "Robert Jördens <rj@quartiq.de>",
            "Ryan Summers <ryan.summers@vertigo-designs.com>",
            "Matthew Meyer <mtthw.meyer@gmail.com>",
-           "Florian Jung <flo@windfisch.org>"]
+           "Florian Jung <flo@windfisch.org>",
+           "Matt Ickstadt <mattico8@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Hardware Abstraction Layer implementation for STM32H7 series microcontrollers"
