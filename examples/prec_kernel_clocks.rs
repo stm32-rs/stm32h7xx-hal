@@ -49,5 +49,7 @@ fn main() -> ! {
     // Can't change group clocks - ccdr.peripheral has been partially used
     //ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

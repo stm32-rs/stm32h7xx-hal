@@ -166,5 +166,7 @@ fn main() -> ! {
 
     info!("Done!");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

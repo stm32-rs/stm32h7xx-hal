@@ -51,5 +51,7 @@ fn main() -> ! {
 
     let _mco2_ck = ccdr.clocks.mco2_ck().unwrap().0;
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

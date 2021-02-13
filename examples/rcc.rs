@@ -37,5 +37,7 @@ fn main() -> ! {
     info!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
     assert_eq!(ccdr.clocks.sys_ck().0, 100_000_000);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

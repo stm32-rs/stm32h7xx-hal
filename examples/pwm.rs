@@ -78,5 +78,7 @@ fn main() -> ! {
     pwm.set_duty(max / 2);
     pwm.enable();
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }
