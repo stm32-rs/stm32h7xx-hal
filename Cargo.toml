@@ -29,7 +29,7 @@ embedded-hal = "0.2.4"
 embedded-dma = "0.1.2"
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
-stm32h7 = "^0.12.1"
+stm32h7 = "^0.13.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
 nb = "1.0.0"

@@ -217,7 +217,7 @@ impl Rtc {
             "Invalid RTC prescaler value"
         );
 
-        rtc.prer.write(|w| unsafe {
+        rtc.prer.write(|w| {
             w.prediv_s()
                 .bits(u16(s_pre - 1).unwrap())
                 .prediv_a()
@@ -236,44 +236,7 @@ impl Rtc {
     ///
     /// Panics if `reg` is greater than 31.
     pub fn read_backup_reg(&self, reg: u8) -> u32 {
-        match reg {
-            0 => self.reg.bkp0r.read().bkp().bits(),
-            1 => self.reg.bkp1r.read().bkp().bits(),
-            2 => self.reg.bkp2r.read().bkp().bits(),
-            3 => self.reg.bkp3r.read().bkp().bits(),
-            4 => self.reg.bkp4r.read().bkp().bits(),
-            5 => self.reg.bkp5r.read().bkp().bits(),
-            6 => self.reg.bkp6r.read().bkp().bits(),
-            7 => self.reg.bkp7r.read().bkp().bits(),
-            8 => self.reg.bkp8r.read().bkp().bits(),
-            9 => self.reg.bkp9r.read().bkp().bits(),
-            10 => self.reg.bkp10r.read().bkp().bits(),
-            11 => self.reg.bkp11r.read().bkp().bits(),
-            12 => self.reg.bkp12r.read().bkp().bits(),
-            13 => self.reg.bkp13r.read().bkp().bits(),
-            14 => self.reg.bkp14r.read().bkp().bits(),
-            15 => self.reg.bkp15r.read().bkp().bits(),
-            16 => self.reg.bkp16r.read().bkp().bits(),
-            17 => self.reg.bkp17r.read().bkp().bits(),
-            18 => self.reg.bkp18r.read().bkp().bits(),
-            19 => self.reg.bkp19r.read().bkp().bits(),
-            20 => self.reg.bkp20r.read().bkp().bits(),
-            21 => self.reg.bkp21r.read().bkp().bits(),
-            22 => self.reg.bkp22r.read().bkp().bits(),
-            23 => self.reg.bkp23r.read().bkp().bits(),
-            24 => self.reg.bkp24r.read().bkp().bits(),
-            25 => self.reg.bkp25r.read().bkp().bits(),
-            26 => self.reg.bkp26r.read().bkp().bits(),
-            27 => self.reg.bkp27r.read().bkp().bits(),
-            28 => self.reg.bkp28r.read().bkp().bits(),
-            29 => self.reg.bkp29r.read().bkp().bits(),
-            30 => self.reg.bkp30r.read().bkp().bits(),
-            31 => self.reg.bkp31r.read().bkp().bits(),
-            _ => panic!("Backup reg index out of range"),
-        }
-
-        // TODO: stm32h7 0.13.0
-        // self.reg.bkpr[reg as usize].read().bkp().bits()
+        self.reg.bkpr[reg as usize].read().bkp().bits()
     }
 
     /// Writes `value` to a 32-bit backup register
@@ -282,44 +245,7 @@ impl Rtc {
     ///
     /// Panics if `reg` is greater than 31.
     pub fn write_backup_reg(&mut self, reg: u8, value: u32) {
-        match reg {
-            0 => self.reg.bkp0r.write(|w| unsafe { w.bkp().bits(value) }),
-            1 => self.reg.bkp1r.write(|w| unsafe { w.bkp().bits(value) }),
-            2 => self.reg.bkp2r.write(|w| unsafe { w.bkp().bits(value) }),
-            3 => self.reg.bkp3r.write(|w| unsafe { w.bkp().bits(value) }),
-            4 => self.reg.bkp4r.write(|w| unsafe { w.bkp().bits(value) }),
-            5 => self.reg.bkp5r.write(|w| unsafe { w.bkp().bits(value) }),
-            6 => self.reg.bkp6r.write(|w| unsafe { w.bkp().bits(value) }),
-            7 => self.reg.bkp7r.write(|w| unsafe { w.bkp().bits(value) }),
-            8 => self.reg.bkp8r.write(|w| unsafe { w.bkp().bits(value) }),
-            9 => self.reg.bkp9r.write(|w| unsafe { w.bkp().bits(value) }),
-            10 => self.reg.bkp10r.write(|w| unsafe { w.bkp().bits(value) }),
-            11 => self.reg.bkp11r.write(|w| unsafe { w.bkp().bits(value) }),
-            12 => self.reg.bkp12r.write(|w| unsafe { w.bkp().bits(value) }),
-            13 => self.reg.bkp13r.write(|w| unsafe { w.bkp().bits(value) }),
-            14 => self.reg.bkp14r.write(|w| unsafe { w.bkp().bits(value) }),
-            15 => self.reg.bkp15r.write(|w| unsafe { w.bkp().bits(value) }),
-            16 => self.reg.bkp16r.write(|w| unsafe { w.bkp().bits(value) }),
-            17 => self.reg.bkp17r.write(|w| unsafe { w.bkp().bits(value) }),
-            18 => self.reg.bkp18r.write(|w| unsafe { w.bkp().bits(value) }),
-            19 => self.reg.bkp19r.write(|w| unsafe { w.bkp().bits(value) }),
-            20 => self.reg.bkp20r.write(|w| unsafe { w.bkp().bits(value) }),
-            21 => self.reg.bkp21r.write(|w| unsafe { w.bkp().bits(value) }),
-            22 => self.reg.bkp22r.write(|w| unsafe { w.bkp().bits(value) }),
-            23 => self.reg.bkp23r.write(|w| unsafe { w.bkp().bits(value) }),
-            24 => self.reg.bkp24r.write(|w| unsafe { w.bkp().bits(value) }),
-            25 => self.reg.bkp25r.write(|w| unsafe { w.bkp().bits(value) }),
-            26 => self.reg.bkp26r.write(|w| unsafe { w.bkp().bits(value) }),
-            27 => self.reg.bkp27r.write(|w| unsafe { w.bkp().bits(value) }),
-            28 => self.reg.bkp28r.write(|w| unsafe { w.bkp().bits(value) }),
-            29 => self.reg.bkp29r.write(|w| unsafe { w.bkp().bits(value) }),
-            30 => self.reg.bkp30r.write(|w| unsafe { w.bkp().bits(value) }),
-            31 => self.reg.bkp31r.write(|w| unsafe { w.bkp().bits(value) }),
-            _ => panic!("Backup reg index out of range"),
-        }
-
-        // TODO: stm32h7 0.13.0
-        // self.reg.bkpr[reg as usize].write(|w| w.bkp().bits(value));
+        self.reg.bkpr[reg as usize].write(|w| w.bkp().bits(value));
     }
 
     /// Sets the date and time of the RTC
@@ -345,7 +271,7 @@ impl Rtc {
         let st = second / 10;
         let su = second % 10;
 
-        self.reg.tr.write(|w| unsafe {
+        self.reg.tr.write(|w| {
             w.pm()
                 .clear_bit()
                 .ht()
@@ -631,14 +557,14 @@ impl Rtc {
                 .modify(|_, w| unsafe { w.wucksel().bits(0b110) });
             let interval = u16(interval - (1 << 16) - 1)
                 .expect("Interval was too large for wakeup timer");
-            self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
+            self.reg.wutr.write(|w| w.wut().bits(interval));
         } else {
             self.reg
                 .cr
                 .modify(|_, w| unsafe { w.wucksel().bits(0b100) });
             let interval = u16(interval - 1)
                 .expect("Interval was too large for wakeup timer");
-            self.reg.wutr.write(|w| unsafe { w.wut().bits(interval) });
+            self.reg.wutr.write(|w| w.wut().bits(interval));
         }
 
         self.reg.cr.modify(|_, w| w.wute().set_bit());
