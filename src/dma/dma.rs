@@ -12,8 +12,7 @@ use core::marker::PhantomData;
 use crate::{
     pac::{self, DMA1, DMA2, DMAMUX1},
     rcc::{rec, rec::ResetEnable},
-    //serial::{Rx, Tx},
-    spi,
+    serial, spi,
 };
 
 use core::ops::Deref;
@@ -866,8 +865,62 @@ peripheral_target_address!(
 );
 
 peripheral_target_address!(
-    (pac::USART1, rdr(TRBUFF), u8, P2M, DMAReq::USART1_RX_DMA),
-    (pac::USART1, tdr(TRBUFF), u8, M2P, DMAReq::USART1_TX_DMA),
+    (
+        SERIAL: pac::USART1,
+        rdr,
+        tdr,
+        DMAReq::USART1_RX_DMA,
+        DMAReq::USART1_TX_DMA
+    ),
+    (
+        SERIAL: pac::USART2,
+        rdr,
+        tdr,
+        DMAReq::USART2_RX_DMA,
+        DMAReq::USART2_TX_DMA
+    ),
+    (
+        SERIAL: pac::USART3,
+        rdr,
+        tdr,
+        DMAReq::USART3_RX_DMA,
+        DMAReq::USART3_TX_DMA
+    ),
+    (
+        SERIAL: pac::USART6,
+        rdr,
+        tdr,
+        DMAReq::USART6_RX_DMA,
+        DMAReq::USART6_TX_DMA
+    ),
+    (
+        SERIAL: pac::UART4,
+        rdr,
+        tdr,
+        DMAReq::UART4_RX_DMA,
+        DMAReq::UART4_TX_DMA
+    ),
+    (
+        SERIAL: pac::UART5,
+        rdr,
+        tdr,
+        DMAReq::UART5_RX_DMA,
+        DMAReq::UART5_TX_DMA
+    ),
+    (
+        SERIAL: pac::UART7,
+        rdr,
+        tdr,
+        DMAReq::UART7_RX_DMA,
+        DMAReq::UART7_TX_DMA
+    ),
+    (
+        SERIAL: pac::UART8,
+        rdr,
+        tdr,
+        DMAReq::UART8_RX_DMA,
+        DMAReq::UART8_TX_DMA
+    ),
 );
 
 peripheral_target_address!(
