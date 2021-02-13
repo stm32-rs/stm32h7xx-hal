@@ -25,6 +25,7 @@ targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
 embedded-hal = "0.2.4"
+embedded-dma = "0.1.2"
 cortex-m = "^0.6.2"
 cortex-m-rt = "^0.6.12"
 stm32h7 = "^0.12.1"
@@ -173,3 +174,19 @@ required-features = ["rt", "rtc"]
 [[example]]
 name = "sai-i2s-passthru"
 required-features = ["rm0433"]
+
+[[example]]
+name = "sai_dma_passthru"
+required-features = ["rm0433"]
+
+[[example]]
+name = "dma"
+required-features = ["rm0433"]
+
+[[example]]
+name = "spi-dma"
+required-features = ["rm0433"]
+
+[[example]]
+name = "spi-dma-rtic"
+required-features = ["rm0433","rt"]

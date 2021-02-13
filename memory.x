@@ -46,7 +46,7 @@ _stack_start = ORIGIN(RAM) + LENGTH(RAM);
 
 /* These sections are used for some of the examples */
 SECTIONS {
-  .axisram : ALIGN(8) {
+  .axisram (NOLOAD) : ALIGN(8) {
     *(.axisram .axisram.*);
     . = ALIGN(8);
     } > AXISRAM
