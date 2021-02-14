@@ -101,7 +101,7 @@ macro_rules! vco_setup {
 
          // Calculate resulting reference clock
          let ref_x_ck = $pllsrc / pll_x_m;
-         assert!(ref_x_ck >= 1_000_000 && ref_x_ck <= 2_000_000);
+         assert!((1_000_000..=2_000_000).contains(&ref_x_ck));
 
          // Configure VCO
          $rcc.pllcfgr.modify(|_, w| {
@@ -152,7 +152,7 @@ macro_rules! vco_setup {
 
          // Calculate resulting reference clock
          let ref_x_ck = $pllsrc / pll_x_m;
-         assert!(ref_x_ck >= 2_000_000 && ref_x_ck <= 16_000_000);
+         assert!((2_000_000..=16_000_000).contains(&ref_x_ck));
 
          // Configure VCO
          $rcc.pllcfgr.modify(|_, w| {
@@ -340,10 +340,10 @@ fn calc_ck_div(
 ) -> u32 {
     let mut div = (vco_ck + target_ck - 1) / target_ck;
     // If the divider takes us under the target clock, then increase it
-    if strategy == PllConfigStrategy::FractionalNotLess {
-        if target_ck * div > vco_ck {
-            div -= 1;
-        }
+    if strategy == PllConfigStrategy::FractionalNotLess
+        && target_ck * div > vco_ck
+    {
+        div -= 1;
     }
     div
 }

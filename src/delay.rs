@@ -183,7 +183,7 @@ macro_rules! impl_delay_from_count_down_timer  {
                     self.0.start(looping_delay_hz);
                     while time_left > looping_delay {
                         block!(self.0.wait()).ok();
-                        time_left = time_left - looping_delay;
+                        time_left -= looping_delay;
                     }
 
                     if time_left > 0 {

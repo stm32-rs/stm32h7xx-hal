@@ -58,7 +58,7 @@ impl<MAC: StationManagement> KSZ8081R<MAC> {
     }
 
     pub fn link_established(&mut self) -> bool {
-        return self.poll_link();
+        self.poll_link()
     }
 
     pub fn block_until_link(&mut self) {

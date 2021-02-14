@@ -1,7 +1,5 @@
 //! I2S - Inter-IC Sound Interface
 
-use nb;
-
 /// Full duplex
 pub trait FullDuplex<Word> {
     /// Error type

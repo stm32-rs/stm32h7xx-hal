@@ -19,7 +19,6 @@ use crate::stm32::{
 };
 
 use cast::{u16, u32};
-use nb;
 use void::Void;
 
 #[cfg(feature = "rm0455")]
