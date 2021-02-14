@@ -45,5 +45,7 @@ fn main() -> ! {
     // -> restart the chip
     watchdog.start(100.ms());
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

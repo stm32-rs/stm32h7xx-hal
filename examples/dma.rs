@@ -104,5 +104,7 @@ fn main() -> ! {
 
     info!("Memory to Memory DMA completed successfully");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

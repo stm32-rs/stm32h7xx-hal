@@ -129,5 +129,7 @@ fn I2C4_EV() {
 
     assert_eq!(buffer[0], 0xBE);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

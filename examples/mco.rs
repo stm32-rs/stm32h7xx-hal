@@ -59,5 +59,7 @@ fn main() -> ! {
 
     info!("MCO outputs running!");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

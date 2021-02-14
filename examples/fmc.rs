@@ -213,6 +213,8 @@ const APP: () = {
 
         assert_eq!(ram_slice[0], 1);
 
-        loop {}
+        loop {
+            cortex_m::asm::nop()
+        }
     }
 };

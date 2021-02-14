@@ -176,5 +176,7 @@ fn main() -> ! {
 
     // We could re-use the stream or spi here
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }
