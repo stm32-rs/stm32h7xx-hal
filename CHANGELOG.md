@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* **Breaking**: Add new/new_unchecked methods for USB structures, remove pin
+  types from structure
+* Add support for USB1_ULPI #184
 * Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with
   v0.7.0+][cm6-changelog] except for CBP, ITM, MPU, NVIC, SCB. If you have
   problems, run `cargo update` to try to switch to `cortex-m` v0.7 in other
