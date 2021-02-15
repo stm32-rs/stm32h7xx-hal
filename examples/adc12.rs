@@ -9,7 +9,6 @@
 #[macro_use]
 mod utilities;
 
-use cortex_m;
 use cortex_m_rt::entry;
 use log::info;
 use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*};

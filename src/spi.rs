@@ -69,7 +69,6 @@ use crate::stm32::spi1::{cfg1::MBR_A as MBR, cfg2::COMM_A as COMM};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
-use nb;
 use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
@@ -95,6 +94,7 @@ use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Overrun occurred
     Overrun,
@@ -102,8 +102,6 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 /// Enabled SPI peripheral (type state)
@@ -165,7 +163,7 @@ impl Config {
     /// * `mode` - The SPI mode to configure.
     pub fn new(mode: Mode) -> Self {
         Config {
-            mode: mode,
+            mode,
             swap_miso_mosi: false,
             cs_delay: 0.0,
             managed_cs: false,
@@ -502,7 +500,7 @@ macro_rules! spi {
                             // before truncation to an integer to ensure that we have at least as
                             // many cycles as required.
                             if config.cs_delay > 0.0_f32 {
-                                delay = delay + 1;
+                                delay += 1;
                             }
 
                             if delay > 0xF {

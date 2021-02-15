@@ -759,6 +759,8 @@ impl<'a> phy::Device<'a> for EthernetDMA<'_> {
     type RxToken = RxToken<'a>;
     type TxToken = TxToken<'a>;
 
+    // Clippy false positive because DeviceCapabilities is non-exhaustive
+    #[allow(clippy::field_reassign_with_default)]
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
         // ethernet frame type II (6 smac, 6 dmac, 2 ethertype),

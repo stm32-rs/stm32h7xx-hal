@@ -208,10 +208,13 @@ macro_rules! adc_internal {
 }
 
 /// Vref internal signal
+#[derive(Default)]
 pub struct Vrefint;
 /// Vbat internal signal
+#[derive(Default)]
 pub struct Vbat;
 /// Internal temperature sensor
+#[derive(Default)]
 pub struct Temperature;
 
 // Not implementing Pxy_C adc pins
