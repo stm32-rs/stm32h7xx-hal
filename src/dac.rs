@@ -28,10 +28,12 @@ impl ED for Enabled {}
 impl ED for EnabledUnbuffered {}
 impl ED for Disabled {}
 
-pub struct C1<ED> {
+pub struct C1<DAC, ED> {
+    _dac: PhantomData<DAC>,
     _enabled: PhantomData<ED>,
 }
-pub struct C2<ED> {
+pub struct C2<DAC, ED> {
+    _dac: PhantomData<DAC>,
     _enabled: PhantomData<ED>,
 }
 
@@ -43,25 +45,29 @@ pub trait Pins<DAC> {
 // DAC1
 
 impl Pins<DAC1> for PA4<Analog> {
-    type Output = C1<Disabled>;
+    type Output = C1<DAC1, Disabled>;
 }
 
 impl Pins<DAC1> for PA5<Analog> {
-    type Output = C2<Disabled>;
+    type Output = C2<DAC1, Disabled>;
 }
 
 impl Pins<DAC1> for (PA4<Analog>, PA5<Analog>) {
-    type Output = (C1<Disabled>, C2<Disabled>);
+    type Output = (C1<DAC1, Disabled>, C2<DAC1, Disabled>);
 }
 
 // DAC2
 
 #[cfg(feature = "rm0455")]
 impl Pins<DAC2> for PA6<Analog> {
-    type Output = C1<Disabled>;
+    type Output = C1<DAC2, Disabled>;
 }
 
-pub fn dac<PINS, DAC, REC>(_dac: DAC, _pins: PINS, prec: REC) -> PINS::Output
+pub fn dac<PINS, DAC, REC: ResetEnable>(
+    _dac: DAC,
+    _pins: PINS,
+    prec: REC,
+) -> PINS::Output
 where
     PINS: Pins<DAC>,
 {
@@ -77,31 +83,33 @@ where
 macro_rules! dac {
     ($DAC:ident, $CX:ident, $en:ident, $cen:ident, $cal_flag:ident, $trim:ident,
      $mode:ident, $dhrx:ident, $dor:ident, $daccxdhr:ident) => {
-        impl $CX<Disabled> {
-            pub fn enable(self) -> $CX<Enabled> {
+        impl $CX<$DAC, Disabled> {
+            pub fn enable(self) -> $CX<$DAC, Enabled> {
                 let dac = unsafe { &(*$DAC::ptr()) };
 
                 dac.mcr.modify(|_, w| unsafe { w.$mode().bits(0) });
                 dac.cr.modify(|_, w| w.$en().set_bit());
 
                 $CX {
+                    _dac: PhantomData,
                     _enabled: PhantomData,
                 }
             }
 
-            pub fn enable_unbuffered(self) -> $CX<EnabledUnbuffered> {
+            pub fn enable_unbuffered(self) -> $CX<$DAC, EnabledUnbuffered> {
                 let dac = unsafe { &(*$DAC::ptr()) };
 
                 dac.mcr.modify(|_, w| unsafe { w.$mode().bits(2) });
                 dac.cr.modify(|_, w| w.$en().set_bit());
 
                 $CX {
+                    _dac: PhantomData,
                     _enabled: PhantomData,
                 }
             }
         }
 
-        impl<ED> $CX<ED> {
+        impl<ED> $CX<$DAC, ED> {
             /// Calibrate the DAC output buffer by performing a "User
             /// trimming" operation. It is useful when the VDDA/VREF+
             /// voltage or temperature differ from the factory trimming
@@ -113,7 +121,10 @@ macro_rules! dac {
             ///
             /// After the calibration operation, the DAC channel is
             /// disabled.
-            pub fn calibrate_buffer<T>(self, delay: &mut T) -> $CX<Disabled>
+            pub fn calibrate_buffer<T>(
+                self,
+                delay: &mut T,
+            ) -> $CX<$DAC, Disabled>
             where
                 T: DelayUs<u32>,
             {
@@ -133,23 +144,25 @@ macro_rules! dac {
                 dac.cr.modify(|_, w| w.$cen().clear_bit());
 
                 $CX {
+                    _dac: PhantomData,
                     _enabled: PhantomData,
                 }
             }
 
             /// Disable the DAC channel
-            pub fn disable(self) -> $CX<Disabled> {
+            pub fn disable(self) -> $CX<$DAC, Disabled> {
                 let dac = unsafe { &(*$DAC::ptr()) };
                 dac.cr.modify(|_, w| w.$en().clear_bit());
 
                 $CX {
+                    _dac: PhantomData,
                     _enabled: PhantomData,
                 }
             }
         }
 
         /// DacOut implementation available in any Enabled/Disabled state
-        impl<ED> DacOut<u16> for $CX<ED> {
+        impl<ED> DacOut<u16> for $CX<$DAC, ED> {
             fn set_value(&mut self, val: u16) {
                 let dac = unsafe { &(*$DAC::ptr()) };
                 dac.$dhrx.write(|w| unsafe { w.bits(val as u32) });
@@ -164,13 +177,20 @@ macro_rules! dac {
 }
 
 pub trait DacExt: Sized {
-    fn dac<PINS, REC>(self, pins: PINS, prec: REC) -> PINS::Output
+    type REC: ResetEnable;
+
+    fn dac<PINS>(self, pins: PINS, prec: Self::REC) -> PINS::Output
     where
         PINS: Pins<Self>;
 }
 
 impl DacExt for DAC1 {
-    fn dac<PINS, REC>(self, pins: PINS, prec: REC) -> PINS::Output
+    #[cfg(not(feature = "rm0455"))]
+    type REC = rec::Dac12;
+    #[cfg(feature = "rm0455")]
+    type REC = rec::Dac1;
+
+    fn dac<PINS>(self, pins: PINS, prec: Self::REC) -> PINS::Output
     where
         PINS: Pins<DAC1>,
     {
@@ -180,9 +200,11 @@ impl DacExt for DAC1 {
 
 #[cfg(feature = "rm0455")]
 impl DacExt for DAC2 {
-    fn dac<PINS, REC>(self, pins: PINS, prec: REC) -> PINS::Output
+    type REC = rec::Dac2;
+
+    fn dac<PINS>(self, pins: PINS, prec: Self::REC) -> PINS::Output
     where
-        PINS: Pins<DAC>,
+        PINS: Pins<DAC2>,
     {
         dac(self, pins, prec)
     }

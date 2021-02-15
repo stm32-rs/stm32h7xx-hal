@@ -32,7 +32,11 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+
+    #[cfg(not(feature = "rm0455"))]
     let dac = dp.DAC.dac(gpioa.pa4, ccdr.peripheral.DAC12);
+    #[cfg(feature = "rm0455")]
+    let dac = dp.DAC1.dac(gpioa.pa4, ccdr.peripheral.DAC1);
 
     // Calibrate output buffer then enable DAC channel
     let mut dac = dac.calibrate_buffer(&mut delay).enable();

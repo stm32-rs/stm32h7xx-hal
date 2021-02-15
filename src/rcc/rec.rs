@@ -549,7 +549,7 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     APB1L, "" => [
-        Dac1,
+        Dac12,
 
         I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
         Cec [kernel clk: Cec(Variant) d2ccip2 "CEC"],
@@ -650,8 +650,8 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(feature = "rm0455")]
     APB4, "" => [
-        Dac2,
-        
+        Dac2,// TODO (Auto), DAC2AMEN missing from D3AMR upstream
+
         (Auto) Lptim2 [kernel clk: Lptim2(Variant) srdccip "LPTIM2"],
         (Auto) Lptim3,// TODO [group clk: Lptim3(Variant) srdccip "LPTIM3"],
 
