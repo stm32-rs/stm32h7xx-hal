@@ -31,6 +31,7 @@ pub struct USB1 {
     pub usb_pwrclk: stm32::OTG1_HS_PWRCLK,
     pub prec: rcc::rec::Usb1Otg,
     pub hclk: Hertz,
+    pub sys_ck: Hertz,
 }
 impl USB1 {
     #[cfg(not(feature = "rm0455"))]
@@ -70,6 +71,7 @@ impl USB1 {
             usb_pwrclk,
             prec,
             hclk: clocks.hclk(),
+            sys_ck: clocks.sys_ck(),
         }
     }
 }
@@ -81,6 +83,7 @@ pub struct USB2 {
     pub usb_pwrclk: stm32::OTG2_HS_PWRCLK,
     pub prec: rcc::rec::Usb2Otg,
     pub hclk: Hertz,
+    pub sys_ck: Hertz,
 }
 #[cfg(not(feature = "rm0455"))]
 impl USB2 {
@@ -108,6 +111,7 @@ impl USB2 {
             usb_pwrclk,
             prec,
             hclk: clocks.hclk(),
+            sys_ck: clocks.sys_ck(),
         }
     }
 }
@@ -147,6 +151,10 @@ macro_rules! usb_peripheral {
 
                 self.hclk.0
             }
+
+            fn instructions_per_us(&self) -> u32 {
+                self.sys_ck.0 / 1_000_000 * 2 // Cortex-M7 is dual-issue
+            }
         }
     };
 }
@@ -169,6 +177,7 @@ pub struct USB1_ULPI {
     pub usb_pwrclk: stm32::OTG1_HS_PWRCLK,
     pub prec: rcc::rec::Usb1Otg,
     pub hclk: Hertz,
+    pub sys_ck: Hertz,
 }
 
 pub enum Usb1UlpiDirPin {
@@ -240,6 +249,7 @@ impl USB1_ULPI {
             usb_pwrclk,
             prec,
             hclk: clocks.hclk(),
+            sys_ck: clocks.sys_ck(),
         }
     }
 }
@@ -275,6 +285,10 @@ unsafe impl UsbPeripheral for USB1_ULPI {
 
     fn phy_type(&self) -> synopsys_usb_otg::PhyType {
         synopsys_usb_otg::PhyType::ExternalHighSpeed
+    }
+
+    fn instructions_per_us(&self) -> u32 {
+        self.sys_ck.0 / 1_000_000 * 2 // Cortex-M7 is dual-issue
     }
 }
 pub type Usb1UlpiBusType = UsbBus<USB1_ULPI>;
