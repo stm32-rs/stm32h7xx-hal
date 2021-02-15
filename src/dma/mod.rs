@@ -29,7 +29,6 @@ use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 #[macro_use]
 mod macros;
 
-#[cfg(not(feature = "rm0455"))] // Remove when fixed upstream
 pub mod dma; // DMA1 and DMA2
 
 pub mod bdma;

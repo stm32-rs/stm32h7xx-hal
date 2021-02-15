@@ -177,13 +177,5 @@ name = "sai_dma_passthru"
 required-features = ["rm0433"]
 
 [[example]]
-name = "dma"
-required-features = ["rm0433"]
-
-[[example]]
-name = "spi-dma"
-required-features = ["rm0433"]
-
-[[example]]
 name = "spi-dma-rtic"
 required-features = ["rm0433","rt"]

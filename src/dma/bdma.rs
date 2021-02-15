@@ -606,14 +606,11 @@ bdma_stream!(
 
 /// Type alias for the DMA Request Multiplexer
 ///
-/// TODO: Needs fixing upstream for RM0455
-#[cfg(not(feature = "rm0455"))]
 pub type DMAReq = pac::dmamux2::ccr::DMAREQ_ID_A;
 
 type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
 
-#[cfg(not(feature = "rm0455"))]
 peripheral_target_address!(
     (pac::LPUART1, rdr, u8, P2M, DMAReq::LPUART1_RX_DMA),
     (pac::LPUART1, tdr, u8, M2P, DMAReq::LPUART1_TX_DMA),
@@ -635,16 +632,4 @@ peripheral_target_address!(
 peripheral_target_address!(
     (pac::SAI4, cha.dr, u32, M2P, DMAReq::SAI4_A_DMA),
     (pac::SAI4, chb.dr, u32, P2M, DMAReq::SAI4_B_DMA),
-);
-
-// TODO: Remove when fixed upstream
-#[cfg(feature = "rm0455")]
-peripheral_target_address!(
-    (pac::LPUART1, rdr, u8, P2M, 9),
-    (pac::LPUART1, tdr, u8, M2P, 10),
-    (SPI: pac::SPI6, rxdr, txdr, [u8, u16], 11, 12),
-    (pac::I2C4, rxdr, u8, P2M, 13),
-    (pac::I2C4, txdr, u8, M2P, 14),
-    (INNER: I2c<pac::I2C4>, rxdr, u8, P2M, 13),
-    (INNER: I2c<pac::I2C4>, txdr, u8, M2P, 14),
 );
