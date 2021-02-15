@@ -37,7 +37,7 @@ paste = "1.0.1"
 bare-metal = "1.0.0"
 sdio-host = { version = "0.4", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
-synopsys-usb-otg = { version = "^0.2.5", features = ["cortex-m"], optional = true }
+synopsys-usb-otg = { git = "https://github.com/mattico/synopsys-usb-otg", branch = "force_reset", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
 
 [dependencies.smoltcp]
