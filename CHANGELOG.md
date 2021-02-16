@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+* Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with v0.7.0+][cm6-changelog], so
+  running `cargo update` should be sufficient to avoid dependency type version problems.
+* pac: Upgrade to stm32-rs v0.13.0
+
+[cm6-changelog]: (https://github.com/rust-embedded/cortex-m/blob/master/CHANGELOG.md#v065---2021-01-24)
+
 ## [v0.8.0] 2020-10-26
 
 * **Breaking**: Ethernet PHY configuration feature flags removed. The user must
