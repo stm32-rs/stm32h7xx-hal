@@ -19,7 +19,7 @@ use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 use stm32h7::Variant::Val;
 
-const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;
+const ALL_IRQ_FLAGS_BITS: u32 = 0b0111_0111;
 
 mod pdm;
 pub use pdm::SaiPdmExt;
@@ -184,12 +184,30 @@ macro_rules! sai_hal {
                         SaiChannel::ChannelB => &self.rb.chb,
                     };
                     match event {
-                        Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().clear_bit()),
-                        Event::Muted                => ch.im.modify(|_, w| w.mutedetie().clear_bit()),
-                        Event::WrongClock           => ch.im.modify(|_, w| w.wckcfgie().clear_bit()),
-                        Event::Data                 => ch.im.modify(|_, w| w.freqie().clear_bit()),
-                        Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().clear_bit()),
-                        Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().clear_bit()),
+                        Event::Overdue => {
+                            ch.im.modify(|_, w| w.ovrudrie().clear_bit());
+                            while ch.im.read().ovrudrie().bit_is_set() {}
+                        }
+                        Event::Muted => {
+                            ch.im.modify(|_, w| w.mutedetie().clear_bit());
+                            while ch.im.read().mutedetie().bit_is_set() {}
+                        }
+                        Event::WrongClock => {
+                            ch.im.modify(|_, w| w.wckcfgie().clear_bit());
+                            while ch.im.read().wckcfgie().bit_is_set() {}
+                        }
+                        Event::Data => {
+                            ch.im.modify(|_, w| w.freqie().clear_bit());
+                            while ch.im.read().freqie().bit_is_set() {}
+                        }
+                        Event::AnticipatedFrameSync => {
+                            ch.im.modify(|_, w| w.afsdetie().clear_bit());
+                            while ch.im.read().afsdetie().bit_is_set() {}
+                        }
+                        Event::LateFrameSync => {
+                            ch.im.modify(|_, w| w.lfsdetie().clear_bit());
+                            while ch.im.read().lfsdetie().bit_is_set() {}
+                        }
                     }
                 }
 
@@ -202,12 +220,27 @@ macro_rules! sai_hal {
                         SaiChannel::ChannelB => &self.rb.chb,
                     };
                     match event {
-                        Event::Overdue              => ch.clrfr.write(|w| w.covrudr().set_bit()),
-                        Event::Muted                => ch.clrfr.write(|w| w.cmutedet().set_bit()),
-                        Event::WrongClock           => ch.clrfr.write(|w| w.cwckcfg().set_bit()),
-                        Event::Data                 => (), // Cleared by reading/writing data
-                        Event::AnticipatedFrameSync => ch.clrfr.write(|w| w.cafsdet().set_bit()),
-                        Event::LateFrameSync        => ch.clrfr.write(|w| w.clfsdet().set_bit()),
+                        Event::Overdue => {
+                            ch.clrfr.write(|w| w.covrudr().set_bit());
+                            while ch.sr.read().ovrudr().bit_is_set() {}
+                        }
+                        Event::Muted => {
+                            ch.clrfr.write(|w| w.cmutedet().set_bit());
+                            while ch.sr.read().mutedet().bit_is_set() {}
+                        }
+                        Event::WrongClock => {
+                            ch.clrfr.write(|w| w.cwckcfg().set_bit());
+                            while ch.sr.read().wckcfg().bit_is_set() {}
+                        }
+                        Event::Data => {} // Cleared by reading/writing data
+                        Event::AnticipatedFrameSync => {
+                            ch.clrfr.write(|w| w.cafsdet().set_bit());
+                            while ch.sr.read().afsdet().bit_is_set() {}
+                        }
+                        Event::LateFrameSync => {
+                            ch.clrfr.write(|w| w.clfsdet().set_bit());
+                            while ch.sr.read().lfsdet().bit_is_set() {}
+                        }
                     }
                 }
 
@@ -215,8 +248,14 @@ macro_rules! sai_hal {
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
                     unsafe {
                         match channel {
-                            SaiChannel::ChannelA => &self.rb.cha.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
-                            SaiChannel::ChannelB => &self.rb.chb.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
+                            SaiChannel::ChannelA => {
+                                self.rb.cha.clrfr.write(|w| w.bits(ALL_IRQ_FLAGS_BITS));
+                                while self.rb.cha.sr.read().bits() & ALL_IRQ_FLAGS_BITS != 0 {}
+                            }
+                            SaiChannel::ChannelB => {
+                                self.rb.chb.clrfr.write(|w| w.bits(ALL_IRQ_FLAGS_BITS));
+                                while self.rb.chb.sr.read().bits() & ALL_IRQ_FLAGS_BITS != 0 {}
+                            }
                         };
                     }
                 }

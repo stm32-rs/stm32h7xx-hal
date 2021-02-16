@@ -348,8 +348,8 @@ macro_rules! gpio {
                         #[cfg(all(feature = "rm0399", feature = "cm4"))]
                         let pr1 = &(*EXTI::ptr()).c2pr1;
 
-
-                        pr1.write(|w| w.bits(1 << self.i) );
+                        pr1.write(|w| w.bits(1 << self.i));
+                        while pr1.read().bits() & (1 << self.i) != 0 {}
                     }
                 }
             }
@@ -796,6 +796,7 @@ macro_rules! gpio {
                             let pr1 = &(*(EXTI::ptr())).c2pr1;
 
                             pr1.write(|w| w.bits(1 << $i));
+                            while pr1.read().bits() & (1 << $i) != 0 {}
                         };
                     }
                 }

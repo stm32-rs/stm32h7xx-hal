@@ -652,20 +652,33 @@ macro_rules! spi {
                     ///  - Error
                     pub fn unlisten(&mut self, event: Event) {
                         match event {
-                            Event::Rxp => self.spi.ier.modify(|_, w|
-                                                              w.rxpie().masked()),
-                            Event::Txp => self.spi.ier.modify(|_, w|
-                                                              w.txpie().masked()),
-                            Event::Error => self.spi.ier.modify(|_, w| {
-                                w.udrie() // Underrun
-                                    .masked()
-                                    .ovrie() // Overrun
-                                    .masked()
-                                    .crceie() // CRC error
-                                    .masked()
-                                    .modfie() // Mode fault
-                                    .masked()
-                            }),
+                            Event::Rxp => {
+                                self.spi.ier.modify(|_, w| w.rxpie().masked());
+                                while self.spi.ier.read().rxpie().is_not_masked() {}
+                            }
+                            Event::Txp => {
+                                self.spi.ier.modify(|_, w| w.txpie().masked());
+                                while self.spi.ier.read().txpie().is_not_masked() {}
+                            }
+                            Event::Error => {
+                                self.spi.ier.modify(|_, w| {
+                                    w.udrie() // Underrun
+                                        .masked()
+                                        .ovrie() // Overrun
+                                        .masked()
+                                        .crceie() // CRC error
+                                        .masked()
+                                        .modfie() // Mode fault
+                                        .masked()
+                                });
+                                while {
+                                    let r = self.spi.ier.read();
+                                    r.udrie().is_not_masked() ||
+                                    r.ovrie().is_not_masked() ||
+                                    r.crceie().is_not_masked() ||
+                                    r.modfie().is_not_masked()
+                                } {}
+                            }
                         }
                     }
 

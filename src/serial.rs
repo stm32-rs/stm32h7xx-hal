@@ -519,13 +519,16 @@ macro_rules! usart {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().disabled())
+                            self.usart.cr1.modify(|_, w| w.rxneie().disabled());
+                            while self.usart.cr1.read().rxneie().is_enabled() {}
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().disabled())
+                            self.usart.cr1.modify(|_, w| w.txeie().disabled());
+                            while self.usart.cr1.read().txeie().is_enabled() {}
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().disabled())
+                            self.usart.cr1.modify(|_, w| w.idleie().disabled());
+                            while self.usart.cr1.read().idleie().is_enabled() {}
                         },
                     }
                 }
@@ -638,7 +641,9 @@ macro_rules! usart {
                 /// Stop listening for `Rxne` event
                 pub fn unlisten(&mut self) {
                     // unsafe: rxneie bit accessed by Rx part only
-                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().disabled());
+                    let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
+                    cr1.modify(|_, w| w.rxneie().disabled());
+                    while cr1.read().rxneie().is_enabled() {}
                 }
             }
 
@@ -713,7 +718,9 @@ macro_rules! usart {
                 /// Stop listening for `Txe` event
                 pub fn unlisten(&mut self) {
                     // unsafe: txeie bit accessed by Tx part only
-                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().disabled());
+                    let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
+                    cr1.modify(|_, w| w.txeie().disabled());
+                    while cr1.read().txeie().is_enabled() {}
                 }
             }
         )+
