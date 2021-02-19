@@ -126,7 +126,9 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
-        self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));
+        // TODO: stm32h7 0.14.0 WDGTB is 3 bits
+        const WDGTB_MASK: u32 = 0b111 << 11;
+        self.wwdg.cfr.modify(|_, w| unsafe { w.bits((r.bits() & !WDGTB_MASK) | (wdgtb << 11) });
         self.wwdg.cfr.modify(|_, w| w.w().bits(self.down_counter));
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
         // For some reason, setting the t value makes the early wakeup pending.
