@@ -47,6 +47,10 @@ impl SystemWindowWatchdog {
     pub fn listen(&mut self, event: Event) {
         match event {
             Event::EarlyWakeup => {
+                // If this value is 0 it is assumed that the watchdog has not yet been started.
+                // It needs to have started because the starting procedure already makes the early wakeup pending,
+                // which would immediately call the interrupt.
+                assert!(self.down_counter != 0);
                 // Set the ewi bit
                 self.wwdg.cfr.modify(|_, w| w.ewi().enable());
             }
@@ -125,6 +129,9 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));
         self.wwdg.cfr.modify(|_, w| w.w().bits(self.down_counter));
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
+        // For some reason, setting the t value makes the early wakeup pending.
+        // That's bad behaviour, so lets turn it off again.
+        self.unpend(Event::EarlyWakeup);
         // enable the watchdog
         self.wwdg.cr.modify(|_, w| w.wdga().set_bit());
     }
