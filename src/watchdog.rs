@@ -13,6 +13,16 @@ use crate::stm32::WWDG1 as WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm4"))]
 use crate::stm32::WWDG2 as WWDG;
 
+/// Event enum for [SystemWindowWatchdog]
+pub enum Event {
+    /// Early wakeup interrupt. This will generate an interrupt when the watchdog would otherwise reset.
+    /// This interrupt can then be used for data logging or even recovery.
+    /// If not handled, the watchdog will still reset the device after a period that is at least double the period that
+    /// was set with the [SystemWindowWatchdog::start] function.
+    /// When the watchdog is fed, it will resume as normal again.
+    EarlyWakeup,
+}
+
 /// Implements the System Window Watchdog
 pub struct SystemWindowWatchdog {
     wwdg: WWDG,
@@ -30,6 +40,39 @@ impl SystemWindowWatchdog {
             wwdg,
             down_counter: 0,
             pclk3_frequency: ccdr.clocks.pclk3(),
+        }
+    }
+
+    /// Start listening for `event`
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => {
+                // Set the ewi bit
+                self.wwdg.cfr.modify(|_, w| w.ewi().enable());
+            }
+        }
+    }
+
+    /// Stop listening for `event`
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => panic!("Early wakeup of the SystemWindowWatchdog can only be cleared by hardware after a reset"),
+        }
+    }
+
+    /// Returns `true` if `event` is pending
+    pub fn is_pending(&self, event: Event) -> bool {
+        match event {
+            Event::EarlyWakeup => self.wwdg.sr.read().ewif().is_pending(),
+        }
+    }
+
+    /// Clears the interrupt flag for `event`
+    pub fn unpend(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => {
+                self.wwdg.sr.write(|w| w.ewif().finished());
+            }
         }
     }
 }
