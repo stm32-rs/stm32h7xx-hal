@@ -246,7 +246,6 @@ impl<I: Instance> StreamsTuple<I> {
 //
 // The implementation does the heavy lifting of mapping to the right fields on
 // the stream
-// (Stream0, 0, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1),
 macro_rules! bdma_stream {
     ($(($name:ident, $number:expr,
         $ifcr:ident, $tcif:ident, $htif:ident, $teif:ident, $gif:ident,
@@ -369,7 +368,6 @@ macro_rules! bdma_stream {
 
                 #[inline(always)]
                 fn disable_interrupts(&mut self) {
-                    // TODO: Prevent calling when channel is enabled
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
                     dmacr.modify(|_, w| w
