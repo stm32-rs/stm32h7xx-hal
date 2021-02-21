@@ -424,7 +424,7 @@ macro_rules! hal {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
-                            // Enable update event interrupt
+                            // Disable update event interrupt
                             self.tim.dier.write(|w| w.uie().clear_bit());
                             while self.tim.dier.read().uie().bit_is_set() {}
                         }
