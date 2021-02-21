@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
-* Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with v0.7.0+][cm6-changelog], so
-  running `cargo update` should be sufficient to avoid dependency type version problems.
+* Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with
+  v0.7.0+][cm6-changelog] except for CBP, ITM, MPU, NVIC, SCB. If you have
+  problems, run `cargo update` to try to switch to `cortex-m` v0.7 in other
+  dependencies. Something like `cargo tree` is very useful to track down
+  remaining uses of `cortex-m` v0.6.
 * pac: Upgrade to stm32-rs v0.13.0
 
 [cm6-changelog]: (https://github.com/rust-embedded/cortex-m/blob/master/CHANGELOG.md#v065---2021-01-24)
