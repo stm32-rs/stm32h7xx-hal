@@ -27,9 +27,9 @@ targets = ["thumbv7em-none-eabihf"]
 [dependencies]
 embedded-hal = "0.2.4"
 embedded-dma = "0.1.2"
-cortex-m = "^0.6.2"
+cortex-m = "^0.7.1"
 cortex-m-rt = "^0.6.12"
-stm32h7 = "^0.12.1"
+stm32h7 = "^0.13.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
 nb = "1.0.0"
@@ -58,7 +58,7 @@ cfg-if = "0.1.10"
 rtt-target = { version = "0.2.0", features = ["cortex-m"] }
 panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-cortex-m-log = { version = "~0.6", features = ["itm", "semihosting", "log-integration"] }
+cortex-m-log = { version = "~0.7.0", features = ["itm", "semihosting", "log-integration"] }
 panic-itm = { version = "~0.4.1" }
 panic-semihosting = { version = "0.5.3" }
 cortex-m-semihosting = { version = "0.3.5" }
@@ -173,19 +173,7 @@ name = "rtc"
 required-features = ["rt", "rtc"]
 
 [[example]]
-name = "sai-i2s-passthru"
-required-features = ["rm0433"]
-
-[[example]]
 name = "sai_dma_passthru"
-required-features = ["rm0433"]
-
-[[example]]
-name = "dma"
-required-features = ["rm0433"]
-
-[[example]]
-name = "spi-dma"
 required-features = ["rm0433"]
 
 [[example]]
