@@ -78,7 +78,7 @@ fn main() -> ! {
         .destination_increment(MdmaIncrement::Increment)
         .source_increment(MdmaIncrement::Increment);
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> = {
+    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> = {
         // Extend the lifetime of our data on the stack. We assert that it lives
         // as long as this transfer
         let target: &'static mut [u32; 200] =
@@ -128,7 +128,7 @@ fn main() -> ! {
         ))
         .half_word_endianness_exchange(true);
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _> = {
+    let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> = {
         let target: &'static mut [u32; 20] =
             unsafe { mem::transmute(&mut target_buffer) };
 
@@ -182,7 +182,7 @@ fn main() -> ! {
         MdmaIncrement::IncrementWithOffset(MdmaSize::DoubleWord),
     );
 
-    let mut transfer: Transfer<_, _, MemoryToMemory<u8>, _> = {
+    let mut transfer: Transfer<_, _, MemoryToMemory<u8>, _, _> = {
         // Be very careful when using an unsafe transmute in the init call like
         // this because the target_buffer type will be transmuted to the source
         // type. In this case it's ok at the source_buffer is a slice [u8]. But
