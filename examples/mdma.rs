@@ -107,7 +107,9 @@ fn main() -> ! {
     let (stream, _mem2mem, _target, source_buffer_opt) = transfer.free();
     let source_buffer = source_buffer_opt.unwrap();
 
-    assert_eq!(target_buffer, [0x11223344; 200]);
+    for a in target_buffer.iter() {
+        assert_eq!(*a, 0x11223344);
+    }
 
     info!("Example 1: Memory to TCM DMA completed successfully");
 
@@ -215,5 +217,7 @@ fn main() -> ! {
 
     info!("Example 3: TCM to TCM DMA with offset completed successfully");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }
