@@ -759,27 +759,27 @@ impl Rtc {
         match event {
             Event::LseCss => {
                 rcc.cier.modify(|_, w| w.lsecssie().disabled());
-                exti.listen(ExtiEvent::RTC_OTHER);
+                exti.unlisten(ExtiEvent::RTC_OTHER);
                 exti.rtsr1.modify(|_, w| w.tr18().disabled());
             }
             Event::AlarmA => {
                 self.reg.cr.modify(|_, w| w.alraie().clear_bit());
-                exti.listen(ExtiEvent::RTC_ALARM);
+                exti.unlisten(ExtiEvent::RTC_ALARM);
                 exti.rtsr1.modify(|_, w| w.tr17().disabled());
             }
             Event::AlarmB => {
                 self.reg.cr.modify(|_, w| w.alrbie().clear_bit());
-                exti.listen(ExtiEvent::RTC_ALARM);
+                exti.unlisten(ExtiEvent::RTC_ALARM);
                 exti.rtsr1.modify(|_, w| w.tr17().disabled());
             }
             Event::Wakeup => {
                 self.reg.cr.modify(|_, w| w.wutie().clear_bit());
-                exti.listen(ExtiEvent::RTC_WAKEUP);
+                exti.unlisten(ExtiEvent::RTC_WAKEUP);
                 exti.rtsr1.modify(|_, w| w.tr19().disabled());
             }
             Event::Timestamp => {
                 self.reg.cr.modify(|_, w| w.tsie().clear_bit());
-                exti.listen(ExtiEvent::RTC_OTHER);
+                exti.unlisten(ExtiEvent::RTC_OTHER);
                 exti.rtsr1.modify(|_, w| w.tr18().disabled());
             }
         }

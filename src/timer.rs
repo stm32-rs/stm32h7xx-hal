@@ -424,8 +424,9 @@ macro_rules! hal {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
-                            // Enable update event interrupt
+                            // Disable update event interrupt
                             self.tim.dier.write(|w| w.uie().clear_bit());
+                            while self.tim.dier.read().uie().bit_is_set() {}
                         }
                     }
                 }
@@ -441,6 +442,7 @@ macro_rules! hal {
                         // Clears timeout event
                         w.uif().clear_bit()
                     });
+                    while self.tim.sr.read().uif().bit_is_set() {}
                 }
 
                 /// Releases the TIM peripheral
@@ -623,6 +625,7 @@ macro_rules! lptim_hal {
                         Event::TimeOut => {
                             // Disable autoreload match interrupt
                             self.tim.ier.modify(|_, w| w.arrmie().clear_bit());
+                            while self.tim.ier.read().arrmie().bit_is_set() {}
                         }
                     }
                 }
@@ -703,6 +706,7 @@ macro_rules! lptim_hal {
                 pub fn clear_irq(&mut self) {
                     // Clear autoreload match event
                     self.tim.icr.write(|w| w.arrmcf().set_bit());
+                    while self.tim.isr.read().arrm().bit_is_set() {}
                 }
 
                 /// Releases the LPTIM peripheral

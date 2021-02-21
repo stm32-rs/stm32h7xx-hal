@@ -249,7 +249,7 @@ impl<I: Instance> StreamsTuple<I> {
 macro_rules! bdma_stream {
     ($(($name:ident, $number:expr,
         $ifcr:ident, $tcif:ident, $htif:ident, $teif:ident, $gif:ident,
-        $isr:ident, $tcisr:ident, $htisr:ident)
+        $isr:ident, $tcisr:ident, $htisr:ident, $teisr:ident, $gisr:ident)
     ),+$(,)*) => {
         $(
             impl<I: Instance> Stream for $name<I> {
@@ -283,6 +283,13 @@ macro_rules! bdma_stream {
                                     .$teif().set_bit() //Clear transfer error interrupt flag
                                     .$gif().set_bit() //Clear global interrupt flag
                     );
+                    while {
+                        let r = dma.$isr.read();
+                        r.$tcisr().bit_is_set() ||
+                        r.$htisr().bit_is_set() ||
+                        r.$teisr().bit_is_set() ||
+                        r.$gisr().bit_is_set()
+                    } {}
                 }
 
                 #[inline(always)]
@@ -291,6 +298,7 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$tcif().set_bit());
+                    while dma.$isr.read().$tcisr().bit_is_set() {}
                 }
 
                 #[inline(always)]
@@ -299,6 +307,7 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$teif().set_bit());
+                    while dma.$isr.read().$teisr().bit_is_set() {}
                 }
 
                 #[inline(always)]
@@ -360,12 +369,17 @@ macro_rules! bdma_stream {
                 #[inline(always)]
                 fn disable_interrupts(&mut self) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w
-                                                   .tcie().clear_bit()
-                                                   .teie().clear_bit()
-                                                   .htie().clear_bit()
-                    );
+                    let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
+                    dmacr.modify(|_, w| w
+                        .tcie().clear_bit()
+                        .teie().clear_bit()
+                        .htie().clear_bit());
+                    while {
+                        let r = dmacr.read();
+                        r.tcie().bit_is_set() ||
+                        r.teie().bit_is_set() ||
+                        r.htie().bit_is_set()
+                    } {}
                 }
 
                 #[inline(always)]
@@ -396,15 +410,21 @@ macro_rules! bdma_stream {
                 #[inline(always)]
                 fn set_transfer_complete_interrupt_enable(&mut self, transfer_complete_interrupt: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
+                    let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
+                    dmacr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
+                    if !transfer_complete_interrupt {
+                        while dmacr.read().tcie().bit_is_set() {}
+                    }
                 }
 
                 #[inline(always)]
                 fn set_transfer_error_interrupt_enable(&mut self, transfer_error_interrupt: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
+                    let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
+                    dmacr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
+                    if !transfer_error_interrupt {
+                        while dmacr.read().teie().bit_is_set() {}
+                    }
                 }
             }
 
@@ -412,8 +432,11 @@ macro_rules! bdma_stream {
                 #[inline(always)]
                 fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
+                    let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
+                    dmacr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
+                    if !half_transfer_interrupt {
+                        while dmacr.read().htie().bit_is_set() {}
+                    }
                 }
 
                 #[inline(always)]
@@ -429,6 +452,7 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$htif().set_bit());
+                    while dma.$isr.read().$htisr().bit_is_set() {}
                 }
 
                 #[inline(always)]
@@ -571,6 +595,7 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$htif().set_bit());
+                    while dma.$isr.read().$htisr().bit_is_set() {}
                 }
 
                 #[inline(always)]
@@ -583,8 +608,11 @@ macro_rules! bdma_stream {
                 #[inline(always)]
                 pub fn set_half_transfer_interrupt_enable(&mut self, half_transfer_interrupt: bool) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.ch[Self::NUMBER].cr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
+                    let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
+                    dmacr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
+                    if !half_transfer_interrupt {
+                        while dmacr.read().htie().bit_is_set() {}
+                    }
                 }
             }
         )+
@@ -594,14 +622,38 @@ macro_rules! bdma_stream {
 bdma_stream!(
     // Note: the field names start from one, unlike the RM where they start from
     // zero. May need updating if it gets fixed upstream.
-    (Stream0, 0, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1),
-    (Stream1, 1, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2),
-    (Stream2, 2, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3),
-    (Stream3, 3, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4),
-    (Stream4, 4, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5),
-    (Stream5, 5, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6),
-    (Stream6, 6, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7),
-    (Stream7, 7, ifcr, ctcif8, chtif8, cteif8, cgif8, isr, tcif8, htif8),
+    (
+        Stream0, 0, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1,
+        teif1, gif1
+    ),
+    (
+        Stream1, 1, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2,
+        teif2, gif2
+    ),
+    (
+        Stream2, 2, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3,
+        teif3, gif3
+    ),
+    (
+        Stream3, 3, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4,
+        teif4, gif4
+    ),
+    (
+        Stream4, 4, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5,
+        teif5, gif5
+    ),
+    (
+        Stream5, 5, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6,
+        teif6, gif6
+    ),
+    (
+        Stream6, 6, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7,
+        teif7, gif7
+    ),
+    (
+        Stream7, 7, ifcr, ctcif8, chtif8, cteif8, cgif8, isr, tcif8, htif8,
+        teif8, gif8
+    ),
 );
 
 /// Type alias for the DMA Request Multiplexer
