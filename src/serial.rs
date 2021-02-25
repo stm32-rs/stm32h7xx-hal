@@ -500,9 +500,7 @@ macro_rules! usart {
                     Ok(Serial { usart })
                 }
 
-                /// Enables the Rx DMA stream. If the DMA Rx is used, the
-                /// reference manual recommends that this is enabled before
-                /// enabling the DMA
+                /// Enables the Rx DMA stream.
                 pub fn enable_dma_rx(&mut self) {
                     self.usart.cr3.modify(|_, w| w.dmar().set_bit());
                 }
@@ -512,9 +510,7 @@ macro_rules! usart {
                     self.usart.cr3.modify(|_, w| w.dmar().clear_bit());
                 }
 
-                /// Enables the Tx DMA stream. If the DMA Tx is used, the
-                /// reference manual recommends that this is enabled after
-                /// enablign the DMA
+                /// Enables the Tx DMA stream.
                 pub fn enable_dma_tx(&mut self) {
                     self.usart.cr3.modify(|_, w| w.dmat().set_bit());
                 }
@@ -670,9 +666,7 @@ macro_rules! usart {
                     while cr1.read().rxneie().is_enabled() {}
                 }
 
-                /// Enables the Rx DMA stream. If the DMA Rx is used, the
-                /// reference manual recommends that this is enabled before
-                /// enabling the DMA
+                /// Enables the Rx DMA stream.
                 pub fn enable_dma_rx(&mut self) {
                     // unsafe: dmar bit accessed by Rx part only
                     unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmar().set_bit());
@@ -771,9 +765,7 @@ macro_rules! usart {
                     while cr1.read().txeie().is_enabled() {}
                 }
 
-                /// Enables the Tx DMA stream. If the DMA Tx is used, the
-                /// reference manual recommends that this is enabled after
-                /// enablign the DMA
+                /// Enables the Tx DMA stream.
                 pub fn enable_dma_tx(&mut self) {
                     // unsafe: dmat bit accessed by Tx part only
                     unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmat().set_bit());

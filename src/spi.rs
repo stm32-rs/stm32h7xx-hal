@@ -600,7 +600,7 @@ macro_rules! spi {
 
                     /// Enables the Tx DMA stream. If the DMA Tx is used, the
                     /// reference manual recommends that this is enabled after
-                    /// enablign the DMA
+                    /// enabling the DMA
                     pub fn enable_dma_tx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
                     }
