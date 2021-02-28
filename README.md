@@ -29,19 +29,19 @@ Supported Configurations
 
 * __stm32h743v__ (Revision V: stm32h743, stm32h742, stm32h750)
 * __stm32h753v__
-* __stm32h743__ (Revision Y: stm32h743, stm32h742, stm32h750)
-* __stm32h753__
 * __stm32h747cm7__ (stm32h747, stm32h757)
 * __stm32h7b3__
 * __stm32h7b0__
 * __stm32h7a3__
 
-#### Single core parts (Cortex M7)
-In 2019 ST released hardware Revision V of the stm32h742, stm32h743,
-stm32h750 and stm32h753 ([eevblog][]). This hardware revision makes
-breaking hardware changes, documented in [AN5312][]. If you have a
-device purchased since mid-2019, you likely want to use the feature
-gate ending in a __v__.
+#### Old revision STM32H742/743/750/753 parts
+
+In 2019 ST released hardware Revision V of the stm32h742, stm32h743, stm32h750
+and stm32h753 ([eevblog][]). This hardware revision makes breaking hardware
+changes, documented in [AN5312][]. If you have a device purchased before
+mid-2019, check the revision code on your device. Parts from the previous
+revision (Revision Y) are supported by feature gates without the 'v'
+suffix. (__stm32h743__, __stm32h753__)
 
 #### Dual core parts (Cortex M7 + Cortex M4)
 On dual core parts, currently only the Cortex M7 core is supported.
