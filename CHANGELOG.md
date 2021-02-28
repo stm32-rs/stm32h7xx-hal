@@ -2,15 +2,29 @@
 
 ## [Unreleased]
 
-* **Breaking**: Add new/new_unchecked methods for USB structures, remove pin
-  types from structure
-* Add support for USB1_ULPI #184
+## [v0.9.0] 2021-03-12
+
 * Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with
   v0.7.0+][cm6-changelog] except for CBP, ITM, MPU, NVIC, SCB. If you have
   problems, run `cargo update` to try to switch to `cortex-m` v0.7 in other
   dependencies. Something like `cargo tree` is very useful to track down
   remaining uses of `cortex-m` v0.6.
+* **Breaking**: Add new/new_unchecked methods for USB structures, remove pin
+  types from structure
+* Add support for USB1_ULPI #184
+* Add support for LTDC #81
+* Add support for CRC #199
+* Add support for DMA1, DMA2, BDMA #153
 * pac: Upgrade to stm32-rs v0.13.0
+* spi: Update CS management #159
+* spi: Support 32-bit frames #200
+* qspi: Sample on falling edges #161
+* qspi: Add configuration support #176
+* timers: Add `DelayFromCountDownTimer` #170
+* ethernet: update smoltcp v0.6 -> v0.7
+* usb: add support for external ULPI PHYs #184
+* rtc: fix unlisten method
+* serial: add clear_idle and is_busy methods #201
 
 [cm6-changelog]: (https://github.com/rust-embedded/cortex-m/blob/master/CHANGELOG.md#v065---2021-01-24)
 
@@ -111,7 +125,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...HEAD
+[v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...v0.7.0

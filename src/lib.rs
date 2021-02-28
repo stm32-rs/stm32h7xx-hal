@@ -25,6 +25,7 @@
 //! * [Serial Audio Interface](crate::sai)
 //! * [Quad SPI](crate::qspi) Feature gate `qspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
+//! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //!
 //! External Memory
 //!
