@@ -556,20 +556,13 @@ impl Qspi {
 
     /// Disable interrupts for the given `event`
     pub fn unlisten(&mut self, event: Event) {
-        match event {
-            Event::FIFOThreashold => {
-                self.rb.cr.modify(|_, w| w.ftie().clear_bit());
-                while self.rb.cr.read().ftie().bit_is_set() {}
-            }
-            Event::Complete => {
-                self.rb.cr.modify(|_, w| w.tcie().clear_bit());
-                while self.rb.cr.read().tcie().bit_is_set() {}
-            }
-            Event::Error => {
-                self.rb.cr.modify(|_, w| w.teie().clear_bit());
-                while self.rb.cr.read().teie().bit_is_set() {}
-            }
-        }
+        self.rb.cr.modify(|_, w| match event {
+            Event::FIFOThreashold => w.ftie().clear_bit(),
+            Event::Complete => w.tcie().clear_bit(),
+            Event::Error => w.teie().clear_bit(),
+        });
+        let _ = self.rb.cr.read();
+        let _ = self.rb.cr.read(); // Delay 2 peripheral clocks
     }
 
     fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {

@@ -283,13 +283,8 @@ macro_rules! bdma_stream {
                                     .$teif().set_bit() //Clear transfer error interrupt flag
                                     .$gif().set_bit() //Clear global interrupt flag
                     );
-                    while {
-                        let r = dma.$isr.read();
-                        r.$tcisr().bit_is_set() ||
-                        r.$htisr().bit_is_set() ||
-                        r.$teisr().bit_is_set() ||
-                        r.$gisr().bit_is_set()
-                    } {}
+                    let _ = dma.$isr.read();
+                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -298,7 +293,8 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$tcif().set_bit());
-                    while dma.$isr.read().$tcisr().bit_is_set() {}
+                    let _ = dma.$isr.read();
+                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -307,7 +303,8 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$teif().set_bit());
-                    while dma.$isr.read().$teisr().bit_is_set() {}
+                    let _ = dma.$isr.read();
+                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -374,12 +371,8 @@ macro_rules! bdma_stream {
                         .tcie().clear_bit()
                         .teie().clear_bit()
                         .htie().clear_bit());
-                    while {
-                        let r = dmacr.read();
-                        r.tcie().bit_is_set() ||
-                        r.teie().bit_is_set() ||
-                        r.htie().bit_is_set()
-                    } {}
+                    let _ = dmacr.read();
+                    let _ = dmacr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -412,9 +405,8 @@ macro_rules! bdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
                     dmacr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
-                    if !transfer_complete_interrupt {
-                        while dmacr.read().tcie().bit_is_set() {}
-                    }
+                    let _ = dmacr.read();
+                    let _ = dmacr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -422,9 +414,8 @@ macro_rules! bdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
                     dmacr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
-                    if !transfer_error_interrupt {
-                        while dmacr.read().teie().bit_is_set() {}
-                    }
+                    let _ = dmacr.read();
+                    let _ = dmacr.read(); // Delay 2 peripheral clocks
                 }
             }
 
@@ -434,9 +425,8 @@ macro_rules! bdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
                     dmacr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
-                    if !half_transfer_interrupt {
-                        while dmacr.read().htie().bit_is_set() {}
-                    }
+                    let _ = dmacr.read();
+                    let _ = dmacr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -452,7 +442,8 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$htif().set_bit());
-                    while dma.$isr.read().$htisr().bit_is_set() {}
+                    let _ = dma.$isr.read();
+                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -595,7 +586,8 @@ macro_rules! bdma_stream {
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$htif().set_bit());
-                    while dma.$isr.read().$htisr().bit_is_set() {}
+                    let _ = dma.$isr.read();
+                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -610,9 +602,8 @@ macro_rules! bdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let dmacr = &unsafe { &*I::ptr() }.ch[Self::NUMBER].cr;
                     dmacr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
-                    if !half_transfer_interrupt {
-                        while dmacr.read().htie().bit_is_set() {}
-                    }
+                    let _ = dmacr.read();
+                    let _ = dmacr.read(); // Delay 2 peripheral clocks
                 }
             }
         )+

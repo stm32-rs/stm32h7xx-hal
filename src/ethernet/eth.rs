@@ -805,10 +805,8 @@ pub unsafe fn interrupt_handler() {
     eth_dma
         .dmacsr
         .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
-    while {
-        let r = eth_dma.dmacsr.read();
-        r.nis().bit_is_set() || r.ri().bit_is_set() || r.ti().bit_is_set()
-    } {}
+    let _ = eth_dma.dmacsr.read();
+    let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
 
 pub unsafe fn enable_interrupt() {
