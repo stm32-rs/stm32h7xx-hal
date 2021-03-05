@@ -604,11 +604,19 @@ macro_rules! spi {
                         self.spi.cfg1.modify(|_,w| w.rxdmaen().enabled());
                     }
 
+                    pub fn disable_dma_rx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.rxdmaen().disabled());
+                    }
+
                     /// Enables the Tx DMA stream. If the DMA Tx is used, the
                     /// reference manual recommends that this is enabled after
                     /// enabling the DMA
                     pub fn enable_dma_tx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
+                    }
+
+                    pub fn disable_dma_tx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.txdmaen().disabled());
                     }
 
                     /// Deconstructs the SPI peripheral and returns the component parts.
