@@ -43,7 +43,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(400.mhz())
+        .sys_ck(200.mhz())
         .pll1_q_ck(200.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 

@@ -45,7 +45,7 @@ fn main() -> ! {
     // RCC
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(400.mhz())
+        .sys_ck(200.mhz())
         // D3 / SRD domain
         .hclk(200.mhz()) // rcc_hclk4
         .pclk4(50.mhz()) // rcc_pclk4
