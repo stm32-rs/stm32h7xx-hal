@@ -352,7 +352,7 @@ uart_pins! {
 
 /// Serial abstraction
 pub struct Serial<USART> {
-    usart: USART,
+    pub(crate) usart: USART,
 }
 
 /// Serial receiver
@@ -500,6 +500,26 @@ macro_rules! usart {
                     Ok(Serial { usart })
                 }
 
+                /// Enables the Rx DMA stream.
+                pub fn enable_dma_rx(&mut self) {
+                    self.usart.cr3.modify(|_, w| w.dmar().set_bit());
+                }
+
+                /// Disables the Rx DMA stream.
+                pub fn disable_dma_rx(&mut self) {
+                    self.usart.cr3.modify(|_, w| w.dmar().clear_bit());
+                }
+
+                /// Enables the Tx DMA stream.
+                pub fn enable_dma_tx(&mut self) {
+                    self.usart.cr3.modify(|_, w| w.dmat().set_bit());
+                }
+
+                /// Disables the Tx DMA stream.
+                pub fn disable_dma_tx(&mut self) {
+                    self.usart.cr3.modify(|_, w| w.dmat().clear_bit());
+                }
+
                 /// Starts listening for an interrupt event
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -645,6 +665,28 @@ macro_rules! usart {
                     cr1.modify(|_, w| w.rxneie().disabled());
                     while cr1.read().rxneie().is_enabled() {}
                 }
+
+                /// Enables the Rx DMA stream.
+                pub fn enable_dma_rx(&mut self) {
+                    // unsafe: dmar bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmar().set_bit());
+                }
+
+                /// Disables the Rx DMA stream.
+                pub fn disable_dma_rx(&mut self) {
+                    // unsafe: dmar bit accessed by Rx part only
+                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmar().clear_bit());
+                }
+
+                /// Return true if the line idle status is set
+                pub fn is_idle(& self) -> bool {
+                    unsafe { (*$USARTX::ptr()).isr.read().idle().bit_is_set() }
+                }
+
+                /// Return true if the rx register is not empty (and can be read)
+                pub fn is_rxne(& self) -> bool {
+                    unsafe { (*$USARTX::ptr()).isr.read().rxne().bit_is_set() }
+                }
             }
 
             impl serial::Write<u8> for Serial<$USARTX> {
@@ -721,6 +763,23 @@ macro_rules! usart {
                     let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
                     cr1.modify(|_, w| w.txeie().disabled());
                     while cr1.read().txeie().is_enabled() {}
+                }
+
+                /// Enables the Tx DMA stream.
+                pub fn enable_dma_tx(&mut self) {
+                    // unsafe: dmat bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmat().set_bit());
+                }
+
+                /// Disables the Tx DMA stream.
+                pub fn disable_dma_tx(&mut self) {
+                    // unsafe: dmat bit accessed by Tx part only
+                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmat().clear_bit());
+                }
+
+                /// Return true if the tx register is empty (and can accept data)
+                pub fn is_txe(& self) -> bool {
+                    unsafe { (*$USARTX::ptr()).isr.read().txe().bit_is_set() }
                 }
             }
         )+
