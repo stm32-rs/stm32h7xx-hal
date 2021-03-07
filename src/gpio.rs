@@ -349,7 +349,8 @@ macro_rules! gpio {
                         let pr1 = &(*EXTI::ptr()).c2pr1;
 
                         pr1.write(|w| w.bits(1 << self.i));
-                        while pr1.read().bits() & (1 << self.i) != 0 {}
+                        let _ = pr1.read();
+                        let _ = pr1.read(); // Delay 2 peripheral clocks
                     }
                 }
             }
@@ -796,8 +797,9 @@ macro_rules! gpio {
                             let pr1 = &(*(EXTI::ptr())).c2pr1;
 
                             pr1.write(|w| w.bits(1 << $i));
-                            while pr1.read().bits() & (1 << $i) != 0 {}
-                        };
+                            let _ = pr1.read();
+                            let _ = pr1.read(); // Delay 2 peripheral clocks
+                        }
                     }
                 }
             )+

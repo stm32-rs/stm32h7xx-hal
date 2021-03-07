@@ -355,59 +355,35 @@ macro_rules! i2c {
 
                 /// Stop listening for `event`
                 pub fn unlisten(&mut self, event: Event) {
-                    match event {
-                        Event::Transmit => {
-                            self.i2c.cr1.modify(|_, w| w.txie().clear_bit());
-                            while self.i2c.cr1.read().txie().bit_is_set() {}
+                    self.i2c.cr1.modify(|_,w| {
+                        match event {
+                            Event::Transmit => w.txie().clear_bit(),
+                            Event::Receive => w.rxie().clear_bit(),
+                            Event::TransferComplete => w.tcie().clear_bit(),
+                            Event::Stop => w.stopie().clear_bit(),
+                            Event::Errors => w.errie().clear_bit(),
+                            Event::NotAcknowledge => w.nackie().clear_bit(),
                         }
-                        Event::Receive => {
-                            self.i2c.cr1.modify(|_, w| w.rxie().clear_bit());
-                            while self.i2c.cr1.read().rxie().bit_is_set() {}
-                        }
-                        Event::TransferComplete => {
-                            self.i2c.cr1.modify(|_, w| w.tcie().clear_bit());
-                            while self.i2c.cr1.read().tcie().bit_is_set() {}
-                        }
-                        Event::Stop => {
-                            self.i2c.cr1.modify(|_, w| w.stopie().clear_bit());
-                            while self.i2c.cr1.read().stopie().bit_is_set() {}
-                        }
-                        Event::Errors => {
-                            self.i2c.cr1.modify(|_, w| w.errie().clear_bit());
-                            while self.i2c.cr1.read().errie().bit_is_set() {}
-                        }
-                        Event::NotAcknowledge => {
-                            self.i2c.cr1.modify(|_, w| w.nackie().clear_bit());
-                            while self.i2c.cr1.read().nackie().bit_is_set() {}
-                        }
-                    }
+                    });
+                    let _ = self.i2c.cr1.read();
+                    let _ = self.i2c.cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears interrupt flag for `event`
                 pub fn clear_irq(&mut self, event: Event) {
-                    match event {
-                        Event::Stop => {
-                            self.i2c.icr.write(|w| w.stopcf().set_bit());
-                            while self.i2c.isr.read().stopf().bit_is_set() {}
-                        }
-                        Event::Errors => {
-                            self.i2c.icr.write(|w| w
+                    self.i2c.icr.write(|w| {
+                        match event {
+                            Event::Stop => w.stopcf().set_bit(),
+                            Event::Errors => w
                                 .berrcf().set_bit()
                                 .arlocf().set_bit()
-                                .ovrcf().set_bit());
-                            while {
-                                let r = self.i2c.isr.read();
-                                r.berr().bit_is_set() ||
-                                r.arlo().bit_is_set() ||
-                                r.ovr().bit_is_set()
-                            } {}
+                                .ovrcf().set_bit(),
+                            Event::NotAcknowledge => w.nackcf().set_bit(),
+                            _ => w
                         }
-                        Event::NotAcknowledge => {
-                            self.i2c.icr.write(|w| w.nackcf().set_bit());
-                            while self.i2c.isr.read().nackf().bit_is_set() {}
-                        }
-                        _ => {}
-                    }
+                    });
+                    let _ = self.i2c.isr.read();
+                    let _ = self.i2c.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Releases the I2C peripheral

@@ -426,7 +426,8 @@ macro_rules! hal {
                         Event::TimeOut => {
                             // Disable update event interrupt
                             self.tim.dier.write(|w| w.uie().clear_bit());
-                            while self.tim.dier.read().uie().bit_is_set() {}
+                            let _ = self.tim.dier.read();
+                            let _ = self.tim.dier.read(); // Delay 2 peripheral clocks
                         }
                     }
                 }
@@ -442,7 +443,8 @@ macro_rules! hal {
                         // Clears timeout event
                         w.uif().clear_bit()
                     });
-                    while self.tim.sr.read().uif().bit_is_set() {}
+                    let _ = self.tim.sr.read();
+                    let _ = self.tim.sr.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Releases the TIM peripheral
@@ -573,8 +575,8 @@ macro_rules! lptim_hal {
                 pub fn reset_counter(&mut self) {
                     // Counter Reset
                     self.tim.cr.write(|w| w.countrst().set_bit().enable().enabled());
-
-                    while self.tim.cr.read().countrst().bit_is_set() {}
+                    let _ = self.tim.cr.read();
+                    let _ = self.tim.cr.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Disables the LPTIM peripheral
@@ -625,7 +627,8 @@ macro_rules! lptim_hal {
                         Event::TimeOut => {
                             // Disable autoreload match interrupt
                             self.tim.ier.modify(|_, w| w.arrmie().clear_bit());
-                            while self.tim.ier.read().arrmie().bit_is_set() {}
+                            let _ = self.tim.ier.read();
+                            let _ = self.tim.ier.read(); // Delay 2 peripheral clocks
                         }
                     }
                 }

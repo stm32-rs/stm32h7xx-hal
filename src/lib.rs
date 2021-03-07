@@ -152,6 +152,8 @@ pub mod fmc;
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
+#[cfg(all(feature = "device-selected", feature = "ltdc"))]
+pub mod ltdc;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
 #[cfg(feature = "device-selected")]

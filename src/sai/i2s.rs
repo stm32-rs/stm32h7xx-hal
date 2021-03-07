@@ -5,7 +5,7 @@
 use core::convert::TryInto;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::sai::{GetClkSAI, Sai, SaiChannel, ALL_IRQ_FLAGS_BITS, INTERFACE};
+use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};
 use crate::stm32;
 use crate::time::Hertz;
 
@@ -711,7 +711,7 @@ fn i2s_config_channel(
 }
 
 fn enable_ch(audio_ch: &CH) {
-    unsafe { audio_ch.clrfr.write(|w| w.bits(ALL_IRQ_FLAGS_BITS)) };
+    unsafe { audio_ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS)) };
     audio_ch.cr2.modify(|_, w| w.fflush().flush());
     audio_ch.cr1.modify(|_, w| w.saien().enabled());
 }

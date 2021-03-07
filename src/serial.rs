@@ -539,18 +539,17 @@ macro_rules! usart {
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().disabled());
-                            while self.usart.cr1.read().rxneie().is_enabled() {}
+                            self.usart.cr1.modify(|_, w| w.rxneie().disabled())
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().disabled());
-                            while self.usart.cr1.read().txeie().is_enabled() {}
+                            self.usart.cr1.modify(|_, w| w.txeie().disabled())
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().disabled());
-                            while self.usart.cr1.read().idleie().is_enabled() {}
+                            self.usart.cr1.modify(|_, w| w.idleie().disabled())
                         },
                     }
+                    let _ = self.usart.cr1.read();
+                    let _ = self.usart.cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Return true if the line idle status is set
@@ -663,7 +662,8 @@ macro_rules! usart {
                     // unsafe: rxneie bit accessed by Rx part only
                     let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
                     cr1.modify(|_, w| w.rxneie().disabled());
-                    while cr1.read().rxneie().is_enabled() {}
+                    let _ = cr1.read();
+                    let _ = cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Enables the Rx DMA stream.
@@ -762,7 +762,8 @@ macro_rules! usart {
                     // unsafe: txeie bit accessed by Tx part only
                     let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
                     cr1.modify(|_, w| w.txeie().disabled());
-                    while cr1.read().txeie().is_enabled() {}
+                    let _ = cr1.read();
+                    let _ = cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Enables the Tx DMA stream.
