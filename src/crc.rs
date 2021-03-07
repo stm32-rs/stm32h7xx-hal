@@ -6,6 +6,21 @@ use core::fmt;
 use crate::rcc::{rec, ResetEnable};
 use crate::stm32::{crc, CRC};
 
+pub trait CrcExt {
+    /// Enable the CRC unit.
+    fn crc(self, prec: rec::Crc) -> Crc;
+}
+
+impl CrcExt for CRC {
+    fn crc(self, prec: rec::Crc) -> Crc {
+        prec.enable().reset();
+        Crc {
+            reg: self,
+            output_xor: 0,
+        }
+    }
+}
+
 /// The hardware CRC unit.
 pub struct Crc {
     reg: CRC,
@@ -13,15 +28,6 @@ pub struct Crc {
 }
 
 impl Crc {
-    /// Enable the CRC unit.
-    pub fn enable(crc: CRC, prec: rec::Crc) -> Self {
-        prec.enable().reset();
-        Self {
-            reg: crc,
-            output_xor: 0,
-        }
-    }
-
     /// Set the unit's configuration, discarding previous state.
     pub fn set_config(&mut self, config: &Config) {
         self.output_xor = config.output_xor & config.poly.xor_mask();

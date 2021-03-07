@@ -89,6 +89,7 @@ fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
+crc = []
 rt = ["stm32h7/rt"]
 usb_hs = ["synopsys-usb-otg", "synopsys-usb-otg/hs"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "rm0433"]
@@ -184,4 +185,4 @@ required-features = ["rm0433","rt"]
 
 [[example]]
 name = "crc"
-required-features = ["rt"]
+required-features = ["crc", "rt"]

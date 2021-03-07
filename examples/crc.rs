@@ -38,7 +38,7 @@ fn main() -> ! {
     info!("stm32h7xx-hal example - CRC");
     info!("");
 
-    let mut crc = Crc::enable(dp.CRC, ccdr.peripheral.CRC);
+    let mut crc = dp.CRC.crc(ccdr.peripheral.CRC);
     // feed standard check data and ensure result is expected
     // the default config is CRC32 MPEG2
     assert_eq!(crc.update_and_read(CHECK_DATA), 0x0376_E6E7, "MPEG2 failed");
