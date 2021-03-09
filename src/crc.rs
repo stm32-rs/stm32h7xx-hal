@@ -91,16 +91,41 @@ impl Crc {
     /// Read the CRC without resetting the unit.
     #[inline]
     pub fn read_crc(&self) -> u32 {
-        self.reg.dr().read().dr().bits() ^ self.output_xor
+        self.read_crc_no_xor() ^ self.output_xor
+    }
+
+    /// Read the state of the CRC calculation. When used as the initial value
+    /// of an otherwise identical CRC config, this allows resuming calculation
+    /// from the current state.
+    ///
+    /// This is equivalent to [`read_crc()`](Self::read_crc) in the case of an
+    /// algorithm that does not apply an output XOR or reverse the output bits.
+    pub fn read_state(&self) -> u32 {
+        let state = self.read_crc_no_xor();
+        if self.reg.cr.read().rev_out().is_reversed() {
+            state.reverse_bits()
+        } else {
+            state
+        }
+    }
+
+    /// Read the CRC without applying output XOR.
+    #[inline(always)]
+    fn read_crc_no_xor(&self) -> u32 {
+        self.reg.dr().read().dr().bits()
     }
 
     /// Write the independent data register. The IDR can be used as
     /// temporary storage. It is not cleared on CRC hash reset.
+    ///
+    /// The IDR is not involved with CRC calculation.
     pub fn set_idr(&mut self, value: u32) {
         self.reg.idr.write(|w| w.idr().bits(value));
     }
 
     /// Get the current value of the independent data register.
+    ///
+    /// The IDR is not involved with CRC calculation.
     pub fn get_idr(&self) -> u32 {
         self.reg.idr.read().idr().bits()
     }

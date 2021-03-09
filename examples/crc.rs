@@ -68,9 +68,28 @@ fn main() -> ! {
     }
     info!("Si7020 serial number CRC8 check passed");
 
+    state_preservation_example(&mut crc);
+
     info!("Done.");
 
     loop {
         cortex_m::asm::nop()
     }
+}
+
+/// A basic example showing how to save and restore the state of the CRC unit,
+/// potentially useful in the case of a long-running CRC which is interrupted
+/// by a higher-priority calculation.
+fn state_preservation_example(crc: &mut Crc) {
+    let config = Config::new().reflect(true).output_xor(0xFFFF_FFFF);
+    crc.set_config(&config);
+    crc.update(b"123456");
+    let state = crc.read_state(); // store ongoing calculation
+
+    crc.set_config(&Config::new()); // perform unrelated CRC
+    assert_eq!(crc.update_and_read(CHECK_DATA), 0x0376_E6E7);
+
+    // set previously ongoing CRC as the initial value and apply config
+    crc.set_config(&config.initial_value(state));
+    assert_eq!(crc.update_and_read(b"789"), 0xCBF4_3926); // finish CRC, check result
 }
