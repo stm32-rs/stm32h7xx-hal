@@ -442,6 +442,12 @@ macro_rules! spi {
                 .bits(16 - 1) // 16 bit frames
         });
     };
+    (DSIZE, $spi:ident, u32) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(32 - 1) // 32 bit frames
+        });
+    };
 	($($SPIX:ident: ($spiX:ident, $Rec:ident, $pclkX:ident)
        => ($($TY:ident),+),)+) => {
 	    $(
@@ -598,11 +604,19 @@ macro_rules! spi {
                         self.spi.cfg1.modify(|_,w| w.rxdmaen().enabled());
                     }
 
+                    pub fn disable_dma_rx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.rxdmaen().disabled());
+                    }
+
                     /// Enables the Tx DMA stream. If the DMA Tx is used, the
                     /// reference manual recommends that this is enabled after
                     /// enabling the DMA
                     pub fn enable_dma_tx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
+                    }
+
+                    pub fn disable_dma_tx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.txdmaen().disabled());
                     }
 
                     /// Deconstructs the SPI peripheral and returns the component parts.
@@ -884,12 +898,12 @@ macro_rules! spi6sel {
 }
 
 spi! {
-    SPI1: (spi1, Spi1, pclk2) => (u8, u16),
-    SPI2: (spi2, Spi2, pclk1) => (u8, u16),
-    SPI3: (spi3, Spi3, pclk1) => (u8, u16),
-    SPI4: (spi4, Spi4, pclk2) => (u8, u16),
-    SPI5: (spi5, Spi5, pclk2) => (u8, u16),
-    SPI6: (spi6, Spi6, pclk2) => (u8, u16),
+    SPI1: (spi1, Spi1, pclk2) => (u8, u16, u32),
+    SPI2: (spi2, Spi2, pclk1) => (u8, u16, u32),
+    SPI3: (spi3, Spi3, pclk1) => (u8, u16, u32),
+    SPI4: (spi4, Spi4, pclk2) => (u8, u16, u32),
+    SPI5: (spi5, Spi5, pclk2) => (u8, u16, u32),
+    SPI6: (spi6, Spi6, pclk2) => (u8, u16, u32),
 }
 
 spi123sel! {
