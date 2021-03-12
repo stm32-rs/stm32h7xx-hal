@@ -60,7 +60,7 @@ fn main() -> ! {
         pin_dm,
         pin_dp,
         ccdr.peripheral.USB1OTG,
-        ccdr.clocks.hclk(),
+        &ccdr.clocks,
     );
 
     let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });

@@ -46,7 +46,7 @@ fn main() -> ! {
         gpiob.pb14.into_alternate_af12(),
         gpiob.pb15.into_alternate_af12(),
         ccdr.peripheral.USB1OTG,
-        ccdr.clocks.hclk(),
+        &ccdr.clocks,
     );
 
     let usb2 = USB2::new(
@@ -56,7 +56,7 @@ fn main() -> ! {
         gpioa.pa11.into_alternate_af10(),
         gpioa.pa12.into_alternate_af10(),
         ccdr.peripheral.USB2OTG,
-        ccdr.clocks.hclk(),
+        &ccdr.clocks,
     );
 
     // Port 1

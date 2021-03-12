@@ -41,9 +41,9 @@ impl USB1 {
         _pin_dm: PB14<Alternate<AF12>>,
         _pin_dp: PB15<Alternate<AF12>>,
         prec: rcc::rec::Usb1Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
-        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, hclk)
+        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     #[cfg(feature = "rm0455")]
     pub fn new(
@@ -53,23 +53,23 @@ impl USB1 {
         _pin_dm: PA11<Alternate<AF10>>,
         _pin_dp: PA12<Alternate<AF10>>,
         prec: rcc::rec::Usb1Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
-        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, hclk)
+        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
         prec: rcc::rec::Usb1Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
         USB1 {
             usb_global,
             usb_device,
             usb_pwrclk,
             prec,
-            hclk,
+            hclk: clocks.hclk(),
         }
     }
 }
@@ -91,23 +91,23 @@ impl USB2 {
         _pin_dm: PA11<Alternate<AF10>>,
         _pin_dp: PA12<Alternate<AF10>>,
         prec: rcc::rec::Usb2Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
-        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, hclk)
+        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
         usb_global: stm32::OTG2_HS_GLOBAL,
         usb_device: stm32::OTG2_HS_DEVICE,
         usb_pwrclk: stm32::OTG2_HS_PWRCLK,
         prec: rcc::rec::Usb2Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
         USB2 {
             usb_global,
             usb_device,
             usb_pwrclk,
             prec,
-            hclk,
+            hclk: clocks.hclk(),
         }
     }
 }
@@ -223,23 +223,23 @@ impl USB1_ULPI {
         _ulpi_d6: PB13<Alternate<AF10>>,
         _ulpi_d7: PB5<Alternate<AF10>>,
         prec: rcc::rec::Usb1Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
-        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, hclk)
+        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
         prec: rcc::rec::Usb1Otg,
-        hclk: Hertz,
+        clocks: &rcc::CoreClocks,
     ) -> Self {
         USB1_ULPI {
             usb_global,
             usb_device,
             usb_pwrclk,
             prec,
-            hclk,
+            hclk: clocks.hclk(),
         }
     }
 }
