@@ -122,5 +122,5 @@ macro_rules! rng_core {
 rng_core!(u32, u16, u8);
 
 // Test host may have > 32-bit types, which we don't consider.
-#[cfg(not(test))]
+#[cfg(target_pointer_width = "32")]
 rng_core!(usize);
