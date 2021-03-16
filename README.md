@@ -67,7 +67,7 @@ To use stm32h7xx-hal as a dependency in a standalone project the
 target device feature must be specified in the `Cargo.toml` file:
 ```toml
 [dependencies]
-cortex-m = "0.6.2"
+cortex-m = "0.7.1"
 cortex-m-rt = "0.6.12"
 stm32h7xx-hal = {version = "0.9.0", features = ["stm32h743v","rt"]}
 ```
