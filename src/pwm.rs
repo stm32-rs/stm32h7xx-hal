@@ -19,7 +19,7 @@
 //! ```
 //!
 //! To see which pins can be used with which timers, see your device datasheet or see which pins implement the [Pins](trait.Pins.html) trait.
-//! 
+//!
 //! Then call the `pwm` function on the corresponding timer:
 //!
 //! ```
@@ -102,7 +102,7 @@
 //! ## Fault (Break) inputs
 //!
 //! The [PwmBuilder::with_break_pin](struct.PwmBuilder.html#method.with_break_pin) method emables break/fault functionality as described in the reference manual.
-//! 
+//!
 //! The [PwmControl](struct.PwmControl.html) will then implement [FaultMonitor](trait.FaultMonitor.html) which can be used to monitor and control the fault status.
 //!
 //! If the break input becomes active, all PWM will be stopped.
@@ -136,17 +136,17 @@
 //! ## PWM channel polarity
 //!
 //! A PWM channel is active or inactive based on the duty cycle, alignment, etc. However, the actual GPIO signal level that represents active vs inactive is configurable.
-//! 
+//!
 //! The [into_active_low](struct.Pwm.html#method.into_active_low) and [into_active_high](struct.Pwm.html#method.into_active_high) methods set the active signal level to low (VSS) or high (VDD).
 //!
 //! The complementary output is active when the regular output is inactive. The active signal level of the complementary output is set by the [into_comp_active_low](struct.Pwm.html#method.into_comp_active_low), and [into_comp_active_high](struct.Pwm.html#method.into_comp_active_high) methods.
-//! 
+//!
 //! ## Deadtime
 //!
 //! All channels on a given timer share the same deadtime setting as set by [PwmBuilder::with_deadtime](struct.PwmBuilder.html#method.with_deadtime)
 //!
 //! PWM channels with complementary outputs can have deadtime added to the signal. Dead time is used to prevent cross-conduction in some power electronics topologies.
-//! 
+//!
 //! With complementary outputs and dead time enabled on a PWM channel, when the regular output goes inactive (high or low based on into_active_high/into_active_low), the complementary output remains inactive until the deadtime passes.
 //! Similarily, when the complementary output goes inactive, the regular output waits until the deadtime passes before it goes active.
 //!
@@ -968,6 +968,7 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
 pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
+    /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
     fn pwm<PINS, T, U, V>(
         self,
         _pins: PINS,
@@ -1037,8 +1038,7 @@ macro_rules! tim_hal {
                 prec.enable().reset();
 
                 let clk = $TIMX::get_clk(clocks)
-                    .expect("Timer input clock not running!").0;
-                let freq = freq.0;
+                    .expect("Timer input clock not running!");
 
                 let (period, prescale) = match $bits {
                     16 => calculate_frequency_16bit(clk, freq, Alignment::Left),
@@ -1203,6 +1203,7 @@ macro_rules! tim_hal {
                 }
 
                 /// Set the PWM frequency; will overwrite the previous prescaler and period
+                /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
                 pub fn frequency<T: Into<Hertz>>(mut self, freq: T) -> Self {
                     self.count = CountSettings::Frequency( freq.into() );
 
@@ -1236,6 +1237,7 @@ macro_rules! tim_hal {
 
                 // Timers with complementary and deadtime and faults
                 $(
+                    /// Set the deadtime for complementary PWM channels of this timer
                     pub fn with_deadtime<T: Into<NanoSeconds>>(mut self, deadtime: T) -> Self {
                         // $bdtr is an Ident that only exists for timers with deadtime, so we can use it as a variable name to
                         // only implement this method for timers that support deadtime.
