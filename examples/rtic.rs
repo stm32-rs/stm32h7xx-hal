@@ -42,7 +42,7 @@ const APP: () = {
         // Button
         let mut button = gpioc.pc13.into_floating_input();
         button.make_interrupt_source(&mut ctx.device.SYSCFG);
-        button.trigger_on_edge(&mut ctx.device.EXTI, Edge::RISING);
+        button.trigger_on_edge(&mut ctx.device.EXTI, Edge::Rising);
         button.enable_interrupt(&mut ctx.device.EXTI);
 
         init::LateResources {

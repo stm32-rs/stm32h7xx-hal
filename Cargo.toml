@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -8,7 +8,8 @@ authors = ["Andrew Straw <strawman@astraw.com>",
            "Robert Jördens <rj@quartiq.de>",
            "Ryan Summers <ryan.summers@vertigo-designs.com>",
            "Matthew Meyer <mtthw.meyer@gmail.com>",
-           "Florian Jung <flo@windfisch.org>"]
+           "Florian Jung <flo@windfisch.org>",
+           "Matt Ickstadt <mattico8@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Hardware Abstraction Layer implementation for STM32H7 series microcontrollers"
@@ -20,14 +21,15 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "rtc", "ethernet"]
+features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "crc"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
 embedded-hal = "0.2.4"
-cortex-m = "^0.6.2"
+embedded-dma = "0.1.2"
+cortex-m = "^0.7.1"
 cortex-m-rt = "^0.6.12"
-stm32h7 = "^0.12.1"
+stm32h7 = "^0.13.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
 nb = "1.0.0"
@@ -35,10 +37,11 @@ paste = "1.0.1"
 bare-metal = "1.0.0"
 sdio-host = { version = "0.4", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
-synopsys-usb-otg = { version = "^0.2.2", features = ["cortex-m"], optional = true }
+synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
+embedded-display-controller = { version = "^0.1.0", optional = true }
 
 [dependencies.smoltcp]
-version = "0.6.0"
+version = "0.7.0"
 default-features = false
 features = ["ethernet", "proto-ipv4"]
 optional = true
@@ -56,7 +59,7 @@ cfg-if = "0.1.10"
 rtt-target = { version = "0.2.0", features = ["cortex-m"] }
 panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-cortex-m-log = { version = "~0.6", features = ["itm", "semihosting", "log-integration"] }
+cortex-m-log = { version = "~0.7.0", features = ["itm", "semihosting", "log-integration"] }
 panic-itm = { version = "~0.4.1" }
 panic-semihosting = { version = "0.5.3" }
 cortex-m-semihosting = { version = "0.3.5" }
@@ -64,7 +67,7 @@ usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 
 [dev-dependencies.smoltcp]
-version = "0.6.0"
+version = "0.7.0"
 default-features = false
 features = ["ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
@@ -80,11 +83,13 @@ dsi = []
 cm4 = []
 cm7 = []
 smps = []
+ltdc = ["embedded-display-controller"]
 quadspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
+crc = []
 rt = ["stm32h7/rt"]
 usb_hs = ["synopsys-usb-otg", "synopsys-usb-otg/hs"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "rm0433"]
@@ -171,5 +176,13 @@ name = "rtc"
 required-features = ["rt", "rtc"]
 
 [[example]]
-name = "sai-i2s-passthru"
+name = "sai_dma_passthru"
 required-features = ["rm0433"]
+
+[[example]]
+name = "spi-dma-rtic"
+required-features = ["rm0433","rt"]
+
+[[example]]
+name = "crc"
+required-features = ["crc", "rt"]

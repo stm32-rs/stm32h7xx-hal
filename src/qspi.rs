@@ -28,10 +28,11 @@
 //! ```
 //!
 //! # Limitations
-//! This driver currently only supports indirect operation mode of the QSPI interface. It
-//! implements an 8-bit address followed by an arbitrary transaction length. It supports using
-//! either bank 1 or bank 2 as well as a dual flash bank (in which all 8 IOs are used for the
-//! interface).
+//!
+//! This driver currently only supports indirect operation mode of the QSPI
+//! interface. Automatic polling or memory-mapped modes are not supported.  This
+//! driver support either bank 1 or bank 2 as well as a dual flash bank (in
+//! which all 8 IOs are used for the interface).
 use crate::{
     gpio::{
         gpioa::PA1,
@@ -49,7 +50,7 @@ use crate::{
     time::Hertz,
 };
 
-use core::ptr;
+use core::{marker::PhantomData, ptr};
 
 /// Represents operation modes of the QSPI interface.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -62,6 +63,31 @@ pub enum QspiMode {
 
     /// All four IO lines are used for transmit/receive.
     FourBit,
+}
+impl QspiMode {
+    pub(self) fn reg_value(&self) -> u8 {
+        match self {
+            QspiMode::OneBit => 1,
+            QspiMode::TwoBit => 2,
+            QspiMode::FourBit => 3,
+        }
+    }
+}
+
+/// Address sizes used by the QSPI interface
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum AddressSize {
+    EightBit,
+    SixteenBit,
+    TwentyFourBit,
+    ThirtyTwoBit,
+}
+
+/// Sampling mode for the QSPI interface
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum SamplingEdge {
+    Falling,
+    Rising,
 }
 
 /// Indicates an error with the QSPI peripheral.
@@ -77,6 +103,115 @@ pub enum Bank {
     One,
     Two,
     Dual,
+}
+
+/// A structure for specifying the QSPI configuration.
+///
+/// This structure uses builder semantics to generate the configuration.
+///
+/// ```
+/// let config = Config::new().dummy_cycles(1);
+/// ```
+#[derive(Copy, Clone)]
+pub struct Config {
+    mode: QspiMode,
+    frequency: Hertz,
+    address_size: AddressSize,
+    dummy_cycles: u8,
+    sampling_edge: SamplingEdge,
+    fifo_threshold: u8,
+}
+
+impl Config {
+    /// Create a default configuration for the QSPI interface.
+    ///
+    /// * Bus in 1-bit Mode
+    /// * 8-bit Address
+    /// * No dummy cycle
+    /// * Sample on falling edge
+    pub fn new<T: Into<Hertz>>(freq: T) -> Self {
+        Config {
+            mode: QspiMode::OneBit,
+            frequency: freq.into(),
+            address_size: AddressSize::EightBit,
+            dummy_cycles: 0,
+            sampling_edge: SamplingEdge::Falling,
+            fifo_threshold: 1,
+        }
+    }
+
+    /// Specify the operating mode of the QSPI bus. Can be a 1-bit, 2-bit or
+    /// 4-bit width.
+    ///
+    /// The operating mode can also be changed using the
+    /// [`configure_mode`](Qspi#method.configure_mode) method
+    pub fn mode(mut self, mode: QspiMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// Specify the size of the address phase
+    pub fn address_size(mut self, address_size: AddressSize) -> Self {
+        self.address_size = address_size;
+        self
+    }
+
+    /// Specify the number of dummy cycles in between the address and data
+    /// phases.
+    ///
+    /// Hardware supports 0-31 dummy cycles.
+    ///
+    /// # Note
+    ///
+    /// With zero dummy cycles, the QSPI peripheral will erroneously drive the
+    /// output pins for an extra half clock cycle before IO is swapped from
+    /// output to input. Refer to
+    /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+    pub fn dummy_cycles(mut self, cycles: u8) -> Self {
+        debug_assert!(cycles < 32, "Hardware only supports 0-31 dummy cycles");
+
+        self.dummy_cycles = cycles;
+        self
+    }
+
+    /// Specify the sampling edge for the QSPI receiver.
+    ///
+    /// # Note
+    ///
+    /// If zero dummy cycles are used, during read operations the QSPI
+    /// peripheral will erroneously drive the output pins for an extra half
+    /// clock cycle before IO is swapped from output to input. Refer to
+    /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+    ///
+    /// In this case it is recommended to sample on the falling edge. Although
+    /// this doesn't stop the possible bus contention, delaying the sampling
+    /// point by an extra half cycle results in a sampling point after the bus
+    /// contention.
+    pub fn sampling_edge(mut self, sampling_edge: SamplingEdge) -> Self {
+        self.sampling_edge = sampling_edge;
+        self
+    }
+
+    /// Specify the number of bytes in the FIFO that will set the FIFO threshold
+    /// flag. Must be in the range 1-32 inclusive.
+    ///
+    /// In indirect write mode, this is the number of free bytes that will raise
+    /// the FIFO threshold flag.
+    ///
+    /// In indirect read mode, this is the number of valid pending bytes that
+    /// will raise the FIFO threshold flag.
+    pub fn fifo_threshold(mut self, threshold: u8) -> Self {
+        debug_assert!(threshold > 0 && threshold <= 32);
+
+        self.fifo_threshold = threshold;
+        self
+    }
+}
+
+impl<T: Into<Hertz>> From<T> for Config {
+    fn from(frequency: T) -> Self {
+        Self::new(frequency)
+    }
 }
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
@@ -214,37 +349,48 @@ pins! {
 }
 
 pub trait QspiExt {
-    fn bank1<T, PINS>(
+    fn bank1<CONFIG, PINS>(
         self,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank1;
 
-    fn bank2<T, PINS>(
+    fn bank2<CONFIG, PINS>(
         self,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank2;
 
-    fn qspi_unchecked<T>(
+    fn qspi_unchecked<CONFIG>(
         self,
-        frequency: T,
+        config: CONFIG,
         bank: Bank,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>;
+        CONFIG: Into<Config>;
+}
+
+/// Interrupt events
+#[derive(Copy, Clone, PartialEq)]
+pub enum Event {
+    /// FIFO Threashold
+    FIFOThreashold,
+    /// Transfer complete
+    Complete,
+    /// Tranfer error
+    Error,
 }
 
 pub struct Qspi {
@@ -252,43 +398,43 @@ pub struct Qspi {
 }
 
 impl Qspi {
-    pub fn bank1<T, PINS>(
+    pub fn bank1<CONFIG, PINS>(
         regs: stm32::QUADSPI,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Self
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank1,
     {
-        Self::qspi_unchecked(regs, frequency, Bank::One, clocks, prec)
+        Self::qspi_unchecked(regs, config, Bank::One, clocks, prec)
     }
 
-    pub fn bank2<T, PINS>(
+    pub fn bank2<CONFIG, PINS>(
         regs: stm32::QUADSPI,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Self
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank2,
     {
-        Self::qspi_unchecked(regs, frequency, Bank::Two, clocks, prec)
+        Self::qspi_unchecked(regs, config, Bank::Two, clocks, prec)
     }
 
-    pub fn qspi_unchecked<T>(
+    pub fn qspi_unchecked<CONFIG>(
         regs: stm32::QUADSPI,
-        frequency: T,
+        config: CONFIG,
         bank: Bank,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Self
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
     {
         prec.enable();
 
@@ -301,6 +447,8 @@ impl Qspi {
         };
 
         while regs.sr.read().busy().bit_is_set() {}
+
+        let config: Config = config.into();
 
         // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
         // flash size violation may still trigger.
@@ -321,36 +469,43 @@ impl Qspi {
         // Configure the communication method for QSPI.
         regs.ccr.write(|w| unsafe {
             w.fmode()
-                .bits(0)
+                .bits(0) // indirect mode
                 .dmode()
-                .bits(0b01)
+                .bits(config.mode.reg_value())
                 .admode()
-                .bits(0b01)
+                .bits(config.mode.reg_value())
                 .adsize()
-                .bits(0)
+                .bits(config.address_size as u8)
                 .imode()
-                .bits(0)
+                .bits(0) // No instruction phase
                 .dcyc()
-                .bits(0)
+                .bits(config.dummy_cycles)
         });
 
-        let spi_frequency = frequency.into().0;
+        let spi_frequency = config.frequency.0;
         let divisor = match (spi_kernel_ck + spi_frequency - 1) / spi_frequency
         {
             divisor @ 1..=256 => divisor - 1,
             _ => panic!("Invalid QSPI frequency requested"),
         };
 
-        // Write the prescaler and the SSHIFT bit. Note that SSHIFT is required because it appears
-        // that the QSPI may have signal contention issues when reading. SSHIFT forces the read to
-        // occur on the falling edge instead of the rising edge. Refer to
-        // https://github.com/quartiq/stabilizer/issues/101 for more information
+        // Write the prescaler and the SSHIFT bit.
         //
-        // This is also noted in the docstring for the read() method.
+        // Note that we default to setting SSHIFT (sampling on the falling
+        // edge). This is because it appears that the QSPI may have signal
+        // contention issues when reading with zero dummy cycles. Setting SSHIFT
+        // forces the read to occur on the falling edge instead of the rising
+        // edge. Refer to https://github.com/quartiq/stabilizer/issues/101 for
+        // more information
         //
         // SSHIFT must not be set in DDR mode.
         regs.cr.write(|w| unsafe {
-            w.prescaler().bits(divisor as u8).sshift().set_bit()
+            w.prescaler()
+                .bits(divisor as u8)
+                .sshift()
+                .bit(config.sampling_edge == SamplingEdge::Falling)
+                .fthres()
+                .bits(config.fifo_threshold - 1)
         });
 
         match bank {
@@ -365,9 +520,49 @@ impl Qspi {
         Qspi { rb: regs }
     }
 
-    /// Check if the QSPI peripheral is currently busy with a transaction.
+    /// Deconstructs the QSPI HAL and returns the component parts
+    pub fn free(self) -> (stm32::QUADSPI, rec::Qspi) {
+        (
+            self.rb,
+            rec::Qspi {
+                _marker: PhantomData,
+            },
+        )
+    }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &stm32::QUADSPI {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut stm32::QUADSPI {
+        &mut self.rb
+    }
+
+    /// Check if the QSPI peripheral is currently busy with a transaction
     pub fn is_busy(&self) -> bool {
         self.rb.sr.read().busy().bit_is_set()
+    }
+
+    /// Enable interrupts for the given `event`
+    pub fn listen(&mut self, event: Event) {
+        self.rb.cr.modify(|_, w| match event {
+            Event::FIFOThreashold => w.ftie().set_bit(),
+            Event::Complete => w.tcie().set_bit(),
+            Event::Error => w.teie().set_bit(),
+        });
+    }
+
+    /// Disable interrupts for the given `event`
+    pub fn unlisten(&mut self, event: Event) {
+        self.rb.cr.modify(|_, w| match event {
+            Event::FIFOThreashold => w.ftie().clear_bit(),
+            Event::Complete => w.tcie().clear_bit(),
+            Event::Error => w.teie().clear_bit(),
+        });
+        let _ = self.rb.cr.read();
+        let _ = self.rb.cr.read(); // Delay 2 peripheral clocks
     }
 
     fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {
@@ -385,38 +580,37 @@ impl Qspi {
     ///
     /// # Args
     /// * `mode` - The newly desired mode of the interface.
+    ///
+    /// # Errors
+    /// Returns QspiError::Busy if an operation is ongoing
     pub fn configure_mode(&mut self, mode: QspiMode) -> Result<(), QspiError> {
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
 
-        match mode {
-            QspiMode::OneBit => {
-                self.rb.ccr.modify(|_, w| unsafe {
-                    w.admode().bits(0b01).dmode().bits(0b01)
-                });
-            }
-            QspiMode::TwoBit => {
-                self.rb.ccr.modify(|_, w| unsafe {
-                    w.admode().bits(0b10).dmode().bits(0b10)
-                });
-            }
-            QspiMode::FourBit => {
-                self.rb.ccr.modify(|_, w| unsafe {
-                    w.admode().bits(0b11).dmode().bits(0b11)
-                });
-            }
-        }
+        self.rb.ccr.modify(|_, w| unsafe {
+            w.admode()
+                .bits(mode.reg_value())
+                .dmode()
+                .bits(mode.reg_value())
+        });
 
         Ok(())
     }
 
-    /// Write data over the QSPI interface.
+    /// Begin a write over the QSPI interface. This is mostly useful for use with
+    /// DMA or if you are managing the read yourself. If you want to complete a
+    /// whole transaction, see the [`write`](#method.write) method.
     ///
     /// # Args
-    /// * `addr` - The address to write data to.
-    /// * `data` - An array of data to transfer over the QSPI interface.
-    pub fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), QspiError> {
+    /// * `addr` - The address to write data to. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    /// * `length` - The length of the write operation in bytes
+    pub fn begin_write(
+        &mut self,
+        addr: u32,
+        length: usize,
+    ) -> Result<(), QspiError> {
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
@@ -427,14 +621,34 @@ impl Qspi {
         // Write the length
         self.rb
             .dlr
-            .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
+            .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
 
         // Configure the mode to indirect write.
         self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b00) });
 
-        self.rb
-            .ar
-            .write(|w| unsafe { w.address().bits(addr as u32) });
+        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+
+        Ok(())
+    }
+
+    /// Write data over the QSPI interface.
+    ///
+    /// # Args
+    /// * `addr` - The address to write data to. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    /// * `data` - An array of data to transfer over the QSPI interface.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` is greater than the size of the QSPI
+    /// hardware FIFO (32 bytes).
+    pub fn write(&mut self, addr: u32, data: &[u8]) -> Result<(), QspiError> {
+        assert!(
+            data.len() <= 32,
+            "Transactions larger than the QSPI FIFO are currently unsupported"
+        );
+
+        self.begin_write(addr, data.len())?;
 
         // Write data to the FIFO in a byte-wise manner.
         unsafe {
@@ -452,24 +666,19 @@ impl Qspi {
         Ok(())
     }
 
-    /// Read data over the QSPI interface.
-    ///
-    /// # Note
-    ///
-    /// Without any dummy cycles, the QSPI peripheral will erroneously drive the
-    /// output pins for an extra half clock cycle before IO is swapped from
-    /// output to input. Refer to
-    /// https://github.com/quartiq/stabilizer/issues/101 for more information.
-    ///
-    /// Although it doesn't stop the possible bus contention, this HAL sets the
-    /// SSHIFT bit in the CR register. With this bit set, the QSPI receiver
-    /// sampling point is delayed by an extra half cycle. Then the receiver
-    /// sampling point is after the bus contention.
+    /// Begin a read over the QSPI interface. This is mostly useful for use with
+    /// DMA or if you are managing the read yourself. If you want to complete a
+    /// whole transaction, see the [`read`](#method.read) method.
     ///
     /// # Args
-    /// * `addr` - The address to read data from.
-    /// * `dest` - An array to store the result of the read into.
-    pub fn read(&mut self, addr: u8, dest: &mut [u8]) -> Result<(), QspiError> {
+    /// * `addr` - The address to read data from. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    /// * `length` - The length of the read operation in bytes
+    pub fn begin_read(
+        &mut self,
+        addr: u32,
+        length: usize,
+    ) -> Result<(), QspiError> {
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
@@ -480,15 +689,40 @@ impl Qspi {
         // Write the length that should be read.
         self.rb
             .dlr
-            .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
+            .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
 
         // Configure the mode to indirect read.
         self.rb.ccr.modify(|_, w| unsafe { w.fmode().bits(0b01) });
 
         // Write the address to force the read to start.
-        self.rb
-            .ar
-            .write(|w| unsafe { w.address().bits(addr as u32) });
+        self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+
+        Ok(())
+    }
+
+    /// Read data over the QSPI interface.
+    ///
+    /// # Args
+    /// * `addr` - The address to read data from. If the address size is less
+    ///            than 32-bit, then unused bits are discarded.
+    /// * `dest` - An array to store the result of the read into.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of `data` is greater than the size of the QSPI
+    /// hardware FIFO (32 bytes).
+    pub fn read(
+        &mut self,
+        addr: u32,
+        dest: &mut [u8],
+    ) -> Result<(), QspiError> {
+        assert!(
+            dest.len() <= 32,
+            "Transactions larger than the QSPI FIFO are currently unsupported"
+        );
+
+        // Begin the read operation
+        self.begin_read(addr, dest.len())?;
 
         // Wait for the transaction to complete
         while self.rb.sr.read().tcf().bit_is_clear() {}
@@ -514,44 +748,44 @@ impl Qspi {
 }
 
 impl QspiExt for stm32::QUADSPI {
-    fn bank1<T, PINS>(
+    fn bank1<CONFIG, PINS>(
         self,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank1,
     {
-        Qspi::qspi_unchecked(self, frequency, Bank::One, clocks, prec)
+        Qspi::qspi_unchecked(self, config, Bank::One, clocks, prec)
     }
 
-    fn bank2<T, PINS>(
+    fn bank2<CONFIG, PINS>(
         self,
         _pins: PINS,
-        frequency: T,
+        config: CONFIG,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
         PINS: PinsBank2,
     {
-        Qspi::qspi_unchecked(self, frequency, Bank::Two, clocks, prec)
+        Qspi::qspi_unchecked(self, config, Bank::Two, clocks, prec)
     }
 
-    fn qspi_unchecked<T>(
+    fn qspi_unchecked<CONFIG>(
         self,
-        frequency: T,
+        config: CONFIG,
         bank: Bank,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi
     where
-        T: Into<Hertz>,
+        CONFIG: Into<Config>,
     {
-        Qspi::qspi_unchecked(self, frequency, bank, clocks, prec)
+        Qspi::qspi_unchecked(self, config, bank, clocks, prec)
     }
 }

@@ -215,12 +215,24 @@ impl ExtiExt for EXTI {
 
         unsafe {
             match line {
-                0..=31 => reg_for_cpu!(self, imr1)
-                    .modify(|r, w| w.bits(r.bits() & !(1 << line))),
-                32..=44 | 46..=63 => reg_for_cpu!(self, imr2)
-                    .modify(|r, w| w.bits(r.bits() & !(1 << (line - 32)))),
-                64..=80 | 82 | 84..=88 => reg_for_cpu!(self, imr3)
-                    .modify(|r, w| w.bits(r.bits() & !(1 << (line - 64)))),
+                0..=31 => {
+                    reg_for_cpu!(self, imr1)
+                        .modify(|r, w| w.bits(r.bits() & !(1 << line)));
+                    let _ = reg_for_cpu!(self, imr1).read();
+                    let _ = reg_for_cpu!(self, imr1).read(); // Delay 2 peripheral clocks
+                }
+                32..=44 | 46..=63 => {
+                    reg_for_cpu!(self, imr2)
+                        .modify(|r, w| w.bits(r.bits() & !(1 << (line - 32))));
+                    let _ = reg_for_cpu!(self, imr2).read();
+                    let _ = reg_for_cpu!(self, imr2).read(); // Delay 2 peripheral clocks
+                }
+                64..=80 | 82 | 84..=88 => {
+                    reg_for_cpu!(self, imr3)
+                        .modify(|r, w| w.bits(r.bits() & !(1 << (line - 64))));
+                    let _ = reg_for_cpu!(self, imr3).read();
+                    let _ = reg_for_cpu!(self, imr3).read(); // Delay 2 peripheral clocks
+                }
                 _ => {}
             }
         }
@@ -255,13 +267,19 @@ impl ExtiExt for EXTI {
         unsafe {
             match line {
                 0..=19 | 20 | 21 => {
-                    reg_for_cpu!(self, pr1).write(|w| w.bits(1 << line))
+                    reg_for_cpu!(self, pr1).write(|w| w.bits(1 << line));
+                    let _ = reg_for_cpu!(self, pr1).read();
+                    let _ = reg_for_cpu!(self, pr1).read(); // Delay 2 peripheral clocks
                 }
                 49 | 51 => {
-                    reg_for_cpu!(self, pr2).write(|w| w.bits(1 << (line - 32)))
+                    reg_for_cpu!(self, pr2).write(|w| w.bits(1 << (line - 32)));
+                    let _ = reg_for_cpu!(self, pr2).read();
+                    let _ = reg_for_cpu!(self, pr2).read(); // Delay 2 peripheral clocks
                 }
                 82 | 84 | 85 | 86 => {
-                    reg_for_cpu!(self, pr3).write(|w| w.bits(1 << (line - 64)))
+                    reg_for_cpu!(self, pr3).write(|w| w.bits(1 << (line - 64)));
+                    let _ = reg_for_cpu!(self, pr3).read();
+                    let _ = reg_for_cpu!(self, pr3).read(); // Delay 2 peripheral clocks
                 }
                 _ => {}
             }

@@ -191,6 +191,8 @@ macro_rules! sai_hal {
                         Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().clear_bit()),
                         Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().clear_bit()),
                     }
+                    let _ = ch.im.read();
+                    let _ = ch.im.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears interrupt flag `event` on the `channel`
@@ -209,16 +211,21 @@ macro_rules! sai_hal {
                         Event::AnticipatedFrameSync => ch.clrfr.write(|w| w.cafsdet().set_bit()),
                         Event::LateFrameSync        => ch.clrfr.write(|w| w.clfsdet().set_bit()),
                     }
+                    let _ = ch.sr.read();
+                    let _ = ch.sr.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears all interrupts on the `channel`
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
+                    let ch = match channel {
+                        SaiChannel::ChannelA => &self.rb.cha,
+                        SaiChannel::ChannelB => &self.rb.chb,
+                    };
                     unsafe {
-                        match channel {
-                            SaiChannel::ChannelA => &self.rb.cha.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
-                            SaiChannel::ChannelB => &self.rb.chb.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS) ),
-                        };
+                        ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
                     }
+                    let _ = ch.sr.read();
+                    let _ = ch.sr.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Mute `channel`, this is checked at the start of each frame
@@ -239,7 +246,7 @@ macro_rules! sai_hal {
                     };
                 }
 
-                /// Used to operate the audio block(s) with an external SAI for synchoniozation
+                /// Used to operate the audio block(s) with an external SAI for synchronization
                 /// Refer to RM0433 rev 7 section 51.4.4 for valid values
                 ///
                 /// In short 0-3 maps SAI1-4 with the ones pointing to self being reserved.
@@ -249,12 +256,20 @@ macro_rules! sai_hal {
                     unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
                 }
 
-                /// Synchoniazation output for other SAI blocks
+                /// Synchronization output for other SAI blocks
                 pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
                     match channel {
                         Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b01) ) },
                         Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b10) ) },
                         None                       => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b00) ) },
+                    };
+                }
+
+                /// Enable DMA for the SAI peripheral.
+                pub fn enable_dma(&mut self, channel: SaiChannel) {
+                    match channel {
+                        SaiChannel::ChannelA => self.rb.cha.cr1.modify(|_, w| w.dmaen().enabled()),
+                        SaiChannel::ChannelB => self.rb.chb.cr1.modify(|_, w| w.dmaen().enabled()),
                     };
                 }
 

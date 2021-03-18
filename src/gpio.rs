@@ -89,9 +89,9 @@ pub enum Speed {
 /// GPIO Edge selection
 #[derive(Copy, Clone, PartialEq)]
 pub enum Edge {
-    RISING,
-    FALLING,
-    RISING_FALLING,
+    Rising,
+    Falling,
+    RisingFalling,
 }
 
 /// Alternate function 0 (type state)
@@ -299,15 +299,15 @@ macro_rules! gpio {
                 /// Generate interrupt on rising edge, falling edge or both
                 fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                     match edge {
-                        Edge::RISING => {
+                        Edge::Rising => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::FALLING => {
+                        Edge::Falling => {
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::RISING_FALLING => {
+                        Edge::RisingFalling => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                         }
@@ -348,8 +348,9 @@ macro_rules! gpio {
                         #[cfg(all(feature = "rm0399", feature = "cm4"))]
                         let pr1 = &(*EXTI::ptr()).c2pr1;
 
-
-                        pr1.write(|w| w.bits(1 << self.i) );
+                        pr1.write(|w| w.bits(1 << self.i));
+                        let _ = pr1.read();
+                        let _ = pr1.read(); // Delay 2 peripheral clocks
                     }
                 }
             }
@@ -746,15 +747,15 @@ macro_rules! gpio {
                     /// Generate interrupt on rising edge, falling edge or both
                     fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                         match edge {
-                            Edge::RISING => {
+                            Edge::Rising => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::FALLING => {
+                            Edge::Falling => {
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::RISING_FALLING => {
+                            Edge::RisingFalling => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                             }
@@ -796,7 +797,9 @@ macro_rules! gpio {
                             let pr1 = &(*(EXTI::ptr())).c2pr1;
 
                             pr1.write(|w| w.bits(1 << $i));
-                        };
+                            let _ = pr1.read();
+                            let _ = pr1.read(); // Delay 2 peripheral clocks
+                        }
                     }
                 }
             )+

@@ -18,7 +18,7 @@ use cast::u16;
 
 /// I2C Events
 ///
-/// Each event is a possible interrupt sources, if enabled
+/// Each event is a possible interrupt source, if enabled
 #[derive(Copy, Clone, PartialEq)]
 pub enum Event {
     /// (TXIE)
@@ -35,8 +35,21 @@ pub enum Event {
     NotAcknowledge,
 }
 
+/// I2C Stop Configuration
+///
+/// Peripheral options for generating the STOP condition
+#[derive(Copy, Clone, PartialEq)]
+pub enum Stop {
+    /// Software end mode: Must write register to generate STOP condition
+    Software,
+    /// Automatic end mode: A STOP condition is automatically generated once the
+    /// configured number of bytes have been transferred
+    Automatic,
+}
+
 /// I2C error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Bus error
     Bus,
@@ -48,8 +61,6 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)]
-    _Extensible,
 }
 
 /// A trait to represent the SCL Pin of an I2C Port
@@ -313,6 +324,21 @@ macro_rules! i2c {
                     I2c { i2c }
                 }
 
+                /// Returns a reference to the inner peripheral
+                pub fn inner(&self) -> &$I2CX {
+                    &self.i2c
+                }
+
+                /// Enable or disable the DMA mode for reception
+                pub fn rx_dma(&mut self, enable: bool) {
+                    self.i2c.cr1.modify(|_,w| w.rxdmaen().bit(enable));
+                }
+
+                /// Enable or disable the DMA mode for transmission
+                pub fn tx_dma(&mut self, enable: bool) {
+                    self.i2c.cr1.modify(|_,w| w.txdmaen().bit(enable));
+                }
+
                 /// Start listening for `event`
                 pub fn listen(&mut self, event: Event) {
                     self.i2c.cr1.modify(|_,w| {
@@ -339,6 +365,8 @@ macro_rules! i2c {
                             Event::NotAcknowledge => w.nackie().clear_bit(),
                         }
                     });
+                    let _ = self.i2c.cr1.read();
+                    let _ = self.i2c.cr1.read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears interrupt flag for `event`
@@ -354,12 +382,134 @@ macro_rules! i2c {
                             _ => w
                         }
                     });
+                    let _ = self.i2c.isr.read();
+                    let _ = self.i2c.isr.read(); // Delay 2 peripheral clocks
                 }
-
 
                 /// Releases the I2C peripheral
                 pub fn free(self) -> ($I2CX, rec::$Rec) {
                     (self.i2c, rec::$Rec { _marker: PhantomData })
+                }
+            }
+
+            /// Master controller methods
+            ///
+            /// These infallible methods are used to begin or end parts of
+            /// transactions, but do __not__ read or write the data
+            /// registers. If you want to perform an entire transcation see the
+            /// [Read](I2c#impl-Read) and [Write](I2c#impl-Write)
+            /// implementations.
+            ///
+            /// If a previous transcation is still in progress, then these
+            /// methods will block until that transcation is complete. A
+            /// previous transaction can still be "in progress" up to 50% of a
+            /// bus cycle after a ACK/NACK event. Otherwise these methods return
+            /// immediately.
+            impl I2c<$I2CX> {
+                /// Master read
+                ///
+                /// Perform an I2C start and prepare to receive `length` bytes.
+                ///
+                /// ```
+                /// Master: ST SAD+R  ...  (SP)
+                /// Slave:            ...
+                /// ```
+                pub fn master_read(&mut self, addr: u8, length: usize, stop: Stop) {
+                    assert!(length < 256 && length > 0);
+
+                    // Wait for any previous address sequence to end
+                    // automatically. This could be up to 50% of a bus
+                    // cycle (ie. up to 0.5/freq)
+                    while self.i2c.cr2.read().start().bit_is_set() {};
+
+                    // Set START and prepare to receive bytes into
+                    // `buffer`. The START bit can be set even if the bus
+                    // is BUSY or I2C is in slave mode.
+                    self.i2c.cr2.write(|w| {
+                        w.sadd()
+                            .bits((addr << 1 | 0) as u16)
+                            .rd_wrn()
+                            .read()
+                            .nbytes()
+                            .bits(length as u8)
+                            .start()
+                            .set_bit()
+                            .autoend()
+                            .bit(stop == Stop::Automatic)
+                    });
+                }
+                /// Master write
+                ///
+                /// Perform an I2C start and prepare to send `length` bytes.
+                ///
+                /// ```
+                /// Master: ST SAD+W  ...  (SP)
+                /// Slave:            ...
+                /// ```
+                pub fn master_write(&mut self, addr: u8, length: usize, stop: Stop) {
+                    assert!(length < 256 && length > 0);
+
+                    // Wait for any previous address sequence to end
+                    // automatically. This could be up to 50% of a bus
+                    // cycle (ie. up to 0.5/freq)
+                    while self.i2c.cr2.read().start().bit_is_set() {};
+
+                    // Set START and prepare to send `bytes`. The
+                    // START bit can be set even if the bus is BUSY or
+                    // I2C is in slave mode.
+                    self.i2c.cr2.write(|w| {
+                        w.start()
+                            .set_bit()
+                            .sadd()
+                            .bits(u16(addr << 1 | 0))
+                            .add10().clear_bit()
+                            .rd_wrn()
+                            .write()
+                            .nbytes()
+                            .bits(length as u8)
+                            .autoend()
+                            .bit(stop == Stop::Automatic)
+                    });
+                }
+
+                /// Master restart
+                ///
+                /// Performs an I2C restart following a write phase and prepare
+                /// to receive `length` bytes. The I2C peripheral is configured
+                /// to provide an automatic stop.
+                ///
+                /// ```
+                /// Master: ...  SR  SAD+R  ...  (SP)
+                /// Slave:  ...             ...
+                /// ```
+                pub fn master_re_start(&mut self, addr: u8, length: usize, stop: Stop) {
+                    assert!(length < 256 && length > 0);
+
+                    self.i2c.cr2.write(|w| {
+                        w.sadd()
+                            .bits(u16(addr << 1 | 1))
+                            .add10().clear_bit()
+                            .rd_wrn()
+                            .read()
+                            .nbytes()
+                            .bits(length as u8)
+                            .start()
+                            .set_bit()
+                            .autoend()
+                            .bit(stop == Stop::Automatic)
+                    });
+                }
+
+                /// Master stop
+                ///
+                /// Generate a stop condition.
+                ///
+                /// ```
+                /// Master: ...  SP
+                /// Slave:  ...
+                /// ```
+                pub fn master_stop(&mut self) {
+                    self.i2c.cr2.write(|w| w.stop().set_bit());
                 }
             }
 
@@ -420,27 +570,10 @@ macro_rules! i2c {
                     // TODO support transfers of more than 255 bytes
                     assert!(bytes.len() < 256 && bytes.len() > 0);
 
-                    // Wait for any previous address sequence to end
-                    // automatically. This could be up to 50% of a bus
-                    // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
-
-                    // Set START and prepare to send `bytes`. The
-                    // START bit can be set even if the bus is BUSY or
-                    // I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
-                        w.start()
-                            .set_bit()
-                            .sadd()
-                            .bits(u16(addr << 1 | 0))
-                            .add10().clear_bit()
-                            .rd_wrn()
-                            .write()
-                            .nbytes()
-                            .bits(bytes.len() as u8)
-                            .autoend()
-                            .software()
-                    });
+                    // I2C start
+                    //
+                    // ST SAD+W
+                    self.master_write(addr, bytes.len(), Stop::Software);
 
                     for byte in bytes {
                         // Wait until we are allowed to send data
@@ -456,7 +589,7 @@ macro_rules! i2c {
                     busy_wait!(self.i2c, tc, is_complete);
 
                     // Stop
-                    self.i2c.cr2.write(|w| w.stop().set_bit());
+                    self.master_stop();
 
                     Ok(())
                 }
@@ -475,27 +608,10 @@ macro_rules! i2c {
                     assert!(bytes.len() < 256 && bytes.len() > 0);
                     assert!(buffer.len() < 256 && buffer.len() > 0);
 
-                    // Wait for any previous address sequence to end
-                    // automatically. This could be up to 50% of a bus
-                    // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
-
-                    // Set START and prepare to send `bytes`. The
-                    // START bit can be set even if the bus is BUSY or
-                    // I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
-                        w.start()
-                            .set_bit()
-                            .sadd()
-                            .bits(u16(addr << 1 | 0))
-                            .add10().clear_bit()
-                            .rd_wrn()
-                            .write()
-                            .nbytes()
-                            .bits(bytes.len() as u8)
-                            .autoend()
-                            .software()
-                    });
+                    // I2C start
+                    //
+                    // ST SAD+W
+                    self.master_write(addr, bytes.len(), Stop::Software);
 
                     for byte in bytes {
                         // Wait until we are allowed to send data
@@ -509,20 +625,10 @@ macro_rules! i2c {
                     // Wait until the write finishes before beginning to read.
                     busy_wait!(self.i2c, tc, is_complete);
 
-                    // reSTART and prepare to receive bytes into `buffer`
-                    self.i2c.cr2.write(|w| {
-                        w.sadd()
-                            .bits(u16(addr << 1 | 1))
-                            .add10().clear_bit()
-                            .rd_wrn()
-                            .read()
-                            .nbytes()
-                            .bits(buffer.len() as u8)
-                            .start()
-                            .set_bit()
-                            .autoend()
-                            .automatic()
-                    });
+                    // I2C re-start
+                    //
+                    // SR  SAD+R
+                    self.master_re_start(addr, buffer.len(), Stop::Automatic);
 
                     for byte in buffer {
                         // Wait until we have received something
@@ -538,48 +644,29 @@ macro_rules! i2c {
             }
 
             impl Read for I2c<$I2CX> {
-            type Error = Error;
+                type Error = Error;
 
-            fn read(
-                &mut self,
-                addr: u8,
-                buffer: &mut [u8],
-            ) -> Result<(), Error> {
-                // TODO support transfers of more than 255 bytes
-                assert!(buffer.len() < 256 && buffer.len() > 0);
+                fn read(
+                    &mut self,
+                    addr: u8,
+                    buffer: &mut [u8],
+                ) -> Result<(), Error> {
+                    // TODO support transfers of more than 255 bytes
+                    assert!(buffer.len() < 256 && buffer.len() > 0);
 
-                // Wait for any previous address sequence to end
-                // automatically. This could be up to 50% of a bus
-                // cycle (ie. up to 0.5/freq)
-                while self.i2c.cr2.read().start().bit_is_set() {};
+                    self.master_read(addr, buffer.len(), Stop::Automatic);
 
-                // Set START and prepare to receive bytes into
-                // `buffer`. The START bit can be set even if the bus
-                // is BUSY or I2C is in slave mode.
-                self.i2c.cr2.write(|w| {
-                    w.sadd()
-                        .bits((addr << 1 | 0) as u16)
-                        .rd_wrn()
-                        .read()
-                        .nbytes()
-                        .bits(buffer.len() as u8)
-                        .start()
-                        .set_bit()
-                        .autoend()
-                        .automatic()
-                });
+                    for byte in buffer {
+                        // Wait until we have received something
+                        busy_wait!(self.i2c, rxne, is_not_empty);
 
-                for byte in buffer {
-                    // Wait until we have received something
-                    busy_wait!(self.i2c, rxne, is_not_empty);
+                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                    }
 
-                    *byte = self.i2c.rxdr.read().rxdata().bits();
+                    // automatic STOP
+
+                    Ok(())
                 }
-
-                // automatic STOP
-
-                Ok(())
-            }
             }
         )+
     };

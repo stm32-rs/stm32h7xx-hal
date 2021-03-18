@@ -110,7 +110,7 @@ fn main() -> ! {
             dp.ETHERNET_MTL,
             dp.ETHERNET_DMA,
             &mut DES_RING,
-            mac_addr.clone(),
+            mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,
         )

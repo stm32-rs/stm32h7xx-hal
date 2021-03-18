@@ -69,7 +69,6 @@ use crate::stm32::spi1::{cfg1::MBR_A as MBR, cfg2::COMM_A as COMM};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
-use nb;
 use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
@@ -95,6 +94,7 @@ use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Overrun occurred
     Overrun,
@@ -102,8 +102,6 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 /// Enabled SPI peripheral (type state)
@@ -165,7 +163,7 @@ impl Config {
     /// * `mode` - The SPI mode to configure.
     pub fn new(mode: Mode) -> Self {
         Config {
-            mode: mode,
+            mode,
             swap_miso_mosi: false,
             cs_delay: 0.0,
             managed_cs: false,
@@ -444,6 +442,12 @@ macro_rules! spi {
                 .bits(16 - 1) // 16 bit frames
         });
     };
+    (DSIZE, $spi:ident, u32) => {
+        $spi.cfg1.modify(|_, w| {
+            w.dsize()
+                .bits(32 - 1) // 32 bit frames
+        });
+    };
 	($($SPIX:ident: ($spiX:ident, $Rec:ident, $pclkX:ident)
        => ($($TY:ident),+),)+) => {
 	    $(
@@ -502,7 +506,7 @@ macro_rules! spi {
                             // before truncation to an integer to ensure that we have at least as
                             // many cycles as required.
                             if config.cs_delay > 0.0_f32 {
-                                delay = delay + 1;
+                                delay += 1;
                             }
 
                             if delay > 0xF {
@@ -593,6 +597,28 @@ macro_rules! spi {
                         }
                     }
 
+                    /// Enables the Rx DMA stream. If the DMA Rx is used, the
+                    /// reference manual recommends that this is enabled before
+                    /// enabling the DMA
+                    pub fn enable_dma_rx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.rxdmaen().enabled());
+                    }
+
+                    pub fn disable_dma_rx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.rxdmaen().disabled());
+                    }
+
+                    /// Enables the Tx DMA stream. If the DMA Tx is used, the
+                    /// reference manual recommends that this is enabled after
+                    /// enabling the DMA
+                    pub fn enable_dma_tx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
+                    }
+
+                    pub fn disable_dma_tx(&mut self) {
+                        self.spi.cfg1.modify(|_,w| w.txdmaen().disabled());
+                    }
+
                     /// Deconstructs the SPI peripheral and returns the component parts.
                     pub fn free(self) -> ($SPIX, rec::$Rec) {
                         (self.spi, rec::$Rec { _marker: PhantomData })
@@ -601,6 +627,16 @@ macro_rules! spi {
 
                 impl<EN> Spi<$SPIX, EN, $TY>
                 {
+                    /// Returns a mutable reference to the inner peripheral
+                    pub fn inner(&self) -> &$SPIX {
+                        &self.spi
+                    }
+
+                    /// Returns a mutable reference to the inner peripheral
+                    pub fn inner_mut(&mut self) -> &mut $SPIX {
+                        &mut self.spi
+                    }
+
                     /// Enable interrupts for the given `event`:
                     ///  - Received data ready to be read (RXP)
                     ///  - Transmit data register empty (TXP)
@@ -630,21 +666,27 @@ macro_rules! spi {
                     ///  - Error
                     pub fn unlisten(&mut self, event: Event) {
                         match event {
-                            Event::Rxp => self.spi.ier.modify(|_, w|
-                                                              w.rxpie().masked()),
-                            Event::Txp => self.spi.ier.modify(|_, w|
-                                                              w.txpie().masked()),
-                            Event::Error => self.spi.ier.modify(|_, w| {
-                                w.udrie() // Underrun
-                                    .masked()
-                                    .ovrie() // Overrun
-                                    .masked()
-                                    .crceie() // CRC error
-                                    .masked()
-                                    .modfie() // Mode fault
-                                    .masked()
-                            }),
+                            Event::Rxp => {
+                                self.spi.ier.modify(|_, w| w.rxpie().masked());
+                            }
+                            Event::Txp => {
+                                self.spi.ier.modify(|_, w| w.txpie().masked());
+                            }
+                            Event::Error => {
+                                self.spi.ier.modify(|_, w| {
+                                    w.udrie() // Underrun
+                                        .masked()
+                                        .ovrie() // Overrun
+                                        .masked()
+                                        .crceie() // CRC error
+                                        .masked()
+                                        .modfie() // Mode fault
+                                        .masked()
+                                })
+                            }
                         }
+                        let _ = self.spi.ier.read();
+                        let _ = self.spi.ier.read(); // Delay 2 peripheral clocks
                     }
 
                     /// Return `true` if the TXP flag is set, i.e. new
@@ -677,6 +719,8 @@ macro_rules! spi {
                     /// mode fault has occurred.
                     pub fn clear_modf(&mut self) {
                         self.spi.ifcr.write(|w| w.modfc().clear());
+                        let _ = self.spi.sr.read();
+                        let _ = self.spi.sr.read(); // Delay 2 peripheral clocks
                     }
                 }
 
@@ -854,12 +898,12 @@ macro_rules! spi6sel {
 }
 
 spi! {
-    SPI1: (spi1, Spi1, pclk2) => (u8, u16),
-    SPI2: (spi2, Spi2, pclk1) => (u8, u16),
-    SPI3: (spi3, Spi3, pclk1) => (u8, u16),
-    SPI4: (spi4, Spi4, pclk2) => (u8, u16),
-    SPI5: (spi5, Spi5, pclk2) => (u8, u16),
-    SPI6: (spi6, Spi6, pclk2) => (u8, u16),
+    SPI1: (spi1, Spi1, pclk2) => (u8, u16, u32),
+    SPI2: (spi2, Spi2, pclk1) => (u8, u16, u32),
+    SPI3: (spi3, Spi3, pclk1) => (u8, u16, u32),
+    SPI4: (spi4, Spi4, pclk2) => (u8, u16, u32),
+    SPI5: (spi5, Spi5, pclk2) => (u8, u16, u32),
+    SPI6: (spi6, Spi6, pclk2) => (u8, u16, u32),
 }
 
 spi123sel! {

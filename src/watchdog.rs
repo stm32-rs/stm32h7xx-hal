@@ -13,6 +13,16 @@ use crate::stm32::WWDG1 as WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm4"))]
 use crate::stm32::WWDG2 as WWDG;
 
+/// Event enum for [SystemWindowWatchdog]
+pub enum Event {
+    /// Early wakeup interrupt. This will generate an interrupt when the watchdog would otherwise reset.
+    /// This interrupt can then be used for data logging or even recovery.
+    /// If not handled, the watchdog will still reset the device after a period that is at least double the period that
+    /// was set with the [SystemWindowWatchdog::start] function.
+    /// When the watchdog is fed, it will resume as normal again.
+    EarlyWakeup,
+}
+
 /// Implements the System Window Watchdog
 pub struct SystemWindowWatchdog {
     wwdg: WWDG,
@@ -30,6 +40,43 @@ impl SystemWindowWatchdog {
             wwdg,
             down_counter: 0,
             pclk3_frequency: ccdr.clocks.pclk3(),
+        }
+    }
+
+    /// Start listening for `event`
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => {
+                // If this value is 0 it is assumed that the watchdog has not yet been started.
+                // It needs to have started because the starting procedure already makes the early wakeup pending,
+                // which would immediately call the interrupt.
+                assert!(self.down_counter != 0);
+                // Set the ewi bit
+                self.wwdg.cfr.modify(|_, w| w.ewi().enable());
+            }
+        }
+    }
+
+    /// Stop listening for `event`
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => panic!("Early wakeup of the SystemWindowWatchdog can only be cleared by hardware after a reset"),
+        }
+    }
+
+    /// Returns `true` if `event` is pending
+    pub fn is_pending(&self, event: Event) -> bool {
+        match event {
+            Event::EarlyWakeup => self.wwdg.sr.read().ewif().is_pending(),
+        }
+    }
+
+    /// Clears the interrupt flag for `event`
+    pub fn unpend(&mut self, event: Event) {
+        match event {
+            Event::EarlyWakeup => {
+                self.wwdg.sr.write(|w| w.ewif().finished());
+            }
         }
     }
 }
@@ -79,9 +126,16 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
-        self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));
+        // TODO: stm32h7 0.14.0 WDGTB is 3 bits (currently it's 2 and that's wrong), so let's set it directly
+        const WDGTB_MASK: u32 = 0b111 << 11;
+        self.wwdg.cfr.modify(|r, w| unsafe {
+            w.bits((r.bits() & !WDGTB_MASK) | (wdgtb << 11))
+        });
         self.wwdg.cfr.modify(|_, w| w.w().bits(self.down_counter));
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
+        // For some reason, setting the t value makes the early wakeup pending.
+        // That's bad behaviour, so lets turn it off again.
+        self.unpend(Event::EarlyWakeup);
         // enable the watchdog
         self.wwdg.cr.modify(|_, w| w.wdga().set_bit());
     }

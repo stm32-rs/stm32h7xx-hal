@@ -39,24 +39,25 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
-    let usb1 = USB1 {
-        usb_global: dp.OTG1_HS_GLOBAL,
-        usb_device: dp.OTG1_HS_DEVICE,
-        usb_pwrclk: dp.OTG1_HS_PWRCLK,
-        pin_dm: gpiob.pb14.into_alternate_af12(),
-        pin_dp: gpiob.pb15.into_alternate_af12(),
-        prec: ccdr.peripheral.USB1OTG,
-        hclk: ccdr.clocks.hclk(),
-    };
-    let usb2 = USB2 {
-        usb_global: dp.OTG2_HS_GLOBAL,
-        usb_device: dp.OTG2_HS_DEVICE,
-        usb_pwrclk: dp.OTG2_HS_PWRCLK,
-        pin_dm: gpioa.pa11.into_alternate_af10(),
-        pin_dp: gpioa.pa12.into_alternate_af10(),
-        prec: ccdr.peripheral.USB2OTG,
-        hclk: ccdr.clocks.hclk(),
-    };
+    let usb1 = USB1::new(
+        dp.OTG1_HS_GLOBAL,
+        dp.OTG1_HS_DEVICE,
+        dp.OTG1_HS_PWRCLK,
+        gpiob.pb14.into_alternate_af12(),
+        gpiob.pb15.into_alternate_af12(),
+        ccdr.peripheral.USB1OTG,
+        &ccdr.clocks,
+    );
+
+    let usb2 = USB2::new(
+        dp.OTG2_HS_GLOBAL,
+        dp.OTG2_HS_DEVICE,
+        dp.OTG2_HS_PWRCLK,
+        gpioa.pa11.into_alternate_af10(),
+        gpioa.pa12.into_alternate_af10(),
+        ccdr.peripheral.USB2OTG,
+        &ccdr.clocks,
+    );
 
     // Port 1
     let usb1_bus = UsbBus::new(usb1, unsafe { &mut EP_MEMORY_1 });

@@ -53,15 +53,15 @@ fn main() -> ! {
         )
     };
 
-    let usb = USB1 {
-        usb_global: dp.OTG1_HS_GLOBAL,
-        usb_device: dp.OTG1_HS_DEVICE,
-        usb_pwrclk: dp.OTG1_HS_PWRCLK,
+    let usb = USB1::new(
+        dp.OTG1_HS_GLOBAL,
+        dp.OTG1_HS_DEVICE,
+        dp.OTG1_HS_PWRCLK,
         pin_dm,
         pin_dp,
-        prec: ccdr.peripheral.USB1OTG,
-        hclk: ccdr.clocks.hclk(),
-    };
+        ccdr.peripheral.USB1OTG,
+        &ccdr.clocks,
+    );
 
     let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });
 

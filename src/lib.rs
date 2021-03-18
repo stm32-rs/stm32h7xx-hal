@@ -25,6 +25,7 @@
 //! * [Serial Audio Interface](crate::sai)
 //! * [Quad SPI](crate::qspi) Feature gate `qspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
+//! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //!
 //! External Memory
 //!
@@ -40,6 +41,7 @@
 //!
 //! Others
 //!
+//! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
 //! * [Random Number Generator](crate::rng)
 //! * [System Window Watchdog](crate::watchdog)
 
@@ -130,14 +132,12 @@ pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
+#[cfg(all(feature = "device-selected", feature = "crc"))]
+pub mod crc;
 #[cfg(feature = "device-selected")]
 pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod delay;
-#[deprecated(
-    since = "0.8.0",
-    note = "The DMA API will be completely replaced in a future release"
-)]
 #[cfg(feature = "device-selected")]
 pub mod dma;
 #[cfg(all(
@@ -156,6 +156,8 @@ pub mod fmc;
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
+#[cfg(all(feature = "device-selected", feature = "ltdc"))]
+pub mod ltdc;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
 #[cfg(feature = "device-selected")]

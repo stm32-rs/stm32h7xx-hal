@@ -160,11 +160,13 @@ fn main() -> ! {
     }
 
     // Check the read
-    for j in 0..5120 {
-        assert_eq!(buffer[j], 0x34);
+    for byte in buffer.iter() {
+        assert_eq!(*byte, 0x34);
     }
 
     info!("Done!");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

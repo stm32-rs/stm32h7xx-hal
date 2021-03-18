@@ -124,18 +124,17 @@ impl TDesRing {
         }
         self.tdidx = 0;
 
-        cortex_m::interrupt::free(|_cs| unsafe {
+        // Initialise pointers in the DMA engine. (There will be a memory barrier later
+        // before the DMA engine is enabled.)
+        unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-
             dma.dmactx_dlar
                 .write(|w| w.bits(&self.td as *const _ as u32));
-
             dma.dmactx_rlr
                 .write(|w| w.tdrl().bits(self.td.len() as u16 - 1));
-
             dma.dmactx_dtpr
                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
-        });
+        }
     }
 
     /// Return true if a TDes is available for use
@@ -162,18 +161,17 @@ impl TDesRing {
         self.td[x].tdes3 |= EMAC_DES3_LD; // LD: Contains last buffer of packet
         self.td[x].tdes3 |= EMAC_DES3_OWN; // Give the DMA engine ownership
 
+        // Ensure changes to the descriptor are committed before
+        // DMA engine sees tail pointer store
+        cortex_m::asm::dsb();
+
         // Move the tail pointer (TPR) to the next descriptor
         let x = (x + 1) % ETH_NUM_TD;
-        cortex_m::interrupt::free(|_cs| unsafe {
+        unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-
-            // Ensure changes to the descriptor are committed before
-            // DMA engine sees tail pointer store
-            cortex_m::asm::dsb();
-
             dma.dmactx_dtpr
                 .write(|w| w.bits(&(self.td[x]) as *const _ as u32));
-        });
+        }
 
         self.tdidx = x;
     }
@@ -274,15 +272,13 @@ impl RDesRing {
         self.rdidx = 0;
 
         // Initialise pointers in the DMA engine
-        cortex_m::interrupt::free(|_cs| unsafe {
+        unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-
             dma.dmacrx_dlar
                 .write(|w| w.bits(&self.rd as *const _ as u32));
-
             dma.dmacrx_rlr
                 .write(|w| w.rdrl().bits(self.rd.len() as u16 - 1));
-        });
+        }
 
         // Release descriptors to the DMA engine
         while self.available() {
@@ -318,17 +314,16 @@ impl RDesRing {
         self.rd[x].rdes3 |= EMAC_RDES3_BUF1V; // BUF1V: 1st buffer address is valid
         self.rd[x].rdes3 |= EMAC_RDES3_IOC; // IOC: Interrupt on complete
 
+        // Ensure changes to the descriptor are committed before
+        // DMA engine sees tail pointer store
+        cortex_m::asm::dsb();
+
         // Move the tail pointer (TPR) to this descriptor
-        cortex_m::interrupt::free(|_cs| unsafe {
+        unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-
-            // Ensure changes to the descriptor are committed before
-            // DMA engine sees tail pointer store
-            cortex_m::asm::dsb();
-
             dma.dmacrx_dtpr
                 .write(|w| w.bits(&(self.rd[x]) as *const _ as u32));
-        });
+        }
 
         // Update active descriptor
         self.rdidx = (x + 1) % ETH_NUM_RD;
@@ -759,6 +754,8 @@ impl<'a> phy::Device<'a> for EthernetDMA<'_> {
     type RxToken = RxToken<'a>;
     type TxToken = TxToken<'a>;
 
+    // Clippy false positive because DeviceCapabilities is non-exhaustive
+    #[allow(clippy::field_reassign_with_default)]
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
         // ethernet frame type II (6 smac, 6 dmac, 2 ethertype),
@@ -803,6 +800,8 @@ pub unsafe fn interrupt_handler() {
     eth_dma
         .dmacsr
         .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
+    let _ = eth_dma.dmacsr.read();
+    let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
 
 pub unsafe fn enable_interrupt() {
