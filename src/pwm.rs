@@ -18,6 +18,8 @@
 //! );
 //! ```
 //!
+//! To see which pins can be used with which timers, see your device datasheet or see which pins implement the [Pins](trait.Pins.html) trait.
+//! 
 //! Then call the `pwm` function on the corresponding timer:
 //!
 //! ```
@@ -38,10 +40,135 @@
 //!   c0.enable()
 //! ```
 //!
+//! ## Advanced features
+//!
+//! Some timers support various advanced features. These features are
+//! accessed by calling TIMx.[pwm_advanced](trait.PwmAdvExt.html#tymethod.pwm_advanced) to get a [PwmBuilder](struct.PwmBuilder.html)
+//! and calling appropriate methods of the PwmBuilder before calling [PwmBuilder::finalize](struct.PwmBuilder.html#method.finalize)
+//! to create the PWM channels and a [PwmControl](struct.PwmControl.html) struct exposing things like [FaultMonitor](trait.FaultMonitor.html) functionality.
+//!
+//! ```rust
+//! let gpioa = ..; // Set up and split GPIOA
+//! let pins = (
+//!     gpioa.pa8.into_alternate_af1(),
+//!     gpioa.pa9.into_alternate_af1(),
+//!     gpioa.pa10.into_alternate_af1(),
+//!     gpioa.pa11.into_alternate_af1(),
+//! );
+//! ```
+//!
+//! Then call the `pwm_advanced` function on the corresponding timer:
+//!
+//! ```
+//!   let device: pac::Peripherals = ..;
+//!
+//!   // Put the timer in PWM mode using the specified pins
+//!   // with a frequency of 100 hz, 2us deadtime between complementary edges,
+//!   // center-aligned PWM, and an active-low fault input
+//!   let (mut control, (c1, c2, c3, c4)) = device.TIM1
+//!       .pwm_advanced(
+//!           pins,
+//!           prec,
+//!           &clocks
+//!       )
+//!       .frequency(100.hz())
+//!       .center_aligned()
+//!       .with_break_pin(gpioe.pe15.into_alternate_af1(), Polarity::ActiveLow)
+//!       .finalize();
+//! ```
+//!
+//! Then change some PWM channels to active-low (reversing pin polarity relative to logic polarity)
+//! or enable a complementary PWM output (both only on some timer channels).
+//!
+//! ```
+//!   // Set channel 1 to complementary with both the regular and complementary output active low
+//!   let mut c1 = c1
+//!       .into_complementary(gpioe.pe8.into_alternate_af1())
+//!       .into_active_low()
+//!       .into_comp_active_low();
+//!
+//!   // Set the duty cycle of channel 1 to 50%
+//!   c1.set_duty(c1.get_max_duty() / 2);
+//!
+//!   // PWM outputs are disabled by default
+//!   c1.enable()
+//!
+//!   // If a PWM fault happened, you can clear it through the control structure
+//!   if control.is_fault_active() {
+//!       control.clear_fault();
+//!   }
+//! ```
+//!
+//! ## Fault (Break) inputs
+//!
+//! The [PwmBuilder::with_break_pin](struct.PwmBuilder.html#method.with_break_pin) method emables break/fault functionality as described in the reference manual.
+//! 
+//! The [PwmControl](struct.PwmControl.html) will then implement [FaultMonitor](trait.FaultMonitor.html) which can be used to monitor and control the fault status.
+//!
+//! If the break input becomes active, all PWM will be stopped.
+//!
+//! The BKIN hardware respects deadtimes when going into the fault state while the BKIN2 hardware acts immediately.
+//!
+//! The fault state puts all PWM pins into high-impedance mode, so pull-ups or pull-downs should be used to set the pins to a safe state.
+//!
+//! Currently only one break input (BKIN or BKIN2) can be enabled, this could be changed to allow two break inputs at the same time.
+//!
+//! ## Complementary outputs
+//!
+//! Once a PWM channel has been created through TIMx.pwm(...) or TIMx.pwm_advanced(...).finalize(), it can be put into complementary mode or have its polarity changed.
+//!
+//! [Pwm::into_complementary](struct.Pwm.html#method.into_complementary) takes a pin that can be used as a complementary output
+//!
+//! For allowed pins, see the device datasheet or see which pins implement the [NPins](trait.NPins.html) trait.
+//!
+//! ## PWM alignment
+//!
+//! A timer with multiple PWM channels can have different alignments between PWM channels.
+//!
+//! All PWM-capable timers support left aligned PWM. In left aligned PWM, all channels go active at the start of a PWM cycle then go inactive when their duty cycles expire.
+//!
+//! Some timers also support right aligned and center aligned PWM. In right aligned PWM, all channels go inactive at the end of a PWM cycle and go active when their duty cycle remains until the end of the PWM cycle.
+//!
+//! In center aligned PWM, all channels start inactive, then go active when half their duty cycle remains until the center of the PWM period, then go inactive again once their duty cycle expires and remain inactive for the rest of the PWM cycle.
+//! This produces a symmetrical PWM waveform, with increasing duty cycle moving both the inactive and active edge equally.
+//! When a component is placed across multiple PWM channels with different duty cycles in center aligned mode, the component will see twice the ripple frequency as the PWM switching frequency.
+//!
+//! ## PWM channel polarity
+//!
+//! A PWM channel is active or inactive based on the duty cycle, alignment, etc. However, the actual GPIO signal level that represents active vs inactive is configurable.
+//! 
+//! The [into_active_low](struct.Pwm.html#method.into_active_low) and [into_active_high](struct.Pwm.html#method.into_active_high) methods set the active signal level to low (VSS) or high (VDD).
+//!
+//! The complementary output is active when the regular output is inactive. The active signal level of the complementary output is set by the [into_comp_active_low](struct.Pwm.html#method.into_comp_active_low), and [into_comp_active_high](struct.Pwm.html#method.into_comp_active_high) methods.
+//! 
+//! ## Deadtime
+//!
+//! All channels on a given timer share the same deadtime setting as set by [PwmBuilder::with_deadtime](struct.PwmBuilder.html#method.with_deadtime)
+//!
+//! PWM channels with complementary outputs can have deadtime added to the signal. Dead time is used to prevent cross-conduction in some power electronics topologies.
+//! 
+//! With complementary outputs and dead time enabled on a PWM channel, when the regular output goes inactive (high or low based on into_active_high/into_active_low), the complementary output remains inactive until the deadtime passes.
+//! Similarily, when the complementary output goes inactive, the regular output waits until the deadtime passes before it goes active.
+//!
+//! Deadtime is applied based on the logical active/inactive levels. Depending on the PWM polarity and complementary polarity, both pins can be high or low during deadtime; they will both be in the inactive state.
+//!
+//! The deadtime must be 4032 counts of the timer clock or less or the builder will assert/panic. For a 200MHz timer this is 20 microseconds; slower timers can have even longer deadtimes.
+//!
+//! ## Disabled or faulted state
+//!
+//! At initialization, when a PWM channel is disabled, or while a fault is active, the PWM outputs will be in a high impedance state.
+//!
+//! If needed, pull-up or pull-down resistors should be used to ensure that all power electronics are in a safe state while the GPIO pins are high impedance.
+//!
+//! Although the timers allow quite a bit of configuration here, that would require configuring the PWM pins before configuring other parts of the timer, which would be a challenge with how type states and traits are used for timer configuration.
+//!
+//! Additionally, the GPIO will always be high-impedance during power-up or in reset, so pull-ups or pull-downs to ensure safe state are always a good idea.
+
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::hal;
+use crate::stm32;
 use crate::stm32::{lptim1, lptim3};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
 #[cfg(not(feature = "rm0455"))]
@@ -70,9 +197,9 @@ use crate::gpio::gpioe::{
     PE10, PE11, PE12, PE13, PE14, PE15, PE3, PE4, PE5, PE6, PE8, PE9,
 };
 use crate::gpio::gpiof::{PF10, PF6, PF7, PF8, PF9};
-use crate::gpio::gpiog::{PG13, PG2, PG6};
+use crate::gpio::gpiog::{PG13, PG2, PG3, PG4, PG6};
 use crate::gpio::gpioh::{PH10, PH11, PH12, PH13, PH14, PH15, PH6, PH9};
-use crate::gpio::gpioi::{PI0, PI2, PI4, PI5, PI6, PI7};
+use crate::gpio::gpioi::{PI0, PI1, PI2, PI4, PI5, PI6, PI7};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11, PJ6, PJ7, PJ8, PJ9};
 #[cfg(not(feature = "stm32h7b0"))]
@@ -90,9 +217,15 @@ pub trait Pins<TIM, CHANNEL, COMP> {
     type Channel;
 }
 
+/// NPins is a trait that marks which GPIO pins may be used as complementary PWM channels; it should not be directly used.
+/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
 pub trait NPins<TIM, CHANNEL> {}
 
-pub trait FaultPins<TIM> {}
+/// FaultPins is a trait that marks which GPIO pins may be used as PWM fault inputs; it should not be directly used.
+/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
+pub trait FaultPins<TIM> {
+    const INPUT: BreakInput;
+}
 
 /// Marker struct for PWM channel 1 on Pins trait and Pwm struct
 pub struct C1;
@@ -116,17 +249,31 @@ pub enum Polarity {
     ActiveLow,
 }
 
+/// Configuration enum to keep track of which break input corresponds with which FaultPins
+#[derive(PartialEq)]
+pub enum BreakInput {
+    BreakIn,
+    BreakIn2,
+}
+
+/// Internal enum that keeps track of the count settings before PWM is finalized
+enum CountSettings<WIDTH> {
+    Frequency(Hertz),
+    Explicit { period: WIDTH, prescaler: u16 },
+}
+
 /// Marker struct for active high IO polarity
 pub struct ActiveHigh;
 /// Marker struct for active low IO polarity
 pub struct ActiveLow;
 
-/// Left aligned PWM goes active at the start of the PWM period and goes inactive after the duty cycle is complete. This is the default and is supported by all timers.
-pub struct AlignmentLeft;
-/// Right aligned PWM goes inactive at the start of the PWM period and goes active when duty cycle time remains. It is only available on some timers.
-pub struct AlignmentRight;
-/// Center aligned PWM updates twice per PWM period and is active centered around one update and inactive centered around the other update. It is only available on some timers.
-pub struct AlignmentCenter;
+/// Whether a PWM signal is left-aligned, right-aligned, or center-aligned
+#[derive(Copy, Clone, Debug)]
+pub enum Alignment {
+    Left,
+    Right,
+    Center,
+}
 
 /// Pwm represents one PWM channel; it is created by calling TIM?.pwm(...) and lets you control the channel through the PwmPin trait
 pub struct Pwm<TIM, CHANNEL, FAULT, COMP, POL, NPOL> {
@@ -139,21 +286,35 @@ pub struct Pwm<TIM, CHANNEL, FAULT, COMP, POL, NPOL> {
 }
 
 /// PwmBuilder is used to configure advanced PWM features
-pub struct PwmBuilder<TIM, PINS, CHANNEL, FAULT, COMP, ALIGNMENT> {
+pub struct PwmBuilder<TIM, PINS, CHANNEL, FAULT, COMP, WIDTH> {
     _tim: PhantomData<TIM>,
     _pins: PhantomData<PINS>,
     _channel: PhantomData<CHANNEL>,
     _fault: PhantomData<FAULT>,
     _comp: PhantomData<COMP>,
-    _alignment: PhantomData<ALIGNMENT>,
+    alignment: Alignment,
     base_freq: Hertz,
+    count: CountSettings<WIDTH>,
+    bkin_enabled: bool, // If the FAULT type parameter is FaultEnabled, either bkin or bkin2 must be enabled
+    bkin2_enabled: bool,
+    fault_polarity: Polarity,
+    deadtime: NanoSeconds,
 }
 
+/// Allows a PwmControl to monitor and control faults (break inputs) of a timer's PWM channels
 pub trait FaultMonitor {
+    /// Returns true if a fault is preventing PWM output
     fn is_fault_active(&self) -> bool;
+
+    /// Enables PWM output, clearing fault state and immediately resuming PWM; if the break pin is still active, this can't clear the fault.
     fn clear_fault(&mut self);
+
+    /// Disables PWM output, setting fault state; this can be used to stop all PWM from a timer in software detected faults
+    fn set_fault(&mut self);
 }
 
+/// Exposes timer wide advanced features, such as [FaultMonitor](trait.FaultMonitor.html)
+/// or future features like trigger outputs for synchronization with ADCs and other peripherals
 pub struct PwmControl<TIM, FAULT> {
     _tim: PhantomData<TIM>,
     _fault: PhantomData<FAULT>,
@@ -277,7 +438,7 @@ macro_rules! pins {
     // Dual channel timer $pm
     ($($TIMX:ty:
         CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*] BRK: [$($( #[ $pmeta5:meta ] )* $BRK:ty),*])+) => {
+        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*] BRK: [$($( #[ $pmeta5:meta ] )* $BRK:ty),*] BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*])+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
@@ -301,7 +462,15 @@ macro_rules! pins {
             )*
             $(
                 $( #[ $pmeta5 ] )*
-                impl FaultPins<$TIMX> for $BRK {}
+                impl FaultPins<$TIMX,> for $BRK {
+                    const INPUT: BreakInput = BreakInput::BreakIn;
+                }
+            )*
+            $(
+                $( #[ $pmeta6 ] )*
+                impl FaultPins<$TIMX> for $BRK2 {
+                    const INPUT: BreakInput = BreakInput::BreakIn2;
+                }
             )*
         )+
     };
@@ -311,7 +480,8 @@ macro_rules! pins {
        CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*] CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
        CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
        CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*] CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
-       BRK: [$($( #[ $pmeta9:meta ] )* $BRK:ty),*])+) => {
+       BRK: [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
+       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*])+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
@@ -355,7 +525,15 @@ macro_rules! pins {
             )*
             $(
                 $( #[ $pmeta9 ] )*
-                impl FaultPins<$TIMX> for $BRK {}
+                impl FaultPins<$TIMX> for $BRK {
+                    const INPUT: BreakInput = BreakInput::BreakIn;
+                }
+            )*
+            $(
+                $( #[ $pmeta10 ] )*
+                impl FaultPins<$TIMX> for $BRK2 {
+                    const INPUT: BreakInput = BreakInput::BreakIn2;
+                }
             )*
         )+
     }
@@ -401,6 +579,7 @@ pins! {
         CH1N: []
         CH2N: []
         BRK: []
+        BRK2: []
     TIM13:
         CH1(ComplementaryImpossible): [
             PA6<Alternate<AF9>>,
@@ -410,6 +589,7 @@ pins! {
         CH1N: []
         CH2N: []
         BRK: []
+        BRK2: []
     TIM14:
         CH1(ComplementaryImpossible): [
             PA7<Alternate<AF9>>,
@@ -419,6 +599,7 @@ pins! {
         CH1N: []
         CH2N: []
         BRK: []
+        BRK2: []
     TIM15:
         CH1(ComplementaryDisabled): [
             PA2<Alternate<AF4>>,
@@ -439,6 +620,7 @@ pins! {
             PA0<Alternate<AF4>>,
             PE3<Alternate<AF4>>
         ]
+        BRK2: []
     TIM16:
         CH1(ComplementaryDisabled): [
             PB8<Alternate<AF1>>,
@@ -454,6 +636,7 @@ pins! {
             PB4<Alternate<AF1>>,
             PF10<Alternate<AF1>>
         ]
+        BRK2: []
     TIM17:
         CH1(ComplementaryDisabled): [
             PB9<Alternate<AF1>>,
@@ -469,6 +652,7 @@ pins! {
             PB5<Alternate<AF1>>,
             PG6<Alternate<AF1>>
         ]
+        BRK2: []
 }
 // Quad channel timers
 pins! {
@@ -524,6 +708,10 @@ pins! {
             #[cfg(not(feature = "stm32h7b0"))]
             PK2<Alternate<AF1>>
         ]
+        BRK2: [
+            PE6<Alternate<AF1>>,
+            PG4<Alternate<AF1>>
+        ]
     TIM2:
         CH1(ComplementaryImpossible): [
             PA0<Alternate<AF1>>,
@@ -547,6 +735,7 @@ pins! {
         CH3N: []
         CH4N: []
         BRK: []
+        BRK2: []
     TIM3:
         CH1(ComplementaryImpossible): [
             PA6<Alternate<AF2>>,
@@ -571,6 +760,7 @@ pins! {
         CH3N: []
         CH4N: []
         BRK: []
+        BRK2: []
     TIM4:
         CH1(ComplementaryImpossible): [
             PB6<Alternate<AF2>>
@@ -592,6 +782,7 @@ pins! {
         CH3N: []
         CH4N: []
         BRK: []
+        BRK2: []
     TIM5:
         CH1(ComplementaryImpossible): [
             PA0<Alternate<AF2>>,
@@ -614,6 +805,7 @@ pins! {
         CH3N: []
         CH4N: []
         BRK: []
+        BRK2: []
     TIM8:
         CH1(ComplementaryDisabled): [
             PC6<Alternate<AF3>>,
@@ -670,6 +862,56 @@ pins! {
             #[cfg(not(feature = "stm32h7b0"))]
             PK2<Alternate<AF3>>
         ]
+        BRK2: [
+            PA8<Alternate<AF3>>,
+            PG3<Alternate<AF3>>,
+            PI1<Alternate<AF3>>
+        ]
+}
+
+// Period and prescaler calculator for 32-bit timers
+// Returns (arr, psc)
+fn calculate_frequency_32bit(
+    base_freq: Hertz,
+    freq: Hertz,
+    alignment: Alignment,
+) -> (u32, u16) {
+    let divisor = if let Alignment::Center = alignment {
+        freq.0 * 2
+    } else {
+        freq.0
+    };
+
+    // Round to the nearest period
+    let arr = (base_freq.0 + (divisor >> 1)) / divisor - 1;
+
+    (arr, 0)
+}
+
+// Period and prescaler calculator for 16-bit timers
+// Returns (arr, psc)
+// Returns as (u32, u16) to be compatible but arr will always be a valid u16
+fn calculate_frequency_16bit(
+    base_freq: Hertz,
+    freq: Hertz,
+    alignment: Alignment,
+) -> (u32, u16) {
+    let ideal_period =
+        calculate_frequency_32bit(base_freq, freq, alignment).0 + 1;
+
+    // Division factor is (PSC + 1)
+    let prescale = (ideal_period - 1) / (1 << 16);
+
+    // This will always fit in a 16-bit value because u32::MAX / (1 << 16) fits in a 16 bit
+
+    // Round to the nearest period
+    let period = (ideal_period + (prescale >> 1)) / (prescale + 1) - 1;
+
+    // It should be impossible to fail these asserts
+    assert!(period <= 0xFFFF);
+    assert!(prescale <= 0xFFFF);
+
+    (period, prescale as u16)
 }
 
 // Deadtime calculator helper function
@@ -738,7 +980,7 @@ pub trait PwmExt: Sized {
         T: Into<Hertz>;
 }
 
-pub trait PwmAdvExt: Sized {
+pub trait PwmAdvExt<WIDTH>: Sized {
     type Rec: ResetEnable;
 
     fn pwm_advanced<PINS, CHANNEL, COMP>(
@@ -746,7 +988,7 @@ pub trait PwmAdvExt: Sized {
         _pins: PINS,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> PwmBuilder<Self, PINS, CHANNEL, FaultDisabled, COMP, AlignmentLeft>
+    ) -> PwmBuilder<Self, PINS, CHANNEL, FaultDisabled, COMP, WIDTH>
     where
         PINS: Pins<Self, CHANNEL, COMP>;
 }
@@ -777,7 +1019,7 @@ macro_rules! pwm_ext_hal {
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
     ($($TIMX:ident: ($timX:ident, $Rec:ident,
-                     $typ:ty, $bits:expr $(, DIR: $center_aligned:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident)*),)+) => {
+                     $typ:ty, $bits:expr $(, DIR: $cms:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident $(, $bk2inp_setting:ident)*)*),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
@@ -797,24 +1039,17 @@ macro_rules! tim_hal {
                 let clk = $TIMX::get_clk(clocks)
                     .expect("Timer input clock not running!").0;
                 let freq = freq.0;
-                let reload : u32 = clk / freq; // u32
 
-                let prescale = match $bits {
-                    16 => {
-                        // Division factor is (PSC + 1)
-                        let prescale = (reload - 1) / (1 << 16);
-                        assert!(prescale <= 0xFFFF);
-                        prescale
-                    },
-                    _ => 0      // No prescale required for 32-bit timer
+                let (period, prescale) = match $bits {
+                    16 => calculate_frequency_16bit(clk, freq, Alignment::Left),
+                    _ => calculate_frequency_32bit(clk, freq, Alignment::Left),
                 };
 
                 // Write prescale
                 tim.psc.write(|w| { w.psc().bits(prescale as u16) });
 
-                // Set TOP value
-                let top = reload / (prescale + 1);
-                tim.arr.write(|w| { w.arr().bits(top as $typ) });
+                // Write period
+                tim.arr.write(|w| { w.arr().bits(period as $typ) });
 
                 // BDTR: Advanced-control timers
                 $(
@@ -832,7 +1067,7 @@ macro_rules! tim_hal {
                 unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
             }
 
-            impl PwmAdvExt for $TIMX {
+            impl PwmAdvExt<$typ> for $TIMX {
                 type Rec = rec::$Rec;
 
                 fn pwm_advanced<PINS, CHANNEL, COMP>(
@@ -840,7 +1075,7 @@ macro_rules! tim_hal {
                     _pins: PINS,
                     prec: Self::Rec,
                     clocks: &CoreClocks,
-                ) -> PwmBuilder<Self, PINS, CHANNEL, FaultDisabled, COMP, AlignmentLeft>
+                ) -> PwmBuilder<Self, PINS, CHANNEL, FaultDisabled, COMP, $typ>
                 where
                     PINS: Pins<Self, CHANNEL, COMP>
                 {
@@ -850,37 +1085,113 @@ macro_rules! tim_hal {
                         .expect("Timer input clock not running!")
                         .0;
 
-                    // Write prescale 0
-                    self.psc.write(|w| w.psc().bits(0));
-
-                    // Set TOP value to max
-                    self.arr.write(|w| w.arr().bits(<$typ>::MAX));
-
                     PwmBuilder {
                         _tim: PhantomData,
                         _pins: PhantomData,
                         _channel: PhantomData,
                         _fault: PhantomData,
                         _comp: PhantomData,
-                        _alignment: PhantomData,
+                        alignment: Alignment::Left,
                         base_freq: clk.hz(),
+                        count: CountSettings::Explicit { period: 65535, prescaler: 0, },
+                        bkin_enabled: false,
+                        bkin2_enabled: false,
+                        fault_polarity: Polarity::ActiveLow,
+                        deadtime: 0.ns(),
                     }
                 }
             }
 
-            impl<PINS, CHANNEL, FAULT, COMP, ALIGNMENT>
-                PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, ALIGNMENT>
+            impl<PINS, CHANNEL, FAULT, COMP>
+                PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, $typ>
             where
                 PINS: Pins<$TIMX, CHANNEL, COMP>,
             {
                 pub fn finalize(self) -> (PwmControl<$TIMX, FAULT>, PINS::Channel) {
                     let tim = unsafe { &*$TIMX::ptr() };
 
+                    let (period, prescaler) = match self.count {
+                        CountSettings::Explicit { period, prescaler } => (period as u32, prescaler),
+                        CountSettings::Frequency( freq ) => {
+                            match $bits {
+                                16 => calculate_frequency_16bit(self.base_freq, freq, self.alignment),
+                                _ => calculate_frequency_32bit(self.base_freq, freq, self.alignment),
+                            }
+                        },
+                    };
+
+                    // Write prescaler
+                    tim.psc.write(|w| w.psc().bits(prescaler as u16));
+
+                    // Write period
+                    tim.arr.write(|w| w.arr().bits(period as $typ));
+
                     $(
+                        let (dtg, ckd) = calculate_deadtime(self.base_freq, self.deadtime);
+
+                        match ckd {
+                            1 => tim.cr1.modify(|_, w| w.ckd().div1()),
+                            2 => tim.cr1.modify(|_, w| w.ckd().div2()),
+                            4 => tim.cr1.modify(|_, w| w.ckd().div4()),
+                            _ => panic!("Should be unreachable, invalid deadtime prescaler"),
+                        }
+
+                        let bkp = match self.fault_polarity {
+                            Polarity::ActiveLow => false,
+                            Polarity::ActiveHigh => true,
+                        };
+
+                        if self.bkin_enabled {
+                            // BDTR:
+                            //  BKF = 1 -> break pin filtering of 2 cycles of CK_INT (peripheral source clock)
+                            //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
+                            //  BKE = 1 -> break is enabled
+                            //  BKP = 0 for active low, 1 for active high
+                            // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
+                            unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bkf().bits(1).aoe().clear_bit().bke().set_bit().bkp().bit(bkp).moe().$moe_set()); }
+
+                            // AF1:
+                            //  BKINE = 1 -> break input enabled
+                            //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
+                            tim.$af1.write(|w| w.bkine().set_bit().bkinp().$bkinp_setting());
+                        }
+                        $(
+                            // Not all timers that have break inputs have break2 inputs
+                            else if self.bkin2_enabled {
+                                // BDTR:
+                                //  BK2F = 1 -> break pin filtering of 2 cycles of CK_INT (peripheral source clock)
+                                //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
+                                //  BK2E = 1 -> break is enabled
+                                //  BK2P = 0 for active low, 1 for active high
+                                // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
+                                unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
+
+                                // AF1:
+                                //  BKINE = 1 -> break input enabled
+                                //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
+                                tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
+                            }
+                        )*
+                        else {
+                            // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
+                            unsafe {
+                                tim.$bdtr.write(|w| w.dtg().bits(dtg).aoe().clear_bit().moe().$moe_set());
+                            }
+                        }
+
                         // BDTR: Advanced-control timers
                         // Set CCxP = OCxREF / CCxNP = !OCxREF
                         // Refer to RM0433 Rev 6 - Table 324.
                         tim.$bdtr.modify(|_, w| w.moe().$moe_set());
+                    )*
+
+
+                    $(
+                        match self.alignment {
+                            Alignment::Left => { },
+                            Alignment::Right => { tim.cr1.modify(|_, w| w.dir().down()); },
+                            Alignment::Center => { tim.cr1.modify(|_, w| w.$cms().center_aligned3()); }
+                        }
                     )*
 
                     tim.cr1.modify(|_, w| w.cen().enabled());
@@ -892,162 +1203,95 @@ macro_rules! tim_hal {
                 }
 
                 /// Set the PWM frequency; will overwrite the previous prescaler and period
-                pub fn frequency<T: Into<Hertz>>(self, freq: T) -> Self {
-                    let tim = unsafe { &*$TIMX::ptr() };
-
-                    let freq: Hertz = freq.into();
-                    let reload: u32 = self.base_freq.0 / freq.0; // u32
-
-                    let prescale = match $bits {
-                        16 => {
-                            // Division factor is (PSC + 1)
-                            let prescale = (reload - 1) / (1 << 16);
-                            assert!(prescale <= 0xFFFF);
-                            prescale
-                        },
-                        _ => 0      // No prescale required for 32-bit timer
-                    };
-
-                    // Write prescale
-                    tim.psc.write(|w| w.psc().bits(prescale as u16));
-
-                    // Set TOP value
-                    let top = reload / (prescale + 1);
-                    tim.arr.write(|w| w.arr().bits(top as $typ));
+                pub fn frequency<T: Into<Hertz>>(mut self, freq: T) -> Self {
+                    self.count = CountSettings::Frequency( freq.into() );
 
                     self
                 }
 
                 /// Set the prescaler; PWM count runs at base_frequency/(prescaler+1)
-                pub fn prescaler(self, prescaler: u16) -> Self {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                pub fn prescaler(mut self, prescaler: u16) -> Self {
+                    let period = match self.count {
+                        CountSettings::Frequency(_) => 65535,
+                        CountSettings::Explicit { period, prescaler: _ } => period,
+                    };
 
-                    tim.psc.write(|w| w.psc().bits(prescaler));
+                    self.count = CountSettings::Explicit { period, prescaler };
 
                     self
                 }
 
                 /// Set the period; PWM count runs from 0 to period, repeating every (period+1) counts
-                pub fn period(self, period: $typ) -> Self {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                pub fn period(mut self, period: $typ) -> Self {
+                    let prescaler = match self.count {
+                        CountSettings::Frequency(_) => 0,
+                        CountSettings::Explicit { period: _, prescaler } => prescaler,
+                    };
 
-                    tim.arr.write(|w| w.arr().bits(period));
+                    self.count = CountSettings::Explicit { period, prescaler };
 
                     self
                 }
 
+
                 // Timers with complementary and deadtime and faults
                 $(
-                    pub fn with_deadtime(self, deadtime: NanoSeconds) -> Self {
-                        let tim = unsafe { &*$TIMX::ptr() };
+                    pub fn with_deadtime<T: Into<NanoSeconds>>(mut self, deadtime: T) -> Self {
+                        // $bdtr is an Ident that only exists for timers with deadtime, so we can use it as a variable name to
+                        // only implement this method for timers that support deadtime.
+                        let $bdtr = deadtime.into();
 
-                        let (dtg, ckd) = calculate_deadtime(self.base_freq, deadtime);
+                        self.deadtime = $bdtr;
 
-                        match ckd {
-                            1 => tim.cr1.write(|w| w.ckd().div1()),
-                            2 => tim.cr1.write(|w| w.ckd().div2()),
-                            4 => tim.cr1.write(|w| w.ckd().div4()),
-                            _ => panic!("Should be unreachable, invalid deadtime prescaler"),
-                        }
+                        self
+                    }
+                )*
 
-                        // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
-                        unsafe {
-                            tim.$bdtr.modify(|_, w| w.dtg().bits(dtg));
-                        }
+                pub fn left_aligned( mut self ) -> Self {
+                    self.alignment = Alignment::Left;
+
+                    self
+                }
+
+                // Timers with advanced counting options, including center aligned and right aligned PWM
+                $(
+                    pub fn center_aligned( mut self ) -> Self {
+                        // $cms is an Ident that only exists for timers with center/right aligned PWM, so we can use it as a variable name to
+                        // only implement this method for timers that support center/right aligned PWM.
+                        let $cms = Alignment::Center;
+
+                        self.alignment = $cms;
+
+                        self
+                    }
+
+                    pub fn right_aligned( mut self ) -> Self {
+                        self.alignment = Alignment::Right;
 
                         self
                     }
                 )*
             }
 
-            // Timers with direction control and center aligned PWM
-            $(
-                impl<PINS, CHANNEL, FAULT, COMP>
-                    PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, AlignmentLeft>
-                where
-                    PINS: Pins<$TIMX, CHANNEL, COMP>,
-                {
-                    pub fn center_aligned(
-                        self,
-                    ) -> PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, AlignmentCenter>
-                    {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        // Center aligned needs half the period for the same frequency
-                        tim.arr.modify(|r, w| w.arr().bits(r.arr().bits() / 2));
-
-                        tim.cr1.modify(|_, w| w.cms().$center_aligned());
-
-                        PwmBuilder {
-                            _tim: PhantomData,
-                            _pins: PhantomData,
-                            _channel: PhantomData,
-                            _fault: PhantomData,
-                            _comp: PhantomData,
-                            _alignment: PhantomData,
-                            base_freq: self.base_freq,
-                        }
-                    }
-
-                    pub fn right_aligned(
-                        self,
-                    ) -> PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, AlignmentRight> {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        // Right aligned is the same as left, just counting down instead of up
-                        tim.cr1.modify(|_, w| w.dir().down());
-
-                        PwmBuilder {
-                            _tim: PhantomData,
-                            _pins: PhantomData,
-                            _channel: PhantomData,
-                            _fault: PhantomData,
-                            _comp: PhantomData,
-                            _alignment: PhantomData,
-                            base_freq: self.base_freq,
-                        }
-                    }
-
-                    pub fn left_aligned(
-                        self,
-                    ) -> PwmBuilder<$TIMX, PINS, CHANNEL, FAULT, COMP, AlignmentLeft> {
-                        self
-                    }
-                }
-            )*
-
             // Timers with break/fault, dead time, and complimentary capabilities
             $(
-                impl<PINS, CHANNEL, COMP, ALIGNMENT> PwmBuilder<$TIMX, PINS, CHANNEL, FaultDisabled, COMP, ALIGNMENT> {
-                    pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, ALIGNMENT> {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        let bkp = match polarity {
-                            Polarity::ActiveLow => false,
-                            Polarity::ActiveHigh => true,
-                        };
-
-                        // BDTR:
-                        //  BKF = 1 -> break pin filtering of 2 cycles of CK_INT (peripheral source clock)
-                        //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
-                        //  BKE = 1 -> break is enabled
-                        //  BKP = 0 for active low, 1 for active high
-                        // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
-                        unsafe { tim.$bdtr.write(|w| w.bkf().bits(1).aoe().clear_bit().bke().set_bit().bkp().bit(bkp)); }
-
-                        // AF1:
-                        //  BKINE = 1 -> break input enabled
-                        //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
-                        tim.$af1.write(|w| w.bkine().set_bit().bkinp().$bkinp_setting());
-
+                impl<PINS, CHANNEL, COMP> PwmBuilder<$TIMX, PINS, CHANNEL, FaultDisabled, COMP, $typ> {
+                    /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
+                    /// Note: not all timers have fault inputs; FaultPins<TIM> is only implemented for valid pins/timers.
+                    pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
                         PwmBuilder {
                             _tim: PhantomData,
                             _pins: PhantomData,
                             _channel: PhantomData,
                             _fault: PhantomData,
                             _comp: PhantomData,
-                            _alignment: PhantomData,
+                            alignment: self.alignment,
                             base_freq: self.base_freq,
+                            count: self.count,
+                            bkin_enabled: self.bkin_enabled || P::INPUT == BreakInput::BreakIn,
+                            bkin2_enabled: self.bkin2_enabled || P::INPUT == BreakInput::BreakIn2,
+                            fault_polarity: polarity,
+                            deadtime: self.deadtime,
                         }
                     }
                 }
@@ -1064,6 +1308,12 @@ macro_rules! tim_hal {
 
                         tim.$bdtr.modify(|_, w| w.moe().set_bit());
                     }
+
+                    fn set_fault(&mut self) {
+                        let tim = unsafe { &*$TIMX::ptr() };
+
+                        tim.$bdtr.modify(|_, w| w.moe().clear_bit());
+                    }
                 }
             )*
         )+
@@ -1071,12 +1321,12 @@ macro_rules! tim_hal {
 }
 
 tim_hal! {
-    TIM1: (tim1, Tim1, u16, 16, DIR: center_aligned3, BDTR: bdtr, enabled, af1, clear_bit),
-    TIM2: (tim2, Tim2, u32, 32, DIR: center_aligned3),
-    TIM3: (tim3, Tim3, u16, 16, DIR: center_aligned3),
-    TIM4: (tim4, Tim4, u16, 16, DIR: center_aligned3),
-    TIM5: (tim5, Tim5, u32, 32, DIR: center_aligned3),
-    TIM8: (tim8, Tim8, u16, 16, DIR: center_aligned3, BDTR: bdtr, enabled, af1, clear_bit),
+    TIM1: (tim1, Tim1, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
+    TIM2: (tim2, Tim2, u32, 32, DIR: cms),
+    TIM3: (tim3, Tim3, u16, 16, DIR: cms),
+    TIM4: (tim4, Tim4, u16, 16, DIR: cms),
+    TIM5: (tim5, Tim5, u32, 32, DIR: cms),
+    TIM8: (tim8, Tim8, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
 }
 tim_hal! {
     TIM12: (tim12, Tim12, u16, 16),
@@ -1135,7 +1385,18 @@ macro_rules! tim_pin_hal {
                 fn get_max_duty(&self) -> Self::Duty {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.arr.read().arr().bits()
+                    let arr = tim.arr.read().arr().bits();
+
+                    // One PWM cycle is ARR+1 counts long
+                    // Valid PWM duty cycles are 0 to ARR+1
+                    // However, if ARR is 65535 on a 16-bit timer, we can't add 1
+                    // In that case, 100% duty cycle is not possible, only 65535/65536
+                    if arr == Self::Duty::MAX {
+                        arr
+                    }
+                    else {
+                        arr + 1
+                    }
                 }
 
                 fn set_duty(&mut self, duty: Self::Duty) {
@@ -1288,7 +1549,10 @@ tim_pin_hal! {
     TIM12: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
 }
 tim_pin_hal! {
-    TIM15: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM15: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
+}
+// Channel 1 is complementary, channel 2 isn't
+tim_pin_hal! {
     TIM15: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
 }
 
@@ -1300,10 +1564,10 @@ tim_pin_hal! {
     TIM14: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
 }
 tim_pin_hal! {
-    TIM16: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM16: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
 }
 tim_pin_hal! {
-    TIM17: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM17: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
 }
 
 // Quad channel timers
@@ -1340,10 +1604,14 @@ tim_pin_hal! {
     TIM5: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u32),
     TIM5: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u32),
 }
+// Quad channel timers
 tim_pin_hal! {
-    TIM8: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-    TIM8: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
-    TIM8: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16),
+    TIM8: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
+    TIM8: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16, cc2ne, cc2np),
+    TIM8: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16, cc3ne, cc3np),
+}
+// Channels 1-3 are complementary, channel 4 isn't
+tim_pin_hal! {
     TIM8: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
 }
 
