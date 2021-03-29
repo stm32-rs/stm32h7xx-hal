@@ -353,7 +353,7 @@ macro_rules! hal {
                     let psc = u16(ticks / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
-                    let arr = u16(ticks / u32(psc + 1)).unwrap();
+                    let arr = u16(ticks / (u32(psc) + 1)).unwrap();
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
