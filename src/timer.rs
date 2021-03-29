@@ -350,7 +350,7 @@ macro_rules! hal {
                 }
 
                 fn set_timeout_ticks(&mut self, ticks: u32) {
-                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
+                    let psc = u16(ticks / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
