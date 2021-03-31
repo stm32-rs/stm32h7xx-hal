@@ -11,6 +11,7 @@ use cortex_m::asm;
 
 use cortex_m_rt::entry;
 
+use hal::device;
 use hal::dma;
 use hal::hal::digital::v2::OutputPin;
 use hal::rcc::rec::Sai1ClkSel;
@@ -19,6 +20,7 @@ use hal::stm32;
 use hal::time::Hertz;
 use hal::{pac, prelude::*};
 use stm32h7xx_hal as hal;
+use stm32h7xx_hal::traits::i2s::FullDuplex;
 
 use pac::interrupt;
 
@@ -64,6 +66,9 @@ fn main() -> ! {
         .sys_ck(400.mhz())
         .pll3_p_ck(PLL3_P_HZ)
         .freeze(vos, &dp.SYSCFG);
+
+    let mut core = device::CorePeripherals::take().unwrap();
+    core.SCB.enable_icache();
 
     // enable sai1 peripheral and set clock to pll3
     let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
@@ -168,6 +173,18 @@ fn main() -> ! {
         info!("audio started");
 
         sai1.enable();
+        // Jump start audio
+        // Each of the audio blocks in the SAI are enabled by SAIEN bit in the SAI_xCR1 register.
+        // As soon as this bit is active, the transmitter or the receiver is sensitive
+        // to the activity on the clock line, data line and synchronization line in slave mode.
+        // In master TX mode, enabling the audio block immediately generates the bit clock for the
+        // external slaves even if there is no data in the FIFO, However FS signal generation
+        // is conditioned by the presence of data in the FIFO.
+        // After the FIFO receives the first data to transmit, this data is output to external slaves.
+        // If there is no data to transmit in the FIFO, 0 values are then sent in the audio frame
+        // with an underrun flag generation.
+        // From the reference manual (rev7 page 2259)
+        sai1.try_send(0, 0).unwrap();
     });
 
     // - dma1 stream 1 interrupt handler --------------------------------------
@@ -224,6 +241,7 @@ fn main() -> ! {
     // - main loop ------------------------------------------------------------
 
     loop {
-        asm::wfi();
+        // asm::wfi();
+        asm::nop();
     }
 }

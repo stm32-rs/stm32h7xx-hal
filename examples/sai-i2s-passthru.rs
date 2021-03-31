@@ -1,5 +1,6 @@
 // This demo code runs on the Electro Smith Daisy Seed board
 // https://www.electro-smith.com/daisy
+#![allow(unused_macros)]
 #![deny(warnings)]
 #![deny(unsafe_code)]
 #![no_main]
@@ -7,13 +8,10 @@
 
 use rtic::app;
 
-extern crate panic_itm;
-
 use cortex_m::asm::nop;
 
 use cortex_m::asm::delay as delay_cycles;
 
-use stm32h7xx_hal::device;
 pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
@@ -25,6 +23,10 @@ use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::time::{Hertz, U32Ext};
 
 use stm32h7xx_hal::traits::i2s::FullDuplex;
+
+#[macro_use]
+mod utilities;
+use log::info;
 
 pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // Using PLL3_P for SAI1 clock
@@ -39,7 +41,8 @@ const APP: () = {
     }
 
     #[init]
-    fn init(ctx: init::Context) -> init::LateResources {
+    fn init(mut ctx: init::Context) -> init::LateResources {
+        utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let vos = pwr.freeze();
 
@@ -90,14 +93,23 @@ const APP: () = {
 
         // Setup cache
         // Sound breaks up without this enabled
-        let mut core = device::CorePeripherals::take().unwrap();
-        core.SCB.invalidate_icache();
-        core.SCB.enable_icache();
+        ctx.core.SCB.enable_icache();
 
         audio.listen(SaiChannel::ChannelB, sai::Event::Data);
         audio.enable();
-        // Jump start audio transmission
+        // Jump start audio
+        // Each of the audio blocks in the SAI are enabled by SAIEN bit in the SAI_xCR1 register.
+        // As soon as this bit is active, the transmitter or the receiver is sensitive
+        // to the activity on the clock line, data line and synchronization line in slave mode.
+        // In master TX mode, enabling the audio block immediately generates the bit clock for the
+        // external slaves even if there is no data in the FIFO, However FS signal generation
+        // is conditioned by the presence of data in the FIFO.
+        // After the FIFO receives the first data to transmit, this data is output to external slaves.
+        // If there is no data to transmit in the FIFO, 0 values are then sent in the audio frame
+        // with an underrun flag generation.
+        // From the reference manual (rev7 page 2259)
         audio.try_send(0, 0).unwrap();
+        info!("Startup complete!");
 
         init::LateResources { audio }
     }
