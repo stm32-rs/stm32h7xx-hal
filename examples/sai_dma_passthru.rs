@@ -46,7 +46,7 @@ const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
-pub const CLOCK_RATE_HZ: Hertz = Hertz(480_000_000_u32);
+pub const CLOCK_RATE_HZ: Hertz = Hertz(400_000_000_u32);
 
 const HSE_CLOCK_MHZ: MegaHertz = MegaHertz(16);
 
@@ -73,7 +73,7 @@ fn main() -> ! {
 
     let dp = hal::pac::Peripherals::take().unwrap();
     let pwr = dp.PWR.constrain();
-    let vos = pwr.vos0(&dp.SYSCFG).freeze();
+    let vos = pwr.freeze();
     let ccdr = dp
         .RCC
         .constrain()
@@ -272,7 +272,6 @@ fn main() -> ! {
     // - main loop ------------------------------------------------------------
 
     loop {
-        // asm::wfi();
-        asm::nop();
+        asm::wfi();
     }
 }
