@@ -2,8 +2,6 @@
 // https://www.electro-smith.com/daisy
 
 #![allow(unused_macros)]
-#![deny(warnings)]
-//#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -17,9 +15,10 @@ use hal::hal::digital::v2::OutputPin;
 use hal::rcc::rec::Sai1ClkSel;
 use hal::sai::{self, SaiChannel, SaiI2sExt};
 use hal::stm32;
-use hal::time::Hertz;
 use hal::{pac, prelude::*};
 use stm32h7xx_hal as hal;
+use stm32h7xx_hal::rcc;
+use stm32h7xx_hal::time::{Hertz, MegaHertz};
 use stm32h7xx_hal::traits::i2s::FullDuplex;
 
 use pac::interrupt;
@@ -32,7 +31,7 @@ mod utilities;
 // = global constants =========================================================
 
 // 32 samples * 2 audio channels * 2 buffers
-const DMA_BUFFER_LENGTH: usize = 32 * 2 * 2;
+const DMA_BUFFER_LENGTH: usize = 48 * 2 * 2;
 
 const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 
@@ -47,6 +46,22 @@ const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
+pub const CLOCK_RATE_HZ: Hertz = Hertz(480_000_000_u32);
+
+const HSE_CLOCK_MHZ: MegaHertz = MegaHertz(16);
+
+// PCLKx
+const PCLK_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 4);
+// 49_152_344
+// PLL1
+const PLL1_P_HZ: Hertz = CLOCK_RATE_HZ;
+const PLL1_Q_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 18);
+const PLL1_R_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 32);
+// PLL2
+const PLL2_P_HZ: Hertz = Hertz(4_000_000);
+// PLL3
+const PLL3_Q_HZ: Hertz = Hertz(PLL3_P_HZ.0 / 4);
+const PLL3_R_HZ: Hertz = Hertz(PLL3_P_HZ.0 / 16);
 
 // = entry ====================================================================
 
@@ -58,13 +73,25 @@ fn main() -> ! {
 
     let dp = hal::pac::Peripherals::take().unwrap();
     let pwr = dp.PWR.constrain();
-    let vos = pwr.freeze();
+    let vos = pwr.vos0(&dp.SYSCFG).freeze();
     let ccdr = dp
         .RCC
         .constrain()
-        .use_hse(16.mhz())
-        .sys_ck(400.mhz())
+        .use_hse(HSE_CLOCK_MHZ)
+        .sys_ck(CLOCK_RATE_HZ)
+        .pclk1(PCLK_HZ) // DMA clock
+        // PLL1
+        .pll1_strategy(rcc::PllConfigStrategy::Iterative)
+        .pll1_p_ck(PLL1_P_HZ)
+        .pll1_q_ck(PLL1_Q_HZ)
+        .pll1_r_ck(PLL1_R_HZ)
+        // PLL2
+        .pll2_p_ck(PLL2_P_HZ) // Default adc_ker_ck_input
+        // PLL3
+        .pll3_strategy(rcc::PllConfigStrategy::Iterative)
         .pll3_p_ck(PLL3_P_HZ)
+        .pll3_q_ck(PLL3_Q_HZ)
+        .pll3_r_ck(PLL3_R_HZ)
         .freeze(vos, &dp.SYSCFG);
 
     let mut core = device::CorePeripherals::take().unwrap();
@@ -193,13 +220,17 @@ fn main() -> ! {
         dma::dma::Stream1<stm32::DMA1>,
         stm32::SAI1,
         dma::PeripheralToMemory,
-        &'static mut [u32; 128],
+        &'static mut [u32; DMA_BUFFER_LENGTH],
         dma::DBTransfer,
     >;
 
     static mut TRANSFER_DMA1_STR1: Option<TransferDma1Str1> = None;
     unsafe {
         TRANSFER_DMA1_STR1 = Some(dma1_str1);
+        info!(
+            "{:?}, {:?}",
+            &TX_BUFFER[0] as *const u32, &RX_BUFFER[0] as *const u32
+        );
     }
 
     #[interrupt]
@@ -241,6 +272,7 @@ fn main() -> ! {
     // - main loop ------------------------------------------------------------
 
     loop {
-        asm::wfi();
+        // asm::wfi();
+        asm::nop();
     }
 }
