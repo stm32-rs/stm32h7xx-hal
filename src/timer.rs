@@ -349,7 +349,29 @@ macro_rules! hal {
                     self.set_timeout_ticks(ticks.max(1));
                 }
 
+                /// Sets the timer's prescaler and auto reload register so that the timer will reach
+                /// the ARR after `ticks` amount of timer clock ticks.
+                ///
+                /// ```
+                /// // Set auto reload register to 50000 and prescaler to divide by 2.
+                /// timer.set_timeout_ticks(100000);
+                /// ```
+                ///
+                /// This function will round down if the prescaler is used to extend the range:
+                /// ```
+                /// // Set auto reload register to 50000 and prescaler to divide by 2.
+                /// timer.set_timeout_ticks(100001);
+                /// ```
                 fn set_timeout_ticks(&mut self, ticks: u32) {
+                    // We want to have `ticks` amount of timer ticks before it reloads.
+                    // But `ticks` may have a higher value than what the timer can hold directly.
+                    // So we'll use the prescaler to extend the range.
+
+                    // To know how many times we would overflow with a prescaler of 1, we divide `ticks` by 2^16 (the max amount of ticks per overflow).
+                    // If the result is e.g. 3, then we need to increase our range by 4 times to fit all the ticks.
+                    // We can increase the range enough by setting the prescaler to 3 (which will divide the clock freq by 4).
+                    // Because every tick is now 4x as long, we need to divide `ticks` by 4 to keep the same timeout.
+
                     let psc = u16(ticks / (1 << 16)).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
