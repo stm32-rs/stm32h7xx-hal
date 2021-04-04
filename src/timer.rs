@@ -363,7 +363,7 @@ macro_rules! hal {
                 /// timer.set_timeout_ticks(100001);
                 /// ```
                 fn set_timeout_ticks(&mut self, ticks: u32) {
-                    let (psc, arr) = calculate_timout_ticks_register_values(ticks);
+                    let (psc, arr) = calculate_timeout_ticks_register_values(ticks);
                     self.tim.psc.write(|w| w.psc().bits(psc));
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
@@ -480,7 +480,7 @@ macro_rules! hal {
 /// Because every tick is now 4x as long, we need to divide `ticks` by 4 to keep the same timeout.
 ///
 /// This function returns the prescaler register value and auto reload register value.
-fn calculate_timout_ticks_register_values(ticks: u32) -> (u16, u16) {
+fn calculate_timeout_ticks_register_values(ticks: u32) -> (u16, u16) {
     // Note (unwrap): Never panics because 32-bit value is shifted right by 16 bits,
     // resulting in a value that always fits in 16 bits.
     let psc = u16(ticks / (1 << 16)).unwrap();
@@ -770,18 +770,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn timout_ticks_register_values() {
-        assert_eq!(calculate_timout_ticks_register_values(0), (0, 0));
-        assert_eq!(calculate_timout_ticks_register_values(50000), (0, 50000));
-        assert_eq!(calculate_timout_ticks_register_values(100000), (1, 50000));
-        assert_eq!(calculate_timout_ticks_register_values(65535), (0, 65535));
-        assert_eq!(calculate_timout_ticks_register_values(65536), (1, 32768));
+    fn timeout_ticks_register_values() {
+        assert_eq!(calculate_timeout_ticks_register_values(0), (0, 0));
+        assert_eq!(calculate_timeout_ticks_register_values(50000), (0, 50000));
+        assert_eq!(calculate_timeout_ticks_register_values(100000), (1, 50000));
+        assert_eq!(calculate_timeout_ticks_register_values(65535), (0, 65535));
+        assert_eq!(calculate_timeout_ticks_register_values(65536), (1, 32768));
         assert_eq!(
-            calculate_timout_ticks_register_values(1000000),
+            calculate_timeout_ticks_register_values(1000000),
             (15, 62500)
         );
         assert_eq!(
-            calculate_timout_ticks_register_values(u32::MAX),
+            calculate_timeout_ticks_register_values(u32::MAX),
             (u16::MAX, u16::MAX)
         );
     }
