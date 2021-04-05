@@ -1,7 +1,8 @@
 // This demo code runs on the Electro Smith Daisy Seed board
 // https://www.electro-smith.com/daisy
-
 #![allow(unused_macros)]
+#![deny(warnings)]
+// #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -52,16 +53,9 @@ const HSE_CLOCK_MHZ: MegaHertz = MegaHertz(16);
 
 // PCLKx
 const PCLK_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 4);
-// 49_152_344
 // PLL1
 const PLL1_P_HZ: Hertz = CLOCK_RATE_HZ;
-const PLL1_Q_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 18);
-const PLL1_R_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 32);
-// PLL2
-const PLL2_P_HZ: Hertz = Hertz(4_000_000);
-// PLL3
-const PLL3_Q_HZ: Hertz = Hertz(PLL3_P_HZ.0 / 4);
-const PLL3_R_HZ: Hertz = Hertz(PLL3_P_HZ.0 / 16);
+
 
 // = entry ====================================================================
 
@@ -83,15 +77,9 @@ fn main() -> ! {
         // PLL1
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .pll1_p_ck(PLL1_P_HZ)
-        .pll1_q_ck(PLL1_Q_HZ)
-        .pll1_r_ck(PLL1_R_HZ)
-        // PLL2
-        .pll2_p_ck(PLL2_P_HZ) // Default adc_ker_ck_input
         // PLL3
         .pll3_strategy(rcc::PllConfigStrategy::Iterative)
         .pll3_p_ck(PLL3_P_HZ)
-        .pll3_q_ck(PLL3_Q_HZ)
-        .pll3_r_ck(PLL3_R_HZ)
         .freeze(vos, &dp.SYSCFG);
 
     let mut core = device::CorePeripherals::take().unwrap();
