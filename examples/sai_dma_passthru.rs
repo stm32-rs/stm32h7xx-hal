@@ -56,7 +56,6 @@ const PCLK_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 4);
 // PLL1
 const PLL1_P_HZ: Hertz = CLOCK_RATE_HZ;
 
-
 // = entry ====================================================================
 
 #[entry]
