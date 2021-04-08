@@ -109,18 +109,19 @@ impl Rtc {
         let rcc = unsafe { &*RCC::ptr() };
         let bdcr = rcc.bdcr.read();
 
-        let clock_source_matches = match (clock_source, prec.get_kernel_clk_mux()) {
-            (RtcClock::Lsi, backup::RtcClkSel::LSI) => true,
-            (RtcClock::Hse { divider }, backup::RtcClkSel::HSE) => {
-                rcc.cfgr.read().rtcpre().bits() == divider
-            }
-            (RtcClock::Lse { bypass, css, .. }, backup::RtcClkSel::LSE) => {
-                bdcr.lseon().is_on() 
-                    && bypass == bdcr.lsebyp().is_bypassed() 
-                    && css == bdcr.lsecsson().is_security_on()
-            }
-            _ => false,
-        };
+        let clock_source_matches =
+            match (clock_source, prec.get_kernel_clk_mux()) {
+                (RtcClock::Lsi, backup::RtcClkSel::LSI) => true,
+                (RtcClock::Hse { divider }, backup::RtcClkSel::HSE) => {
+                    rcc.cfgr.read().rtcpre().bits() == divider
+                }
+                (RtcClock::Lse { bypass, css, .. }, backup::RtcClkSel::LSE) => {
+                    bdcr.lseon().is_on()
+                        && bypass == bdcr.lsebyp().is_bypassed()
+                        && css == bdcr.lsecsson().is_security_on()
+                }
+                _ => false,
+            };
         if !clock_source_matches {
             return Err((rtc, prec, InitError::ConfigMismatch));
         }
