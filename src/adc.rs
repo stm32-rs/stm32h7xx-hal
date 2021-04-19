@@ -337,7 +337,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
 }
 
 // ADC12 is a unique case where a single reset line is used to control two
-// peripherals that have separate peripheral definitons in the SVD.
+// peripherals that have separate peripheral definitions in the SVD.
 
 /// Initialise ADC12 together
 ///
