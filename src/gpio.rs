@@ -19,7 +19,7 @@ pub trait GpioExt {
     /// members of the return type.
     ///
     /// ```
-    /// let device_peripherals = stm32::Periperhals.take().unwrap();
+    /// let device_peripherals = stm32::Peripherals.take().unwrap();
     /// let ccdr = ...; // From RCC
     ///
     /// let gpioa = device_peripherals.GPIOA.split(ccdr.peripheral.GPIOA);

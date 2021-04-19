@@ -379,7 +379,7 @@ pub fn adc12(
 }
 
 #[cfg(not(feature = "rm0455"))]
-/// Freeing both the periperhal and PREC is possible for ADC3
+/// Freeing both the peripheral and PREC is possible for ADC3
 impl<ED> Adc<ADC3, ED> {
     /// Releases the ADC peripheral
     pub fn free(self) -> (ADC3, rec::Adc3) {
