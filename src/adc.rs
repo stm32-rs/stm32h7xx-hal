@@ -378,6 +378,22 @@ pub fn adc12(
     (adc1, adc2)
 }
 
+/// Free both ADC1 and ADC2 along with PREC.
+///
+/// Since ADC1 and ADC2 are controlled together, they are freed together.
+pub fn free_adc12<ED>(
+    adc1: Adc<ADC1, ED>,
+    adc2: Adc<ADC2, ED>,
+) -> (ADC1, ADC2, rec::Adc12) {
+    (
+        adc1.rb,
+        adc2.rb,
+        rec::Adc12 {
+            _marker: PhantomData,
+        },
+    )
+}
+
 #[cfg(not(feature = "rm0455"))]
 /// Freeing both the periperhal and PREC is possible for ADC3
 impl<ED> Adc<ADC3, ED> {
