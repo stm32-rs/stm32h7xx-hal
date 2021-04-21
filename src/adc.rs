@@ -337,7 +337,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
 }
 
 // ADC12 is a unique case where a single reset line is used to control two
-// peripherals that have separate peripheral definitons in the SVD.
+// peripherals that have separate peripheral definitions in the SVD.
 
 /// Initialise ADC12 together
 ///
@@ -395,7 +395,7 @@ pub fn free_adc12<ED>(
 }
 
 #[cfg(not(feature = "rm0455"))]
-/// Freeing both the periperhal and PREC is possible for ADC3
+/// Freeing both the peripheral and PREC is possible for ADC3
 impl<ED> Adc<ADC3, ED> {
     /// Releases the ADC peripheral
     pub fn free(self) -> (ADC3, rec::Adc3) {
