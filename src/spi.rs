@@ -75,19 +75,21 @@ use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
-use crate::gpio::gpioa::{PA12, PA5, PA6, PA7, PA9};
-use crate::gpio::gpiob::{PB10, PB13, PB14, PB15, PB2, PB3, PB4, PB5};
+use crate::gpio::gpioa::{PA11, PA12, PA15, PA4, PA5, PA6, PA7, PA9};
+use crate::gpio::gpiob::{
+    PB10, PB12, PB13, PB14, PB15, PB2, PB3, PB4, PB5, PB9,
+};
 use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC2, PC3};
 use crate::gpio::gpiod::{PD3, PD6, PD7};
-use crate::gpio::gpioe::{PE12, PE13, PE14, PE2, PE5, PE6};
-use crate::gpio::gpiof::{PF11, PF7, PF8, PF9};
-use crate::gpio::gpiog::{PG11, PG12, PG13, PG14, PG9};
-use crate::gpio::gpioh::{PH6, PH7};
-use crate::gpio::gpioi::{PI1, PI2, PI3};
+use crate::gpio::gpioe::{PE11, PE12, PE13, PE14, PE2, PE4, PE5, PE6};
+use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
+use crate::gpio::gpiog::{PG10, PG11, PG12, PG13, PG14, PG8, PG9};
+use crate::gpio::gpioh::{PH5, PH6, PH7};
+use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11};
 #[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpiok::PK0;
+use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
 
@@ -117,10 +119,14 @@ pub struct Enabled;
 /// Disabled SPI peripheral (type state)
 pub struct Disabled;
 
-pub trait Pins<SPI> {}
+pub trait Pins<SPI> {
+    /// States whether or not the Hardware Chip Select is present in this set of pins
+    const HCS_PRESENT: bool;
+}
 pub trait PinSck<SPI> {}
 pub trait PinMiso<SPI> {}
 pub trait PinMosi<SPI> {}
+pub trait PinHCS<SPI> {}
 
 impl<SPI, SCK, MISO, MOSI> Pins<SPI> for (SCK, MISO, MOSI)
 where
@@ -128,6 +134,17 @@ where
     MISO: PinMiso<SPI>,
     MOSI: PinMosi<SPI>,
 {
+    const HCS_PRESENT: bool = false;
+}
+
+impl<SPI, SCK, MISO, MOSI, HCS> Pins<SPI> for (SCK, MISO, MOSI, HCS)
+where
+    SCK: PinSck<SPI>,
+    MISO: PinMiso<SPI>,
+    MOSI: PinMosi<SPI>,
+    HCS: PinHCS<SPI>,
+{
+    const HCS_PRESENT: bool = true;
 }
 
 /// Specifies the communication mode of the SPI interface.
@@ -294,7 +311,9 @@ macro_rules! pins {
     ($($SPIX:ty:
        SCK: [$($( #[ $pmeta1:meta ] )* $SCK:ty),*]
        MISO: [$($( #[ $pmeta2:meta ] )* $MISO:ty),*]
-       MOSI: [$($( #[ $pmeta3:meta ] )* $MOSI:ty),*])+) => {
+       MOSI: [$($( #[ $pmeta3:meta ] )* $MOSI:ty),*]
+       HCS: [$($( #[ $pmeta4:meta ] )* $HCS:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
@@ -307,6 +326,10 @@ macro_rules! pins {
             $(
                 $( #[ $pmeta3 ] )*
                 impl PinMosi<$SPIX> for $MOSI {}
+            )*
+            $(
+                $( #[ $pmeta4 ] )*
+                impl PinHCS<$SPIX> for $HCS {}
             )*
         )+
     }
@@ -332,6 +355,11 @@ pins! {
             PB5<Alternate<AF5>>,
             PD7<Alternate<AF5>>
         ]
+        HCS: [
+            PA4<Alternate<AF5>>,
+            PA15<Alternate<AF5>>,
+            PG10<Alternate<AF5>>
+        ]
     SPI2:
         SCK: [
             NoSck,
@@ -355,6 +383,13 @@ pins! {
             PC3<Alternate<AF5>>,
             PI3<Alternate<AF5>>
         ]
+        HCS: [
+            PA11<Alternate<AF5>>,
+            PB4<Alternate<AF7>>,
+            PB9<Alternate<AF5>>,
+            PB12<Alternate<AF5>>,
+            PI0<Alternate<AF5>>
+        ]
     SPI3:
         SCK: [
             NoSck,
@@ -373,6 +408,10 @@ pins! {
             PC12<Alternate<AF6>>,
             PD6<Alternate<AF5>>
         ]
+        HCS: [
+            PA4<Alternate<AF6>>,
+            PA15<Alternate<AF6>>
+        ]
     SPI4:
         SCK: [
             NoSck,
@@ -388,6 +427,10 @@ pins! {
             NoMosi,
             PE6<Alternate<AF5>>,
             PE14<Alternate<AF5>>
+        ]
+        HCS: [
+            PE4<Alternate<AF5>>,
+            PE11<Alternate<AF5>>
         ]
     SPI5:
         SCK: [
@@ -411,6 +454,12 @@ pins! {
             #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF5>>
         ]
+        HCS: [
+            PF6<Alternate<AF5>>,
+            PH5<Alternate<AF5>>,
+            #[cfg(not(feature = "stm32h7b0"))]
+            PK1<Alternate<AF5>>
+        ]
     SPI6:
         SCK: [
             NoSck,
@@ -431,6 +480,11 @@ pins! {
             PA7<Alternate<AF8>>,
             PB5<Alternate<AF8>>,
             PG14<Alternate<AF5>>
+        ]
+        HCS: [
+            PA4<Alternate<AF8>>,
+            PA15<Alternate<AF7>>,
+            PG8<Alternate<AF5>>
         ]
 }
 
@@ -855,6 +909,12 @@ macro_rules! spi {
 	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
+                        let config = config.into();
+                        assert_eq!(
+                            config.hardware_cs.enabled(),
+                            PINS::HCS_PRESENT,
+                            "If the hardware cs is enabled in the config, an HCS pin must be present in the given pins"
+                        );
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
