@@ -60,17 +60,17 @@ fn main() -> ! {
         (sck, miso, mosi, hcs),
         // Create a config with the hardware chip select given
         spi::Config::new(spi::MODE_0)
-                // Put 1 us idle time between every word sent. (the max is 15 spi peripheral ticks)
-                .inter_word_delay(0.000001) 
-                // Specify that we use the hardware cs
-                .hardware_cs(spi::HardwareCS {
-                    // See the docs of the HardwareCSMode to see what the different modes do
-                    mode: spi::HardwareCSMode::EndlessTransaction,
-                    // Put 1 us between the CS being asserted and the first clock
-                    assertion_delay: 0.000001,
-                    // Our CS should be high when not active and low when asserted
-                    polarity: spi::Polarity::IdleHigh,
-                }),
+            // Put 1 us idle time between every word sent. (the max is 15 spi peripheral ticks)
+            .inter_word_delay(0.000001)
+            // Specify that we use the hardware cs
+            .hardware_cs(spi::HardwareCS {
+                // See the docs of the HardwareCSMode to see what the different modes do
+                mode: spi::HardwareCSMode::EndlessTransaction,
+                // Put 1 us between the CS being asserted and the first clock
+                assertion_delay: 0.000001,
+                // Our CS should be high when not active and low when asserted
+                polarity: spi::Polarity::IdleHigh,
+            }),
         3.mhz(),
         ccdr.peripheral.SPI1,
         &ccdr.clocks,

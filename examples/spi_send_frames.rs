@@ -10,9 +10,9 @@
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
+use core::num::NonZeroU16;
 use spi::Spi;
 use stm32h7xx_hal::{pac, prelude::*, spi};
-use core::num::NonZeroU16;
 
 use log::info;
 
@@ -56,17 +56,17 @@ fn main() -> ! {
         (sck, miso, mosi, hcs),
         // Create a config with the hardware chip select given
         spi::Config::new(spi::MODE_0)
-                // Put 1 us idle time between every word sent
-                .inter_word_delay(0.000001) 
-                // Specify that we use the hardware cs
-                .hardware_cs(spi::HardwareCS {
-                    // See the docs of the HardwareCSMode to see what the different modes do
-                    mode: spi::HardwareCSMode::FrameTransaction,
-                    // Put 1 us between the CS being asserted and the first clock
-                    assertion_delay: 0.000001,
-                    // Our CS should be high when not active and low when asserted
-                    polarity: spi::Polarity::IdleHigh,
-                }),
+            // Put 1 us idle time between every word sent
+            .inter_word_delay(0.000001)
+            // Specify that we use the hardware cs
+            .hardware_cs(spi::HardwareCS {
+                // See the docs of the HardwareCSMode to see what the different modes do
+                mode: spi::HardwareCSMode::FrameTransaction,
+                // Put 1 us between the CS being asserted and the first clock
+                assertion_delay: 0.000001,
+                // Our CS should be high when not active and low when asserted
+                polarity: spi::Polarity::IdleHigh,
+            }),
         3.mhz(),
         ccdr.peripheral.SPI1,
         &ccdr.clocks,
@@ -90,7 +90,6 @@ fn main() -> ! {
     // So in this example that would have meant that if we also called send with a fourth byte,
     // that byte would've simply not been sent
     spi.end_transaction().unwrap();
-
 
     // When in this mode, the blocking embedded-hal interface already does this for us.
     // For example if we want to send two separate frames of different lengths, we can do this:
