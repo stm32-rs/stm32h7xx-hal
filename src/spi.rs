@@ -65,7 +65,9 @@ use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
 use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
 
 use crate::stm32;
-use crate::stm32::spi1::{cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP};
+use crate::stm32::spi1::{
+    cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP,
+};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
@@ -646,7 +648,7 @@ macro_rules! spi {
                     }
 
                     /// Sets up a frame transaction with the given amount of data words.
-                    /// 
+                    ///
                     /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
                     /// then an error is returned with [Error::InvalidCall].
                     ///
@@ -937,7 +939,7 @@ macro_rules! spi {
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
                             const MAX_WORDS: usize = 0xFFFF;
 
-                            // Can we send 
+                            // Can we send
                             if words.len() > MAX_WORDS {
                                 return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
@@ -958,7 +960,7 @@ macro_rules! spi {
                             // Clean up
                             self.end_transaction()?;
                         }
-            
+
                         Ok(words)
                     }
                 }
@@ -977,7 +979,7 @@ macro_rules! spi {
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
                             const MAX_WORDS: usize = 0xFFFF;
 
-                            // Can we send 
+                            // Can we send
                             if words.len() > MAX_WORDS {
                                 return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
@@ -998,7 +1000,7 @@ macro_rules! spi {
                             // Clean up
                             self.end_transaction()?;
                         }
-            
+
                         Ok(())
                     }
                 }
