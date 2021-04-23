@@ -644,6 +644,58 @@ macro_rules! spi {
                             _ed: PhantomData,
                         }
                     }
+
+                    /// Sets up a frame transaction with the given amount of data words.
+                    /// 
+                    /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
+                    /// then an error is returned with [Error::InvalidCall].
+                    ///
+                    /// If this is called when a transaction has already started,
+                    /// then an error is returned with [Error::TransactionAlreadyStarted].
+                    pub fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), Error> {
+                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            return Err(Error::InvalidCall);
+                        }
+
+                        if self.spi.cr1.read().cstart().is_started() {
+                            return Err(Error::TransactionAlreadyStarted);
+                        }
+
+                        // We can only set tsize when spi is disabled
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while self.spi.sr.read().eot().is_completed() {}
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+
+                        // Set the frame size
+                        self.spi.cr2.write(|w| w.tsize().bits(words.get()));
+
+                        // Re-enable
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+
+                        Ok(())
+                    }
+
+                    /// Ends the current transaction, both for endless and frame transactions.
+                    ///
+                    /// This method must always be called for frame transaction,
+                    /// even if the full size has been sent. If this is not done,
+                    /// no new data can be sent even when it looks like it should.
+                    ///
+                    /// If it's not either a frame or endless transaction,
+                    /// an error is returned with [Error::InvalidCall].
+                    pub fn end_transaction(&mut self) -> Result<(), Error> {
+                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction) {
+                            return Err(Error::InvalidCall);
+                        }
+
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while(self.spi.cr1.read().cstart().is_started()) {}
+
+                        self.spi.ifcr.write(|w| w.txtfc().clear().eotc().clear());
+
+                        Ok(())
+                    }
                 }
 
                 impl Spi<$SPIX, Disabled, $TY> {
@@ -785,47 +837,6 @@ macro_rules! spi {
                         let _ = self.spi.sr.read();
                         let _ = self.spi.sr.read(); // Delay 2 peripheral clocks
                     }
-
-                    /// Sets up a frame transaction with the given amount of bits.
-                    /// 
-                    /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
-                    /// then an error is returned with [Error::InvalidCall].
-                    ///
-                    /// If this is called when a transaction has already started,
-                    /// then an error is returned with [Error::TransactionAlreadyStarted].
-                    pub fn setup_transaction(&mut self, bits: core::num::NonZeroU16) -> Result<(), Error> {
-                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            return Err(Error::InvalidCall);
-                        }
-
-                        if self.spi.cr1.read().cstart().is_started() {
-                            return Err(Error::TransactionAlreadyStarted);
-                        }
-
-                        self.spi.cr2.write(|w| w.tsize().bits(bits.get()));
-                        Ok(())
-                    }
-
-                    /// Ends the current transaction, both for endless and frame transactions.
-                    ///
-                    /// This method must always be called for frame transaction,
-                    /// even if the full size has been sent. If this is not done,
-                    /// no new data can be sent even when it looks like it should.
-                    ///
-                    /// If it's not either a frame or endless transaction,
-                    /// an error is returned with [Error::InvalidCall].
-                    pub fn end_transaction(&mut self) -> Result<(), Error> {
-                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction) {
-                            return Err(Error::InvalidCall);
-                        }
-
-                        self.spi.cr1.modify(|_, w| w.csusp().requested());
-                        while(self.spi.cr1.read().cstart().is_started()) {}
-
-                        self.spi.ifcr.write(|w| w.txtfc().clear());
-
-                        Ok(())
-                    }
                 }
 
                 impl SpiExt<$SPIX, $TY> for $SPIX {
@@ -924,17 +935,16 @@ macro_rules! spi {
 
                         // Are we in frame mode?
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            const MAX_BITS: usize = 0xFFFF;
-                            let bits = words.len() * (core::mem::size_of::<$TY>() * 8);
+                            const MAX_WORDS: usize = 0xFFFF;
 
                             // Can we send 
-                            if bits > MAX_BITS {
-                                return Err(Error::BufferTooBig { max_size: MAX_BITS / (core::mem::size_of::<$TY>() * 8) });
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
 
                             // Setup that we're going to send this amount of bits
                             // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe { core::num::NonZeroU16::new_unchecked(bits as u16) })?;
+                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
                         }
 
                         // Send the data
@@ -965,17 +975,16 @@ macro_rules! spi {
 
                         // Are we in frame mode?
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            const MAX_BITS: usize = 0xFFFF;
-                            let bits = words.len() * (core::mem::size_of::<$TY>() * 8);
+                            const MAX_WORDS: usize = 0xFFFF;
 
                             // Can we send 
-                            if bits > MAX_BITS {
-                                return Err(Error::BufferTooBig { max_size: MAX_BITS / (core::mem::size_of::<$TY>() * 8) });
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
 
                             // Setup that we're going to send this amount of bits
                             // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(bits as u16) })?;
+                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
                         }
 
                         // Send the data
