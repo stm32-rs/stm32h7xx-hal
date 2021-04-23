@@ -563,20 +563,13 @@ macro_rules! spi {
                                 inter_word_delay += 1;
                             }
 
-                            if assertion_delay > 0xF {
-                                assertion_delay = 0xF;
-                            }
-                            if inter_word_delay > 0xF {
-                                inter_word_delay = 0xF;
-                            }
-
                             // If CS suspends while data is inactive, we also require an
                             // "inter-data" delay.
                             if matches!(config.hardware_cs.mode, HardwareCSMode::WordTransaction) {
                                 inter_word_delay = inter_word_delay.max(1);
                             }
 
-                            (assertion_delay as u8, inter_word_delay as u8)
+                            (assertion_delay.min(0xF) as u8, inter_word_delay.min(0xF) as u8)
                         };
 
                         // The calculated cycle delay may not be more than 4 bits wide for the
@@ -932,11 +925,11 @@ macro_rules! spi {
                         // Are we in frame mode?
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
                             const MAX_BITS: usize = 0xFFFF;
-                            let bits = words.len() * core::mem::size_of::<$TY>();
+                            let bits = words.len() * (core::mem::size_of::<$TY>() * 8);
 
                             // Can we send 
                             if bits > MAX_BITS {
-                                return Err(Error::BufferTooBig { max_size: MAX_BITS / core::mem::size_of::<$TY>() });
+                                return Err(Error::BufferTooBig { max_size: MAX_BITS / (core::mem::size_of::<$TY>() * 8) });
                             }
 
                             // Setup that we're going to send this amount of bits
@@ -973,11 +966,11 @@ macro_rules! spi {
                         // Are we in frame mode?
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
                             const MAX_BITS: usize = 0xFFFF;
-                            let bits = words.len() * core::mem::size_of::<$TY>();
+                            let bits = words.len() * (core::mem::size_of::<$TY>() * 8);
 
                             // Can we send 
                             if bits > MAX_BITS {
-                                return Err(Error::BufferTooBig { max_size: MAX_BITS / core::mem::size_of::<$TY>() });
+                                return Err(Error::BufferTooBig { max_size: MAX_BITS / (core::mem::size_of::<$TY>() * 8) });
                             }
 
                             // Setup that we're going to send this amount of bits
