@@ -54,6 +54,9 @@ use crate::stm32::PWR;
 #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
 use crate::stm32::{RCC, SYSCFG};
 
+#[cfg(all(feature = "rm0433", feature = "smps"))]
+compile_error!("SMPS configuration fields are not available for RM0433 parts");
+
 /// Extension trait that constrains the `PWR` peripheral
 pub trait PwrExt {
     fn constrain(self) -> Pwr;
