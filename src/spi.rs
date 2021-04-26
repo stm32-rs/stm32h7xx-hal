@@ -65,7 +65,9 @@ use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
 use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
 
 use crate::stm32;
-use crate::stm32::spi1::{cfg1::MBR_A as MBR, cfg2::COMM_A as COMM};
+use crate::stm32::spi1::{
+    cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP,
+};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
@@ -73,19 +75,21 @@ use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
-use crate::gpio::gpioa::{PA12, PA5, PA6, PA7, PA9};
-use crate::gpio::gpiob::{PB10, PB13, PB14, PB15, PB2, PB3, PB4, PB5};
+use crate::gpio::gpioa::{PA11, PA12, PA15, PA4, PA5, PA6, PA7, PA9};
+use crate::gpio::gpiob::{
+    PB10, PB12, PB13, PB14, PB15, PB2, PB3, PB4, PB5, PB9,
+};
 use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC2, PC3};
 use crate::gpio::gpiod::{PD3, PD6, PD7};
-use crate::gpio::gpioe::{PE12, PE13, PE14, PE2, PE5, PE6};
-use crate::gpio::gpiof::{PF11, PF7, PF8, PF9};
-use crate::gpio::gpiog::{PG11, PG12, PG13, PG14, PG9};
-use crate::gpio::gpioh::{PH6, PH7};
-use crate::gpio::gpioi::{PI1, PI2, PI3};
+use crate::gpio::gpioe::{PE11, PE12, PE13, PE14, PE2, PE4, PE5, PE6};
+use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
+use crate::gpio::gpiog::{PG10, PG11, PG12, PG13, PG14, PG8, PG9};
+use crate::gpio::gpioh::{PH5, PH6, PH7};
+use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11};
 #[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpiok::PK0;
+use crate::gpio::gpiok::{PK0, PK1};
 
 use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
 
@@ -102,6 +106,12 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
+    /// Calling this method is not valid in this state
+    InvalidCall,
+    /// Can't start a transaction because one is already started
+    TransactionAlreadyStarted,
+    /// A buffer is too big to be processed
+    BufferTooBig { max_size: usize },
 }
 
 /// Enabled SPI peripheral (type state)
@@ -109,10 +119,14 @@ pub struct Enabled;
 /// Disabled SPI peripheral (type state)
 pub struct Disabled;
 
-pub trait Pins<SPI> {}
+pub trait Pins<SPI> {
+    /// States whether or not the Hardware Chip Select is present in this set of pins
+    const HCS_PRESENT: bool;
+}
 pub trait PinSck<SPI> {}
 pub trait PinMiso<SPI> {}
 pub trait PinMosi<SPI> {}
+pub trait PinHCS<SPI> {}
 
 impl<SPI, SCK, MISO, MOSI> Pins<SPI> for (SCK, MISO, MOSI)
 where
@@ -120,6 +134,17 @@ where
     MISO: PinMiso<SPI>,
     MOSI: PinMosi<SPI>,
 {
+    const HCS_PRESENT: bool = false;
+}
+
+impl<SPI, SCK, MISO, MOSI, HCS> Pins<SPI> for (SCK, MISO, MOSI, HCS)
+where
+    SCK: PinSck<SPI>,
+    MISO: PinMiso<SPI>,
+    MOSI: PinMosi<SPI>,
+    HCS: PinHCS<SPI>,
+{
+    const HCS_PRESENT: bool = true;
 }
 
 /// Specifies the communication mode of the SPI interface.
@@ -150,9 +175,8 @@ pub enum CommunicationMode {
 pub struct Config {
     mode: Mode,
     swap_miso_mosi: bool,
-    cs_delay: f32,
-    managed_cs: bool,
-    suspend_when_inactive: bool,
+    hardware_cs: HardwareCS,
+    inter_word_delay: f32,
     communication_mode: CommunicationMode,
 }
 
@@ -165,9 +189,12 @@ impl Config {
         Config {
             mode,
             swap_miso_mosi: false,
-            cs_delay: 0.0,
-            managed_cs: false,
-            suspend_when_inactive: false,
+            hardware_cs: HardwareCS {
+                mode: HardwareCSMode::Disabled,
+                assertion_delay: 0.0,
+                polarity: Polarity::IdleHigh,
+            },
+            inter_word_delay: 0.0,
             communication_mode: CommunicationMode::FullDuplex,
         }
     }
@@ -182,40 +209,21 @@ impl Config {
         self
     }
 
-    /// Specify a delay between CS assertion and the beginning of the SPI transaction.
+    /// Specify the behaviour of the hardware chip select.
+    ///
+    /// This also affects the way data is sent using [HardwareCSMode].
+    /// By default the hardware cs is disabled.
+    pub fn hardware_cs(mut self, hardware_cs: HardwareCS) -> Self {
+        self.hardware_cs = hardware_cs;
+        self
+    }
+
+    /// Specify the time in seconds that should be idled between every data word being sent.
     ///
     /// Note:
-    /// * This function introduces a delay on SCK from the initiation of the transaction. The delay
-    /// is specified as a number of SCK cycles, so the actual delay may vary.
-    ///
-    /// Arguments:
-    /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
-    /// register for the output pin.
-    pub fn cs_delay(mut self, delay: f32) -> Self {
-        self.cs_delay = delay;
-        self
-    }
-
-    /// CS pin is automatically managed by the SPI peripheral.
-    ///
-    /// # Note
-    /// SPI is configured in "endless transaction" mode, which means that the SPI CSn pin will
-    /// assert when the first data is sent and will not de-assert.
-    ///
-    /// If CSn should be de-asserted between each data transfer, use `suspend_when_inactive()` as
-    /// well.
-    pub fn manage_cs(mut self) -> Self {
-        self.managed_cs = true;
-        self
-    }
-
-    /// Suspend a transaction automatically if data is not available in the FIFO.
-    ///
-    /// # Note
-    /// This will de-assert CSn when no data is available for transmission and hardware is managing
-    /// the CSn pin.
-    pub fn suspend_when_inactive(mut self) -> Self {
-        self.suspend_when_inactive = true;
+    /// * This value is converted to a number of spi peripheral clock ticks and at most 15 of those.
+    pub fn inter_word_delay(mut self, inter_word_delay: f32) -> Self {
+        self.inter_word_delay = inter_word_delay;
         self
     }
 
@@ -232,6 +240,66 @@ impl From<Mode> for Config {
     }
 }
 
+/// Object containing the settings for the hardware chip select pin
+#[derive(Clone, Copy)]
+pub struct HardwareCS {
+    /// The value that determines the behaviour of the hardware chip select pin.
+    pub mode: HardwareCSMode,
+    /// The delay between CS assertion and the beginning of the SPI transaction in seconds.
+    ///
+    /// Note:
+    /// * This value introduces a delay on SCK from the initiation of the transaction. The delay
+    /// is specified as a number of SCK cycles, so the actual delay may vary.
+    pub assertion_delay: f32,
+    /// The polarity of the CS pin.
+    pub polarity: Polarity,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum HardwareCSMode {
+    /// Handling the CS is left for the user to do in software
+    Disabled,
+    /// The CS will assert when the first data is sent and will not de-assert,
+    /// unless manually done in software using [Spi::end_transaction].
+    EndlessTransaction,
+    /// The CS will assert and de-assert for each word being sent
+    WordTransaction,
+    /// The CS will assert and only de-assert after the whole frame is sent.
+    ///
+    /// When this mode is active, the blocking embedded hal interface automatically
+    /// sets up the frames so it will be one frame per call.
+    ///
+    /// Note:
+    /// * This mode does require some maintenance. Before sending, you must setup
+    /// the frame with [Spi::setup_transaction]. After everything has been sent,
+    /// you must also clean it up with [Spi::end_transaction].
+    FrameTransaction,
+}
+
+impl HardwareCS {
+    fn assertion_delay(&self) -> f32 {
+        self.assertion_delay
+    }
+
+    fn polarity(&self) -> Polarity {
+        self.polarity
+    }
+
+    fn enabled(&self) -> bool {
+        match self.mode {
+            HardwareCSMode::Disabled => false,
+            _ => true,
+        }
+    }
+
+    fn interleaved_cs(&self) -> bool {
+        match self.mode {
+            HardwareCSMode::WordTransaction { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 /// A filler type for when the SCK pin is unnecessary
 pub struct NoSck;
 /// A filler type for when the Miso pin is unnecessary
@@ -243,7 +311,9 @@ macro_rules! pins {
     ($($SPIX:ty:
        SCK: [$($( #[ $pmeta1:meta ] )* $SCK:ty),*]
        MISO: [$($( #[ $pmeta2:meta ] )* $MISO:ty),*]
-       MOSI: [$($( #[ $pmeta3:meta ] )* $MOSI:ty),*])+) => {
+       MOSI: [$($( #[ $pmeta3:meta ] )* $MOSI:ty),*]
+       HCS: [$($( #[ $pmeta4:meta ] )* $HCS:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
@@ -256,6 +326,10 @@ macro_rules! pins {
             $(
                 $( #[ $pmeta3 ] )*
                 impl PinMosi<$SPIX> for $MOSI {}
+            )*
+            $(
+                $( #[ $pmeta4 ] )*
+                impl PinHCS<$SPIX> for $HCS {}
             )*
         )+
     }
@@ -281,6 +355,11 @@ pins! {
             PB5<Alternate<AF5>>,
             PD7<Alternate<AF5>>
         ]
+        HCS: [
+            PA4<Alternate<AF5>>,
+            PA15<Alternate<AF5>>,
+            PG10<Alternate<AF5>>
+        ]
     SPI2:
         SCK: [
             NoSck,
@@ -304,6 +383,13 @@ pins! {
             PC3<Alternate<AF5>>,
             PI3<Alternate<AF5>>
         ]
+        HCS: [
+            PA11<Alternate<AF5>>,
+            PB4<Alternate<AF7>>,
+            PB9<Alternate<AF5>>,
+            PB12<Alternate<AF5>>,
+            PI0<Alternate<AF5>>
+        ]
     SPI3:
         SCK: [
             NoSck,
@@ -322,6 +408,10 @@ pins! {
             PC12<Alternate<AF6>>,
             PD6<Alternate<AF5>>
         ]
+        HCS: [
+            PA4<Alternate<AF6>>,
+            PA15<Alternate<AF6>>
+        ]
     SPI4:
         SCK: [
             NoSck,
@@ -337,6 +427,10 @@ pins! {
             NoMosi,
             PE6<Alternate<AF5>>,
             PE14<Alternate<AF5>>
+        ]
+        HCS: [
+            PE4<Alternate<AF5>>,
+            PE11<Alternate<AF5>>
         ]
     SPI5:
         SCK: [
@@ -360,6 +454,12 @@ pins! {
             #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF5>>
         ]
+        HCS: [
+            PF6<Alternate<AF5>>,
+            PH5<Alternate<AF5>>,
+            #[cfg(not(feature = "stm32h7b0"))]
+            PK1<Alternate<AF5>>
+        ]
     SPI6:
         SCK: [
             NoSck,
@@ -381,6 +481,11 @@ pins! {
             PB5<Alternate<AF8>>,
             PG14<Alternate<AF5>>
         ]
+        HCS: [
+            PA4<Alternate<AF8>>,
+            PA15<Alternate<AF7>>,
+            PG8<Alternate<AF5>>
+        ]
 }
 
 /// Interrupt events
@@ -397,6 +502,7 @@ pub enum Event {
 #[derive(Debug)]
 pub struct Spi<SPI, ED, WORD = u8> {
     spi: SPI,
+    hardware_cs_mode: HardwareCSMode,
     _word: PhantomData<WORD>,
     _ed: PhantomData<ED>,
 }
@@ -433,19 +539,19 @@ macro_rules! spi {
     (DSIZE, $spi:ident,  u8) => {
         $spi.cfg1.modify(|_, w| {
             w.dsize()
-                .bits(8 - 1) // 8 bit frames
+                .bits(8 - 1) // 8 bit words
         });
     };
     (DSIZE, $spi:ident, u16) => {
         $spi.cfg1.modify(|_, w| {
             w.dsize()
-                .bits(16 - 1) // 16 bit frames
+                .bits(16 - 1) // 16 bit words
         });
     };
     (DSIZE, $spi:ident, u32) => {
         $spi.cfg1.modify(|_, w| {
             w.dsize()
-                .bits(32 - 1) // 32 bit frames
+                .bits(32 - 1) // 32 bit words
         });
     };
 	($($SPIX:ident: ($spiX:ident, $Rec:ident, $pclkX:ident)
@@ -499,27 +605,27 @@ macro_rules! spi {
                         spi.cr1.write(|w| w.ssi().slave_not_selected());
 
                         // Calculate the CS->transaction cycle delay bits.
-                        let (start_cycle_delay, interdata_cycle_delay) = {
-                            let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+                        let (assertion_delay, inter_word_delay) = {
+                            let mut assertion_delay: u32 = (config.hardware_cs.assertion_delay() * spi_freq as f32) as u32;
+                            let mut inter_word_delay: u32 = (config.inter_word_delay * spi_freq as f32) as u32;
 
-                            // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                            // If a delay is specified as non-zero, add 1 to the delay cycles
                             // before truncation to an integer to ensure that we have at least as
                             // many cycles as required.
-                            if config.cs_delay > 0.0_f32 {
-                                delay += 1;
+                            if config.hardware_cs.assertion_delay() > 0.0_f32 {
+                                assertion_delay += 1;
                             }
-
-                            if delay > 0xF {
-                                delay = 0xF;
+                            if config.inter_word_delay > 0.0_f32 {
+                                inter_word_delay += 1;
                             }
 
                             // If CS suspends while data is inactive, we also require an
                             // "inter-data" delay.
-                            if config.suspend_when_inactive {
-                                (delay as u8, delay as u8)
-                            } else {
-                                (delay as u8, 0_u8)
+                            if matches!(config.hardware_cs.mode, HardwareCSMode::WordTransaction) {
+                                inter_word_delay = inter_word_delay.max(1);
                             }
+
+                            (assertion_delay.min(0xF) as u8, inter_word_delay.min(0xF) as u8)
                         };
 
                         // The calculated cycle delay may not be more than 4 bits wide for the
@@ -528,6 +634,11 @@ macro_rules! spi {
                             CommunicationMode::Transmitter => COMM::TRANSMITTER,
                             CommunicationMode::Receiver => COMM::RECEIVER,
                             CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
+                        };
+
+                        let cs_polarity = match config.hardware_cs.polarity() {
+                            Polarity::IdleHigh => SSIOP::ACTIVELOW,
+                            Polarity::IdleLow => SSIOP::ACTIVEHIGH,
                         };
 
                         // mstr: master configuration
@@ -544,25 +655,31 @@ macro_rules! spi {
                                 .lsbfrst()
                                 .msbfirst()
                                 .ssom()
-                                .bit(config.suspend_when_inactive)
+                                .bit(config.hardware_cs.interleaved_cs())
                                 .ssm()
-                                .bit(config.managed_cs == false)
+                                .bit(config.hardware_cs.enabled() == false)
                                 .ssoe()
-                                .bit(config.managed_cs == true)
+                                .bit(config.hardware_cs.enabled() == true)
                                 .mssi()
-                                .bits(start_cycle_delay)
+                                .bits(assertion_delay)
                                 .midi()
-                                .bits(interdata_cycle_delay)
+                                .bits(inter_word_delay)
                                 .ioswp()
                                 .bit(config.swap_miso_mosi == true)
                                 .comm()
                                 .variant(communication_mode)
+                                .ssiop()
+                                .variant(cs_polarity)
                         });
+
+                        // Reset to default (might have been set if previously used by a frame transaction)
+                        // So that is 1 when it's a frame transaction and 0 when in another mode
+                        spi.cr2.write(|w| w.tsize().bits(matches!(config.hardware_cs.mode, HardwareCSMode::FrameTransaction) as u16));
 
                         // spe: enable the SPI bus
                         spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
 
-                        Spi { spi, _word: PhantomData, _ed: PhantomData }
+                        Spi { spi, hardware_cs_mode: config.hardware_cs.mode, _word: PhantomData, _ed: PhantomData }
                     }
 
                     /// Disables the SPI peripheral. Any SPI operation is
@@ -578,9 +695,62 @@ macro_rules! spi {
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
                         Spi {
                             spi: self.spi,
+                            hardware_cs_mode: self.hardware_cs_mode,
                             _word: PhantomData,
                             _ed: PhantomData,
                         }
+                    }
+
+                    /// Sets up a frame transaction with the given amount of data words.
+                    ///
+                    /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
+                    /// then an error is returned with [Error::InvalidCall].
+                    ///
+                    /// If this is called when a transaction has already started,
+                    /// then an error is returned with [Error::TransactionAlreadyStarted].
+                    pub fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), Error> {
+                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            return Err(Error::InvalidCall);
+                        }
+
+                        if self.spi.cr1.read().cstart().is_started() {
+                            return Err(Error::TransactionAlreadyStarted);
+                        }
+
+                        // We can only set tsize when spi is disabled
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while self.spi.sr.read().eot().is_completed() {}
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+
+                        // Set the frame size
+                        self.spi.cr2.write(|w| w.tsize().bits(words.get()));
+
+                        // Re-enable
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+
+                        Ok(())
+                    }
+
+                    /// Ends the current transaction, both for endless and frame transactions.
+                    ///
+                    /// This method must always be called for frame transaction,
+                    /// even if the full size has been sent. If this is not done,
+                    /// no new data can be sent even when it looks like it should.
+                    ///
+                    /// If it's not either a frame or endless transaction,
+                    /// an error is returned with [Error::InvalidCall].
+                    pub fn end_transaction(&mut self) -> Result<(), Error> {
+                        if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction) {
+                            return Err(Error::InvalidCall);
+                        }
+
+                        self.spi.cr1.modify(|_, w| w.csusp().requested());
+                        while(self.spi.cr1.read().cstart().is_started()) {}
+
+                        self.spi.ifcr.write(|w| w.txtfc().clear().eotc().clear());
+
+                        Ok(())
                     }
                 }
 
@@ -592,6 +762,7 @@ macro_rules! spi {
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
                         Spi {
                             spi: self.spi,
+                            hardware_cs_mode: self.hardware_cs_mode,
                             _word: PhantomData,
                             _ed: PhantomData,
                         }
@@ -738,6 +909,12 @@ macro_rules! spi {
 	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
+                        let config = config.into();
+                        assert_eq!(
+                            config.hardware_cs.enabled(),
+                            PINS::HCS_PRESENT,
+                            "If the hardware cs is enabled in the config, an HCS pin must be present in the given pins"
+                        );
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
@@ -808,11 +985,85 @@ macro_rules! spi {
                     }
                 }
 
-                impl hal::blocking::spi::transfer::Default<$TY>
-                    for Spi<$SPIX, Enabled, $TY> {}
+                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
 
-                impl hal::blocking::spi::write::Default<$TY>
-                    for Spi<$SPIX, Enabled, $TY> {}
+                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
+                        use embedded_hal::spi::FullDuplex;
+
+                        if words.is_empty() {
+                            return Ok(words);
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            const MAX_WORDS: usize = 0xFFFF;
+
+                            // Can we send
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
+                            }
+
+                            // Setup that we're going to send this amount of bits
+                            // SAFETY: We already checked that `words` is not empty
+                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
+                        }
+
+                        // Send the data
+                        for word in words.iter_mut() {
+                            nb::block!(self.send(word.clone()))?;
+                            *word = nb::block!(self.read())?;
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            // Clean up
+                            self.end_transaction()?;
+                        }
+
+                        Ok(words)
+                    }
+                }
+
+                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
+
+                    fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
+                        use embedded_hal::spi::FullDuplex;
+
+                        if words.is_empty() {
+                            return Ok(());
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            const MAX_WORDS: usize = 0xFFFF;
+
+                            // Can we send
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
+                            }
+
+                            // Setup that we're going to send this amount of bits
+                            // SAFETY: We already checked that `words` is not empty
+                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
+                        }
+
+                        // Send the data
+                        for word in words {
+                            nb::block!(self.send(word.clone()))?;
+                            nb::block!(self.read())?;
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            // Clean up
+                            self.end_transaction()?;
+                        }
+
+                        Ok(())
+                    }
+                }
             )+
         )+
 	}

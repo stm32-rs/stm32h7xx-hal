@@ -67,7 +67,7 @@ To use stm32h7xx-hal as a dependency in a standalone project the
 target device feature must be specified in the `Cargo.toml` file:
 ```toml
 [dependencies]
-cortex-m = "0.6.2"
+cortex-m = "0.7.1"
 cortex-m-rt = "0.6.12"
 stm32h7xx-hal = {version = "0.9.0", features = ["stm32h743v","rt"]}
 ```
@@ -92,10 +92,11 @@ functionality.
 Board | Manufacturer | BSP / Examples?
 ---|---|---
 [NUCLEO-H743ZI](https://www.st.com/en/evaluation-tools/nucleo-h743zi.html) | ST | [Examples](https://github.com/astraw/nucleo-h743zi)
+[NUCLEO-H745ZI-Q](https://www.st.com/en/evaluation-tools/nucleo-h745zi-q.html) | ST | [BSP](https://github.com/antoinevg/nucleo-h745zi)
 [STM32H743I-EVAL](https://www.st.com/en/evaluation-tools/stm32h743i-eval.html) | ST |
 [STM32H747I-EVAL](https://www.st.com/en/evaluation-tools/stm32h747i-eval.html) | ST |
 [STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html) | ST |
-[Daisy Seed](https://www.electro-smith.com/daisy/daisy) | Electrosmith |
+[Daisy Seed](https://www.electro-smith.com/daisy/daisy) | Electrosmith | [BSP](https://github.com/antoinevg/daisy_bsp)
 [Portenta H7](https://store.arduino.cc/portenta-h7) ⚠️ | Arduino |
 [OpenH743I-C](https://www.waveshare.com/openh743i-c-standard.htm) | Waveshare |
 [Toasty](https://www.tindie.com/products/webtronics/toasty-480mhz-stm32-usb-development-board/) | Webtronics |

@@ -37,6 +37,10 @@ pub enum RtcClock {
     Lse {
         freq: Hertz,
         bypass: bool,
+        /// Enable the Clock Security Subsystem for the LSE
+        ///
+        /// Note that errata 2.2.19 for STM32H74x prevents the LSE from initializing without resetting after VDD
+        /// power-up.
         css: bool,
     },
     /// LSI (Low-Speed Internal)
@@ -112,7 +116,8 @@ impl Rtc {
                     rcc.cfgr.read().rtcpre().bits() == divider
                 }
                 (RtcClock::Lse { bypass, css, .. }, backup::RtcClkSel::LSE) => {
-                    bypass == bdcr.lsebyp().is_bypassed()
+                    bdcr.lseon().is_on()
+                        && bypass == bdcr.lsebyp().is_bypassed()
                         && css == bdcr.lsecsson().is_security_on()
                 }
                 _ => false,
@@ -147,8 +152,10 @@ impl Rtc {
         // Check and configure clock source
         let ker_ck = match clock_source {
             RtcClock::Lse { bypass, freq, .. } => {
+                // Set LSEBYP before enabling
+                rcc.bdcr.modify(|_, w| w.lsebyp().bit(bypass));
                 // Ensure LSE is on and stable
-                rcc.bdcr.modify(|_, w| w.lseon().on().lsebyp().bit(bypass));
+                rcc.bdcr.modify(|_, w| w.lseon().on());
                 while rcc.bdcr.read().lserdy().is_not_ready() {}
 
                 Some(freq)

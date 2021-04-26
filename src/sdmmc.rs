@@ -27,7 +27,7 @@
 //! ```
 //!
 //! There is an [extension trait](crate::sdmmc::SdmmcExt) implemented for the
-//! `SDMMC1` and `SDMMC2` periperhals for easy initialisation.
+//! `SDMMC1` and `SDMMC2` peripherals for easy initialisation.
 //!
 //! ```
 //! // Create SDMMC

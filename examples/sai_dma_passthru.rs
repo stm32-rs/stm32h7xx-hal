@@ -1,9 +1,8 @@
 // This demo code runs on the Electro Smith Daisy Seed board
 // https://www.electro-smith.com/daisy
-
 #![allow(unused_macros)]
 #![deny(warnings)]
-//#![deny(unsafe_code)]
+// #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
@@ -11,14 +10,17 @@ use cortex_m::asm;
 
 use cortex_m_rt::entry;
 
+use hal::device;
 use hal::dma;
 use hal::hal::digital::v2::OutputPin;
 use hal::rcc::rec::Sai1ClkSel;
 use hal::sai::{self, SaiChannel, SaiI2sExt};
 use hal::stm32;
-use hal::time::Hertz;
 use hal::{pac, prelude::*};
 use stm32h7xx_hal as hal;
+use stm32h7xx_hal::rcc;
+use stm32h7xx_hal::time::{Hertz, MegaHertz};
+use stm32h7xx_hal::traits::i2s::FullDuplex;
 
 use pac::interrupt;
 
@@ -30,7 +32,7 @@ mod utilities;
 // = global constants =========================================================
 
 // 32 samples * 2 audio channels * 2 buffers
-const DMA_BUFFER_LENGTH: usize = 32 * 2 * 2;
+const DMA_BUFFER_LENGTH: usize = 48 * 2 * 2;
 
 const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 
@@ -45,6 +47,14 @@ const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
+pub const CLOCK_RATE_HZ: Hertz = Hertz(400_000_000_u32);
+
+const HSE_CLOCK_MHZ: MegaHertz = MegaHertz(16);
+
+// PCLKx
+const PCLK_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 4);
+// PLL1
+const PLL1_P_HZ: Hertz = CLOCK_RATE_HZ;
 
 // = entry ====================================================================
 
@@ -60,10 +70,19 @@ fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .use_hse(16.mhz())
-        .sys_ck(400.mhz())
+        .use_hse(HSE_CLOCK_MHZ)
+        .sys_ck(CLOCK_RATE_HZ)
+        .pclk1(PCLK_HZ) // DMA clock
+        // PLL1
+        .pll1_strategy(rcc::PllConfigStrategy::Iterative)
+        .pll1_p_ck(PLL1_P_HZ)
+        // PLL3
+        .pll3_strategy(rcc::PllConfigStrategy::Iterative)
         .pll3_p_ck(PLL3_P_HZ)
         .freeze(vos, &dp.SYSCFG);
+
+    let mut core = device::CorePeripherals::take().unwrap();
+    core.SCB.enable_icache();
 
     // enable sai1 peripheral and set clock to pll3
     let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
@@ -168,6 +187,18 @@ fn main() -> ! {
         info!("audio started");
 
         sai1.enable();
+        // Jump start audio
+        // Each of the audio blocks in the SAI are enabled by SAIEN bit in the SAI_xCR1 register.
+        // As soon as this bit is active, the transmitter or the receiver is sensitive
+        // to the activity on the clock line, data line and synchronization line in slave mode.
+        // In master TX mode, enabling the audio block immediately generates the bit clock for the
+        // external slaves even if there is no data in the FIFO, However FS signal generation
+        // is conditioned by the presence of data in the FIFO.
+        // After the FIFO receives the first data to transmit, this data is output to external slaves.
+        // If there is no data to transmit in the FIFO, 0 values are then sent in the audio frame
+        // with an underrun flag generation.
+        // From the reference manual (rev7 page 2259)
+        sai1.try_send(0, 0).unwrap();
     });
 
     // - dma1 stream 1 interrupt handler --------------------------------------
@@ -176,13 +207,17 @@ fn main() -> ! {
         dma::dma::Stream1<stm32::DMA1>,
         stm32::SAI1,
         dma::PeripheralToMemory,
-        &'static mut [u32; 128],
+        &'static mut [u32; DMA_BUFFER_LENGTH],
         dma::DBTransfer,
     >;
 
     static mut TRANSFER_DMA1_STR1: Option<TransferDma1Str1> = None;
     unsafe {
         TRANSFER_DMA1_STR1 = Some(dma1_str1);
+        info!(
+            "{:?}, {:?}",
+            &TX_BUFFER[0] as *const u32, &RX_BUFFER[0] as *const u32
+        );
     }
 
     #[interrupt]
