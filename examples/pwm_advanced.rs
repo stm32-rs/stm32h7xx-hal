@@ -71,7 +71,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(8.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.mhz()).hclk(4.mhz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOA-GPIOG peripherals. This also enables the clocks for
     // GPIOA-GPIOG in the RCC register.
