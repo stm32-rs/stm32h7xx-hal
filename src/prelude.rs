@@ -12,6 +12,7 @@ pub use crate::flash::FlashExt as _stm32h7xx_hal_flash_FlashExt;
 pub use crate::fmc::FmcExt as _stm32h7xx_hal_fmc_FmcExt;
 pub use crate::gpio::GpioExt as _stm32h7xx_hal_gpio_GpioExt;
 pub use crate::i2c::I2cExt as _stm32h7xx_hal_i2c_I2cExt;
+pub use crate::pwm::PwmAdvExt as _stm32_hal_pwm_PwmAdvExt;
 pub use crate::pwm::PwmExt as _stm32_hal_pwm_PwmExt;
 pub use crate::pwr::PwrExt as _stm32h7xx_hal_pwr_PwrExt;
 #[cfg(all(feature = "quadspi", not(feature = "rm0455")))]
