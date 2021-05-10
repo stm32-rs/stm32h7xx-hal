@@ -34,12 +34,12 @@ use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        timer1: Timer<TIM1>,
-        timer2: Timer<TIM2>,
-        timer3: LpTimer<LPTIM3, Enabled>,
         led1: PI12<Output<PushPull>>,
         led2: PI13<Output<PushPull>>,
         led3: PI14<Output<PushPull>>,
+        timer1: Timer<TIM1>,
+        timer2: Timer<TIM2>,
+        timer3: LpTimer<LPTIM3, Enabled>,
     }
 
     #[init]
@@ -115,12 +115,12 @@ const APP: () = {
         led3.set_high().ok();
 
         init::LateResources {
-            timer1,
-            timer2,
-            timer3,
             led1,
             led2,
             led3,
+            timer1,
+            timer2,
+            timer3,
         }
     }
 

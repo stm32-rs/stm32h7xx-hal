@@ -33,6 +33,7 @@ static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
+        cs: hal::gpio::gpiob::PB12<hal::gpio::Output<hal::gpio::PushPull>>,
         transfer: hal::dma::Transfer<
             hal::dma::dma::Stream1<hal::stm32::DMA1>,
             hal::spi::Spi<hal::stm32::SPI2, hal::spi::Disabled, u8>,
@@ -40,7 +41,6 @@ const APP: () = {
             &'static mut [u8; BUFFER_SIZE],
             hal::dma::DBTransfer,
         >,
-        cs: hal::gpio::gpiob::PB12<hal::gpio::Output<hal::gpio::PushPull>>,
     }
 
     #[init]
@@ -129,7 +129,7 @@ const APP: () = {
             _,
         > = hal::dma::Transfer::init(streams.1, spi, buffer, None, config);
 
-        init::LateResources { transfer, cs }
+        init::LateResources { cs, transfer }
     }
 
     #[task(binds=DMA1_STR1, resources=[transfer, cs], priority=2)]
