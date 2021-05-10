@@ -1,4 +1,7 @@
 //! SDMMC card example
+//!
+//! Tested on a STM32H747I-DISCO development board with a SanDisk Extreme 32 GB
+//! SDHC UHS-I card.
 
 #![deny(warnings)]
 #![no_main]
@@ -30,7 +33,7 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(400.mhz())
+        .sys_ck(200.mhz())
         .pll1_q_ck(100.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
@@ -88,9 +91,14 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
+    // On most development boards this can be increased up to 50MHz. We choose a
+    // lower frequency here so that it should work even with flying leads
+    // connected to a SD card breakout.
+    let bus_frequency = 2.mhz();
+
     // Loop until we have a card
     loop {
-        match sdmmc.init_card(50.mhz()) {
+        match sdmmc.init_card(bus_frequency) {
             Ok(_) => break,
             Err(err) => {
                 info!("Init err: {:?}", err);
@@ -143,7 +151,7 @@ fn main() -> ! {
     let end = pac::DWT::get_cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
 
-    info!("Read 100 blocks in {} ms", duration * 1000.);
+    info!("Read 100 blocks at {} bytes/s", 5120. / duration);
     info!("");
 
     // Write 10 blocks
