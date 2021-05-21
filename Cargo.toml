@@ -79,6 +79,7 @@ revision_v = []
 rm0433 = []                     # aka. "single core" devices
 rm0399 = []                     # aka. "dual core" devices
 rm0455 = []                     # aka. "high memory integration" devices
+rm0468 = []                     # aka. "high speed" devices
 dsi = []
 cm4 = []
 cm7 = []
@@ -104,6 +105,7 @@ stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "rm0399
 stm32h7b3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
 stm32h7b0 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
 stm32h7a3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
+stm32h735 = ["stm32h7/stm32h735", "device-selected", "revision_v", "rm0468", "smps"]
 # Flags for examples
 log-itm = []
 log-rtt = []
