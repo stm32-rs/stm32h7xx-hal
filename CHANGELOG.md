@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* MSRV increased to 1.51.0
+
 ## [v0.10.0] 2021-07-xx
 
 * **Breaking**: Don't reset peripheral in DMA1/2 `StreamsTuple::new()` method #229
