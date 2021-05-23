@@ -176,27 +176,35 @@ impl Pwr {
 
         match self.supply_configuration {
             LDOSupply => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_set(), error);
+                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(self.rb.cr3.read().ldoen().bit_is_set(), "{}", error);
             }
             DirectSMPS => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), error);
+                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
             }
             SMPSFeedsIntoLDO1V8 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), error);
-                assert!(smps_level!(self.rb.cr3.read()).bits() == 1, error);
+                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_level!(self.rb.cr3.read()).bits() == 1,
+                    "{}",
+                    error
+                );
             }
             SMPSFeedsIntoLDO2V5 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), error);
-                assert!(smps_level!(self.rb.cr3.read()).bits() == 2, error);
+                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_level!(self.rb.cr3.read()).bits() == 2,
+                    "{}",
+                    error
+                );
             }
             Bypass => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), error);
-                assert!(self.rb.cr3.read().bypass().bit_is_set(), error);
+                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
+                assert!(self.rb.cr3.read().bypass().bit_is_set(), "{}", error);
             }
             Default => {} // Default configuration is NOT verified
         }
