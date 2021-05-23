@@ -162,6 +162,30 @@ macro_rules! smps_level {
         $e.smpslevel()
     };
 }
+#[cfg(all(feature = "smps", not(feature = "rm0455")))]
+macro_rules! smps_en {
+    ($e:expr) => {
+        $e.sden()
+    };
+}
+#[cfg(all(feature = "smps", feature = "rm0455"))]
+macro_rules! smps_en {
+    ($e:expr) => {
+        $e.smpsen()
+    };
+}
+#[cfg(not(feature = "rm0455"))]
+macro_rules! d3cr {
+    ($e:expr) => {
+        $e.d3cr
+    };
+}
+#[cfg(feature = "rm0455")]
+macro_rules! d3cr {
+    ($e:expr) => {
+        $e.srdcr
+    };
+}
 
 /// Internal power methods
 impl Pwr {
@@ -176,15 +200,19 @@ impl Pwr {
 
         match self.supply_configuration {
             LDOSupply => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    "{}",
+                    error
+                );
                 assert!(self.rb.cr3.read().ldoen().bit_is_set(), "{}", error);
             }
             DirectSMPS => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
             }
             SMPSFeedsIntoLDO1V8 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
                     smps_level!(self.rb.cr3.read()).bits() == 1,
@@ -193,7 +221,7 @@ impl Pwr {
                 );
             }
             SMPSFeedsIntoLDO2V5 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
                     smps_level!(self.rb.cr3.read()).bits() == 2,
@@ -202,7 +230,11 @@ impl Pwr {
                 );
             }
             Bypass => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    "{}",
+                    error
+                );
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(self.rb.cr3.read().bypass().bit_is_set(), "{}", error);
             }
@@ -215,7 +247,7 @@ impl Pwr {
     ///
     /// Does NOT implement overdrive (back-bias)
     fn voltage_scaling_transition(&self, new_scale: VoltageScale) {
-        self.rb.d3cr.write(|w| unsafe {
+        d3cr!(self.rb).write(|w| unsafe {
             // Manually set field values for each family
             w.vos().bits(
                 #[cfg(not(feature = "rm0455"))]
@@ -236,7 +268,7 @@ impl Pwr {
                 },
             )
         });
-        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+        while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
     }
 }
 
@@ -292,19 +324,22 @@ impl Pwr {
             use SupplyConfiguration::*;
 
             match self.supply_configuration {
-                LDOSupply => w.sden().clear_bit().ldoen().set_bit(),
-                DirectSMPS => w.sden().set_bit().ldoen().clear_bit(),
+                LDOSupply => smps_en!(w).clear_bit().ldoen().set_bit(),
+                DirectSMPS => smps_en!(w).set_bit().ldoen().clear_bit(),
                 SMPSFeedsIntoLDO1V8 => unsafe {
-                    let reg = w.sden().set_bit().ldoen().set_bit();
+                    let reg = smps_en!(w).set_bit().ldoen().set_bit();
                     smps_level!(reg).bits(1)
                 },
                 SMPSFeedsIntoLDO2V5 => unsafe {
-                    let reg = w.sden().set_bit().ldoen().set_bit();
+                    let reg = smps_en!(w).set_bit().ldoen().set_bit();
                     smps_level!(reg).bits(2)
                 },
-                Bypass => {
-                    w.sden().clear_bit().ldoen().clear_bit().bypass().set_bit()
-                }
+                Bypass => smps_en!(w)
+                    .clear_bit()
+                    .ldoen()
+                    .clear_bit()
+                    .bypass()
+                    .set_bit(),
                 Default => {
                     // Default configuration. The actual reset value of
                     // CR3 varies between packages (See RM0399 Section
@@ -349,7 +384,7 @@ impl Pwr {
             unsafe {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
-            while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+            while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
         }
 

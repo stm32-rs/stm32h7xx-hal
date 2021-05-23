@@ -444,9 +444,16 @@ macro_rules! variant_return_type {
 }
 
 // Register for autonomous mode enable bits
+#[cfg(not(feature = "rm0455"))]
 macro_rules! autonomous {
     ($Auto:ident) => {
         &(*RCC::ptr()).d3amr
+    };
+}
+#[cfg(feature = "rm0455")]
+macro_rules! autonomous {
+    ($Auto:ident) => {
+        &(*RCC::ptr()).srdamr
     };
 }
 
@@ -481,6 +488,7 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(feature = "rm0455")]
     AHB1, "" => [
+        Crc,
         Usb1Otg [group clk: Usb cdccip2 "USB"],
         Adc12 [group clk: Adc(Variant) srdccip "ADC"]
     ];
@@ -520,14 +528,17 @@ peripheral_reset_and_enable_control! {
 
     #[cfg(all())]
     AHB4, "AMBA High-performance Bus (AHB4) peripherals" => [
-        (Auto) Bdma,
-        (Auto) Crc,
-
         Gpioa, Gpiob, Gpioc, Gpiod, Gpioe, Gpiof, Gpiog, Gpioh, Gpioi, Gpioj, Gpiok
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB4, "" => [
+        (Auto) Crc,
+        (Auto) Bdma,
         (Auto) Adc3 [group clk: Adc]
+    ];
+    #[cfg(feature = "rm0455")]
+    AHB4, "" => [
+        (Auto) Bdma2
     ];
 
 
@@ -579,17 +590,17 @@ peripheral_reset_and_enable_control! {
     #[cfg(feature = "rm0455")]
     APB1H, "" => [
         Fdcan [kernel clk: Fdcan(Variant) cdccip1 "FDCAN"],
-        Swp [kernel clk: Swp cdccip1 "SWPMI"]
+        Swpmi [kernel clk: Swpmi cdccip1 "SWPMI"]
     ];
 
 
     #[cfg(all())]
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Hrtim,
         Tim1, Tim8, Tim15, Tim16, Tim17
     ];
     #[cfg(not(feature = "rm0455"))]
     APB2, "" => [
+        Hrtim,
         Dfsdm1 [kernel clk: Dfsdm1 d2ccip1 "DFSDM1"],
 
         Sai1 [kernel clk: Sai1(Variant) d2ccip1 "SAI1"],
