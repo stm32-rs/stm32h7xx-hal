@@ -369,11 +369,18 @@ macro_rules! dma_stream {
                 }
 
                 #[inline(always)]
-                fn clear_transfer_complete_interrupt(&mut self) {
+                fn clear_transfer_complete_flag(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
                     dma.$ifcr.write(|w| w.$tcif().set_bit());
+                }
+
+                #[inline(always)]
+                fn clear_transfer_complete_interrupt(&mut self) {
+                    self.clear_transfer_complete_flag();
+                    //NOTE(unsafe) Atomic read with no side-effects.
+                    let dma = unsafe { &*I::ptr() };
                     let _ = dma.$isr.read();
                     let _ = dma.$isr.read(); // Delay 2 peripheral clocks
                 }

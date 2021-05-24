@@ -32,7 +32,13 @@ pub trait Stream: Sealed {
     /// Clear all interrupts for the DMA stream.
     fn clear_interrupts(&mut self);
 
-    /// Clear transfer complete interrupt (tcif) for the DMA stream.
+    /// Clear transfer complete interrupt flag (tcif) for the DMA stream
+    /// but do not insert artificial delays.
+    fn clear_transfer_complete_flag(&mut self);
+
+    /// Clear transfer complete interrupt (tcif) for the DMA stream and delay
+    /// to ensure the change has settled through the bridge, peripheral, and
+    /// synchronizers.
     fn clear_transfer_complete_interrupt(&mut self);
 
     /// Clear transfer error interrupt (teif) for the DMA stream.
