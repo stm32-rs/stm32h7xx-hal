@@ -46,6 +46,8 @@ pub enum DMAError {
     NotReady,
     /// The user provided a buffer that is not big enough while double buffering.
     SmallBuffer,
+    /// DMA started transfer on the inactive buffer while the user was processing it.
+    Overflow,
 }
 
 /// Possible DMA's directions.
@@ -611,7 +613,8 @@ macro_rules! db_transfer_def {
             /// NOTE(unsafe): Memory safety is not guaranteed.
             /// The user must ensure that the user function called on the inactive
             /// buffer completes before the running DMA transfer of the active buffer
-            /// completes.
+            /// completes. If the DMA wins the race to the inactive buffer
+            /// a `DMAError::Overflow` is returned but processing continues.
             ///
             /// NOTE(fence): The user function must ensure buffer access ordering
             /// against the flag accesses. Call
@@ -620,11 +623,12 @@ macro_rules! db_transfer_def {
             pub unsafe fn next_dbm_transfer_with<F, T>(
                 &mut self,
                 func: F,
-            ) -> T
+            ) -> Result<T, DMAError>
             where
                 F: FnOnce(&mut BUF, CurrentBuffer) -> T,
             {
                 while !STREAM::get_transfer_complete_flag() { }
+                self.stream.clear_transfer_complete_flag();
 
                 // NOTE(panic): Panic if stream not configured in double buffer mode.
                 let inactive = STREAM::get_inactive_buffer().unwrap();
@@ -635,9 +639,11 @@ macro_rules! db_transfer_def {
 
                 let result = func(buf, inactive);
 
-                self.stream.clear_transfer_complete_flag();
-
-                result
+                if STREAM::get_transfer_complete_flag() {
+                    Err(DMAError::Overflow)
+                } else {
+                    Ok(result)
+                }
             }
 
             /// Clear half transfer interrupt (htif) for the DMA stream.
