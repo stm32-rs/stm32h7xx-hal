@@ -480,17 +480,24 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB1, "" => [
-        Usb1Otg [group clk: Usb d2ccip2 "USB"],
-        Usb2Otg [group clk: Usb],
         Eth1Mac,
         #[cfg(any(feature = "rm0399"))] Art,
         Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
+    ];
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    AHB1, "" => [
+        Usb1Otg [group clk: Usb d2ccip2 "USB"],
+        Usb2Otg [group clk: Usb]
     ];
     #[cfg(feature = "rm0455")]
     AHB1, "" => [
         Crc,
         Usb1Otg [group clk: Usb cdccip2 "USB"],
         Adc12 [group clk: Adc(Variant) srdccip "ADC"]
+    ];
+    #[cfg(feature = "rm0468")]
+    AHB1, "" => [
+        Usb1Otg [kernel clk: Usb d2ccip2 "USB"]
     ];
 
 
@@ -507,22 +514,36 @@ peripheral_reset_and_enable_control! {
     AHB2, "" => [
         Rng [kernel clk: Rng cdccip2 "RNG"]
     ];
+    #[cfg(feature = "rm0468")]
+    AHB2, "" => [
+        Cordic, Fmac
+    ];
 
 
     #[cfg(all())]
     AHB3, "AMBA High-performance Bus (AHB3) peripherals" => [
-        Jpgdec, Dma2d, Mdma
+        Dma2d, Mdma
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB3, "" => [
         Sdmmc1 [group clk: Sdmmc d1ccip "SDMMC"],
-        Fmc [kernel clk: Fmc d1ccip "FMC"],
+        Fmc [kernel clk: Fmc d1ccip "FMC"]
+    ];
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    AHB3, "" => [
+        Jpgdec,
         Qspi [kernel clk: Qspi d1ccip "QUADSPI"]
     ];
     #[cfg(feature = "rm0455")]
     AHB3, "" => [
+        Jpgdec,
         Sdmmc1 [group clk: Sdmmc cdccip "SDMMC"],
         Fmc [kernel clk: Fmc cdccip "FMC"]
+    ];
+    #[cfg(feature = "rm0468")]
+    AHB3, "" => [
+        Octospi1 [group clk: Octospi d1ccip "OCTOSPI"],
+        Octospi2 [group clk: Octospi]
     ];
 
 
@@ -544,9 +565,6 @@ peripheral_reset_and_enable_control! {
 
     #[cfg(all())]
     APB1L, "Advanced Peripheral Bus 1L (APB1L) peripherals" => [
-        I2c2 [group clk: I2c123],
-        I2c3 [group clk: I2c123],
-
         Spi2 [group clk: Spi123],
         Spi3 [group clk: Spi123],
 
@@ -562,19 +580,33 @@ peripheral_reset_and_enable_control! {
     APB1L, "" => [
         Dac12,
 
-        I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
         Cec [kernel clk: Cec(Variant) d2ccip2 "CEC"],
         Lptim1 [kernel clk: Lptim1(Variant) d2ccip2 "LPTIM1"],
         Usart2 [group clk: Usart234578(Variant) d2ccip2 "USART2/3/4/5/7/8"]
+    ];
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    APB1L, "" => [
+        I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
+        I2c2 [group clk: I2c123],
+        I2c3 [group clk: I2c123]
     ];
     #[cfg(feature = "rm0455")]
     APB1L, "" => [
         Dac1,
 
         I2c1 [group clk: I2c123 cdccip2 "I2C1/2/3"],
+        I2c2 [group clk: I2c123],
+        I2c3 [group clk: I2c123],
         Cec [kernel clk: Cec(Variant) cdccip2 "CEC"],
         Lptim1 [kernel clk: Lptim1(Variant) cdccip2 "LPTIM1"],
         Usart2 [group clk: Usart234578(Variant) cdccip2 "USART2/3/4/5/7/8"]
+    ];
+    #[cfg(feature = "rm0468")]
+    APB1L, "" => [
+        I2c1 [group clk: I2c1235 d2ccip2 "I2C1/2/3/5"],
+        I2c2 [group clk: I2c1235],
+        I2c3 [group clk: I2c1235],
+        I2c5 [group clk: I2c1235]
     ];
 
 
@@ -584,13 +616,20 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     APB1H, "" => [
-        Fdcan [kernel clk: Fdcan(Variant) d2ccip1 "FDCAN"],
+        Fdcan [kernel clk: Fdcan(Variant) d2ccip1 "FDCAN"]
+    ];
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    APB1H, "" => [
         Swp [kernel clk: Swp d2ccip1 "SWPMI"]
     ];
     #[cfg(feature = "rm0455")]
     APB1H, "" => [
         Fdcan [kernel clk: Fdcan(Variant) cdccip1 "FDCAN"],
         Swpmi [kernel clk: Swpmi cdccip1 "SWPMI"]
+    ];
+    #[cfg(feature = "rm0468")]
+    APB1H, "" => [
+        Swpmi [kernel clk: Swpmi d2ccip1 "SWPMI"]
     ];
 
 
@@ -600,16 +639,20 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     APB2, "" => [
-        Hrtim,
         Dfsdm1 [kernel clk: Dfsdm1 d2ccip1 "DFSDM1"],
 
         Sai1 [kernel clk: Sai1(Variant) d2ccip1 "SAI1"],
-        Sai2 [group clk: Sai23(Variant) d2ccip1 "SAI2/3"],
-        Sai3 [group clk: Sai23],
 
         Spi1 [group clk: Spi123(Variant) d2ccip1 "SPI1/2/3"],
         Spi4 [group clk: Spi45(Variant) d2ccip1 "SPI4/5"],
-        Spi5 [group clk: Spi45],
+        Spi5 [group clk: Spi45]
+    ];
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    APB2, "" => [
+        Hrtim,
+
+        Sai2 [group clk: Sai23(Variant) d2ccip1 "SAI2/3"],
+        Sai3 [group clk: Sai23],
 
         Usart1 [group clk: Usart16(Variant) d2ccip2 "USART1/6"],
         Usart6 [group clk: Usart16]
@@ -629,6 +672,11 @@ peripheral_reset_and_enable_control! {
         Spi5 [group clk: Spi45],
 
         Usart1 [group clk: Usart16910(Variant) cdccip2 "USART1/6/9/10"],
+        Usart6 [group clk: Usart16910]
+    ];
+    #[cfg(feature = "rm0468")]
+    APB2, "" => [
+        Usart1 [group clk: Usart16910(Variant) d2ccip2 "USART1/6/9/10"],
         Usart6 [group clk: Usart16910]
     ];
 
