@@ -482,11 +482,11 @@ peripheral_reset_and_enable_control! {
     AHB1, "" => [
         Eth1Mac,
         #[cfg(any(feature = "rm0399"))] Art,
-        Adc12 [group clk: Adc(Variant) d3ccip "ADC"]
+        Adc12 [group clk: Adc(Variant) d3ccip "ADC"],
+        Usb1Otg [group clk: Usb d2ccip2 "USB"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     AHB1, "" => [
-        Usb1Otg [group clk: Usb d2ccip2 "USB"],
         Usb2Otg [group clk: Usb]
     ];
     #[cfg(feature = "rm0455")]
@@ -494,10 +494,6 @@ peripheral_reset_and_enable_control! {
         Crc,
         Usb1Otg [group clk: Usb cdccip2 "USB"],
         Adc12 [group clk: Adc(Variant) srdccip "ADC"]
-    ];
-    #[cfg(feature = "rm0468")]
-    AHB1, "" => [
-        Usb1Otg [kernel clk: Usb d2ccip2 "USB"]
     ];
 
 
