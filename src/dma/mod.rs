@@ -46,6 +46,8 @@ pub enum DMAError {
     NotReady,
     /// The user provided a buffer that is not big enough while double buffering.
     SmallBuffer,
+    /// DMA started transfer on the inactive buffer while the user was processing it.
+    Overflow,
 }
 
 /// Possible DMA's directions.
@@ -600,6 +602,48 @@ macro_rules! db_transfer_def {
                     })?;
                 // TODO: return buf on Err
                 Ok((buf, current, last_remaining))
+            }
+
+            /// Wait for the transfer of the currently active buffer to complete,
+            /// then call a function on the now inactive buffer and acknowledge the
+            /// transfer complete flag.
+            ///
+            /// NOTE(panic): This will panic then used in single buffer mode (not DBM).
+            ///
+            /// NOTE(unsafe): Memory safety is not guaranteed.
+            /// The user must ensure that the user function called on the inactive
+            /// buffer completes before the running DMA transfer of the active buffer
+            /// completes. If the DMA wins the race to the inactive buffer
+            /// a `DMAError::Overflow` is returned but processing continues.
+            ///
+            /// NOTE(fence): The user function must ensure buffer access ordering
+            /// against the flag accesses. Call
+            /// `core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst)`
+            /// before and after accessing the buffer.
+            pub unsafe fn next_dbm_transfer_with<F, T>(
+                &mut self,
+                func: F,
+            ) -> Result<T, DMAError>
+            where
+                F: FnOnce(&mut BUF, CurrentBuffer) -> T,
+            {
+                while !STREAM::get_transfer_complete_flag() { }
+                self.stream.clear_transfer_complete_flag();
+
+                // NOTE(panic): Panic if stream not configured in double buffer mode.
+                let inactive = STREAM::get_inactive_buffer().unwrap();
+
+                // This buffer is inactive now and can be accessed.
+                // NOTE(panic): We always hold ownership in lieu of the DMA peripheral.
+                let buf = self.buf[inactive as usize].as_mut().unwrap();
+
+                let result = func(buf, inactive);
+
+                if STREAM::get_transfer_complete_flag() {
+                    Err(DMAError::Overflow)
+                } else {
+                    Ok(result)
+                }
             }
 
             /// Clear half transfer interrupt (htif) for the DMA stream.
