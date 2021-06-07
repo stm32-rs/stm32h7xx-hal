@@ -460,7 +460,7 @@ impl Rcc {
 
         // See RM0433 Rev 7 Table 17. FLASH recommended number of wait
         // states and programming delay
-        #[cfg(not(feature = "rm0455"))]
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (wait_states, progr_delay) = match vos {
             // VOS 0 range VCORE 1.26V - 1.40V
             Voltage::Scale0 => match rcc_aclk_mhz {
@@ -540,6 +540,39 @@ impl Rcc {
                 44..=65 => (2, 1),
                 66..=87 => (3, 1),
                 _ => (7, 3),
+            },
+        };
+
+        // See RM0468 Rev 2 Table 16
+        #[cfg(feature = "rm0468")]
+        let (wait_states, progr_delay) = match vos {
+            // VOS 0 range VCORE 1.25V - 1.35V
+            Voltage::Scale0 => match rcc_aclk_mhz {
+                0..=69 => (0, 0),
+                70..=139 => (1, 1),
+                140..=209 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 1 range VCORE 1.15V - 1.25V
+            Voltage::Scale1 => match rcc_aclk_mhz {
+                0..=66 => (0, 0),
+                67..=132 => (1, 1),
+                133..=199 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 2 range VCORE 1.05V - 1.15V
+            Voltage::Scale2 => match rcc_aclk_mhz {
+                0..=49 => (0, 0),
+                50..=99 => (1, 1),
+                100..=149 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 3 range VCORE 0.95V - 1.05V
+            Voltage::Scale3 => match rcc_aclk_mhz {
+                0..=34 => (0, 0),
+                35..=69 => (1, 1),
+                70..=84 => (2, 2),
+                _ => (3, 3),
             },
         };
 
@@ -696,7 +729,7 @@ impl Rcc {
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
-        #[cfg(not(feature = "rm0455"))]
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
             Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
             Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
@@ -710,6 +743,14 @@ impl Rcc {
             Voltage::Scale1 => (225_000_000, 225_000_000, 112_500_000),
             Voltage::Scale2 => (160_000_000, 160_000_000, 80_000_000),
             _ => (88_000_000, 88_000_000, 44_000_000),
+        };
+
+        #[cfg(feature = "rm0468")] // 725 / 735 / 730
+        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
+            Voltage::Scale0 => (520_000_000, 275_000_000, 137_500_000),
+            Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
+            Voltage::Scale2 => (300_000_000, 150_000_000, 75_000_000),
+            _ => (170_000_000, 85_000_000, 42_500_000),
         };
 
         // Check resulting sys_d1cpre_ck

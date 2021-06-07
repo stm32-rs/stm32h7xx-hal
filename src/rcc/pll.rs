@@ -117,12 +117,14 @@ macro_rules! vco_setup {
     (ITERATIVE: $pllsrc:ident, $output:ident,
      $rcc:ident, $pllXvcosel:ident, $pllXrge:ident $(,$pll1_p:ident)*) => {{
          // VCO output frequency limits
-         #[cfg(all(not(feature = "rm0455"), not(feature = "revision_v")))]
+         #[cfg(all(any(feature = "rm0433", feature = "rm0399"), not(feature = "revision_v")))]
          let (vco_min, vco_max) = (192_000_000, 836_000_000);
-         #[cfg(all(not(feature = "rm0455"), feature = "revision_v"))]
+         #[cfg(all(any(feature = "rm0433", feature = "rm0399"), feature = "revision_v"))]
          let (vco_min, vco_max) = (192_000_000, 960_000_000);
          #[cfg(feature = "rm0455")]
          let (vco_min, vco_max) = (128_000_000, 560_000_000);
+         #[cfg(feature = "rm0468")]
+         let (vco_min, vco_max) = (192_000_000, 836_000_000);
 
          // VCO output frequency. Choose the highest VCO frequency
          let (vco_ck_target, pll_x_p) = {

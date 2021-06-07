@@ -261,7 +261,7 @@ impl Pwr {
         d3cr!(self.rb).write(|w| unsafe {
             // Manually set field values for each family
             w.vos().bits(
-                #[cfg(not(feature = "rm0455"))]
+                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
                 match new_scale {
                     // RM0433 Rev 7 6.8.6
                     VoltageScale::Scale3 => 0b01,
@@ -276,6 +276,14 @@ impl Pwr {
                     VoltageScale::Scale2 => 0b01,
                     VoltageScale::Scale1 => 0b10,
                     VoltageScale::Scale0 => 0b11,
+                },
+                #[cfg(feature = "rm0468")]
+                match new_scale {
+                    // RM0468 Rev 2 6.8.6
+                    VoltageScale::Scale0 => 0b00,
+                    VoltageScale::Scale3 => 0b01,
+                    VoltageScale::Scale2 => 0b10,
+                    VoltageScale::Scale1 => 0b11,
                 },
             )
         });
