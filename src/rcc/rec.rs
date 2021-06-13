@@ -534,7 +534,9 @@ peripheral_reset_and_enable_control! {
     AHB3, "" => [
         Jpgdec,
         Sdmmc1 [group clk: Sdmmc cdccip "SDMMC"],
-        Fmc [kernel clk: Fmc cdccip "FMC"]
+        Fmc [kernel clk: Fmc cdccip "FMC"],
+        Octospi1 [group clk: Octospi cdccip "OCTOSPI"],
+        Octospi2 [group clk: Octospi]
     ];
     #[cfg(feature = "rm0468")]
     AHB3, "" => [
