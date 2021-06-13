@@ -617,6 +617,7 @@ macro_rules! bdma_stream {
     };
 }
 
+#[cfg(not(feature = "rm0468"))]
 bdma_stream!(
     // Note: the field names start from one, unlike the RM where they start from
     // zero. May need updating if it gets fixed upstream.
@@ -651,6 +652,42 @@ bdma_stream!(
     (
         Stream7, 7, ifcr, ctcif8, chtif8, cteif8, cgif8, isr, tcif8, htif8,
         teif8, gif8
+    ),
+);
+#[cfg(feature = "rm0468")]
+bdma_stream!(
+    // For this sub-familiy, the field names do match the RM.
+    (
+        Stream0, 0, ifcr, ctcif0, chtif0, cteif0, cgif0, isr, tcif0, htif0,
+        teif0, gif0
+    ),
+    (
+        Stream1, 1, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1,
+        teif1, gif1
+    ),
+    (
+        Stream2, 2, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2,
+        teif2, gif2
+    ),
+    (
+        Stream3, 3, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3,
+        teif3, gif3
+    ),
+    (
+        Stream4, 4, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4,
+        teif4, gif4
+    ),
+    (
+        Stream5, 5, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5,
+        teif5, gif5
+    ),
+    (
+        Stream6, 6, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6,
+        teif6, gif6
+    ),
+    (
+        Stream7, 7, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7,
+        teif7, gif7
     ),
 );
 
