@@ -33,6 +33,7 @@ Supported Configurations
 * __stm32h7b3__
 * __stm32h7b0__
 * __stm32h7a3__
+* __stm32h735__ (stm32h725, stm32h735)
 
 #### Old revision STM32H742/743/750/753 parts
 
