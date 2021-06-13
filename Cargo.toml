@@ -162,6 +162,10 @@ name = "ethernet-rtic-stm32h747i-disco"
 required-features = ["rt", "stm32h747cm7", "ethernet"]
 
 [[example]]
+name = "ethernet-rtic-stm32h735g-dk"
+required-features = ["rt", "stm32h735", "ethernet"]
+
+[[example]]
 name = "ethernet-nucleo-h743zi2"
 required-features = ["rt", "revision_v", "stm32h743v", "ethernet"]
 
