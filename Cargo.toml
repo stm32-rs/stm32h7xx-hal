@@ -84,7 +84,7 @@ cm4 = []
 cm7 = []
 smps = []
 ltdc = ["embedded-display-controller"]
-quadspi = []
+xspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 ethernet = ["smoltcp"]
@@ -141,7 +141,7 @@ required-features = ["fmc"]
 
 [[example]]
 name = "qspi"
-required-features = ["quadspi", "rm0433"]
+required-features = ["xspi", "rm0433"]
 
 [[example]]
 name = "sdmmc"
