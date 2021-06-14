@@ -6,7 +6,7 @@
 mod utilities;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::{pac, prelude::*, qspi::QspiMode};
+use stm32h7xx_hal::{pac, prelude::*, xspi::QspiMode};
 
 use log::info;
 

@@ -25,6 +25,8 @@
 * spi: Add more hardware CS features #216
 * timers: Better calculations for `set_timeout_ticks` #208
 
+* **Breaking**: Rename the `quadspi` flag to `xspi`
+
 ## [v0.9.0] 2021-03-12
 
 * Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with

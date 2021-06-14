@@ -23,7 +23,7 @@
 //! * [Serial Peripheral Interface (SPI)](crate::spi)
 //! * [Serial Data (USART/UART)](crate::serial)
 //! * [Serial Audio Interface](crate::sai)
-//! * [Quad SPI](crate::qspi) Feature gate `quadspi`
+//! * [Quad or Octo SPI](crate::xspi) Feature gate `xspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ldtc`
@@ -174,12 +174,6 @@ pub mod pwm;
 pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
-#[cfg(all(
-    feature = "device-selected",
-    feature = "quadspi",
-    not(any(feature = "rm0455", feature = "rm0468"))
-))]
-pub mod qspi;
 #[cfg(feature = "device-selected")]
 pub mod rcc;
 #[cfg(feature = "device-selected")]
@@ -204,3 +198,5 @@ pub mod timer;
 pub mod usb_hs;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
+#[cfg(all(feature = "device-selected", feature = "xspi"))]
+pub mod xspi;
