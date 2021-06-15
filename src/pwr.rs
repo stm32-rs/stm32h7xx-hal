@@ -59,7 +59,10 @@ use crate::stm32::PWR;
 ))]
 use crate::stm32::{RCC, SYSCFG};
 
-#[cfg(all(feature = "rm0433", feature = "smps"))]
+#[cfg(all(
+    feature = "rm0433",
+    any(feature = "smps", feature = "example-smps")
+))]
 compile_error!("SMPS configuration fields are not available for RM0433 parts");
 
 /// Extension trait that constrains the `PWR` peripheral
