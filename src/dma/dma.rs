@@ -294,8 +294,13 @@ pub struct StreamsTuple<T>(
 
 impl<I: Instance> StreamsTuple<I> {
     /// Splits the DMA peripheral into streams.
+    ///
+    /// This method enables the relevant DMA peripheral in AHB1ENR but does
+    /// *not* reset the peripheral. Resetting DMA1/2 actually seems to affect
+    /// the other DMA2/1 if is has transfers are enabled. See
+    /// <https://github.com/stm32-rs/stm32h7xx-hal/issues/228>
     pub fn new(_regs: I, prec: I::Rec) -> Self {
-        prec.enable().reset();
+        prec.enable();
         Self(
             Stream0 { _dma: PhantomData },
             Stream1 { _dma: PhantomData },
