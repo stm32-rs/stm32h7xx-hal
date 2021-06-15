@@ -5,7 +5,7 @@ Examples
 
 For these parts, the program needs to know more about the power supply
 scheme in order to successfully transition from Run* mode to Run mode. For
-en explaination of Run* mode, see RM0433 Rev 7 Section 6.6.1 "System/D3
+an explaination of Run* mode, see RM0433 Rev 7 Section 6.6.1 "System/D3
 domain modes".
 
 For your own code, see the
