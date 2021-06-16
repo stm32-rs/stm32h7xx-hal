@@ -37,6 +37,11 @@
 //!
 //! This driver currently only supports indirect operation mode of the xSPI
 //! interface. Automatic polling or memory-mapped modes are not supported.
+//!
+//! Using different operational modes (1-bit/2-bit/4-bit etc.) for different
+//! phases of a single transaction is not supported. It is possible to change
+//! operational mode between transactions by calling
+//! [`configure_mode`](#method.configure_mode).
 
 // Parts of the Quad and Octo SPI support are shared (this file), but they are
 // different enough to require different initialisation routines and pin
@@ -49,6 +54,7 @@ mod qspi;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use common::{
     Bank, Xspi as Qspi, XspiError as QspiError, XspiMode as QspiMode,
+    XspiWord as QspiWord,
 };
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use qspi::QspiExt as XspiExt;
@@ -59,12 +65,13 @@ mod octospi;
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub use common::{
     Xspi as Octospi, XspiError as OctospiError, XspiMode as OctospiMode,
+    XspiWord as OctospiWord,
 };
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub use octospi::OctospiExt as XspiExt;
 
 // Both
-pub use common::{AddressSize, Config, Event, SamplingEdge};
+pub use common::{Config, Event, SamplingEdge};
 
 /// This modulate contains functionality common to both Quad and Octo SPI
 mod common {
@@ -93,6 +100,7 @@ mod common {
         EightBit,
     }
     impl XspiMode {
+        #[inline(always)]
         pub(super) fn reg_value(&self) -> u8 {
             match self {
                 XspiMode::OneBit => 1,
@@ -108,15 +116,49 @@ mod common {
     pub enum XspiError {
         Busy,
         Underflow,
+
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+        /// The specified XspiWord does not fit in the available register
+        WordTooLarge,
     }
 
-    /// Address sizes used by the XSPI interface
+    /// Instruction, Address or Alternate Byte word used by the XSPI interface
     #[derive(Debug, Copy, Clone, PartialEq)]
-    pub enum AddressSize {
-        EightBit,
-        SixteenBit,
-        TwentyFourBit,
-        ThirtyTwoBit,
+    pub enum XspiWord {
+        None,
+        U8(u8),
+        U16(u16),
+        U24(u32),
+        U32(u32),
+    }
+    impl XspiWord {
+        #[inline(always)]
+        fn size(&self) -> u8 {
+            match self {
+                XspiWord::U16(_) => 1,
+                XspiWord::U24(_) => 2,
+                XspiWord::U32(_) => 3,
+                _ => 0, // 8-bit
+            }
+        }
+        #[inline(always)]
+        fn bits(self) -> u32 {
+            match self {
+                XspiWord::None => 0,
+                XspiWord::U8(x) => x as u32,
+                XspiWord::U16(x) => x as u32,
+                XspiWord::U24(x) | XspiWord::U32(x) => x,
+            }
+        }
+        #[inline(always)]
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+        fn bits_u8(self) -> Result<u8, XspiError> {
+            match self {
+                XspiWord::None => Ok(0),
+                XspiWord::U8(x) => Ok(x),
+                _ => Err(XspiError::WordTooLarge),
+            }
+        }
     }
 
     /// Sampling mode for the XSPI interface
@@ -158,7 +200,6 @@ mod common {
     pub struct Config {
         pub(super) mode: XspiMode,
         pub(super) frequency: Hertz,
-        pub(super) address_size: AddressSize,
         pub(super) dummy_cycles: u8,
         pub(super) sampling_edge: SamplingEdge,
         pub(super) fifo_threshold: u8,
@@ -168,14 +209,12 @@ mod common {
         /// Create a default configuration for the XSPI interface.
         ///
         /// * Bus in 1-bit Mode
-        /// * 8-bit Address
         /// * No dummy cycle
         /// * Sample on falling edge
         pub fn new<T: Into<Hertz>>(freq: T) -> Self {
             Config {
                 mode: XspiMode::OneBit,
                 frequency: freq.into(),
-                address_size: AddressSize::EightBit,
                 dummy_cycles: 0,
                 sampling_edge: SamplingEdge::Falling,
                 fifo_threshold: 1,
@@ -189,12 +228,6 @@ mod common {
         /// [`configure_mode`](Xspi#method.configure_mode) method
         pub fn mode(mut self, mode: XspiMode) -> Self {
             self.mode = mode;
-            self
-        }
-
-        /// Specify the size of the address phase
-        pub fn address_size(mut self, address_size: AddressSize) -> Self {
-            self.address_size = address_size;
             self
         }
 
@@ -262,6 +295,11 @@ mod common {
     /// Generic type for Quad or Octo SPI
     pub struct Xspi<XSPI> {
         pub(super) rb: XSPI,
+
+        /// We store the current mode here because for extended transactions
+        /// various phases may be removed. Therefore we need to restore them
+        /// after each transaction.
+        pub(super) mode: XspiMode,
     }
 
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -306,8 +344,12 @@ mod common {
 
             /// Check if the XSPI peripheral is currently busy with a
             /// transaction
-            pub fn is_busy(&self) -> bool {
-                self.rb.sr.read().busy().bit_is_set()
+            pub fn is_busy(&self) -> Result<(), XspiError> {
+                if self.rb.sr.read().busy().bit_is_set() {
+                    Err(XspiError::Busy)
+                } else {
+                    Ok(())
+                }
             }
 
             /// Enable interrupts for the given `event`
@@ -341,7 +383,8 @@ mod common {
                 }
             }
 
-            /// Configure the operational mode of the XSPI interface.
+            /// Configure the operational mode (number of bits) of the XSPI
+            /// interface.
             ///
             /// # Args
             /// * `mode` - The newly desired mode of the interface.
@@ -349,15 +392,27 @@ mod common {
             /// # Errors
             /// Returns XspiError::Busy if an operation is ongoing
             pub fn configure_mode(&mut self, mode: XspiMode) -> Result<(), XspiError> {
-                if self.is_busy() {
-                    return Err(XspiError::Busy);
-                }
+                self.is_busy()?;
+                self.mode = mode;
+                self.set_mode_address_data_only();
 
+                Ok(())
+            }
+
+            /// Sets the interface to 8-bit address and data only using the
+            /// current operational mode (number of bits).
+            fn set_mode_address_data_only(&mut self) {
                 self.rb.ccr.modify(|_, w| unsafe {
-                    w.admode()
-                        .bits(mode.reg_value())
-                        .dmode()
-                        .bits(mode.reg_value())
+                    w.imode()     // NO instruction phase
+                        .bits(0)
+                        .admode() // address phase
+                        .bits(self.mode.reg_value())
+                        .adsize()
+                        .bits(0)  // 8-bit address
+                        .abmode() // NO alternate-bytes phase
+                        .bits(0)
+                        .dmode()  // data phase
+                        .bits(self.mode.reg_value())
                 });
 
                 // if mode == XspiMode::EightBit {
@@ -375,9 +430,49 @@ mod common {
                 //             .bits(mode.reg_value())
                 //     });
                 //     self.rb.tcr.write(|w| unsafe { w.dcyc().bits(4) });
-                // }
+            }
 
-                Ok(())
+            /// Sets the interface in extended mode
+            ///
+            /// # Args
+            /// * `instruction` - The word to be used for the instruction phase.
+            /// * `address` - The word to be used for the address phase.
+            /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
+            /// * `dummy_cycles` - The number of dummy cycles between the alternate-bytes
+            ///                    and the data phase.
+            /// * `data` - true is there is a data phase, false for no data phase.
+            fn setup_extended(&mut self, instruction: XspiWord, address: XspiWord,
+                              alternate_bytes: XspiWord, dummy_cycles: u8, data: bool) {
+
+                let mode = self.mode.reg_value();
+                let imode = if instruction != XspiWord::None { mode } else { 0 };
+                let admode = if address != XspiWord::None { mode } else { 0 };
+                let abmode = if alternate_bytes != XspiWord::None { mode } else { 0 };
+                let dmode = if data { mode } else { 0 };
+
+                self.rb.ccr.modify(|_, w| unsafe {
+                    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+                    let w = w.dcyc().bits(dummy_cycles);
+
+                    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                    let w = w.isize().bits(instruction.size());
+
+                    w.imode()
+                        .bits(imode)
+                        .admode()
+                        .bits(admode)
+                        .adsize()
+                        .bits(address.size())
+                        .abmode()
+                        .bits(abmode)
+                        .absize()
+                        .bits(alternate_bytes.size())
+                        .dmode()
+                        .bits(dmode)
+                });
+
+                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                self.rb.tcr.write(|w| unsafe { w.dcyc().bits(dummy_cycles) });
             }
 
             /// Begin a write over the XSPI interface. This is mostly useful for use with
@@ -387,15 +482,17 @@ mod common {
             /// # Args
             /// * `addr` - The address to write data to. If the address size is less
             ///            than 32-bit, then unused bits are discarded.
-            /// * `length` - The length of the write operation in bytes
+            /// * `length` - The length of the write operation in bytes. Must be greater
+            ///             than zero
             pub fn begin_write(
                 &mut self,
                 addr: u32,
                 length: usize,
             ) -> Result<(), XspiError> {
-                if self.is_busy() {
-                    return Err(XspiError::Busy);
-                }
+                self.is_busy()?;
+
+                // Exit extended mode
+                self.set_mode_address_data_only();
 
                 // Clear the transfer complete flag.
                 self.rb.fcr.write(|w| w.ctcf().set_bit());
@@ -408,7 +505,9 @@ mod common {
                 // Configure the mode to indirect write.
                 fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b00) });
 
-                // Write the address to force the write to start
+                // Write the address. The transaction starts on the next write
+                // to DATA, unless there is no DATA phase configured, in which
+                // case it starts here.
                 self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
 
                 Ok(())
@@ -417,21 +516,24 @@ mod common {
             /// Write data over the XSPI interface.
             ///
             /// # Args
-            /// * `addr` - The address to write data to. If the address size is less
-            ///            than 32-bit, then unused bits are discarded.
+            /// * `addr` - The address to write data to
             /// * `data` - An array of data to transfer over the XSPI interface.
             ///
             /// # Panics
             ///
             /// Panics if the length of `data` is greater than the size of the XSPI
             /// hardware FIFO (32 bytes).
-            pub fn write(&mut self, addr: u32, data: &[u8]) -> Result<(), XspiError> {
+            pub fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), XspiError> {
                 assert!(
                     data.len() <= 32,
                     "Transactions larger than the XSPI FIFO are currently unsupported"
                 );
+                assert!(
+                    !data.is_empty(),
+                    "Must have a non-zero number of data cycles"
+                );
 
-                self.begin_write(addr, data.len())?;
+                self.begin_write(addr as u32, data.len())?;
 
                 // Write data to the FIFO in a byte-wise manner.
                 unsafe {
@@ -444,7 +546,88 @@ mod common {
                 while self.rb.sr.read().tcf().bit_is_clear() {}
 
                 // Wait for the peripheral to indicate it is no longer busy.
-                while self.is_busy() {}
+                while self.is_busy().is_err() {}
+
+                Ok(())
+            }
+
+            /// Write data over the XSPI interface, using an extended
+            /// transaction that may contain instruction, address, alternate-bytes
+            /// and data phases with various sizes.
+            ///
+            /// # Args
+            /// * `instruction` - The word to be used for the instruction phase.
+            /// * `address` - The word to be used for the address phase.
+            /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
+            /// * `data` - An array of data to transfer over the XSPI interface. Use
+            ///            and empty slice to remove the data phase entirely.
+            ///
+            /// # Panics
+            ///
+            /// Panics if the length of `data` is greater than the size of the XSPI
+            /// hardware FIFO (32 bytes).
+            pub fn write_extended(&mut self,
+                                  instruction: XspiWord,
+                                  address: XspiWord,
+                                  alternate_bytes: XspiWord,
+                                  data: &[u8]) -> Result<(), XspiError> {
+                assert!(
+                    data.len() <= 32,
+                    "Transactions larger than the XSPI FIFO are currently unsupported"
+                );
+
+                self.is_busy()?;
+
+                // Setup extended mode. Typically no dummy cycles in write mode
+                self.setup_extended(instruction, address, alternate_bytes, 0, !data.is_empty());
+
+                // Clear the transfer complete flag.
+                self.rb.fcr.write(|w| w.ctcf().set_bit());
+
+                // Data length
+                if !data.is_empty() {
+                    self.rb
+                        .dlr
+                        .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
+                }
+
+                // Configure the mode to indirect write.
+                fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b00) });
+
+                // Write alternate-bytes
+                self.rb.abr.write(|w| unsafe {
+                    w.alternate().bits(alternate_bytes.bits())
+                });
+
+                // Write instruction. If there is no address or data phase, the
+                // transaction starts here.
+                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+                {
+                    let ir = instruction.bits_u8()?;
+                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
+                }
+                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                self.rb.ir.write(|w| unsafe {
+                    w.instruction().bits(instruction.bits())
+                });
+
+                // Write the address. The transaction starts on the next write
+                // to DATA, unless there is no DATA phase configured, in which
+                // case it starts here.
+                self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+
+                // Write data to the FIFO in a byte-wise manner.
+                unsafe {
+                    for byte in data {
+                        ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
+                    }
+                }
+
+                // Wait for the transaction to complete
+                while self.rb.sr.read().tcf().bit_is_clear() {}
+
+                // Wait for the peripheral to indicate it is no longer busy.
+                while self.is_busy().is_err() {}
 
                 Ok(())
             }
@@ -456,15 +639,17 @@ mod common {
             /// # Args
             /// * `addr` - The address to read data from. If the address size is less
             ///            than 32-bit, then unused bits are discarded.
-            /// * `length` - The length of the read operation in bytes
+            /// * `length` - The length of the read operation in bytes. Must be greater
+            ///              than zero
             pub fn begin_read(
                 &mut self,
                 addr: u32,
                 length: usize,
             ) -> Result<(), XspiError> {
-                if self.is_busy() {
-                    return Err(XspiError::Busy);
-                }
+                self.is_busy()?;
+
+                // Exit extended mode
+                self.set_mode_address_data_only();
 
                 // Clear the transfer complete flag.
                 self.rb.fcr.write(|w| w.ctcf().set_bit());
@@ -486,8 +671,7 @@ mod common {
             /// Read data over the XSPI interface.
             ///
             /// # Args
-            /// * `addr` - The address to read data from. If the address size is less
-            ///            than 32-bit, then unused bits are discarded.
+            /// * `addr` - The address to read data from
             /// * `dest` - An array to store the result of the read into.
             ///
             /// # Panics
@@ -496,7 +680,7 @@ mod common {
             /// hardware FIFO (32 bytes).
             pub fn read(
                 &mut self,
-                addr: u32,
+                addr: u8,
                 dest: &mut [u8],
             ) -> Result<(), XspiError> {
                 assert!(
@@ -505,7 +689,7 @@ mod common {
                 );
 
                 // Begin the read operation
-                self.begin_read(addr, dest.len())?;
+                self.begin_read(addr as u32, dest.len())?;
 
                 // Wait for the transaction to complete
                 while self.rb.sr.read().tcf().bit_is_clear() {}
@@ -524,7 +708,102 @@ mod common {
                 }
 
                 // Wait for the peripheral to indicate it is no longer busy.
-                while self.is_busy() {}
+                while self.is_busy().is_err() {}
+
+                Ok(())
+            }
+
+            /// Read data over the XSPI interface, using an extended transaction
+            /// that may contain instruction, address, alternate-bytes and data
+            /// phases with various sizes.
+            ///
+            /// # Args
+            /// * `instruction` - The word to be used for the instruction phase.
+            /// * `address` - The word to be used for the address phase.
+            /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
+            /// * `dummy_cycles` - 0 to 31 clock cycles between the alternate-bytes
+            ///                    and the data phases.
+            /// * `data` - An array of data to transfer over the XSPI interface
+            ///
+            /// # Panics
+            ///
+            /// Panics if the length of `dest` is greater than the size of the
+            /// XSPI hardware FIFO (32 bytes). Panics if the length of `dest` is
+            /// zero. Panics if the number of dummy cycles is not 0 - 31 inclusive.
+            pub fn read_extended(&mut self,
+                                 instruction: XspiWord,
+                                 address: XspiWord,
+                                 alternate_bytes: XspiWord,
+                                 dummy_cycles: u8,
+                                 dest: &mut [u8]) -> Result<(), XspiError> {
+                assert!(
+                    dest.len() <= 32,
+                    "Transactions larger than the XSPI FIFO are currently unsupported"
+                );
+                assert!(
+                    !dest.is_empty(),
+                    "Must have a non-zero number of data cycles (otherwise use a write operation!)"
+                );
+                assert!(
+                    dummy_cycles < 32,
+                    "Hardware only supports 0-31 dummy cycles"
+                );
+
+                self.is_busy()?;
+
+                // Setup extended mode. Read operations always have a data phase.
+                self.setup_extended(instruction, address, alternate_bytes,
+                                    dummy_cycles, true);
+
+                // Clear the transfer complete flag.
+                self.rb.fcr.write(|w| w.ctcf().set_bit());
+
+                // Write the length that should be read.
+                self.rb
+                    .dlr
+                    .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
+
+                // Configure the mode to indirect read.
+                fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b01) });
+
+                // Write alternate-bytes
+                self.rb.abr.write(|w| unsafe {
+                    w.alternate().bits(alternate_bytes.bits())
+                });
+
+                // Write instruction. If there is no address phase, the
+                // transaction starts here.
+                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+                {
+                    let ir = instruction.bits_u8()?;
+                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
+                }
+                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                self.rb.ir.write(|w| unsafe {
+                    w.instruction().bits(instruction.bits())
+                });
+
+                // Write the address. Transaction starts here.
+                self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+
+                // Wait for the transaction to complete
+                while self.rb.sr.read().tcf().bit_is_clear() {}
+
+                // Check for underflow on the FIFO.
+                if (self.rb.sr.read().flevel().bits() as usize) < dest.len() {
+                    return Err(XspiError::Underflow);
+                }
+
+                // Read data from the FIFO in a byte-wise manner.
+                unsafe {
+                    for location in dest {
+                        *location =
+                            ptr::read_volatile(&self.rb.dr as *const _ as *const u8);
+                    }
+                }
+
+                // Wait for the peripheral to indicate it is no longer busy.
+                while self.is_busy().is_err() {}
 
                 Ok(())
             }
