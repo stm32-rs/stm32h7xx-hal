@@ -277,18 +277,17 @@ macro_rules! octospi_impl {
                         .bits(0x1F)
                 });
 
-                // // Communications configuration register
-                // regs.ccr.write(|w| unsafe {
-                //     w.dmode().bits(1)   // Data on a single line
-
-                //         .dmode()
-                // .bits(config.mode.reg_value())
-                // .admode()
-                // .bits(config.mode.reg_value())
-                // .adsize()
-                // .bits(config.address_size as u8)
-                // .imode()
-                // .bits(0) // No instruction phase
+                // Communications configuration register
+                regs.ccr.write(|w| unsafe {
+                    w.dmode()
+                        .bits(config.mode.reg_value())
+                        .admode()
+                        .bits(config.mode.reg_value())
+                        .adsize()
+                        .bits(0) // Eight-bit address
+                        .imode()
+                        .bits(0) // No instruction phase
+                });
 
                 // Prescaler
                 let spi_frequency = config.frequency.0;
@@ -318,7 +317,10 @@ macro_rules! octospi_impl {
                 // Enable the peripheral
                 regs.cr.modify(|_, w| w.en().set_bit());
 
-                Octospi { rb: regs }
+                Octospi {
+                    rb: regs,
+                    mode: config.mode,
+                }
             }
         }
 

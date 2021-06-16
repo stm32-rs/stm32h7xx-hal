@@ -238,7 +238,7 @@ impl Qspi<stm32::QUADSPI> {
                 .admode()
                 .bits(config.mode.reg_value())
                 .adsize()
-                .bits(config.address_size as u8)
+                .bits(0) // Eight-bit address
                 .imode()
                 .bits(0) // No instruction phase
                 .dcyc()
@@ -280,7 +280,10 @@ impl Qspi<stm32::QUADSPI> {
         // Enable ther peripheral
         regs.cr.modify(|_, w| w.en().set_bit());
 
-        Qspi { rb: regs }
+        Qspi {
+            rb: regs,
+            mode: config.mode,
+        }
     }
 }
 
