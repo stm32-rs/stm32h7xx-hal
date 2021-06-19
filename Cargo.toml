@@ -131,7 +131,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "rtic_timers"
-required-features = ["rt"]
+required-features = ["rt", "rm0433"]
 
 [[example]]
 name = "vos0"
@@ -139,7 +139,7 @@ required-features = ["revision_v", "rm0433"]
 
 [[example]]
 name = "fmc"
-required-features = ["fmc"]
+required-features = ["fmc", "rm0399"]
 
 [[example]]
 name = "qspi"

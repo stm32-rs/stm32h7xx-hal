@@ -15,7 +15,10 @@ pub use crate::i2c::I2cExt as _stm32h7xx_hal_i2c_I2cExt;
 pub use crate::pwm::PwmAdvExt as _stm32_hal_pwm_PwmAdvExt;
 pub use crate::pwm::PwmExt as _stm32_hal_pwm_PwmExt;
 pub use crate::pwr::PwrExt as _stm32h7xx_hal_pwr_PwrExt;
-#[cfg(all(feature = "quadspi", not(feature = "rm0455")))]
+#[cfg(all(
+    feature = "quadspi",
+    not(any(feature = "rm0455", feature = "rm0468"))
+))]
 pub use crate::qspi::QspiExt as _stm32h7xx_hal_qspi_QspiExt;
 pub use crate::rcc::RccExt as _stm32h7xx_hal_rcc_RccExt;
 pub use crate::rng::RngCore as _stm32h7xx_hal_rng_RngCore;

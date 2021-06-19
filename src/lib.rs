@@ -177,7 +177,7 @@ pub mod qei;
 #[cfg(all(
     feature = "device-selected",
     feature = "quadspi",
-    not(feature = "rm0455")
+    not(any(feature = "rm0455", feature = "rm0468"))
 ))]
 pub mod qspi;
 #[cfg(feature = "device-selected")]
