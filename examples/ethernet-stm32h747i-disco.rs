@@ -54,7 +54,6 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Initialise system...
-    cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
     // TODO: ETH DMA coherence issues
     // cp.SCB.enable_dcache(&mut cp.CPUID);

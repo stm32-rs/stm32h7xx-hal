@@ -55,7 +55,6 @@ const APP: () = {
         let mut delay = ctx.core.SYST.delay(ccdr.clocks);
 
         // Initialise system...
-        ctx.core.SCB.invalidate_icache();
         ctx.core.SCB.enable_icache();
         // See Errata Sheet 2.2.1
         //ctx.core.SCB.enable_dcache(&mut ctx.core.CPUID);
