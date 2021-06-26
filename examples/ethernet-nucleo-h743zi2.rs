@@ -73,7 +73,6 @@ fn main() -> ! {
     let delay = cp.SYST.delay(ccdr.clocks);
 
     // Initialise system...
-    cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
     // TODO: ETH DMA coherence issues
     // cp.SCB.enable_dcache(&mut cp.CPUID);

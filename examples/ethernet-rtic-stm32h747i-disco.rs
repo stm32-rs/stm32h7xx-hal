@@ -140,7 +140,6 @@ const APP: () = {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
-        ctx.core.SCB.invalidate_icache();
         ctx.core.SCB.enable_icache();
         // TODO: ETH DMA coherence issues
         // ctx.core.SCB.enable_dcache(&mut ctx.core.CPUID);
