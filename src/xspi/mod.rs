@@ -452,10 +452,10 @@ mod common {
 
                 self.rb.ccr.modify(|_, w| unsafe {
                     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                    let w = w.dcyc().bits(dummy_cycles);
-
-                    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                    let w = w.isize().bits(instruction.size());
+                    let w = {
+                        let ir = instruction.bits_u8().unwrap();
+                        w.dcyc().bits(dummy_cycles).instruction().bits(ir).fmode().bits(0b01)
+                    };
 
                     w.imode()
                         .bits(imode)
@@ -599,22 +599,26 @@ mod common {
                     w.alternate().bits(alternate_bytes.bits())
                 });
 
-                // Write instruction. If there is no address or data phase, the
-                // transaction starts here.
-                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                {
-                    let ir = instruction.bits_u8()?;
-                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
+                if instruction != XspiWord::None {
+                    // Write instruction. If there is no address or data phase, the
+                    // transaction starts here.
+                    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+                    {
+                        let ir = instruction.bits_u8()?;
+                        self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
+                    }
+                    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                    self.rb.ir.write(|w| unsafe {
+                        w.instruction().bits(instruction.bits())
+                    });
                 }
-                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                self.rb.ir.write(|w| unsafe {
-                    w.instruction().bits(instruction.bits())
-                });
 
-                // Write the address. The transaction starts on the next write
-                // to DATA, unless there is no DATA phase configured, in which
-                // case it starts here.
-                self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                if address != XspiWord::None {
+                    // Write the address. The transaction starts on the next write
+                    // to DATA, unless there is no DATA phase configured, in which
+                    // case it starts here.
+                    self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                }
 
                 // Write data to the FIFO in a byte-wise manner.
                 unsafe {
@@ -751,10 +755,6 @@ mod common {
 
                 self.is_busy()?;
 
-                // Setup extended mode. Read operations always have a data phase.
-                self.setup_extended(instruction, address, alternate_bytes,
-                                    dummy_cycles, true);
-
                 // Clear the transfer complete flag.
                 self.rb.fcr.write(|w| w.ctcf().set_bit());
 
@@ -763,25 +763,30 @@ mod common {
                     .dlr
                     .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
 
-                // Configure the mode to indirect read.
-                fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b01) });
+                // Setup extended mode. Read operations always have a data phase.
+                self.setup_extended(instruction, address, alternate_bytes,
+                                    dummy_cycles, true);
 
                 // Write alternate-bytes
                 self.rb.abr.write(|w| unsafe {
                     w.alternate().bits(alternate_bytes.bits())
                 });
 
-                // Write instruction. If there is no address phase, the
-                // transaction starts here.
-                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                {
-                    let ir = instruction.bits_u8()?;
-                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
-                }
-                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                self.rb.ir.write(|w| unsafe {
-                    w.instruction().bits(instruction.bits())
-                });
+                /*
+                 * p894
+                 *
+                 * If neither the address register (QUADSPI_AR) nor the data register (QUADSPI_DR)
+                 * need to be updated for a particular command, then the command sequence starts as
+                 * soon as QUADSPI_CCR is written. This is the case when both ADMODE and DMODE are
+                 * 00, or if just ADMODE = 00 when in indirect read mode (FMODE = 01).
+                 *
+                 * When an address is required (ADMODE is not 00) and the data register does not
+                 * need to be written (when FMODE = 01 or DMODE = 00), the command sequence starts
+                 * as soon as the address is updated with a write to QUADSPI_AR.
+                 *
+                 * In case of data transmission (FMODE = 00 and DMODE! = 00), the communication
+                 * start is triggered by a write in the FIFO through QUADSPI_DR.
+                */
 
                 // Write the address. Transaction starts here.
                 self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
