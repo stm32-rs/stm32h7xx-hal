@@ -442,17 +442,23 @@ mod common {
             ///                    and the data phase.
             /// * `data` - true is there is a data phase, false for no data phase.
             fn setup_extended(&mut self, instruction: XspiWord, address: XspiWord,
-                              alternate_bytes: XspiWord, dummy_cycles: u8, data: bool) {
+                              alternate_bytes: XspiWord, dummy_cycles: u8, data: bool, read: bool) {
 
+                let fmode = if read { 0b01 } else { 0b00 };
                 let mode = self.mode.reg_value();
                 let imode = if instruction != XspiWord::None { mode } else { 0 };
                 let admode = if address != XspiWord::None { mode } else { 0 };
                 let abmode = if alternate_bytes != XspiWord::None { mode } else { 0 };
                 let dmode = if data { mode } else { 0 };
 
+                //writing to ccr will trigger the start of a transaction if there is no address or
+                //data rm0433 pg 894, so we do it all in one go
                 self.rb.ccr.modify(|_, w| unsafe {
                     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                    let w = w.dcyc().bits(dummy_cycles);
+                    let w = {
+                        let ir = instruction.bits_u8().unwrap();
+                        w.dcyc().bits(dummy_cycles).instruction().bits(ir).fmode().bits(fmode)
+                    };
 
                     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
                     let w = w.isize().bits(instruction.size());
@@ -472,7 +478,29 @@ mod common {
                 });
 
                 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                self.rb.tcr.write(|w| unsafe { w.dcyc().bits(dummy_cycles) });
+                {
+                    self.rb.tcr.write(|w| unsafe { w.dcyc().bits(dummy_cycles) });
+                    self.rb.cr.modify(|_, w| unsafe { w.fmode().bits(fmode) });
+                }
+
+                // Write alternate-bytes
+                self.rb.abr.write(|w| unsafe {
+                    w.alternate().bits(alternate_bytes.bits())
+                });
+
+                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+                if instruction != XspiWord::None {
+                    self.rb.ir.write(|w| unsafe {
+                        w.instruction().bits(instruction.bits())
+                    });
+                }
+
+                if address != XspiWord::None {
+                    // Write the address. The transaction starts on the next write
+                    // to DATA, unless there is no DATA phase configured, in which
+                    // case it starts here.
+                    self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                }
             }
 
             /// Begin a write over the XSPI interface. This is mostly useful for use with
@@ -578,9 +606,6 @@ mod common {
 
                 self.is_busy()?;
 
-                // Setup extended mode. Typically no dummy cycles in write mode
-                self.setup_extended(instruction, address, alternate_bytes, 0, !data.is_empty());
-
                 // Clear the transfer complete flag.
                 self.rb.fcr.write(|w| w.ctcf().set_bit());
 
@@ -591,32 +616,11 @@ mod common {
                         .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
                 }
 
-                // Configure the mode to indirect write.
-                fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b00) });
-
-                // Write alternate-bytes
-                self.rb.abr.write(|w| unsafe {
-                    w.alternate().bits(alternate_bytes.bits())
-                });
-
-                // Write instruction. If there is no address or data phase, the
-                // transaction starts here.
-                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                {
-                    let ir = instruction.bits_u8()?;
-                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
-                }
-                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                self.rb.ir.write(|w| unsafe {
-                    w.instruction().bits(instruction.bits())
-                });
-
-                // Write the address. The transaction starts on the next write
-                // to DATA, unless there is no DATA phase configured, in which
-                // case it starts here.
-                self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                // Setup extended mode. Typically no dummy cycles in write mode
+                self.setup_extended(instruction, address, alternate_bytes, 0, !data.is_empty(), false);
 
                 // Write data to the FIFO in a byte-wise manner.
+                // Transaction starts here
                 unsafe {
                     for byte in data {
                         ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
@@ -751,10 +755,6 @@ mod common {
 
                 self.is_busy()?;
 
-                // Setup extended mode. Read operations always have a data phase.
-                self.setup_extended(instruction, address, alternate_bytes,
-                                    dummy_cycles, true);
-
                 // Clear the transfer complete flag.
                 self.rb.fcr.write(|w| w.ctcf().set_bit());
 
@@ -763,28 +763,10 @@ mod common {
                     .dlr
                     .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
 
-                // Configure the mode to indirect read.
-                fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b01) });
-
-                // Write alternate-bytes
-                self.rb.abr.write(|w| unsafe {
-                    w.alternate().bits(alternate_bytes.bits())
-                });
-
-                // Write instruction. If there is no address phase, the
-                // transaction starts here.
-                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-                {
-                    let ir = instruction.bits_u8()?;
-                    self.rb.ccr.modify(|_, w| unsafe { w.instruction().bits(ir) });
-                }
-                #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-                self.rb.ir.write(|w| unsafe {
-                    w.instruction().bits(instruction.bits())
-                });
-
-                // Write the address. Transaction starts here.
-                self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                // Setup extended mode. Read operations always have a data phase.
+                // Transaction starts here
+                self.setup_extended(instruction, address, alternate_bytes,
+                                    dummy_cycles, true, true);
 
                 // Wait for the transaction to complete
                 while self.rb.sr.read().tcf().bit_is_clear() {}
