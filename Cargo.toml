@@ -144,6 +144,10 @@ name = "qspi"
 required-features = ["xspi", "rm0433"]
 
 [[example]]
+name = "octospi"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
 name = "sdmmc"
 required-features = ["sdmmc", "rm0433"]
 
