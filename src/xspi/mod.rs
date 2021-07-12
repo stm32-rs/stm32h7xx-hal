@@ -373,13 +373,21 @@ mod common {
             }
 
             pub(super) fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {
-                let d1ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr.read() };
+                #[cfg(not(feature = "rm0455"))]
+                use stm32::rcc::d1ccipr as ccipr;
+                #[cfg(feature = "rm0455")]
+                use stm32::rcc::cdccipr as ccipr;
 
-                match d1ccipr.$ccip().variant() {
-                    stm32::rcc::d1ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => Some(clocks.hclk()),
-                    stm32::rcc::d1ccipr::[< $ccip:upper _A >]::PLL1_Q => clocks.pll1_q_ck(),
-                    stm32::rcc::d1ccipr::[< $ccip:upper _A >]::PLL2_R => clocks.pll2_r_ck(),
-                    stm32::rcc::d1ccipr::[< $ccip:upper _A >]::PER => clocks.per_ck(),
+                #[cfg(not(feature = "rm0455"))]
+                let ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr.read() };
+                #[cfg(feature = "rm0455")]
+                let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
+
+                match ccipr.$ccip().variant() {
+                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => Some(clocks.hclk()),
+                    ccipr::[< $ccip:upper _A >]::PLL1_Q => clocks.pll1_q_ck(),
+                    ccipr::[< $ccip:upper _A >]::PLL2_R => clocks.pll2_r_ck(),
+                    ccipr::[< $ccip:upper _A >]::PER => clocks.per_ck(),
                 }
             }
 
@@ -795,7 +803,7 @@ mod common {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     xspi_impl! { stm32::QUADSPI, rec::Qspi, qspisel }
 
-    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    #[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
     xspi_impl! { stm32::OCTOSPI1, rec::Octospi1, octospisel }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI2, rec::Octospi2, octospisel }

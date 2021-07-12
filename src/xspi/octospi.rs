@@ -342,5 +342,6 @@ macro_rules! octospi_impl {
     };
 }
 
+#[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
 octospi_impl! { octospi1_unchecked, stm32::OCTOSPI1, rec::Octospi1 }
 octospi_impl! { octospi2_unchecked, stm32::OCTOSPI2, rec::Octospi2 }
