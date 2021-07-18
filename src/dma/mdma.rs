@@ -58,6 +58,7 @@ use super::{
     DmaDirection, MemoryToPeripheral, PeripheralToMemory,
 };
 
+use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
 
@@ -191,7 +192,7 @@ impl MdmaSize {
 }
 
 /// MDMA increment mode
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MdmaIncrement {
     Fixed,
     /// Increment by one source/destination element each element
@@ -210,6 +211,45 @@ pub enum MdmaIncrement {
 impl Default for MdmaIncrement {
     fn default() -> Self {
         MdmaIncrement::Increment
+    }
+}
+
+/// MDMA burst size. This type contains the _register_ value, thus the burst
+/// size is equal to 2^N where N is the register value
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MdmaBurstSize(pub(crate) u8);
+impl Default for MdmaBurstSize {
+    fn default() -> Self {
+        MdmaBurstSize(0)
+    }
+}
+impl MdmaBurstSize {
+    // TODO: add const to make this a const fn
+    fn from_size(mut v: usize) -> Self {
+        let mut p = 0;
+        while v > 0 {
+            p += 1;
+            v >>= 1;
+        }
+
+        MdmaBurstSize(p - 1)
+    }
+}
+impl From<usize> for MdmaBurstSize {
+    fn from(v: usize) -> Self {
+        debug_assert!(v != 0, "Burst Size must not be zero");
+        debug_assert!(v <= 128, "Maximum Burst Size is 128 bytes");
+
+        Self::from_size(v)
+    }
+}
+impl fmt::Debug for MdmaBurstSize {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0 > 0 {
+            f.write_fmt(format_args!("{}", 1 << self.0))
+        } else {
+            f.write_str("single")
+        }
     }
 }
 
@@ -268,6 +308,8 @@ pub struct MdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) destination_increment: MdmaIncrement,
     pub(crate) source_increment: MdmaIncrement,
+    pub(crate) destination_burst_size: MdmaBurstSize,
+    pub(crate) source_burst_size: MdmaBurstSize,
     pub(crate) transfer_request: Option<MdmaTransferRequest>,
     pub(crate) trigger_mode: MdmaTrigger,
     pub(crate) buffer_length: Option<u8>,
@@ -302,6 +344,24 @@ impl MdmaConfig {
     #[inline(always)]
     pub fn source_increment(mut self, source_increment: MdmaIncrement) -> Self {
         self.source_increment = source_increment;
+        self
+    }
+    /// Set the destination burst size
+    #[inline(always)]
+    pub fn destination_burst_size(
+        mut self,
+        destination_burst_size: impl Into<MdmaBurstSize>,
+    ) -> Self {
+        self.destination_burst_size = destination_burst_size.into();
+        self
+    }
+    /// Set the source burst size
+    #[inline(always)]
+    pub fn source_burst_size(
+        mut self,
+        source_burst_size: impl Into<MdmaBurstSize>,
+    ) -> Self {
+        self.source_burst_size = source_burst_size.into();
         self
     }
     /// Sets a hardware transfer request line. Unlike DMA1/DMA2, it is valid to
@@ -743,6 +803,20 @@ macro_rules! mdma_stream {
                     mdma.$channel.tbr.modify(|_,w| w.dbus().bit(
                         Self::is_ahb_port(value)
                     ));
+                }
+
+                #[inline(always)]
+                unsafe fn set_source_burst_size(&mut self, value: u8) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = &*I::ptr();
+                    mdma.$channel.tcr.modify(|_, w| w.sburst().bits(value));
+                }
+
+                #[inline(always)]
+                unsafe fn set_destination_burst_size(&mut self, value: u8) {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = &*I::ptr();
+                    mdma.$channel.tcr.modify(|_, w| w.dburst().bits(value));
                 }
 
                 #[inline(always)]

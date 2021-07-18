@@ -1,0 +1,168 @@
+//! Example of Memory to Memory Transfer with the Master DMA (MDMA) and multiple
+//! beats per AXI burst. Using multiple beats in each burst results in fewer
+//! total bursts.
+//!
+//! This example demonstrates a transfer with 1 beat/burst, and a 32
+//! beats/burst. The latter gives an approximately 25% speedup.
+
+#![allow(clippy::transmute_ptr_to_ptr)]
+#![deny(warnings)]
+#![no_main]
+#![no_std]
+
+use core::{mem, mem::MaybeUninit};
+
+use cortex_m_rt::entry;
+#[macro_use]
+mod utilities;
+use stm32h7xx_hal::{pac, pac::DWT, prelude::*};
+
+use stm32h7xx_hal::dma::{
+    mdma::{MdmaConfig, MdmaIncrement, StreamsTuple},
+    traits::{Direction, MasterStream, Stream},
+    MemoryToMemory, Transfer,
+};
+
+use log::info;
+
+// The MDMA can interact with SRAM banks as well as the TCM. For this example,
+// we place the source and destination in AXI SRAM.
+//
+// The runtime does not initialise AXI SRAM banks.
+#[link_section = ".axisram.buffers"]
+static mut SOURCE_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
+#[link_section = ".axisram.buffers"]
+static mut TARGET_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
+
+#[entry]
+fn main() -> ! {
+    utilities::logger::init();
+    let cp = unsafe { cortex_m::Peripherals::steal() };
+    let dp = pac::Peripherals::take().unwrap();
+
+    // Constrain and Freeze power
+    info!("Setup PWR...                  ");
+    let pwr = dp.PWR.constrain();
+    let pwrcfg = example_power!(pwr).freeze();
+
+    // Constrain and Freeze clock
+    info!("Setup RCC...                  ");
+    let rcc = dp.RCC.constrain();
+    let ccdr = rcc
+        .sys_ck(100.mhz())
+        .hclk(50.mhz())
+        .freeze(pwrcfg, &dp.SYSCFG);
+
+    // Cycle counter
+    let mut dwt = cp.DWT;
+    dwt.enable_cycle_counter();
+
+    info!("");
+    info!("stm32h7xx-hal example - Master DMA with longer bursts");
+    info!("");
+
+    // Initialise the source buffer without taking any references to
+    // uninitialisated memory
+    let _source_buffer: &'static mut [u32; 200] = {
+        let buf: &mut [MaybeUninit<u32>; 200] =
+            unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+
+        for value in buf.iter_mut() {
+            unsafe {
+                value.as_mut_ptr().write(0x11223344u32);
+            }
+        }
+        unsafe { mem::transmute(buf) }
+    };
+
+    // Setup DMA
+    let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
+
+    // Timed test method
+    fn run_mdma_mem2mem<STREAM: MasterStream + Stream<Config = MdmaConfig>>(
+        n: usize,
+        m: usize,
+        stream: STREAM,
+        config: MdmaConfig,
+    ) {
+        let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> = {
+            // unsafe: Both source and destination live at least as long as this
+            // transfer
+            let source: &'static mut [u32; 200] =
+                unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+            let target: &'static mut [u32; 200] =
+                unsafe { mem::transmute(&mut TARGET_BUFFER) };
+
+            Transfer::init_master(
+                stream,
+                MemoryToMemory::new(),
+                target,       // Destination: AXISRAM
+                Some(source), // Source: AXISRAM
+                config,
+            )
+        };
+
+        // Block of 800 bytes, MDMA checks other streams every 128 bytes
+        assert_eq!(transfer.get_block_length(), 800);
+        assert_eq!(transfer.get_buffer_length(), 128);
+
+        let mut cycles = 0;
+        for _ in 0..10 {
+            cycles += {
+                let start = DWT::get_cycle_count();
+
+                // Start block
+                transfer.start(|_| {});
+
+                // Wait for transfer to complete
+                while !transfer.get_transfer_complete_flag() {}
+
+                DWT::get_cycle_count() - start
+            };
+        }
+
+        // Decompose the stream to get the buffers back
+        let (_stream0, _mem2mem, target_buffer, _source_buffer_opt) =
+            transfer.free();
+
+        for a in target_buffer.iter() {
+            assert_eq!(*a, 0x11223344);
+        }
+
+        info!(
+            "Example {}: Memory to Memory, {} beat/burst completed successfully",
+            n, m
+        );
+        info!(
+            "Cycles: {}, {:.2} cycles/B",
+            cycles / 10,
+            cycles as f32 / 8_000.
+        );
+    }
+
+    //
+    // Example 1: Memory to Memory, 1 beat per burst
+    //
+    let config_1beat = MdmaConfig::default()
+        .destination_increment(MdmaIncrement::Increment)
+        .source_increment(MdmaIncrement::Increment);
+
+    info!("Config 1: {:?}", config_1beat);
+
+    run_mdma_mem2mem(1, 1, streams.0, config_1beat);
+
+    //
+    // Example 2: Memory to Memory, 32 beats per burst
+    //
+    let config_32beat = config_1beat
+        .destination_burst_size(32)
+        .source_burst_size(32);
+
+    info!("Config 2: {:?}", config_32beat);
+
+    run_mdma_mem2mem(2, 32, streams.1, config_32beat);
+
+    loop {
+        cortex_m::asm::nop()
+    }
+}

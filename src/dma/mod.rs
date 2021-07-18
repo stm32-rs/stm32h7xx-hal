@@ -827,6 +827,13 @@ where
             self.stream.set_destination_offset(destination_offset);
         }
 
+        unsafe {
+            self.stream
+                .set_source_burst_size(config.source_burst_size.0);
+            self.stream
+                .set_destination_burst_size(config.destination_burst_size.0);
+        }
+
         // Apply config, including offsets for this combination of configation
         // and source/destination sizes
         self.stream.apply_config(config);

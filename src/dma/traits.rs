@@ -197,6 +197,12 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the destination for the Master DMA stream
     unsafe fn set_destination_address(&mut self, value: usize);
 
+    /// Set the source burst size for the Master DMA stream
+    unsafe fn set_source_burst_size(&mut self, value: u8);
+
+    /// Set the destination burst size for the Master DMA stream
+    unsafe fn set_destination_burst_size(&mut self, value: u8);
+
     /// Set the trigger source as software (true) or hardware (false)
     fn set_software_triggered(&mut self, sw_triggered: bool);
 
