@@ -94,8 +94,8 @@ fn main() -> ! {
     };
 
     // Block of 800 bytes, MDMA checks other streams every 128 bytes
-    assert_eq!(transfer.get_block_bytes(), 800);
-    assert_eq!(transfer.get_buffer_bytes(), 128);
+    assert_eq!(transfer.get_block_length(), 800);
+    assert_eq!(transfer.get_buffer_length(), 128);
 
     // Start block
     transfer.start(|_| {});
@@ -150,7 +150,7 @@ fn main() -> ! {
     // Block length is limited to the minimum number of bytes that are valid for
     // both buffers. For this configuration, it is only possible to write 40
     // bytes (10 words) to the target buffer before reaching the end.
-    assert_eq!(transfer.get_block_bytes(), 40);
+    assert_eq!(transfer.get_block_length(), 40);
 
     transfer.start(|_| {});
 
@@ -205,9 +205,9 @@ fn main() -> ! {
     // Wait for transfer to complete
     while !transfer.get_transfer_complete_flag() {}
 
-    // Value returned by `get_block_bytes` decrements during the transfer,
+    // Value returned by `get_block_length` decrements during the transfer,
     // reaching zero at the end
-    assert_eq!(transfer.get_block_bytes(), 0);
+    assert_eq!(transfer.get_block_length(), 0);
 
     assert_eq!(source_buffer_tcm, [1, 2]);
     assert_eq!(

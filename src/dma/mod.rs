@@ -986,11 +986,11 @@ where
     }
 
     #[inline(always)]
-    pub fn get_buffer_bytes(&self) -> u8 {
+    pub fn get_buffer_length(&self) -> u8 {
         STREAM::get_transfer_length()
     }
     #[inline(always)]
-    pub fn get_block_bytes(&self) -> u32 {
+    pub fn get_block_length(&self) -> u32 {
         STREAM::get_block_bytes()
     }
 

@@ -110,7 +110,7 @@ fn main() -> ! {
     );
 
     // Buffer is 16-bytes to fit in QSPI FIFO
-    assert_eq!(transfer.get_buffer_bytes(), 16);
+    assert_eq!(transfer.get_buffer_length(), 16);
 
     // Start block
     transfer.start(|_| {});
