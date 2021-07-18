@@ -210,12 +210,12 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the number of bytes in each buffer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
     /// other channels
-    unsafe fn set_buffer_bytes(&mut self, value: u8);
+    unsafe fn set_transfer_length(&mut self, value: u8);
 
     /// Get the number of bytes in each buffer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
     /// other channels
-    fn get_buffer_bytes() -> u8;
+    fn get_transfer_length() -> u8;
 
     /// Set the number of bytes to be transferred in each block
     unsafe fn set_block_bytes(&mut self, value: u32);

@@ -541,9 +541,9 @@ macro_rules! mdma_stream {
                         assert_eq!(buffer_length as usize %
                                    Self::get_destination_size().n_bytes(), 0);
 
-                        // Replace calculated buffer length
+                        // Replace calculated transfer length
                         unsafe {
-                            self.set_buffer_bytes(buffer_length);
+                            self.set_transfer_length(buffer_length);
                         }
                     }
 
@@ -769,14 +769,14 @@ macro_rules! mdma_stream {
                 }
 
                 #[inline(always)]
-                unsafe fn set_buffer_bytes(&mut self, value: u8) {
+                unsafe fn set_transfer_length(&mut self, value: u8) {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.tlen().bits(value - 1));
                 }
 
                 #[inline(always)]
-                fn get_buffer_bytes() -> u8 {
+                fn get_transfer_length() -> u8 {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.tcr.read().tlen().bits() + 1
