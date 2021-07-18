@@ -777,10 +777,10 @@ where
 
 // -------- MDMA --------
 
-impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF, BUF_WORD>
+impl<STREAM, PERIPHERAL, DIR, BUF, BUF_WORD>
     Transfer<STREAM, PERIPHERAL, DIR, BUF, MasterTransfer>
 where
-    STREAM: MasterStream + Stream<Config = CONFIG>,
+    STREAM: MasterStream + Stream<Config = mdma::MdmaConfig>,
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
     BUF: StaticWriteBuffer<Word = BUF_WORD>, // Buf can be sized independently
@@ -791,7 +791,7 @@ where
     ///
     /// Returns ((s_size, d_size), (s_offset, d_offset))
     fn source_destination_size_offset(
-        config: &CONFIG,
+        config: &mdma::MdmaConfig,
     ) -> (
         (mdma::MdmaSize, mdma::MdmaSize),
         (mdma::MdmaSize, mdma::MdmaSize),
@@ -810,7 +810,7 @@ where
     }
 
     /// Applies all fields in MdmaConfig.
-    fn apply_config_master(&mut self, config: CONFIG) {
+    fn apply_config_master(&mut self, config: mdma::MdmaConfig) {
         self.stream.clear_interrupts();
 
         let (
@@ -842,7 +842,7 @@ where
     ///
     /// `s_len` and `d_len` cannot both be peripherals (None)
     fn m_number_of_bytes(
-        config: &CONFIG,
+        config: &mdma::MdmaConfig,
         s_len: Option<usize>,
         d_len: Option<usize>,
     ) -> usize {
@@ -896,7 +896,7 @@ where
         peripheral: PERIPHERAL,
         mut memory: BUF,
         mut second_buf: Option<BUF>,
-        config: CONFIG,
+        config: mdma::MdmaConfig,
     ) -> Self {
         stream.disable();
 
