@@ -1071,12 +1071,12 @@ type M2P = MemoryToPeripheral;
 
 // Access the QSPI data register as a u32 for bus access efficiency. The MDMA
 // itself can be used to pack/unpack to/from u8/u16.
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 peripheral_target_address!(
     (pac::QUADSPI, dr, u32, P2M),
     (pac::QUADSPI, dr, u32, M2P),
 );
-#[cfg(all(feature = "quadspi", not(feature = "rm0455")))]
+#[cfg(all(feature = "quadspi", any(feature = "rm0433", feature = "rm0399")))]
 peripheral_target_address!(
     (INNER: crate::qspi::Qspi, dr, u32, P2M),
     (INNER: crate::qspi::Qspi, dr, u32, M2P),
