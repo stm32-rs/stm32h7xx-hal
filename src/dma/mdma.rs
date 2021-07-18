@@ -585,27 +585,14 @@ macro_rules! mdma_stream {
                     }
                     self.set_trigger_mode(config.trigger_mode);
 
-                    // Custom buffer length if specified
-                    if let Some(buffer_length) = config.buffer_length {
-                        // Up to 128 bytes
-                        assert!(buffer_length <= 128);
-                        // Length of the buffer must be less than the length
-                        // of the block
-                        assert!(buffer_length as u32 <= Self::get_block_bytes());
-                        // Length of the buffer must be a multiple of the
-                        // source size
-                        assert_eq!(buffer_length as usize %
-                                   Self::get_source_size().n_bytes(), 0);
-                        // Length of the buffer must be a multiple of the
-                        // destination size
-                        assert_eq!(buffer_length as usize %
-                                   Self::get_destination_size().n_bytes(), 0);
-
-                        // Replace calculated transfer length
-                        unsafe {
-                            self.set_transfer_length(buffer_length);
-                        }
-                    }
+                    // Length of the transfer must be a multiple of the source
+                    // size
+                    assert_eq!(Self::get_transfer_length() as usize %
+                               Self::get_source_size().n_bytes(), 0);
+                    // Length of the transfer must be a multiple of the
+                    // destination size
+                    assert_eq!(Self::get_transfer_length() as usize %
+                               Self::get_destination_size().n_bytes(), 0);
 
                     self.set_packing_alignment(
                         config.packing_alignment

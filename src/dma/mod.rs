@@ -969,7 +969,9 @@ where
         // Set transfer length (within the block). If block_number_of_bytes is
         // not a integer multiple of transfer_length, the last buffer will be
         // shorter
-        let transfer_length = cmp::min(128, block_number_of_bytes);
+        let transfer_length =
+            cmp::min(128, config.buffer_length.unwrap_or(128)) as usize;
+        let transfer_length = cmp::min(transfer_length, block_number_of_bytes);
         // This is overridden if set in `config`
 
         //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
