@@ -965,14 +965,8 @@ macro_rules! mdma_stream {
                 /// regions are not relocatable.
                 #[inline(always)]
                 pub fn is_ahb_port(address: usize) -> bool {
-                    // On these parts is it possible to re-locate AXI SRAM to
-                    // the Cortex-M7 crossbar bus. TODO: investigate how to
-                    // handle this.
-                    #[cfg(feature = "rm0468")]
-                    panic!("MDMA not implemented for RM0468 parts yet!");
-
-                    // 64kB ITCM
-                    let is_itcm: bool = address < 0x0001_0000;
+                    // Up to 256kB ITCM can be allocated on RM0468 parts
+                    let is_itcm: bool = address < 0x0004_0000;
                     // 128kB DTCM
                     let is_dtcm: bool = (address >= 0x2000_0000 && address < 0x2002_0000);
 
