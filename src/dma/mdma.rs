@@ -649,6 +649,8 @@ macro_rules! mdma_stream {
                         .cbtif().set_bit() //Clear block transfer complete flag
                         .cbrtif().set_bit() //Clear block repeat transfer complete flag
                     );
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -657,14 +659,24 @@ macro_rules! mdma_stream {
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w.cteif().set_bit());
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
-                fn clear_transfer_complete_interrupt(&mut self) {
+                fn clear_transfer_complete_flag(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w.cctcif().set_bit());
+                }
+
+                #[inline(always)]
+                fn clear_transfer_complete_interrupt(&mut self) {
+                    self.clear_transfer_complete_flag();
+                    let mdma = unsafe { &*I::ptr() };
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -739,6 +751,8 @@ macro_rules! mdma_stream {
                                             .btie().clear_bit()
                                             .brtie().clear_bit()
                     );
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -774,6 +788,8 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.ctcie().bit(transfer_complete_interrupt));
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -781,6 +797,8 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
             }
 
@@ -963,6 +981,8 @@ macro_rules! mdma_stream {
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w.cltcif().set_bit());
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -978,6 +998,8 @@ macro_rules! mdma_stream {
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w.cbtif().set_bit());
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -993,6 +1015,8 @@ macro_rules! mdma_stream {
                     // that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.ifcr.write(|w| w.cbrtif().set_bit());
+                    let _ = mdma.$channel.isr.read();
+                    let _ = mdma.$channel.isr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -1009,6 +1033,8 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.ctcie().bit(buffer_transfer_complete_interrupt));
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -1018,6 +1044,8 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.btie().bit(block_transfer_complete_interrupt));
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -1027,6 +1055,8 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
                     mdma.$channel.cr.modify(|_, w| w.brtie().bit(block_repeat_transfer_complete_interrupt));
+                    let _ = mdma.$channel.cr.read();
+                    let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
             }
 
