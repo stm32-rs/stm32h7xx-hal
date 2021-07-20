@@ -144,7 +144,7 @@ name = "qspi"
 required-features = ["quadspi", "rm0433"]
 
 [[example]]
-name = "qspi-mdma"
+name = "qspi_mdma"
 required-features = ["quadspi", "rm0433"]
 
 [[example]]
