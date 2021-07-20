@@ -23,9 +23,10 @@
 //! * [Serial Peripheral Interface (SPI)](crate::spi)
 //! * [Serial Data (USART/UART)](crate::serial)
 //! * [Serial Audio Interface](crate::sai)
-//! * [Quad SPI](crate::qspi) Feature gate `qspi`
+//! * [Quad SPI](crate::qspi) Feature gate `quadspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
+//! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ldtc`
 //!
 //! External Memory
 //!
@@ -36,6 +37,7 @@
 //!
 //! * [Pulse Width Modulation (PWM)](crate::pwm)
 //! * [Quadrature Encoder Interface](crate::qei)
+//! * [Real-Time Clock](crate::rtc) Feature gate `rtc`
 //! * [Timers](crate::timer)
 //! * [Delays](crate::delay)
 //!
