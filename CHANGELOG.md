@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [v0.10.0] 2021-07-xx
+
+* **Breaking**: Don't reset peripheral in DMA1/2 `StreamsTuple::new()` method #229
+* adc: Add `free()` method for ADC12 #213
+* dma: Fast double-buffered DMA `next_dbm_transfer_with()` method #226
+* ethernet: Fix feature set for smoltcp dependency #221
+* pwm: Add advanced PWM functions #175
+* rtc: Set LSEBYP before enabling LSE #211
+* serial: implement `fmt::Write` for `Serial<USART` #214
+* spi: Add more hardware CS features #216
+* timers: Better calculations for `set_timeout_ticks` #208
+
 ## [v0.9.0] 2021-03-12
 
 * Updates `cortex-m` to v0.7.1. `cortex-m` v0.6.5+ [are forward compatible with
@@ -125,8 +137,9 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...HEAD
-[v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...v0.9.0
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...HEAD
+[v0.10.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...v0.10.0
+[v0.9.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.6.0...v0.7.0
