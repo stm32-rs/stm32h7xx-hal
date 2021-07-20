@@ -1,20 +1,53 @@
 //! Direct Memory Access.
 //!
-//! [Transfer::init](struct.Transfer.html#method.init) is only implemented for
-//! valid combinations of peripheral-stream-channel-direction, providing compile
-//! time checking.
-//!
 //! This module implements Memory To Memory, Peripheral To Memory and Memory to
 //! Peripheral transfers, double buffering is supported only for Peripheral To
 //! Memory and Memory to Peripheral transfers.
 //!
-//! Given that the Cortex-M7 core is capable of reordering accesses between
-//! normal and device memory, we insert DMB instructions to ensure correct
-//! operation. See ARM DAI 0321A, Section 3.2 which discusses the use of DMB
-//! instructions in DMA controller configuration.
+//!
+//! ## Controllers
+//!
+//! STM32H7 parts contain several DMA controllers with differing
+//! capabilities. The choice of DMA controller is a trade-off between
+//! capabilities, performance and power usage. This module implements methods
+//! for all the available DMA controllers.
+//!
+//! Whilst not strictly enforced, each peripheral is typically associated with a
+//! particular controller. These links are documented in the 'Block
+//! interconnect' section of the Reference Manual. In most cases, a peripheral
+//! will be used with its associated DMA controller.
+//!
+//! The following table summarizes the available DMA controllers
+//!
+//! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Initialization Method
+//! | --- | --- | --- | --- | ---
+//! | [MDMA](mdma) | All | `QUADSPI`, .. | No | [Transfer::init_master](Transfer#method.init_master)
+//! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes | [Transfer::init](Transfer#method.init)
+//! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes | [Transfer::init](Transfer#method.init)
+//! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes | [Transfer::init](Transfer#method.init)
+//!
+//! [^notimpl]: [TargetAddress](traits::TargetAddress) is not yet implemented
+//! for many peripherals
+//!
+//! [^rm0455bdma]: On 7B3/7A3/7B0 parts there are two BDMA controllers. BDMA1
+//! can access SRAM1/2 whilst BDMA2 is limited to SRAM4
+//!
+//! ## Safety
+//!
+//! [Transfer::init](struct.Transfer.html#method.init) is only implemented for
+//! valid combinations of peripheral-stream-channel-direction, providing compile
+//! time checking.
+//!
+//! The module uses [fences](core::sync::atomic::fence) to prevent the compiler
+//! and CPU from reording certain operations. This is particularly important
+//! since the Cortex-M7 core is otherwise capable of reordering accesses between
+//! normal and device memory. See ARM DAI 0321A, Section 3.2 which discusses the
+//! use of DMB instructions in DMA controller configuration.
+//!
+//! ## Credits
 //!
 //! Adapted from
-//! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs
+//! <https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs>
 
 use core::{
     cmp,

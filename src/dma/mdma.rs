@@ -19,7 +19,7 @@
 //!
 //! In Buffer mode, each trigger results in the transfer of up to 128 bytes of
 //! data. If a larger transfer was configured, the MDMA stream must be triggered
-//! again to continue the transfer. This behaviour is useful alongside hardware
+//! again to continue the transfer. This behavior is useful alongside hardware
 //! triggers when transferring to/from peripheral FIFOs.
 //!
 //! In the reference manual, the words Buffer and Transfer are used

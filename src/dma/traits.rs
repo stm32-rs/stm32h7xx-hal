@@ -1,7 +1,7 @@
 //! Traits for DMA types
 //!
 //! Adapted from
-//! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/traits.rs
+//! <https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/traits.rs>
 
 use super::*;
 
