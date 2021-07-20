@@ -809,8 +809,52 @@ where
         )
     }
 
+    /// Returns the maximum burst size for given parameters
+    ///
+    /// * Less than transfer length
+    ///
+    /// ## AHBS Bus
+    ///
+    /// If any of the following are true, then DSIZE must be 0 (single transfer)
+    ///
+    /// * Increment offset size is Double-Word (64-bit)
+    /// * Increment mode is fixed pointer
+    /// * Increment offset size is != Data Size
+    ///
+    /// ## AXI Bus
+    ///
+    /// If the Increment mode is fixed pointer, then DIZE must be <= 4 (maximum
+    /// 16 beats)
+    fn master_max_burst_size(
+        is_ahb: bool,
+        tranfer_length: usize,
+        increment: mdma::MdmaIncrement,
+        size: mdma::MdmaSize,
+        offset: mdma::MdmaSize,
+    ) -> mdma::MdmaBurstSize {
+        let max_transfer_length: mdma::MdmaBurstSize = tranfer_length.into();
+
+        if is_ahb
+            && (offset == mdma::MdmaSize::DoubleWord
+                || increment == mdma::MdmaIncrement::Fixed
+                || offset != size)
+        {
+            return mdma::MdmaBurstSize(0); // single transfer
+        }
+        if !is_ahb && increment == mdma::MdmaIncrement::Fixed {
+            return cmp::min(mdma::MdmaBurstSize(4), max_transfer_length);
+        }
+
+        return max_transfer_length;
+    }
+
     /// Applies all fields in MdmaConfig.
-    fn apply_config_master(&mut self, config: mdma::MdmaConfig) {
+    fn apply_config_master(
+        &mut self,
+        config: mdma::MdmaConfig,
+        is_ahb: (bool, bool),
+        transfer_length: usize,
+    ) {
         self.stream.clear_interrupts();
 
         let (
@@ -827,11 +871,29 @@ where
             self.stream.set_destination_offset(destination_offset);
         }
 
+        // Calculate burst sizes to apply
+        let source_burst = Self::master_max_burst_size(
+            is_ahb.0,
+            transfer_length,
+            config.source_increment,
+            source_size,
+            source_offset,
+        );
+        let source_burst = source_burst.min(config.source_burst_size);
+        let destination_burst = Self::master_max_burst_size(
+            is_ahb.1,
+            transfer_length,
+            config.destination_increment,
+            destination_size,
+            destination_offset,
+        );
+        let destination_burst =
+            destination_burst.min(config.destination_burst_size);
+
+        // Set burst sizes
         unsafe {
-            self.stream
-                .set_source_burst_size(config.source_burst_size.0);
-            self.stream
-                .set_destination_burst_size(config.destination_burst_size.0);
+            self.stream.set_source_burst_size(source_burst.0);
+            self.stream.set_destination_burst_size(destination_burst.0);
         }
 
         // Apply config, including offsets for this combination of configation
@@ -911,7 +973,7 @@ where
         // methods on it until the end of the DMA transfer
         let (buf_ptr, buf_len) = unsafe { memory.write_buffer() };
 
-        let (source_len, destination_len) = match DIR::direction() {
+        let (source_len, destination_len, is_ahb) = match DIR::direction() {
             DmaDirection::MemoryToMemory => {
                 // must have 2nd buffer
                 if let Some(ref mut sb) = second_buf {
@@ -926,7 +988,12 @@ where
                         stream.set_destination_address(buf_ptr as usize);
                     }
 
-                    (Some(sb_len), Some(buf_len))
+                    let is_ahb = (
+                        mdma::is_ahb_port(sb_ptr as usize),
+                        mdma::is_ahb_port(buf_ptr as usize),
+                    );
+
+                    (Some(sb_len), Some(buf_len), is_ahb)
                 } else {
                     panic!("must have second buffer");
                 }
@@ -941,8 +1008,9 @@ where
                     stream.set_source_address(buf_ptr as usize);
                     stream.set_destination_address(peripheral.address());
                 }
+                let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
 
-                (Some(buf_len), None)
+                (Some(buf_len), None, (is_ahb, false))
             }
             DmaDirection::PeripheralToMemory => {
                 // Set the source/destination address
@@ -954,8 +1022,9 @@ where
                     stream.set_source_address(peripheral.address());
                     stream.set_destination_address(buf_ptr as usize);
                 }
+                let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
 
-                (None, Some(buf_len))
+                (None, Some(buf_len), (false, is_ahb))
             }
         };
 
@@ -989,7 +1058,7 @@ where
             buf: [Some(memory), second_buf],
             transfer_length: transfer_length as u16, // Currently not used by master dma
         };
-        transfer.apply_config_master(config);
+        transfer.apply_config_master(config, is_ahb, transfer_length);
 
         transfer
     }
@@ -1001,6 +1070,15 @@ where
     #[inline(always)]
     pub fn get_block_length(&self) -> u32 {
         STREAM::get_block_bytes()
+    }
+
+    #[inline(always)]
+    pub fn get_destination_burst_length(&self) -> usize {
+        1 << STREAM::get_destination_burst_size()
+    }
+    #[inline(always)]
+    pub fn get_source_burst_length(&self) -> usize {
+        1 << STREAM::get_source_burst_size()
     }
 
     /// Get the buffer transfer complete flag (tcif)

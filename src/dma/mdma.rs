@@ -559,6 +559,21 @@ impl<I: Instance> StreamsTuple<I> {
     }
 }
 
+/// Returns true if the MDMA master must access `address` via
+/// the 32-bit AHB slave port on the Cortex-M7 crossbar, rather
+/// than the AXI matrix.
+///
+/// This corresponds to the D0TCM, D1TCM and ITCM regions. These
+/// regions are not relocatable.
+pub fn is_ahb_port(address: usize) -> bool {
+    // Up to 256kB ITCM can be allocated on RM0468 parts
+    let is_itcm: bool = address < 0x0004_0000;
+    // 128kB DTCM
+    let is_dtcm: bool = address >= 0x2000_0000 && address < 0x2002_0000;
+
+    is_itcm || is_dtcm
+}
+
 // Macro that creates a struct representing a stream on the MDMA controller
 //
 // The implementation does the heavy lifting of mapping to the right fields on
@@ -795,9 +810,7 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.sar.write(|w| w.sar().bits(value as u32));
-                    mdma.$channel.tbr.modify(|_,w| w.sbus().bit(
-                        Self::is_ahb_port(value)
-                    ));
+                    mdma.$channel.tbr.modify(|_,w| w.sbus().bit(is_ahb_port(value)));
                 }
 
                 #[inline(always)]
@@ -805,9 +818,7 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.dar.write(|w| w.dar().bits(value as u32));
-                    mdma.$channel.tbr.modify(|_,w| w.dbus().bit(
-                        Self::is_ahb_port(value)
-                    ));
+                    mdma.$channel.tbr.modify(|_,w| w.dbus().bit(is_ahb_port(value)));
                 }
 
                 #[inline(always)]
@@ -822,6 +833,20 @@ macro_rules! mdma_stream {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = &*I::ptr();
                     mdma.$channel.tcr.modify(|_, w| w.dburst().bits(value));
+                }
+
+                #[inline(always)]
+                fn get_source_burst_size() -> u8 {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tcr.read().sburst().bits()
+                }
+
+                #[inline(always)]
+                fn get_destination_burst_size() -> u8 {
+                    //NOTE(unsafe) We only access the registers that belongs to the StreamX
+                    let mdma = unsafe { &*I::ptr() };
+                    mdma.$channel.tcr.read().dburst().bits()
                 }
 
                 #[inline(always)]
@@ -1048,22 +1073,6 @@ macro_rules! mdma_stream {
             }
 
             impl<I: Instance> $name<I> {
-                /// Returns true if the MDMA master must access `address` via
-                /// the 32-bit AHB slave port on the Cortex-M7 crossbar, rather
-                /// than the AXI matrix.
-                ///
-                /// This corresponds to the D0TCM, D1TCM and ITCM regions. These
-                /// regions are not relocatable.
-                #[inline(always)]
-                pub fn is_ahb_port(address: usize) -> bool {
-                    // Up to 256kB ITCM can be allocated on RM0468 parts
-                    let is_itcm: bool = address < 0x0004_0000;
-                    // 128kB DTCM
-                    let is_dtcm: bool = (address >= 0x2000_0000 && address < 0x2002_0000);
-
-                    is_itcm || is_dtcm
-                }
-
                 #[inline(always)]
                 pub fn set_packing_alignment(&mut self, pack: MdmaPackingAlignment) {
                     use MdmaPackingAlignment::*;

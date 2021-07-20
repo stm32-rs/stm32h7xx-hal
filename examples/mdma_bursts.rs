@@ -102,9 +102,12 @@ fn main() -> ! {
             )
         };
 
-        // Block of 800 bytes, MDMA checks other streams every 128 bytes
+        // Block of 800 bytes
         assert_eq!(transfer.get_block_length(), 800);
-        assert_eq!(transfer.get_buffer_length(), 128);
+
+        // Burst lengths set correctly
+        assert_eq!(transfer.get_source_burst_length(), m);
+        assert_eq!(transfer.get_destination_burst_length(), m);
 
         let mut cycles = 0;
         for _ in 0..10 {
@@ -138,6 +141,7 @@ fn main() -> ! {
             cycles / 10,
             cycles as f32 / 8_000.
         );
+        info!("");
     }
 
     //
@@ -147,7 +151,7 @@ fn main() -> ! {
         .destination_increment(MdmaIncrement::Increment)
         .source_increment(MdmaIncrement::Increment);
 
-    info!("Config 1: {:?}", config_1beat);
+    //info!("Config 1: {:?}", config_1beat);
 
     run_mdma_mem2mem(1, 1, streams.0, config_1beat);
 
@@ -158,9 +162,15 @@ fn main() -> ! {
         .destination_burst_size(32)
         .source_burst_size(32);
 
-    info!("Config 2: {:?}", config_32beat);
-
     run_mdma_mem2mem(2, 32, streams.1, config_32beat);
+
+    //
+    // Example 3: Memory to Memory, 16 beats per burst
+    //
+    // buffer length limits the burst size
+    let config_16beat = config_32beat.buffer_length(16);
+
+    run_mdma_mem2mem(3, 16, streams.2, config_16beat);
 
     loop {
         cortex_m::asm::nop()
