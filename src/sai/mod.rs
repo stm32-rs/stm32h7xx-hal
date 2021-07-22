@@ -26,7 +26,7 @@ pub use pdm::SaiPdmExt;
 mod i2s;
 pub use i2s::{
     I2SChanConfig, I2SClockStrobe, I2SCompanding, I2SComplement, I2SDataSize,
-    I2SDir, I2SMode, I2SProtocol, I2SSync, SaiI2sExt, I2S,
+    I2SDir, I2SMode, I2SProtocol, I2SSync, I2sUsers, SaiI2sExt, I2S,
 };
 
 /// Trait for associating clocks with SAI instances

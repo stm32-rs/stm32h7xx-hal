@@ -16,8 +16,8 @@ pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
 use stm32h7xx_hal::sai::{
-    self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, Sai, SaiChannel,
-    SaiI2sExt, I2S,
+    self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, I2sUsers, Sai,
+    SaiChannel, SaiI2sExt, I2S,
 };
 use stm32h7xx_hal::stm32;
 use stm32h7xx_hal::time::{Hertz, U32Ext};
@@ -87,8 +87,7 @@ const APP: () = {
             I2SDataSize::BITS_24,
             sai1_rec,
             &ccdr.clocks,
-            master_config,
-            Some(slave_config),
+            I2sUsers::new(master_config).add_slave(slave_config),
         );
 
         // Setup cache
