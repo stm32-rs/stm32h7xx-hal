@@ -123,114 +123,112 @@ impl U32Ext for u32 {
 }
 
 // Unit conversions
-impl Into<Hertz> for Bps {
-    fn into(self) -> Hertz {
-        Hertz(self.0)
+impl From<Bps> for Hertz {
+    fn from(bps: Bps) -> Self {
+        Self(bps.0)
     }
 }
 
-impl Into<Hertz> for KiloHertz {
-    fn into(self) -> Hertz {
-        Hertz(self.0 * 1_000)
+impl From<KiloHertz> for Hertz {
+    fn from(khz: KiloHertz) -> Self {
+        Self(khz.0 * 1_000)
     }
 }
 
-impl Into<Hertz> for MegaHertz {
-    fn into(self) -> Hertz {
-        Hertz(self.0 * 1_000_000)
+impl From<MegaHertz> for Hertz {
+    fn from(mhz: MegaHertz) -> Self {
+        Self(mhz.0 * 1_000_000)
     }
 }
 
-impl Into<KiloHertz> for MegaHertz {
-    fn into(self) -> KiloHertz {
-        KiloHertz(self.0 * 1_000)
+impl From<MegaHertz> for KiloHertz {
+    fn from(mhz: MegaHertz) -> Self {
+        Self(mhz.0 * 1_000)
     }
 }
 
-impl Into<NanoSeconds> for MicroSeconds {
-    fn into(self) -> NanoSeconds {
-        NanoSeconds(self.0 * 1_000)
+impl From<MicroSeconds> for NanoSeconds {
+    fn from(us: MicroSeconds) -> Self {
+        Self(us.0 * 1_000)
     }
 }
 
-impl Into<NanoSeconds> for MilliSeconds {
-    fn into(self) -> NanoSeconds {
-        NanoSeconds(self.0 * 1_000_000)
+impl From<MilliSeconds> for NanoSeconds {
+    fn from(ms: MilliSeconds) -> Self {
+        Self(ms.0 * 1_000_000)
     }
 }
 
-impl Into<MicroSeconds> for MilliSeconds {
-    fn into(self) -> MicroSeconds {
-        MicroSeconds(self.0 * 1_000)
+impl From<MilliSeconds> for MicroSeconds {
+    fn from(ms: MilliSeconds) -> Self {
+        Self(ms.0 * 1_000)
     }
 }
 
 // MilliSeconds <-> Hertz
-impl Into<MilliSeconds> for Hertz {
-    fn into(self) -> MilliSeconds {
-        let freq = self.0;
+impl From<Hertz> for MilliSeconds {
+    fn from(hz: Hertz) -> Self {
+        let freq = hz.0;
         assert!(freq != 0 && freq <= 1_000);
-        MilliSeconds(1_000 / freq)
+        Self(1_000 / freq)
     }
 }
-impl Into<Hertz> for MilliSeconds {
-    fn into(self) -> Hertz {
-        let period = self.0;
+impl From<MilliSeconds> for Hertz {
+    fn from(ms: MilliSeconds) -> Self {
+        let period = ms.0;
         assert!(period != 0 && period <= 1_000);
-        Hertz(1_000 / period)
+        Self(1_000 / period)
     }
 }
 
 // MicroSeconds <-> Hertz
-impl Into<MicroSeconds> for Hertz {
-    fn into(self) -> MicroSeconds {
-        let freq = self.0;
+impl From<Hertz> for MicroSeconds {
+    fn from(hz: Hertz) -> Self {
+        let freq = hz.0;
         assert!(freq != 0 && freq <= 1_000_000);
-        MicroSeconds(1_000_000 / freq)
+        Self(1_000_000 / freq)
     }
 }
-impl Into<Hertz> for MicroSeconds {
-    fn into(self) -> Hertz {
-        let period = self.0;
+impl From<MicroSeconds> for Hertz {
+    fn from(us: MicroSeconds) -> Self {
+        let period = us.0;
         assert!(period != 0 && period <= 1_000_000);
-        Hertz(1_000_000 / period)
+        Self(1_000_000 / period)
     }
 }
 
 // NanoSeconds <-> Hertz
-impl Into<NanoSeconds> for Hertz {
-    fn into(self) -> NanoSeconds {
-        let freq = self.0;
+impl From<Hertz> for NanoSeconds {
+    fn from(hz: Hertz) -> Self {
+        let freq = hz.0;
         assert!(freq != 0 && freq <= 1_000_000_000);
-        NanoSeconds(1_000_000_000 / freq)
+        Self(1_000_000_000 / freq)
     }
 }
-impl Into<Hertz> for NanoSeconds {
-    fn into(self) -> Hertz {
-        let period = self.0;
+impl From<NanoSeconds> for Hertz {
+    fn from(ns: NanoSeconds) -> Self {
+        let period = ns.0;
         assert!(period != 0 && period <= 1_000_000_000);
-        Hertz(1_000_000_000 / period)
+        Self(1_000_000_000 / period)
     }
 }
 
-// Into core::time::Duration
-impl Into<Duration> for MilliSeconds {
-    fn into(self) -> Duration {
-        Duration::from_millis(self.0 as u64)
+// Implement conversion from time periods into core::time::Duration
+impl From<MilliSeconds> for Duration {
+    fn from(ms: MilliSeconds) -> Self {
+        Self::from_millis(ms.0 as u64)
     }
 }
 
-// Into core::time::Duration
-impl Into<Duration> for MicroSeconds {
-    fn into(self) -> Duration {
-        Duration::from_micros(self.0 as u64)
+impl From<MicroSeconds> for Duration {
+    fn from(us: MicroSeconds) -> Self {
+        Self::from_micros(us.0 as u64)
     }
 }
 
-// Into core::time::Duration
-impl Into<Duration> for NanoSeconds {
-    fn into(self) -> Duration {
-        Duration::from_nanos(self.0 as u64)
+impl From<NanoSeconds> for Duration {
+    fn from(ns: NanoSeconds) -> Self {
+        Self::from_nanos(ns.0 as u64)
     }
 }
 

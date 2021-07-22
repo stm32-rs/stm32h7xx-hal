@@ -63,7 +63,7 @@ pub struct Rng {
 
 impl Rng {
     /// Returns 32 bits of randomness, or error
-    pub fn next(&mut self) -> Result<u32, ErrorKind> {
+    pub fn value(&mut self) -> Result<u32, ErrorKind> {
         loop {
             let status = self.rb.sr.read();
             if status.cecs().bit() {
@@ -83,6 +83,14 @@ impl Rng {
     }
 }
 
+impl core::iter::Iterator for Rng {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<u32> {
+        self.value().ok()
+    }
+}
+
 impl rng::Read for Rng {
     type Error = ErrorKind;
 
@@ -97,7 +105,7 @@ macro_rules! rng_core {
             impl RngCore<$type> for Rng {
                 /// Returns a single element with random value, or error
                 fn gen(&mut self) -> Result<$type, ErrorKind> {
-                    let val = self.next()?;
+                    let val = self.value()?;
                     Ok(val as $type)
                 }
 
@@ -106,7 +114,7 @@ macro_rules! rng_core {
                     const BATCH_SIZE: usize = 4 / mem::size_of::<$type>();
                     let mut i = 0_usize;
                     while i < buffer.len() {
-                        let random_word = self.next()?;
+                        let random_word = self.value()?;
                         let bytes: [$type; BATCH_SIZE] = unsafe { mem::transmute(random_word) };
                         let n = cmp::min(BATCH_SIZE, buffer.len() - i);
                         buffer[i..i + n].copy_from_slice(&bytes[..n]);

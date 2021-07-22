@@ -162,10 +162,10 @@ pins! {
 }
 
 /// Pulse Density Modulation Interface
-pub struct PDM {
+pub struct Pdm {
     invalid_countdown: u8,
 }
-impl INTERFACE for PDM {}
+impl INTERFACE for Pdm {}
 
 /// Trait to extend SAI peripherals
 pub trait SaiPdmExt<SAI>: Sized {
@@ -177,7 +177,7 @@ pub trait SaiPdmExt<SAI>: Sized {
         clock: T,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Sai<SAI, PDM>
+    ) -> Sai<SAI, Pdm>
     where
         PINS: PulseDensityPins<Self>,
         T: Into<Hertz>;
@@ -195,7 +195,7 @@ macro_rules! hal {
                     clock: T,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                ) -> Sai<Self, PDM>
+                ) -> Sai<Self, Pdm>
                 where
                     PINS: PulseDensityPins<Self>,
                     T: Into<Hertz>,
@@ -203,7 +203,7 @@ macro_rules! hal {
                     Sai::$pdm_saiX(self, _pins, clock.into(), prec, clocks)
                 }
             }
-            impl Sai<$SAIX, PDM> {
+            impl Sai<$SAIX, Pdm> {
                 /// Read a single data word (one 'slot')
                 pub fn read_data(&mut self) -> nb::Result<u32, Never> {
                     while self.interface.invalid_countdown > 0 {
@@ -261,7 +261,7 @@ macro_rules! hal {
                         rb: sai,
                         master_channel: SaiChannel::ChannelA,
                         slave_channel: None,
-                        interface: PDM {
+                        interface: Pdm {
                             // count slots for 2 frames
                             invalid_countdown: 2 * (nbslot + 1),
                         },

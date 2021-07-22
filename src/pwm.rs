@@ -168,7 +168,6 @@ use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::hal;
-use crate::stm32;
 use crate::stm32::{lptim1, lptim3};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
 #[cfg(not(feature = "rm0455"))]

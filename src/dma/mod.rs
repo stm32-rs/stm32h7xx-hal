@@ -610,15 +610,18 @@ macro_rules! db_transfer_def {
             /// then call a function on the now inactive buffer and acknowledge the
             /// transfer complete flag.
             ///
-            /// NOTE(panic): This will panic then used in single buffer mode (not DBM).
+            /// # Panics
+            /// This will panic then used in single buffer mode (not DBM).
             ///
-            /// NOTE(unsafe): Memory safety is not guaranteed.
+            /// # Safety
+            /// Memory safety is not guaranteed.
             /// The user must ensure that the user function called on the inactive
             /// buffer completes before the running DMA transfer of the active buffer
             /// completes. If the DMA wins the race to the inactive buffer
             /// a `DMAError::Overflow` is returned but processing continues.
             ///
-            /// NOTE(fence): The user function must ensure buffer access ordering
+            /// ## Memory Fencing
+            /// The user function must ensure buffer access ordering
             /// against the flag accesses. Call
             /// `core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst)`
             /// before and after accessing the buffer.
@@ -632,11 +635,11 @@ macro_rules! db_transfer_def {
                 while !STREAM::get_transfer_complete_flag() { }
                 self.stream.clear_transfer_complete_flag();
 
-                // NOTE(panic): Panic if stream not configured in double buffer mode.
+                // NOTE(unwrap): Panic if stream not configured in double buffer mode.
                 let inactive = STREAM::get_inactive_buffer().unwrap();
 
                 // This buffer is inactive now and can be accessed.
-                // NOTE(panic): We always hold ownership in lieu of the DMA peripheral.
+                // NOTE(unwrap): We always hold ownership in lieu of the DMA peripheral.
                 let buf = self.buf[inactive as usize].as_mut().unwrap();
 
                 let result = func(buf, inactive);
