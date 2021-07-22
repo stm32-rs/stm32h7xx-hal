@@ -29,6 +29,8 @@ use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 #[macro_use]
 mod macros;
 
+// Note: In the future, it may make sense to restructure the DMA module.
+#[allow(clippy::module_inception)]
 pub mod dma; // DMA1 and DMA2
 
 pub mod bdma;
