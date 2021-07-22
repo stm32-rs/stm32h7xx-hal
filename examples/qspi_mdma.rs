@@ -1,3 +1,8 @@
+//! Example of Memory to Peripheral Transfer to the QSPI peripheral using the
+//! Master DMA (MDMA)
+//!
+//! Tested on a STM32H747I-DISCO development board
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]
