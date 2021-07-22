@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+* Fixed clippy lints:
+   * Added safety docs for some DMA functions
+   * Implemented additional conversion utilities for `time`
+   * Changed I2S constructors to take less arguments
 
 ## [v0.10.0] 2021-07-xx
 
