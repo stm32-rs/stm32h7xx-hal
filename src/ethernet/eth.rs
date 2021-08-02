@@ -22,6 +22,8 @@
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
+use core::ptr;
+
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 
@@ -147,9 +149,7 @@ impl TDesRing {
         let x = self.tdidx;
         assert!(self.td[x].tdes3 & EMAC_DES3_OWN == 0); // Owned by us
 
-        // unsafe: tbuf is actually aligned, but with repr(packed) the
-        // compiler cannot infer this
-        let address = unsafe { self.tbuf[x].as_ptr() as u32 };
+        let address = ptr::addr_of!(self.tbuf[x]) as u32;
 
         // Read format
         self.td[x].tdes0 = address; // Buffer 1
@@ -181,14 +181,15 @@ impl TDesRing {
         let x = self.tdidx;
 
         // Set address in descriptor
-        self.td[x].tdes0 = self.tbuf[x].as_ptr() as u32; // Buffer 1
+        self.td[x].tdes0 = ptr::addr_of!(self.tbuf[x]) as u32; // Buffer 1
 
         // Set length in descriptor
         let len = core::cmp::min(length, ETH_BUF_SIZE);
         self.td[x].tdes2 = (length as u32) & EMAC_TDES2_B1L;
 
-        // Return buffer slice
-        let addr = self.tbuf[x].as_ptr() as *mut _;
+        // Create a raw pointer in place without an intermediate reference. Use
+        // this to return a slice from the packed buffer
+        let addr = ptr::addr_of_mut!(self.tbuf[x]) as *mut _;
         core::slice::from_raw_parts_mut(addr, len)
     }
 }
@@ -301,9 +302,7 @@ impl RDesRing {
         let x = self.rdidx;
         assert!(self.rd[x].rdes3 & EMAC_DES3_OWN == 0); // Owned by us
 
-        // unsafe: rbuf is actually aligned, but with repr(packed) the
-        // compiler cannot infer this
-        let address = unsafe { self.rbuf[x].as_ptr() as u32 };
+        let address = ptr::addr_of!(self.rbuf[x]) as u32;
 
         // Read format
         self.rd[x].rdes0 = address; // Buffer 1
@@ -340,7 +339,7 @@ impl RDesRing {
         let x = self.rdidx;
 
         // Write-back format
-        let addr = self.rbuf[x].as_ptr() as *mut u8;
+        let addr = ptr::addr_of!(self.rbuf[x]) as *mut u8;
         let len = (self.rd[x].rdes3 & EMAC_RDES3_PL) as usize;
 
         let len = core::cmp::min(len, ETH_BUF_SIZE);
