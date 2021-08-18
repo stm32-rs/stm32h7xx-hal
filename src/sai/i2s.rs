@@ -321,7 +321,24 @@ pub struct I2S {
     master: I2SChanConfig,
     slave: Option<I2SChanConfig>,
 }
+
 impl INTERFACE for I2S {}
+
+pub type I2sUsers = I2S;
+
+impl I2sUsers {
+    pub fn new(master: I2SChanConfig) -> Self {
+        Self {
+            master,
+            slave: None,
+        }
+    }
+
+    pub fn add_slave(mut self, slave: I2SChanConfig) -> Self {
+        self.slave.replace(slave);
+        self
+    }
+}
 
 /// Trait to extend SAI peripherals
 pub trait SaiI2sExt<SAI>: Sized {
@@ -333,8 +350,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
-        master: I2SChanConfig,
-        slave: Option<I2SChanConfig>,
+        users: I2sUsers,
     ) -> Sai<SAI, I2S>
     where
         PINS: I2SPinsChA<Self>,
@@ -346,8 +362,7 @@ pub trait SaiI2sExt<SAI>: Sized {
         data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
-        master: I2SChanConfig,
-        slave: Option<I2SChanConfig>,
+        users: I2sUsers,
     ) -> Sai<SAI, I2S>
     where
         PINS: I2SPinsChB<Self>,
@@ -366,8 +381,7 @@ macro_rules! i2s {
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    master: I2SChanConfig,
-                    slave: Option<I2SChanConfig>,
+                    users: I2sUsers,
                 ) -> Sai<Self, I2S>
                 where
                     PINS: I2SPinsChA<Self>,
@@ -380,8 +394,7 @@ macro_rules! i2s {
                         data_size,
                         prec,
                         clocks,
-                        master,
-                        slave,
+                        users,
                     )
                 }
                 fn i2s_ch_b<PINS, T>(
@@ -391,8 +404,7 @@ macro_rules! i2s {
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    master: I2SChanConfig,
-                    slave: Option<I2SChanConfig>,
+                    users: I2sUsers,
                 ) -> Sai<Self, I2S>
                 where
                     PINS: I2SPinsChB<Self>,
@@ -405,8 +417,7 @@ macro_rules! i2s {
                         data_size,
                         prec,
                         clocks,
-                        master,
-                        slave,
+                        users,
                     )
                 }
             }
@@ -419,21 +430,20 @@ macro_rules! i2s {
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    master: I2SChanConfig,
-                    slave: Option<I2SChanConfig>,
+                    users: I2sUsers,
                 ) -> Self
                 where
                     PINS: I2SPinsChA<$SAIX>,
                 {
-                    assert!(master.slots <= NUM_SLOTS);
-                    if let Some(slave) = &slave {
+                    assert!(users.master.slots <= NUM_SLOTS);
+                    if let Some(slave) = &users.slave {
                         assert!(slave.slots <= NUM_SLOTS);
                     }
 
                     // Clock config
                     let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks)
                         .expect("SAI kernel clock must run!");
-                    let clock_ratio = if master.oversampling {
+                    let clock_ratio = if users.master.oversampling {
                         512
                     } else {
                         256
@@ -448,12 +458,12 @@ macro_rules! i2s {
                     let mut per_sai = Sai {
                         rb: sai,
                         master_channel: SaiChannel::ChannelA,
-                        slave_channel: if slave.is_some() {
+                        slave_channel: if users.slave.is_some() {
                             Some(SaiChannel::ChannelB)
                         } else {
                             None
                         },
-                        interface: I2S { master, slave },
+                        interface: users,
                     };
 
                     per_sai.sai_rcc_init(prec);
@@ -486,21 +496,20 @@ macro_rules! i2s {
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
-                    master: I2SChanConfig,
-                    slave: Option<I2SChanConfig>,
+                    users: I2sUsers,
                 ) -> Self
                 where
                     PINS: I2SPinsChB<$SAIX>,
                 {
-                    assert!(master.slots <= NUM_SLOTS);
-                    if let Some(slave) = &slave {
+                    assert!(users.master.slots <= NUM_SLOTS);
+                    if let Some(slave) = &users.slave {
                         assert!(slave.slots <= NUM_SLOTS);
                     }
 
                     // Clock config
                     let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks)
                         .expect("SAI kernel clock must run!");
-                    let clock_ratio = if master.oversampling {
+                    let clock_ratio = if users.master.oversampling {
                         512
                     } else {
                         256
@@ -515,12 +524,12 @@ macro_rules! i2s {
                     let mut per_sai = Sai {
                         rb: sai,
                         master_channel: SaiChannel::ChannelB,
-                        slave_channel: if slave.is_some() {
+                        slave_channel: if users.slave.is_some() {
                             Some(SaiChannel::ChannelA)
                         } else {
                             None
                         },
-                        interface: I2S { master, slave },
+                        interface: users,
                     };
 
                     per_sai.sai_rcc_init(prec);

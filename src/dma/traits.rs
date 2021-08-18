@@ -96,9 +96,19 @@ pub trait Stream: Sealed {
 /// Trait for Double-Buffered DMA streams
 pub trait DoubleBufferedStream: Stream + Sealed {
     /// Set the peripheral address (par) for the DMA stream.
+    ///
+    /// # Safety
+    /// `value` must point to a valid peripheral hardware address. Once specified, the memory
+    /// pointed to by `value` must not be modified or accessed by the application.
     unsafe fn set_peripheral_address(&mut self, value: usize);
 
     /// Set the memory address (m0ar or m1ar) for the DMA stream.
+    ///
+    /// # Safety
+    /// The memory pointed to by `value` must not be accessed by the application once provided to
+    /// this function. The memory is logically owned by the DMA peripheral at that point and
+    /// synchronization must be completed to ensure that concurrent access by DMA and the
+    /// application does not occur.
     unsafe fn set_memory_address(
         &mut self,
         buffer: CurrentBuffer,

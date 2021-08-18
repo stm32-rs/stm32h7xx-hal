@@ -14,7 +14,7 @@ use hal::device;
 use hal::dma;
 use hal::hal::digital::v2::OutputPin;
 use hal::rcc::rec::Sai1ClkSel;
-use hal::sai::{self, SaiChannel, SaiI2sExt};
+use hal::sai::{self, I2sUsers, SaiChannel, SaiI2sExt};
 use hal::stm32;
 use hal::{pac, prelude::*};
 use stm32h7xx_hal as hal;
@@ -157,8 +157,7 @@ fn main() -> ! {
         sai::I2SDataSize::BITS_24,
         sai1_rec,
         &ccdr.clocks,
-        sai1_tx_config,
-        Some(sai1_rx_config),
+        I2sUsers::new(sai1_tx_config).add_slave(sai1_rx_config),
     );
 
     // - reset ak4556 codec -----------------------------------------------

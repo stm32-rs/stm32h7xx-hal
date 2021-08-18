@@ -19,4 +19,4 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --examples --target thumbv7em-none-eabihf --features=rt,stm32h743v
+          args: --examples --target thumbv7em-none-eabihf --features=rt,stm32h743v -- -D warnings

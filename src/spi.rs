@@ -286,17 +286,11 @@ impl HardwareCS {
     }
 
     fn enabled(&self) -> bool {
-        match self.mode {
-            HardwareCSMode::Disabled => false,
-            _ => true,
-        }
+        !matches!(self.mode, HardwareCSMode::Disabled)
     }
 
     fn interleaved_cs(&self) -> bool {
-        match self.mode {
-            HardwareCSMode::WordTransaction { .. } => true,
-            _ => false,
-        }
+        matches!(self.mode, HardwareCSMode::WordTransaction { .. })
     }
 }
 
