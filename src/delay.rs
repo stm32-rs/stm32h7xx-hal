@@ -67,7 +67,7 @@ impl Delay {
     pub fn new(mut syst: SYST, clocks: CoreClocks) -> Self {
         syst.set_clock_source(SystClkSource::External);
 
-        Delay { syst, clocks }
+        Delay { clocks, syst }
     }
 
     /// Releases the system timer (SysTick) resource
