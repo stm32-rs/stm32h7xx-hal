@@ -439,7 +439,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
 macro_rules! variant_return_type {
     ($t:ty) => { $t };
     ($t:ty, $Variant: ident) => {
-        stm32h7::Variant<u8, $t>
+        Option<$t>
     };
 }
 

@@ -71,7 +71,6 @@ use crate::stm32::spi1::{
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
-use stm32h7::Variant::Val;
 
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
@@ -1076,12 +1075,12 @@ macro_rules! spi123sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi123sel().variant() {
-                        Val(ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
+                        Some(ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
                         // Need a method of specifying pin clock
-                        Val(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Val(ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
+                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1102,12 +1101,12 @@ macro_rules! spi45sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi45sel().variant() {
-                        Val(ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
-                        Val(ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
+                        Some(ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
+                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Some(ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
+                        Some(ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1128,12 +1127,12 @@ macro_rules! spi6sel {
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
                     match srdccipr.spi6sel().variant() {
-                        Val(srdccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Val(srdccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val(srdccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Val(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Val(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
+                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
+                        Some(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
+                        Some(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
