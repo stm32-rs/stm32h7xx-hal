@@ -52,7 +52,7 @@ default-features = false
 optional = true
 
 [dev-dependencies]
-cortex-m-rtic = "0.5.3"
+cortex-m-rtic = { version = "0.5.8", default-features = false, features = ["cortex-m-7"] }
 log = "0.4.11"
 panic-halt = "0.2.0"
 cfg-if = "0.1.10"
