@@ -1029,60 +1029,68 @@ where
         // methods on it until the end of the DMA transfer
         let (buf_ptr, buf_len) = unsafe { memory.write_buffer() };
 
-        let (source_len, destination_len, is_ahb) = match DIR::direction() {
+        let (
+            source_address,
+            destination_address,
+            source_len,
+            destination_len,
+            is_ahb,
+        ) = match DIR::direction() {
             DmaDirection::MemoryToMemory => {
                 // must have 2nd buffer
                 if let Some(ref mut sb) = second_buf {
                     // NOTE(unsafe) We now own this buffer and we won't call any &mut
                     // methods on it until the end of the DMA transfer
-
                     let (sb_ptr, sb_len) = unsafe { sb.write_buffer() };
-
-                    // second buffer is the source in mem2mem mode
-                    unsafe {
-                        stream.set_source_address(sb_ptr as usize);
-                        stream.set_destination_address(buf_ptr as usize);
-                    }
-
                     let is_ahb = (
                         mdma::is_ahb_port(sb_ptr as usize),
                         mdma::is_ahb_port(buf_ptr as usize),
                     );
 
-                    (Some(sb_len), Some(buf_len), is_ahb)
+                    // second buffer is the source in mem2mem mode
+                    (
+                        sb_ptr as usize,  // source address
+                        buf_ptr as usize, // destination address
+                        Some(sb_len),
+                        Some(buf_len),
+                        is_ahb,
+                    )
                 } else {
                     panic!("must have second buffer");
                 }
             }
             DmaDirection::MemoryToPeripheral => {
-                // Set the source/destination address
-                //
-                // # Safety
-                //
-                // Must be a valid source/destination address
-                unsafe {
-                    stream.set_source_address(buf_ptr as usize);
-                    stream.set_destination_address(peripheral.address());
-                }
                 let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
 
-                (Some(buf_len), None, (is_ahb, false))
+                (
+                    buf_ptr as usize,     // source address
+                    peripheral.address(), // destination address
+                    Some(buf_len),
+                    None,
+                    (is_ahb, false),
+                )
             }
             DmaDirection::PeripheralToMemory => {
-                // Set the source/destination address
-                //
-                // # Safety
-                //
-                // Must be a valid source/destination address
-                unsafe {
-                    stream.set_source_address(peripheral.address());
-                    stream.set_destination_address(buf_ptr as usize);
-                }
                 let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
 
-                (None, Some(buf_len), (false, is_ahb))
+                (
+                    peripheral.address(), // source address
+                    buf_ptr as usize,     // destination address
+                    None,
+                    Some(buf_len),
+                    (false, is_ahb),
+                )
             }
         };
+
+        // Set the source/destination address
+        //
+        // # Safety
+        // Must be a valid source/destination address
+        unsafe {
+            stream.set_source_address(source_address);
+            stream.set_destination_address(destination_address);
+        }
 
         // Set block length
         let block_number_of_bytes =
