@@ -258,15 +258,21 @@ impl fmt::Debug for MdmaBurstSize {
 pub enum MdmaPackingAlignment {
     /// Source data is packed/unpacked into the destination data size
     Packed,
-    /// Source data is extended/truncated into the destination data size. Source
-    /// data smaller than the destination is right-aligned and padded with zeros
-    ExtendTruncate,
-    /// Source data is extended/truncated into the destination data size. Source
-    /// data smaller than the destination is right-aligned and sign-extended.
+    /// Source data is extended into the destination data size. Source data
+    /// smaller than the destination is right-aligned and padded with zeros
+    Extend,
+    /// Source data is extended into the destination data size. Source data
+    /// smaller than the destination is right-aligned and sign-extended.
     ExtendSignExtend,
-    /// Source data is extended/truncated into the destination data size. Source
-    /// data smaller than the destination is left-aligned and padded with zeros
+    /// Source data is extended into the destination data size. Source data
+    /// smaller than the destination is left-aligned and padded with zeros
     ExtendLeftAligned,
+    /// Source data is truncated to the destination data size. Only the LSB part
+    /// of the source is written to the destination.
+    Truncate,
+    /// Source data is truncated to the destination data size. Only the MSB part
+    /// of the source is written to the destination.
+    TruncateLeft,
 }
 impl Default for MdmaPackingAlignment {
     fn default() -> Self {
@@ -1085,7 +1091,7 @@ macro_rules! mdma_stream {
                             .pke().bit(pack == Packed)
                             .pam().bits(match pack {
                                 ExtendSignExtend => 0b01,
-                                ExtendLeftAligned => 0b10,
+                                ExtendLeftAligned | TruncateLeft => 0b10,
                                 _ => 0b00,
                             })
                     });

@@ -948,15 +948,34 @@ where
         s_len: Option<usize>,
         d_len: Option<usize>,
     ) -> usize {
+        use mdma::MdmaPackingAlignment::*;
+
         let ((s_size, d_size), (s_offset, d_offset)) =
             Self::source_destination_size_offset(&config);
+
+        let element_size: Option<usize> = match config.packing_alignment {
+            // Packed: source and destination bytes calculated separately
+            Packed => None,
+            // Extend: number of elements * source element size
+            Extend | ExtendSignExtend | ExtendLeftAligned => {
+                assert!(s_size.n_bytes() <= d_size.n_bytes(),
+                        "Cannot extend a source that is larger than the destination");
+                Some(s_size.n_bytes())
+            }
+            // Truncate: number of elements * destination element size
+            Truncate | TruncateLeft => {
+                assert!(s_size.n_bytes() >= d_size.n_bytes(),
+                        "Cannot truncate a source that is smaller than the destination");
+                Some(d_size.n_bytes())
+            }
+        };
 
         let len_to_bytes = |len, size: usize, offset: usize| {
             let bytes = len * size;
             // Include a virtual gap at the end
             let plus_gap = bytes + offset - size;
-            // Bytes = Number of elements * SOURCE data size
-            (plus_gap / offset) * s_size.n_bytes()
+            // Bytes = Number of elements * element data size
+            (plus_gap / offset) * element_size.unwrap_or(size)
         };
 
         let s_bytes = s_len
@@ -964,8 +983,6 @@ where
         let d_bytes = d_len
             .map(|len| len_to_bytes(len, d_size.n_bytes(), d_offset.n_bytes()));
 
-        // Ignore None - from a memory point of view, we can read infinite bytes
-        // from a peripheral
         match (s_bytes, d_bytes) {
             (Some(s), Some(d)) => cmp::min(s, d),
             (Some(s), None) => s,
@@ -993,6 +1010,12 @@ where
     ///
     /// * When `config` specifies a `transfer_length` that is not a multiple of
     /// both the source and destination sizes.
+    ///
+    /// * When `config` specifies a `packing_alignment` that extends the source,
+    /// but the source size is larger than the destination size.
+    ///
+    /// * When `config` specifies a `packing_alignment` that truncates the
+    /// source, but the source size is smaller than the destination size.
     pub fn init_master(
         mut stream: STREAM,
         peripheral: PERIPHERAL,
