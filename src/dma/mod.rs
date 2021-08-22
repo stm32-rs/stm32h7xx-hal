@@ -1,7 +1,7 @@
 //! Direct Memory Access.
 //!
 //! This module implements Memory To Memory, Peripheral To Memory and Memory to
-//! Peripheral transfers, double buffering is supported only for Peripheral To
+//! Peripheral transfers. Double buffering is supported only for Peripheral To
 //! Memory and Memory to Peripheral transfers.
 //!
 //!
@@ -19,22 +19,24 @@
 //!
 //! The following table summarizes the available DMA controllers
 //!
-//! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Initialization Method
-//! | --- | --- | --- | --- | ---
-//! | [MDMA](mdma) | All | `QUADSPI`, .. | No | [Transfer::init_master](Transfer#method.init_master)
-//! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes | [Transfer::init](Transfer#method.init)
-//! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes | [Transfer::init](Transfer#method.init)
-//! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes | [Transfer::init](Transfer#method.init)
+//! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Number of DMA Streams | Initialization Method
+//! | --- | --- | --- | --- | --- | ---
+//! | [MDMA](mdma) | All | `QUADSPI`, .. | No |8| [Transfer::init_master](Transfer#method.init_master)
+//! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
+//! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
+//! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes |8| [Transfer::init](Transfer#method.init)
 //!
 //! [^notimpl]: [TargetAddress](traits::TargetAddress) is not yet implemented
 //! for many peripherals
 //!
 //! [^rm0455bdma]: On 7B3/7A3/7B0 parts there are two BDMA controllers. BDMA1
-//! can access SRAM1/2 whilst BDMA2 is limited to SRAM4
+//! can access SRAM1/2 whilst BDMA2 is limited to SRAM4. For these parts this
+//! HAL only supports BDMA2.
+//!
 //!
 //! ## Safety
 //!
-//! [Transfer::init](struct.Transfer.html#method.init) is only implemented for
+//! [Transfer::init](Transfer#method.init) is only implemented for
 //! valid combinations of peripheral-stream-channel-direction, providing compile
 //! time checking.
 //!
@@ -43,6 +45,33 @@
 //! since the Cortex-M7 core is otherwise capable of reordering accesses between
 //! normal and device memory. See ARM DAI 0321A, Section 3.2 which discusses the
 //! use of DMB instructions in DMA controller configuration.
+//!
+//!
+//! ## Usage
+//!
+//! ### Starting a transfer
+//!
+//! Transfer are started using the [`start`](Transfer#method.start) method. This
+//! method accepts a closure with a mutable reference to the peripheral for this
+//! transfer. For Peripheral to Memory or Memory to Peripheral transfers to/from
+//! some peripherals, this closure is used to complete the initialisation of the
+//! peripheral. If the Peripheral requires initialisation before enabling the
+//! DMA stream, you should do this before creating the transfer or start the
+//! transfer using one of the methods available to [continue
+//! transfers](#continuing-a-transfer).
+//!
+//! **Calling start() multiple times on the same transfer is undefined
+//! behaviour**. Instead, the transfer should be
+//! [continued](#continuing-a-transfer).
+//!
+//! ### Continuing a transfer
+//!
+//! For DMA controllers that support Double Buffering, the following methods are
+//! available to continue transfers:
+//!
+//! * [next_transfer](Transfer#method.next_transfer)
+//! * [next_transfer_with](Transfer#method.next_transfer_with)
+//! * [next_dbm_transfer_with](Transfer#method.next_dbm_transfer_with)
 //!
 //! ## Credits
 //!
@@ -711,8 +740,8 @@ where
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
 {
-    /// Starts the transfer, the closure will be executed right after enabling
-    /// the stream.
+    /// Starts the transfer. The closure will be executed immediately after
+    /// enabling the stream.
     pub fn start<F>(&mut self, f: F)
     where
         F: FnOnce(&mut PERIPHERAL),
