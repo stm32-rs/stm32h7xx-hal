@@ -115,7 +115,7 @@ pub enum MdmaTransferRequest {
     /// LTDC line interrupt
     LtdcLiIt = 16,
     /// JPEG input FIFO threshold
-    JpegIftTrg,
+    JpegIftTrg = 17,
     /// JPEG input FIFO not full
     JpegIfntTrg,
     /// JPEG output FIFO threshold
@@ -125,25 +125,39 @@ pub enum MdmaTransferRequest {
     /// JPEG end of conversion
     JpegOecTrg,
     /// QUADSPI FIFO threshold
-    QuadspiFtTrg,
-    /// QUADSPI FIFO transfer complete
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    QuadspiFtTrg = 22,
+    /// QUADSPI transfer complete
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     QuadspiTcTrg,
+    /// OCTOSPI1 FIFO threshold
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    Octospi1FtTrg = 22,
+    /// OCTOSPI1 transfer complete
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    Octospi1TcTrg,
     /// DMA2D CLUT transfer complete
-    Dma2dClutTrg,
+    Dma2dClutTrg = 24,
     /// DMA2D transfer complete
     Dma2dTcTrg,
     /// DMA2D transfer watermark
     Dma2dTwTrg,
     /// DSI tearing effect
-    DsiTeTrg,
+    DsiTeTrg = 27,
     /// DSI end of refresh
     DsiEorTrg,
+    /// SDMMC1 end of data
+    Sdmmc1DataEndTrg = 29,
     /// SDMMC1 internal DMA buffer end
     Sdmmc1BuffendTrg,
     /// SDMMC1 command end
     Sdmmc1CmdEndTrg,
-    /// SDMMC1 end of data
-    Sdmmc1DataEndTrg,
+    /// OCTOSPI2 FIFO threshold
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    Octospi2FtTrg = 32,
+    /// OCTOSPI2 transfer complete
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    Octospi2TcTrg,
 }
 
 /// MDMA Source/Destination sizes
@@ -1162,9 +1176,6 @@ mdma_stream!(
     (Stream6, ch6, 6),
     (Stream7, ch7, 7),
 );
-
-/// Type alias for the DMA Request Multiplexer
-pub type DMAReq = pac::dmamux2::ccr::DMAREQ_ID_A;
 
 type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
