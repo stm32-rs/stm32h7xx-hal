@@ -63,7 +63,6 @@ use core::marker::PhantomData;
 use core::mem;
 
 use crate::{
-    i2c::I2c,
     pac::{self, MDMA},
     rcc::{rec, rec::ResetEnable},
 };
