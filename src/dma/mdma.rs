@@ -588,7 +588,7 @@ pub fn is_ahb_port(address: usize) -> bool {
     // Up to 256kB ITCM can be allocated on RM0468 parts
     let is_itcm: bool = address < 0x0004_0000;
     // 128kB DTCM
-    let is_dtcm: bool = address >= 0x2000_0000 && address < 0x2002_0000;
+    let is_dtcm: bool = (0x2000_0000..0x2002_0000).contains(&address);
 
     is_itcm || is_dtcm
 }

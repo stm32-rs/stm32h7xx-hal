@@ -872,7 +872,7 @@ where
         let memory_size = mdma::MdmaSize::from_type::<BUF_WORD>();
 
         STREAM::source_destination_size_offset(
-            &config,
+            config,
             peripheral_size,
             memory_size,
             DIR::direction(),
@@ -914,8 +914,7 @@ where
         if !is_ahb && increment == mdma::MdmaIncrement::Fixed {
             return cmp::min(mdma::MdmaBurstSize(4), max_transfer_length);
         }
-
-        return max_transfer_length;
+        max_transfer_length
     }
 
     /// Applies all fields in MdmaConfig.
@@ -988,7 +987,7 @@ where
         use mdma::MdmaPackingAlignment::*;
 
         let ((s_size, d_size), (s_offset, d_offset)) =
-            Self::source_destination_size_offset(&config);
+            Self::source_destination_size_offset(config);
 
         let element_size: Option<usize> = match config.packing_alignment {
             // Packed: source and destination bytes calculated separately

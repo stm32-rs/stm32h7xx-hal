@@ -192,15 +192,32 @@ pub trait DoubleBufferedStream: Stream + Sealed {
 #[allow(unused)]
 pub trait MasterStream: Stream + Sealed {
     /// Set the source for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must have the same alignment as configured for the transfer
+
     unsafe fn set_source_address(&mut self, value: usize);
 
     /// Set the destination for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must have the same alignment as configured for the transfer
     unsafe fn set_destination_address(&mut self, value: usize);
 
     /// Set the source burst size for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must be less than the transfer length
     unsafe fn set_source_burst_size(&mut self, value: u8);
 
     /// Set the destination burst size for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must be less than the transfer length
     unsafe fn set_destination_burst_size(&mut self, value: u8);
 
     /// Return the source burst size for the Master DMA stream
@@ -222,6 +239,10 @@ pub trait MasterStream: Stream + Sealed {
     /// Set the number of bytes in each buffer. This is the number of bytes
     /// that are transferred on this stream before checking for MDMA requests on
     /// other channels
+    ///
+    /// # Safety
+    ///
+    /// Must be a multiple of both the source and destination size
     unsafe fn set_transfer_length(&mut self, value: u8);
 
     /// Get the number of bytes in each buffer. This is the number of bytes
@@ -230,6 +251,10 @@ pub trait MasterStream: Stream + Sealed {
     fn get_transfer_length() -> u8;
 
     /// Set the number of bytes to be transferred in each block
+    ///
+    /// # Safety
+    ///
+    /// Must be a multiple of both the source and destination size
     unsafe fn set_block_bytes(&mut self, value: u32);
 
     /// Get the number of bytes remaining in the current block. This decrements
@@ -261,6 +286,14 @@ pub trait MasterStream: Stream + Sealed {
     fn get_source_size() -> mdma::MdmaSize;
 
     /// Set the source offset for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// If source offset is less than source size and source pointer is not
+    /// fixed, the result is unpredicatable.
+    ///
+    /// If the source if TCM/AHB and the source burst is not a single transfer,
+    /// the source address must be aligned with the source offset.
     unsafe fn set_source_offset(&mut self, offset: mdma::MdmaSize);
 
     /// Set the destination size (d_size) for the DMA stream.
@@ -275,6 +308,15 @@ pub trait MasterStream: Stream + Sealed {
     fn get_destination_size() -> mdma::MdmaSize;
 
     /// Set the destination offset for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// If destination offset is less than destination size and destination
+    /// pointer is not fixed, the result is unpredicatable.
+    ///
+    /// If the destination if TCM/AHB and the destination burst is not a single
+    /// transfer, the destination address must be aligned with the destination
+    /// offset.
     unsafe fn set_destination_offset(&mut self, offset: mdma::MdmaSize);
 
     /// Enable/disable the buffer transfer complete interrupt (tcie) of the
