@@ -110,7 +110,7 @@ use traits::{
 pub enum DMAError {
     /// DMA not ready to change buffers.
     NotReady,
-    /// The user provided a buffer that is not big enough while double buffering.
+    /// The user provided a buffer that is not big enough
     SmallBuffer,
     /// DMA started transfer on the inactive buffer while the user was processing it.
     Overflow,
@@ -333,16 +333,25 @@ pub mod config {
 
 /// Marker type for a transfer with a mutable source and backed by a
 /// `DoubleBufferedStream`
-pub struct DBTransfer;
+pub struct DBTransfer {
+    pub(crate) transfer_length: u16,
+}
 /// Marker type for a transfer with a constant source and backed by a
 /// `DoubleBufferedStream`
-pub struct ConstDBTransfer;
+pub struct ConstDBTransfer {
+    pub(crate) transfer_length: u16,
+}
 /// Marker type for a transfer with a mutable source and backed by a
 /// `MasterStream`
-pub struct MasterTransfer;
-/// Marker type for a transfer with a constant source and backed by a
-/// `MasterStream`
-pub struct ConstMasterTransfer;
+pub struct MasterTransfer {
+    pub(crate) source_len: usize,
+    pub(crate) destination_len: usize,
+    pub(crate) block_number_of_bytes: u32,
+}
+
+// Marker type for a transfer with a constant source and backed by a
+// `MasterStream`
+// pub struct ConstMasterTransfer; UNIMPLEMENTED TODO
 
 /// DMA Transfer.
 pub struct Transfer<STREAM, PERIPHERAL, DIR, BUF, TXFRT>
@@ -354,14 +363,12 @@ where
     stream: STREAM,
     peripheral: PERIPHERAL,
     _direction: PhantomData<DIR>,
-    _transfer_type: PhantomData<TXFRT>,
     buf: [Option<BUF>; 2],
-    // Used when double buffering
-    transfer_length: u16,
+    inner: TXFRT,
 }
 
 macro_rules! db_transfer_def {
-    ($Marker:ty, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
+    ($Marker:ident, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
      $($constraint:stmt)*) => {
         impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
             Transfer<STREAM, PERIPHERAL, DIR, BUF, $Marker>
@@ -505,9 +512,10 @@ macro_rules! db_transfer_def {
                     stream,
                     peripheral,
                     _direction: PhantomData,
-                    _transfer_type: PhantomData,
                     buf: [Some(memory), double_buf],
-                    transfer_length: n_transfers,
+                    inner: $Marker {
+                        transfer_length: n_transfers,
+                    }
                 };
                 transfer.apply_config(config);
 
@@ -613,7 +621,7 @@ macro_rules! db_transfer_def {
                 if single_buffer {
                     // Set length before the writing the new valid address.
                     self.stream.set_number_of_transfers(buf_len as u16);
-                } else if buf_len != usize::from(self.transfer_length) {
+                } else if buf_len != usize::from(self.inner.transfer_length) {
                     // We can't change the transfer length while double buffering
                     return Err(DMAError::SmallBuffer);
                 }
@@ -1147,13 +1155,88 @@ where
             stream,
             peripheral,
             _direction: PhantomData,
-            _transfer_type: PhantomData,
-            buf: [Some(memory), second_buf],
-            transfer_length: transfer_length as u16, // Currently not used by master dma
+            buf: [Some(memory), None],
+            inner: MasterTransfer {
+                source_len: source_len.unwrap_or(0),
+                destination_len: destination_len.unwrap_or(0),
+                block_number_of_bytes: block_number_of_bytes as u32,
+            },
         };
         transfer.apply_config_master(config, is_ahb, transfer_length);
 
         transfer
+    }
+
+    /// Changes the buffer and restarts a transfer
+    ///
+    /// The length of the transfer remains fixed. This method returns
+    /// Err([SmallBuffer](DMAError::SmallBuffer)) if the new buffer is shorter
+    /// than the original.
+    ///
+    /// This method will clear the transfer complete flag. This method can be
+    /// called before the end of an ongoing transfer. In that case, the ongoing
+    /// transfer will be canceled and a new one will be started.
+    ///
+    /// The closure will be executed immediately before restarting the stream.
+    ///
+    /// TODO: This method always panics for Memory-Memory transfers
+    pub fn next_transfer<F>(
+        &mut self,
+        new_buf: BUF,
+        f: F,
+    ) -> Result<(), DMAError>
+    where
+        F: FnOnce(&mut PERIPHERAL),
+    {
+        let mut buf = new_buf;
+
+        // Disable stream (waits for CTCIF=1), clear transfer complete flag
+        self.stream.disable();
+        self.stream.clear_transfer_complete_flag();
+
+        // NOTE(unsafe) We now own this buffer and we won't call any &mut
+        // methods on it until the end of the DMA transfer
+        let (buf_ptr, buf_len) = unsafe { buf.write_buffer() };
+
+        // Check buf_len is at least the length required for this transfer
+        let check_source = DIR::direction() == DmaDirection::MemoryToPeripheral;
+        let check_destination = !check_source;
+
+        if check_source && buf_len < self.inner.source_len {
+            return Err(DMAError::SmallBuffer);
+        }
+        if check_destination && buf_len < self.inner.destination_len {
+            return Err(DMAError::SmallBuffer);
+        }
+
+        // Configure next transfer
+        unsafe {
+            self.stream
+                .set_block_bytes(self.inner.block_number_of_bytes);
+        }
+
+        match DIR::direction() {
+            DmaDirection::MemoryToPeripheral => unsafe {
+                self.stream.set_source_address(buf_ptr as usize);
+            },
+            DmaDirection::PeripheralToMemory => unsafe {
+                self.stream.set_destination_address(buf_ptr as usize);
+            },
+            DmaDirection::MemoryToMemory => panic!(),
+        }
+
+        f(&mut self.peripheral);
+
+        // Preserve the instruction and bus ordering of preceding buffer access
+        // to the subsequent access by the DMA peripheral due to enabling it.
+        fence(Ordering::SeqCst);
+
+        unsafe {
+            self.stream.enable();
+        }
+
+        // NOTE(unsafe): previous buf was previously a valid value
+        Ok(())
     }
 
     #[inline(always)]

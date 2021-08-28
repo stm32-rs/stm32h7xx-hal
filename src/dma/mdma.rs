@@ -725,7 +725,7 @@ macro_rules! mdma_stream {
                         self.disable_interrupts();
 
                         dma.$channel.cr.modify(|_, w| w.en().clear_bit());
-                        while Self::is_enabled() {}
+                        while !Self::get_transfer_complete_flag() {}
 
                         self.clear_interrupts();
                         self.enable_interrupts(interrupts);
