@@ -1044,7 +1044,7 @@ macro_rules! mdma_stream {
                 {
                     //NOTE(unsafe) We only access the registers that belongs to the StreamX
                     let mdma = unsafe { &*I::ptr() };
-                    mdma.$channel.cr.modify(|_, w| w.ctcie().bit(buffer_transfer_complete_interrupt));
+                    mdma.$channel.cr.modify(|_, w| w.tcie().bit(buffer_transfer_complete_interrupt));
                     let _ = mdma.$channel.cr.read();
                     let _ = mdma.$channel.cr.read(); // Delay 2 peripheral clocks
                 }
