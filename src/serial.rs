@@ -492,8 +492,8 @@ macro_rules! usart {
                                 _ => PCE::ENABLED,
                             }).ps()
                             .variant(match config.parity {
-                                Parity::ParityOdd => PS::EVEN,
-                                _ => PS::ODD,
+                                Parity::ParityOdd => PS::ODD,
+                                _ => PS::EVEN,
                             })
                     });
 
