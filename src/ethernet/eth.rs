@@ -39,8 +39,6 @@ use crate::ethernet::StationManagement;
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
 const ETH_BUF_SIZE: usize = 1536;
-const ETH_NUM_TD: usize = 4;
-const ETH_NUM_RD: usize = 4;
 
 /// Transmit and Receive Descriptor fields
 #[allow(dead_code)]
@@ -95,13 +93,13 @@ impl TDes {
 
 /// Store a ring of TDes and associated buffers
 #[repr(C, packed)]
-struct TDesRing {
-    td: [TDes; ETH_NUM_TD],
-    tbuf: [[u32; ETH_BUF_SIZE / 4]; ETH_NUM_TD],
+struct TDesRing<const TD: usize> {
+    td: [TDes; TD],
+    tbuf: [[u32; ETH_BUF_SIZE / 4]; TD],
     tdidx: usize,
 }
 
-impl TDesRing {
+impl<const TD: usize> TDesRing<TD> {
     const fn new() -> Self {
         Self {
             td: [TDes {
@@ -109,8 +107,8 @@ impl TDesRing {
                 tdes1: 0,
                 tdes2: 0,
                 tdes3: 0,
-            }; ETH_NUM_TD],
-            tbuf: [[0; ETH_BUF_SIZE / 4]; ETH_NUM_TD],
+            }; TD],
+            tbuf: [[0; ETH_BUF_SIZE / 4]; TD],
             tdidx: 0,
         }
     }
@@ -166,7 +164,7 @@ impl TDesRing {
         cortex_m::asm::dsb();
 
         // Move the tail pointer (TPR) to the next descriptor
-        let x = (x + 1) % ETH_NUM_TD;
+        let x = (x + 1) % TD;
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
             dma.dmactx_dtpr
@@ -241,13 +239,13 @@ impl RDes {
 
 /// Store a ring of RDes and associated buffers
 #[repr(C, packed)]
-struct RDesRing {
-    rd: [RDes; ETH_NUM_RD],
-    rbuf: [[u32; ETH_BUF_SIZE / 4]; ETH_NUM_RD],
+struct RDesRing<const RD: usize> {
+    rd: [RDes; RD],
+    rbuf: [[u32; ETH_BUF_SIZE / 4]; RD],
     rdidx: usize,
 }
 
-impl RDesRing {
+impl<const RD: usize> RDesRing<RD> {
     const fn new() -> Self {
         Self {
             rd: [RDes {
@@ -255,8 +253,8 @@ impl RDesRing {
                 rdes1: 0,
                 rdes2: 0,
                 rdes3: 0,
-            }; ETH_NUM_RD],
-            rbuf: [[0; ETH_BUF_SIZE / 4]; ETH_NUM_RD],
+            }; RD],
+            rbuf: [[0; ETH_BUF_SIZE / 4]; RD],
             rdidx: 0,
         }
     }
@@ -325,7 +323,7 @@ impl RDesRing {
         }
 
         // Update active descriptor
-        self.rdidx = (x + 1) % ETH_NUM_RD;
+        self.rdidx = (x + 1) % RD;
     }
 
     /// Access the buffer pointed to by the next RDes
@@ -347,12 +345,12 @@ impl RDesRing {
     }
 }
 
-pub struct DesRing {
-    tx: TDesRing,
-    rx: RDesRing,
+pub struct DesRing<const TD: usize, const RD: usize> {
+    tx: TDesRing<TD>,
+    rx: RDesRing<RD>,
 }
-impl DesRing {
-    pub const fn new() -> DesRing {
+impl<const TD: usize, const RD: usize> DesRing<TD, RD> {
+    pub const fn new() -> Self {
         DesRing {
             tx: TDesRing::new(),
             rx: RDesRing::new(),
@@ -363,8 +361,8 @@ impl DesRing {
 ///
 /// Ethernet DMA
 ///
-pub struct EthernetDMA<'a> {
-    ring: &'a mut DesRing,
+pub struct EthernetDMA<'a, const TD: usize, const RD: usize> {
+    ring: &'a mut DesRing<TD, RD>,
     eth_dma: stm32::ETHERNET_DMA,
 }
 
@@ -393,15 +391,15 @@ pub struct EthernetMAC {
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
-pub unsafe fn new_unchecked<'a>(
+pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,
-    ring: &'a mut DesRing,
+    ring: &'a mut DesRing<TD, RD>,
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (EthernetDMA<'a>, EthernetMAC) {
+) -> (EthernetDMA<'a, TD, RD>, EthernetMAC) {
     // RCC
     {
         let rcc = &*stm32::RCC::ptr();
@@ -713,9 +711,9 @@ impl StationManagement for EthernetMAC {
 }
 
 /// Define TxToken type and implement consume method
-pub struct TxToken<'a>(&'a mut TDesRing);
+pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
 
-impl<'a> phy::TxToken for TxToken<'a> {
+impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
     fn consume<R, F>(
         self,
         _timestamp: Instant,
@@ -734,9 +732,9 @@ impl<'a> phy::TxToken for TxToken<'a> {
 }
 
 /// Define RxToken type and implement consume method
-pub struct RxToken<'a>(&'a mut RDesRing);
+pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
 
-impl<'a> phy::RxToken for RxToken<'a> {
+impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     fn consume<R, F>(self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
@@ -748,9 +746,11 @@ impl<'a> phy::RxToken for RxToken<'a> {
 }
 
 /// Implement the smoltcp Device interface
-impl<'a> phy::Device<'a> for EthernetDMA<'_> {
-    type RxToken = RxToken<'a>;
-    type TxToken = TxToken<'a>;
+impl<'a, const TD: usize, const RD: usize> phy::Device<'a>
+    for EthernetDMA<'_, TD, RD>
+{
+    type RxToken = RxToken<'a, RD>;
+    type TxToken = TxToken<'a, TD>;
 
     // Clippy false positive because DeviceCapabilities is non-exhaustive
     #[allow(clippy::field_reassign_with_default)]
@@ -759,11 +759,11 @@ impl<'a> phy::Device<'a> for EthernetDMA<'_> {
         // ethernet frame type II (6 smac, 6 dmac, 2 ethertype),
         // sans CRC (4), 1500 IP MTU
         caps.max_transmission_unit = 1514;
-        caps.max_burst_size = Some(core::cmp::min(ETH_NUM_TD, ETH_NUM_RD));
+        caps.max_burst_size = Some(core::cmp::min(TD, RD));
         caps
     }
 
-    fn receive(&mut self) -> Option<(RxToken, TxToken)> {
+    fn receive(&mut self) -> Option<(RxToken<RD>, TxToken<TD>)> {
         // Skip all queued packets with errors.
         while self.ring.rx.available() && !self.ring.rx.valid() {
             self.ring.rx.release()
@@ -776,7 +776,7 @@ impl<'a> phy::Device<'a> for EthernetDMA<'_> {
         }
     }
 
-    fn transmit(&mut self) -> Option<TxToken> {
+    fn transmit(&mut self) -> Option<TxToken<TD>> {
         if self.ring.tx.available() {
             Some(TxToken(&mut self.ring.tx))
         } else {
@@ -785,7 +785,7 @@ impl<'a> phy::Device<'a> for EthernetDMA<'_> {
     }
 }
 
-impl EthernetDMA<'_> {
+impl<const TD: usize, const RD: usize> EthernetDMA<'_, TD, RD> {
     /// Return the number of packets dropped since this method was
     /// last called
     pub fn number_packets_dropped(&self) -> u32 {
