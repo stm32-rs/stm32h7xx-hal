@@ -355,6 +355,11 @@ impl<const TD: usize, const RD: usize> DesRing<TD, RD> {
         }
     }
 }
+impl<const TD: usize, const RD: usize> Default for DesRing<TD, RD> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 ///
 /// Ethernet DMA
