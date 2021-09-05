@@ -119,8 +119,8 @@ impl<const TD: usize> TDesRing<TD> {
     /// will be stored in the descriptors, so ensure the TDesRing is
     /// not moved after initialisation.
     pub fn init(&mut self) {
-        for td in self.td.iter_mut() {
-            td.init();
+        for x in 0..TD {
+            self.td[x].init();
         }
         self.tdidx = 0;
 
@@ -129,9 +129,8 @@ impl<const TD: usize> TDesRing<TD> {
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
             dma.dmactx_dlar
-                .write(|w| w.bits(&self.td as *const _ as u32));
-            dma.dmactx_rlr
-                .write(|w| w.tdrl().bits(self.td.len() as u16 - 1));
+                .write(|w| w.bits(&self.td[0] as *const _ as u32));
+            dma.dmactx_rlr.write(|w| w.tdrl().bits(TD as u16 - 1));
             dma.dmactx_dtpr
                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
         }
@@ -265,8 +264,8 @@ impl<const RD: usize> RDesRing<RD> {
     /// will be stored in the descriptors, so ensure the RDesRing is
     /// not moved after initialisation.
     pub fn init(&mut self) {
-        for rd in self.rd.iter_mut() {
-            rd.init();
+        for x in 0..RD {
+            self.rd[x].init();
         }
         self.rdidx = 0;
 
@@ -274,9 +273,8 @@ impl<const RD: usize> RDesRing<RD> {
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
             dma.dmacrx_dlar
-                .write(|w| w.bits(&self.rd as *const _ as u32));
-            dma.dmacrx_rlr
-                .write(|w| w.rdrl().bits(self.rd.len() as u16 - 1));
+                .write(|w| w.bits(&self.rd[0] as *const _ as u32));
+            dma.dmacrx_rlr.write(|w| w.rdrl().bits(RD as u16 - 1));
         }
 
         // Release descriptors to the DMA engine
