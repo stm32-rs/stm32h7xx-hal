@@ -539,6 +539,38 @@ pub struct Stream6<DMA> {
 pub struct Stream7<DMA> {
     _dma: PhantomData<DMA>,
 }
+/// Stream 8 on MDMA
+pub struct Stream8<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 9 on MDMA
+pub struct Stream9<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 10 on MDMA
+pub struct Stream10<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 11 on MDMA
+pub struct Stream11<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 12 on MDMA
+pub struct Stream12<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 13 on MDMA
+pub struct Stream13<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 14 on MDMA
+pub struct Stream14<DMA> {
+    _dma: PhantomData<DMA>,
+}
+/// Stream 15 on MDMA
+pub struct Stream15<DMA> {
+    _dma: PhantomData<DMA>,
+}
 
 impl<DMA> Sealed for Stream0<DMA> {}
 impl<DMA> Sealed for Stream1<DMA> {}
@@ -548,6 +580,14 @@ impl<DMA> Sealed for Stream4<DMA> {}
 impl<DMA> Sealed for Stream5<DMA> {}
 impl<DMA> Sealed for Stream6<DMA> {}
 impl<DMA> Sealed for Stream7<DMA> {}
+impl<DMA> Sealed for Stream8<DMA> {}
+impl<DMA> Sealed for Stream9<DMA> {}
+impl<DMA> Sealed for Stream10<DMA> {}
+impl<DMA> Sealed for Stream11<DMA> {}
+impl<DMA> Sealed for Stream12<DMA> {}
+impl<DMA> Sealed for Stream13<DMA> {}
+impl<DMA> Sealed for Stream14<DMA> {}
+impl<DMA> Sealed for Stream15<DMA> {}
 
 /// Alias for a tuple with all DMA streams.
 pub struct StreamsTuple<T>(
@@ -559,6 +599,14 @@ pub struct StreamsTuple<T>(
     pub Stream5<T>,
     pub Stream6<T>,
     pub Stream7<T>,
+    pub Stream8<T>,
+    pub Stream9<T>,
+    pub Stream10<T>,
+    pub Stream11<T>,
+    pub Stream12<T>,
+    pub Stream13<T>,
+    pub Stream14<T>,
+    pub Stream15<T>,
 );
 
 impl<I: Instance> StreamsTuple<I> {
@@ -574,6 +622,14 @@ impl<I: Instance> StreamsTuple<I> {
             Stream5 { _dma: PhantomData },
             Stream6 { _dma: PhantomData },
             Stream7 { _dma: PhantomData },
+            Stream8 { _dma: PhantomData },
+            Stream9 { _dma: PhantomData },
+            Stream10 { _dma: PhantomData },
+            Stream11 { _dma: PhantomData },
+            Stream12 { _dma: PhantomData },
+            Stream13 { _dma: PhantomData },
+            Stream14 { _dma: PhantomData },
+            Stream15 { _dma: PhantomData },
         )
     }
 }
@@ -1174,6 +1230,14 @@ mdma_stream!(
     (Stream5, ch5, 5),
     (Stream6, ch6, 6),
     (Stream7, ch7, 7),
+    (Stream8, ch8, 8),
+    (Stream9, ch9, 9),
+    (Stream10, ch10, 10),
+    (Stream11, ch11, 11),
+    (Stream12, ch12, 12),
+    (Stream13, ch13, 13),
+    (Stream14, ch14, 14),
+    (Stream15, ch15, 15),
 );
 
 type P2M = PeripheralToMemory;

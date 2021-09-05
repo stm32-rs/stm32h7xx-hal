@@ -21,7 +21,7 @@
 //!
 //! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Number of DMA Streams | Initialization Method
 //! | --- | --- | --- | --- | --- | ---
-//! | [MDMA](mdma) | All | `QUADSPI`, .. | No |8| [Transfer::init_master](Transfer#method.init_master)
+//! | [MDMA](mdma) | All | `QUADSPI`, .. | No |16| [Transfer::init_master](Transfer#method.init_master)
 //! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
 //! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
 //! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes |8| [Transfer::init](Transfer#method.init)
