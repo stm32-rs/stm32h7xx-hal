@@ -672,10 +672,8 @@ peripheral_target_address!(
         DMAReq::SPI6_RX_DMA,
         DMAReq::SPI6_TX_DMA
     ),
-    (pac::I2C4, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
-    (pac::I2C4, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
-    (INNER: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
-    (INNER: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
+    (HAL: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
+    (HAL: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
 );
 
 #[cfg(not(feature = "rm0455"))]
