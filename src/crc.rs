@@ -210,7 +210,7 @@ impl Polynomial {
     }
 
     /// Return POLYSIZE register value.
-    fn polysize(self) -> u8 {
+    const fn polysize(self) -> u8 {
         (match self.0 {
             Poly::B7(_) => crc::cr::POLYSIZE_A::POLYSIZE7,
             Poly::B8(_) => crc::cr::POLYSIZE_A::POLYSIZE8,
@@ -220,7 +220,7 @@ impl Polynomial {
     }
 
     /// Return POL register value.
-    fn pol(self) -> u32 {
+    const fn pol(self) -> u32 {
         match self.0 {
             Poly::B7(pol) | Poly::B8(pol) => pol as u32,
             Poly::B16(pol) => pol as u32,
@@ -229,7 +229,7 @@ impl Polynomial {
     }
 
     /// Return mask for output XOR according to size.
-    fn xor_mask(self) -> u32 {
+    const fn xor_mask(self) -> u32 {
         match self.0 {
             Poly::B7(_) => 0x7F,
             Poly::B8(_) => 0xFF,
@@ -362,8 +362,7 @@ impl Config {
     /// Set whether to reflect the CRC. When enabled, reflection is
     /// [`BitReversal::Byte`] and output reversal enabled. This is simply
     /// a convenience function as many CRC algorithms call for this.
-    pub fn reflect(self, reflect: bool) -> Self {
-        // Rust 1.46 and higher: This function can be const.
+    pub const fn reflect(self, reflect: bool) -> Self {
         if reflect {
             self.reverse_input(Some(BitReversal::Byte))
                 .reverse_output(true)
