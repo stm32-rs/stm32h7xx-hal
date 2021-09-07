@@ -267,6 +267,20 @@ macro_rules! gpio {
                 }
             }
 
+            impl<MODE> InputPin for $PXx<Alternate<MODE>> {
+                type Error = Never;
+
+                fn is_high(&self) -> Result<bool, Never> {
+                    self.is_low().map(|v| !v)
+                }
+
+                fn is_low(&self) -> Result<bool, Never> {
+                    // NOTE(unsafe) atomic read with no side effects
+                    Ok(unsafe { (*$GPIOX::ptr()).idr
+                                  .read().bits() & (1 << self.i) } == 0)
+                }
+            }
+
             impl<MODE> ExtiPin for $PXx<Input<MODE>> {
                 /// Make corresponding EXTI line sensitive to this pin
                 fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
@@ -720,6 +734,20 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
+                    type Error = Never;
+
+                    fn is_high(&self) -> Result<bool, Never> {
+                        self.is_low().map(|v| !v)
+                    }
+
+                    fn is_low(&self) -> Result<bool, Never> {
+                        // NOTE(unsafe) atomic read with no side effects
+                        Ok(unsafe { (*$GPIOX::ptr()).idr
+                                      .read().bits() & (1 << $i) } == 0)
+                    }
+                }
+
+                impl<MODE> InputPin for $PXi<Alternate<MODE>> {
                     type Error = Never;
 
                     fn is_high(&self) -> Result<bool, Never> {

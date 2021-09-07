@@ -7,6 +7,8 @@
    * Changed I2S constructors to take less arguments
 
 * MSRV increased to 1.51.0
+* **Breaking**: Simplified API for reading device signature
+  values. `VAL::get().read()` becomes `VAL::read()`
 
 ## [v0.10.0] 2021-07-xx
 

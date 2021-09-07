@@ -76,13 +76,12 @@ fn main() -> ! {
             adc.read(&mut channel).expect("Temperature read failed.");
 
         // Average slope
-        let cal = (110.0 - 30.0)
-            / (TS_CAL_110::get().read() - TS_CAL_30::get().read()) as f32;
+        let cal =
+            (110.0 - 30.0) / (TS_CAL_110::read() - TS_CAL_30::read()) as f32;
         // Calibration values are measured at VDDA = 3.3 V ± 10 mV
         let word_3v3 = word as f32 * vdda / 3.3;
         // Linear interpolation
-        let temperature =
-            cal * (word_3v3 - TS_CAL_30::get().read() as f32) + 30.0;
+        let temperature = cal * (word_3v3 - TS_CAL_30::read() as f32) + 30.0;
 
         info!("ADC reading: {}, Temperature: {:.1} °C", word, temperature);
     }
