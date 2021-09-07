@@ -478,7 +478,14 @@ pub unsafe fn new_unchecked<'a>(
                 .dcrcc()
                 .clear_bit()
         });
-        // Set the MAC address
+        // Set the MAC address.
+        // Writes to LR trigger both registers to be loaded into the MAC,
+        // so write to LR last.
+        eth_mac.maca0hr.write(|w| {
+            w.addrhi().bits(
+                u16::from(mac_addr.0[4]) | (u16::from(mac_addr.0[5]) << 8),
+            )
+        });
         eth_mac.maca0lr.write(|w| {
             w.addrlo().bits(
                 u32::from(mac_addr.0[0])
@@ -487,14 +494,6 @@ pub unsafe fn new_unchecked<'a>(
                     | (u32::from(mac_addr.0[3]) << 24),
             )
         });
-        eth_mac.maca0hr.write(
-            |w| {
-                w.addrhi().bits(
-                    u16::from(mac_addr.0[4]) | (u16::from(mac_addr.0[5]) << 8),
-                )
-            }, //.sa().clear_bit()
-               //.mbc().bits(0b000000)
-        );
         // frame filter register
         eth_mac.macpfr.modify(|_, w| {
             w.dntu()
@@ -523,7 +522,7 @@ pub unsafe fn new_unchecked<'a>(
                 .clear_bit()
                 // Receive All
                 .ra()
-                .set_bit()
+                .clear_bit()
                 // Promiscuous mode
                 .pr()
                 .clear_bit()
