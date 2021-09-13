@@ -184,8 +184,8 @@ macro_rules! i2c_timing {
             // Fast-mode (Fm) or Fast-mode Plus (Fm+)
             // here we pick SCLL + 1 = 2 * (SCLH + 1)
 
-            // Prescaler, 384 ticks for sclh/scll. Round up then subtract 1
-            let presc_reg = ((ratio - 1) / 384) as u8;
+            // Prescaler, 96 ticks for sclh/scll. Round up then subtract 1
+            let presc_reg = ((ratio - 1) / 96) as u8;
             // ratio < 1200 by pclk 120MHz max., therefore presc < 16
 
             // Actual precale value selected
@@ -206,8 +206,8 @@ macro_rules! i2c_timing {
                 // Fast-mode (Fm)
                 assert!($i2cclk >= 8_000_000); // See table in datsheet
 
-                let sdadel = $i2cclk / 4_000_000 / presc;
-                let scldel = $i2cclk / 2_000_000 / presc - 1;
+                let sdadel = $i2cclk / 3_000_000 / presc;
+                let scldel = $i2cclk / 1_000_000 / presc - 1;
 
                 (sdadel, scldel)
             };
@@ -224,10 +224,17 @@ macro_rules! i2c_timing {
             // here we pick SCLL = SCLH
             assert!($i2cclk >= 2_000_000); // See table in datsheet
 
-            // Prescaler, 512 ticks for sclh/scll. Round up then
+            // Prescaler, 128 or 256 ticks for sclh/scll. Round up then
             // subtract 1
-            let presc = (ratio - 1) / 512;
-            let presc_reg = cmp::min(presc, 15) as u8;
+            let presc_reg = (ratio - 1)
+                / if $freq < 8000 {
+                    256
+                } else if $freq < 80_000 {
+                    128
+                } else {
+                    64
+                };
+            let presc_reg = cmp::min(presc_reg, 15) as u8;
 
             // Actual prescale value selected
             let presc = (presc_reg + 1) as u32;
@@ -257,8 +264,11 @@ macro_rules! i2c_timing {
         assert!(presc_reg < 16);
 
         // Keep values within reasonable limits for fast per_ck
-        let sdadel = cmp::max(sdadel, 2);
+        let sdadel = cmp::max(sdadel, 1);
         let scldel = cmp::max(scldel, 4);
+
+        let sdadel = cmp::min(sdadel, 15);
+        let scldel = cmp::min(scldel, 15);
 
         (presc_reg, scll, sclh, sdadel, scldel)
     }};
@@ -811,8 +821,8 @@ mod tests {
             );
 
             // We must generate a bus frequency less than or equal to that
-            // specified. Tolerate a 0.5% error
-            assert!(f_scl <= 1.005 * freq);
+            // specified. Tolerate a 2% error
+            assert!(f_scl <= 1.02 * freq);
 
             // But it should not be too much less than specified
             assert!(f_scl > 0.8 * freq);
@@ -884,6 +894,7 @@ mod tests {
                 "T SDA DELAY {:.2e} MINIMUM {:.2e}",
                 t_sdadel, t_sdadel_minimim
             );
+            assert!(sdadel <= 15);
             assert!(t_sdadel >= t_sdadel_minimim);
         });
     }
@@ -917,6 +928,7 @@ mod tests {
                 "T SDA DELAY {:.2e} MAXIMUM {:.2e}",
                 t_sdadel, t_sdadel_maximum
             );
+            assert!(sdadel <= 15);
             assert!(t_sdadel <= t_sdadel_maximum);
         });
     }
@@ -957,6 +969,7 @@ mod tests {
                 "T SCL DELAY {:.2e} MINIMUM {:.2e}",
                 t_scldel, t_scldel_minimum
             );
+            assert!(scldel <= 15);
             assert!(t_scldel >= t_scldel_minimum);
         });
     }
