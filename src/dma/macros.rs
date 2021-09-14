@@ -11,6 +11,7 @@ macro_rules! peripheral_target_address {
     };
 }
 macro_rules! peripheral_target_instance {
+    // PAC target
     (($peripheral:ty, $register:ident, $size:ty,
       $dir:ty $(, $mux:expr)*)) => {
         unsafe impl TargetAddress<$dir> for $peripheral {
@@ -26,8 +27,59 @@ macro_rules! peripheral_target_instance {
         }
     };
 
-    ((SPI: $peripheral:ty, $rxreg:ident, $txreg:ident, [$($size:ty),+], $rxmux:expr, $txmux:expr)) => {
-        // Access via PAC peripheral structures implies u8 sizing, as the sizing is unknown.
+    // PAC target where register is within a channel
+    (($peripheral:ty, $channel:ident.$register:ident, $size:ty,
+      $dir:ty $(, $mux:expr)*)) => {
+        unsafe impl TargetAddress<$dir> for $peripheral {
+            #[inline(always)]
+            fn address(&self) -> usize {
+                &self.$channel.$register as *const _ as usize
+            }
+
+            type MemSize = $size;
+            $(
+                const REQUEST_LINE: Option<u8> = Some($mux as u8);
+            )*
+        }
+    };
+
+    // PAC and HAL targets, generic
+    ((HAL: $hal:ident<$peripheral:ty>, $register:ident, $size:ty,
+      $dir:ty $(, $mux:expr)*)) => {
+
+        // PAC implementation
+        unsafe impl TargetAddress<$dir> for $peripheral {
+            #[inline(always)]
+            fn address(&self) -> usize {
+                &self.$register as *const _ as usize
+            }
+
+            type MemSize = $size;
+            $(
+                const REQUEST_LINE: Option<u8> = Some($mux as u8);
+            )*
+        }
+
+        // HAL implementation
+        unsafe impl TargetAddress<$dir> for $hal<$peripheral> {
+            #[inline(always)]
+            fn address(&self) -> usize {
+                &self.inner().$register as *const _ as usize
+            }
+
+            type MemSize = $size;
+            $(
+                const REQUEST_LINE: Option<u8> = Some($mux as u8);
+            )*
+        }
+    };
+
+    // PAC and HAL targets for SPI peripheral
+    ((SPI: $peripheral:ty, $rxreg:ident, $txreg:ident, [$($size:ty),+],
+      $rxmux:expr, $txmux:expr)) => {
+
+        // Access via PAC peripheral structures implies u8 sizing, as the sizing
+        // is unknown.
         unsafe impl TargetAddress<M2P> for $peripheral {
             #[inline(always)]
             fn address(&self) -> usize {
@@ -76,6 +128,7 @@ macro_rules! peripheral_target_instance {
         )+
     };
 
+    // PAC and HAL targets for Serial Peripherals
     ((SERIAL: $peripheral:ty, $rxreg:ident, $txreg:ident, $rxmux:expr, $txmux:expr)) => {
         unsafe impl TargetAddress<M2P> for $peripheral {
             #[inline(always)]
@@ -149,39 +202,6 @@ macro_rules! peripheral_target_instance {
 
             const REQUEST_LINE: Option<u8> = Some($rxmux as u8);
             const TRBUFF: bool = true;
-        }
-    };
-
-    ((INNER: $peripheral:ty, $register:ident $(($TRBUFF:ident))*, $size:ty,
-      $dir:ty $(, $mux:expr)*)) => {
-        unsafe impl TargetAddress<$dir> for $peripheral {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.inner().$register as *const _ as usize
-            }
-
-            type MemSize = $size;
-            $(
-                const REQUEST_LINE: Option<u8> = Some($mux as u8);
-            )*
-                $(
-                    const $TRBUFF: bool = true;
-                )*
-        }
-    };
-
-    (($peripheral:ty, $channel:ident.$register:ident, $size:ty,
-      $dir:ty $(, $mux:expr)*)) => {
-        unsafe impl TargetAddress<$dir> for $peripheral {
-            #[inline(always)]
-            fn address(&self) -> usize {
-                &self.$channel.$register as *const _ as usize
-            }
-
-            type MemSize = $size;
-            $(
-                const REQUEST_LINE: Option<u8> = Some($mux as u8);
-            )*
         }
     };
 }
