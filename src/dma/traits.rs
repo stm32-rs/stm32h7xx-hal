@@ -1,7 +1,7 @@
 //! Traits for DMA types
 //!
 //! Adapted from
-//! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/traits.rs
+//! <https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/traits.rs>
 
 use super::*;
 
@@ -188,11 +188,176 @@ pub trait DoubleBufferedStream: Stream + Sealed {
     fn get_inactive_buffer() -> Option<CurrentBuffer>;
 }
 
-/// Trait for Master DMA streams
-///
-/// TODO
+/// Trait for Master DMA (MDMA) streams
 #[allow(unused)]
-pub trait MasterStream: Stream + Sealed {}
+pub trait MasterStream: Stream + Sealed {
+    /// Set the source for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must have the same alignment as configured for the transfer
+
+    unsafe fn set_source_address(&mut self, value: usize);
+
+    /// Set the destination for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must have the same alignment as configured for the transfer
+    unsafe fn set_destination_address(&mut self, value: usize);
+
+    /// Set the source burst size for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must be less than the transfer length
+    unsafe fn set_source_burst_size(&mut self, value: u8);
+
+    /// Set the destination burst size for the Master DMA stream
+    ///
+    /// # Safety
+    ///
+    /// Must be less than the transfer length
+    unsafe fn set_destination_burst_size(&mut self, value: u8);
+
+    /// Return the source burst size for the Master DMA stream
+    fn get_source_burst_size() -> u8;
+
+    /// Return the destination burst size for the Master DMA stream
+    fn get_destination_burst_size() -> u8;
+
+    /// Set the trigger source as software (true) or hardware (false)
+    fn set_software_triggered(&mut self, sw_triggered: bool);
+
+    /// Set the hardware trigger selection source
+    fn set_trigger_selection(&mut self, trigger: u8);
+
+    /// Set the trigger mode: buffer (0), block (1), repeated block (2),
+    /// linked-list (3)
+    fn set_trigger_mode(&mut self, trigger_mode: mdma::MdmaTrigger);
+
+    /// Set the number of bytes in each buffer. This is the number of bytes
+    /// that are transferred on this stream before checking for MDMA requests on
+    /// other channels
+    ///
+    /// # Safety
+    ///
+    /// Must be a multiple of both the source and destination size
+    unsafe fn set_transfer_length(&mut self, value: u8);
+
+    /// Get the number of bytes in each buffer. This is the number of bytes
+    /// that are transferred on this stream before checking for MDMA requests on
+    /// other channels
+    fn get_transfer_length() -> u8;
+
+    /// Set the number of bytes to be transferred in each block
+    ///
+    /// # Safety
+    ///
+    /// Must be a multiple of both the source and destination size
+    unsafe fn set_block_bytes(&mut self, value: u32);
+
+    /// Get the number of bytes remaining in the current block. This decrements
+    /// during the transfer, reaching zero at the end of the block
+    fn get_block_bytes() -> u32;
+
+    /// For a given configuration, determine the size and offset for the source
+    /// and destination
+    ///
+    /// Returns ((s_size, d_size), (s_offset, d_offset))
+    fn source_destination_size_offset(
+        config: &Self::Config,
+        peripheral_size: mdma::MdmaSize,
+        memory_size: mdma::MdmaSize,
+        direction: DmaDirection,
+    ) -> (
+        (mdma::MdmaSize, mdma::MdmaSize),
+        (mdma::MdmaSize, mdma::MdmaSize),
+    );
+
+    /// Set the source size (s_size) for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// This must have the same alignment of the buffer used in the transfer.
+    unsafe fn set_source_size(&mut self, size: mdma::MdmaSize);
+
+    /// Get the source size for the DMA stream.
+    fn get_source_size() -> mdma::MdmaSize;
+
+    /// Set the source offset for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// If source offset is less than source size and source pointer is not
+    /// fixed, the result is unpredicatable.
+    ///
+    /// If the source if TCM/AHB and the source burst is not a single transfer,
+    /// the source address must be aligned with the source offset.
+    unsafe fn set_source_offset(&mut self, offset: mdma::MdmaSize);
+
+    /// Set the destination size (d_size) for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// This must have the same alignment of the peripheral data used in the
+    /// transfer.
+    unsafe fn set_destination_size(&mut self, size: mdma::MdmaSize);
+
+    /// Get the destination size for the DMA stream.
+    fn get_destination_size() -> mdma::MdmaSize;
+
+    /// Set the destination offset for the DMA stream.
+    ///
+    /// # Safety
+    ///
+    /// If destination offset is less than destination size and destination
+    /// pointer is not fixed, the result is unpredicatable.
+    ///
+    /// If the destination if TCM/AHB and the destination burst is not a single
+    /// transfer, the destination address must be aligned with the destination
+    /// offset.
+    unsafe fn set_destination_offset(&mut self, offset: mdma::MdmaSize);
+
+    /// Enable/disable the buffer transfer complete interrupt (tcie) of the
+    /// DMA stream.
+    fn set_buffer_transfer_complete_interrupt_enable(
+        &mut self,
+        buffer_transfer_complete_interrupt: bool,
+    );
+
+    /// Clear buffer transfer complete interrupt (tcif) for the DMA stream.
+    fn clear_buffer_transfer_complete_interrupt(&mut self);
+
+    /// Get the buffer transfer complete flag (tcif)
+    fn get_buffer_transfer_complete_flag() -> bool;
+
+    /// Enable/disable the block transfer complete interrupt (btie) of the DMA
+    /// stream.
+    fn set_block_transfer_complete_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
+
+    /// Clear block transfer complete interrupt (btif) for the DMA stream.
+    fn clear_block_transfer_complete_interrupt(&mut self);
+
+    /// Get the block transfer complete (btif)
+    fn get_block_transfer_complete_flag() -> bool;
+
+    /// Enable/disable the block repeat transfer complete interrupt (brtie) of the
+    /// DMA stream.
+    fn set_block_repeat_transfer_complete_interrupt_enable(
+        &mut self,
+        transfer_complete_interrupt: bool,
+    );
+
+    /// Clear block repeat transfer complete interrupt (brtif) for the DMA stream.
+    fn clear_block_repeat_transfer_complete_interrupt(&mut self);
+
+    /// Get the block repeat transfer complete flag (brtif)
+    fn get_block_repeat_transfer_complete_flag() -> bool;
+}
 
 /// Trait for the configuration of Double-Buffered DMA streams
 pub trait DoubleBufferedConfig {

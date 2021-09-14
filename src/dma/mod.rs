@@ -1,22 +1,85 @@
 //! Direct Memory Access.
 //!
-//! [Transfer::init](struct.Transfer.html#method.init) is only implemented for
+//! This module implements Memory To Memory, Peripheral To Memory and Memory to
+//! Peripheral transfers. Double buffering is supported only for Peripheral To
+//! Memory and Memory to Peripheral transfers.
+//!
+//!
+//! ## Controllers
+//!
+//! STM32H7 parts contain several DMA controllers with differing
+//! capabilities. The choice of DMA controller is a trade-off between
+//! capabilities, performance and power usage. This module implements methods
+//! for all the available DMA controllers.
+//!
+//! Whilst not strictly enforced, each peripheral is typically associated with a
+//! particular controller. These links are documented in the 'Block
+//! interconnect' section of the Reference Manual. In most cases, a peripheral
+//! will be used with its associated DMA controller.
+//!
+//! The following table summarizes the available DMA controllers
+//!
+//! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Number of DMA Streams | Initialization Method
+//! | --- | --- | --- | --- | --- | ---
+//! | [MDMA](mdma) | All | `QUADSPI`, .. | No |16| [Transfer::init_master](Transfer#method.init_master)
+//! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
+//! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
+//! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes |8| [Transfer::init](Transfer#method.init)
+//!
+//! [^notimpl]: [TargetAddress](traits::TargetAddress) is not yet implemented
+//! for many peripherals
+//!
+//! [^rm0455bdma]: On 7B3/7A3/7B0 parts there are two BDMA controllers. BDMA1
+//! can access SRAM1/2 whilst BDMA2 is limited to SRAM4. For these parts this
+//! HAL only supports BDMA2.
+//!
+//!
+//! ## Safety
+//!
+//! [Transfer::init](Transfer#method.init) is only implemented for
 //! valid combinations of peripheral-stream-channel-direction, providing compile
 //! time checking.
 //!
-//! This module implements Memory To Memory, Peripheral To Memory and Memory to
-//! Peripheral transfers, double buffering is supported only for Peripheral To
-//! Memory and Memory to Peripheral transfers.
+//! The module uses [fences](core::sync::atomic::fence) to prevent the compiler
+//! and CPU from reording certain operations. This is particularly important
+//! since the Cortex-M7 core is otherwise capable of reordering accesses between
+//! normal and device memory. See ARM DAI 0321A, Section 3.2 which discusses the
+//! use of DMB instructions in DMA controller configuration.
 //!
-//! Given that the Cortex-M7 core is capable of reordering accesses between
-//! normal and device memory, we insert DMB instructions to ensure correct
-//! operation. See ARM DAI 0321A, Section 3.2 which discusses the use of DMB
-//! instructions in DMA controller configuration.
+//!
+//! ## Usage
+//!
+//! ### Starting a transfer
+//!
+//! Transfer are started using the [`start`](Transfer#method.start) method. This
+//! method accepts a closure with a mutable reference to the peripheral for this
+//! transfer. For Peripheral to Memory or Memory to Peripheral transfers to/from
+//! some peripherals, this closure is used to complete the initialisation of the
+//! peripheral. If the Peripheral requires initialisation before enabling the
+//! DMA stream, you should do this before creating the transfer or start the
+//! transfer using one of the methods available to [continue
+//! transfers](#continuing-a-transfer).
+//!
+//! **Calling start() multiple times on the same transfer is undefined
+//! behaviour**. Instead, the transfer should be
+//! [continued](#continuing-a-transfer).
+//!
+//! ### Continuing a transfer
+//!
+//! For DMA controllers that support Double Buffering, the following methods are
+//! available to continue transfers:
+//!
+//! * [next_transfer](Transfer#method.next_transfer)
+//! * [next_transfer_with](Transfer#method.next_transfer_with)
+//! * [next_dbm_transfer_with](Transfer#method.next_dbm_transfer_with)
+//!
+//! ## Credits
 //!
 //! Adapted from
-//! https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs
+//! <https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/dma/mod.rs>
 
 use core::{
+    cmp,
     fmt::Debug,
     marker::PhantomData,
     mem,
@@ -34,11 +97,12 @@ mod macros;
 pub mod dma; // DMA1 and DMA2
 
 pub mod bdma;
+pub mod mdma;
 
 pub mod traits;
 use traits::{
     sealed::Bits, Direction, DoubleBufferedConfig, DoubleBufferedStream,
-    Stream, TargetAddress,
+    MasterStream, Stream, TargetAddress,
 };
 
 /// Errors.
@@ -46,7 +110,7 @@ use traits::{
 pub enum DMAError {
     /// DMA not ready to change buffers.
     NotReady,
-    /// The user provided a buffer that is not big enough while double buffering.
+    /// The user provided a buffer that is not big enough
     SmallBuffer,
     /// DMA started transfer on the inactive buffer while the user was processing it.
     Overflow,
@@ -269,16 +333,25 @@ pub mod config {
 
 /// Marker type for a transfer with a mutable source and backed by a
 /// `DoubleBufferedStream`
-pub struct DBTransfer;
+pub struct DBTransfer {
+    pub(crate) transfer_length: u16,
+}
 /// Marker type for a transfer with a constant source and backed by a
 /// `DoubleBufferedStream`
-pub struct ConstDBTransfer;
+pub struct ConstDBTransfer {
+    pub(crate) transfer_length: u16,
+}
 /// Marker type for a transfer with a mutable source and backed by a
 /// `MasterStream`
-pub struct MasterTransfer;
-/// Marker type for a transfer with a constant source and backed by a
-/// `MasterStream`
-pub struct ConstMasterTransfer;
+pub struct MasterTransfer {
+    pub(crate) source_len: usize,
+    pub(crate) destination_len: usize,
+    pub(crate) block_number_of_bytes: u32,
+}
+
+// Marker type for a transfer with a constant source and backed by a
+// `MasterStream`
+// pub struct ConstMasterTransfer; UNIMPLEMENTED TODO
 
 /// DMA Transfer.
 pub struct Transfer<STREAM, PERIPHERAL, DIR, BUF, TXFRT>
@@ -290,14 +363,12 @@ where
     stream: STREAM,
     peripheral: PERIPHERAL,
     _direction: PhantomData<DIR>,
-    _transfer_type: PhantomData<TXFRT>,
     buf: [Option<BUF>; 2],
-    // Used when double buffering
-    transfer_length: u16,
+    inner: TXFRT,
 }
 
 macro_rules! db_transfer_def {
-    ($Marker:ty, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
+    ($Marker:ident, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
      $($constraint:stmt)*) => {
         impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
             Transfer<STREAM, PERIPHERAL, DIR, BUF, $Marker>
@@ -441,9 +512,10 @@ macro_rules! db_transfer_def {
                     stream,
                     peripheral,
                     _direction: PhantomData,
-                    _transfer_type: PhantomData,
                     buf: [Some(memory), double_buf],
-                    transfer_length: n_transfers,
+                    inner: $Marker {
+                        transfer_length: n_transfers,
+                    }
                 };
                 transfer.apply_config(config);
 
@@ -549,7 +621,7 @@ macro_rules! db_transfer_def {
                 if single_buffer {
                     // Set length before the writing the new valid address.
                     self.stream.set_number_of_transfers(buf_len as u16);
-                } else if buf_len != usize::from(self.transfer_length) {
+                } else if buf_len != usize::from(self.inner.transfer_length) {
                     // We can't change the transfer length while double buffering
                     return Err(DMAError::SmallBuffer);
                 }
@@ -676,8 +748,8 @@ where
     DIR: Direction,
     PERIPHERAL: TargetAddress<DIR>,
 {
-    /// Starts the transfer, the closure will be executed right after enabling
-    /// the stream.
+    /// Starts the transfer. The closure will be executed immediately after
+    /// enabling the stream.
     pub fn start<F>(&mut self, f: F)
     where
         F: FnOnce(&mut PERIPHERAL),
@@ -770,5 +842,428 @@ where
         // Protect the instruction and bus sequence of the preceding disable and
         // the subsequent buffer access.
         fence(Ordering::SeqCst);
+    }
+}
+
+// -------- MDMA --------
+
+impl<STREAM, PERIPHERAL, DIR, BUF, BUF_WORD>
+    Transfer<STREAM, PERIPHERAL, DIR, BUF, MasterTransfer>
+where
+    STREAM: MasterStream + Stream<Config = mdma::MdmaConfig>,
+    DIR: Direction,
+    PERIPHERAL: TargetAddress<DIR>,
+    BUF: StaticWriteBuffer<Word = BUF_WORD>, // Buf can be sized independently
+                                             // from the peripheral
+{
+    /// For a given configuration, determine the size and offset for the source
+    /// and destination
+    ///
+    /// Returns ((s_size, d_size), (s_offset, d_offset))
+    fn source_destination_size_offset(
+        config: &mdma::MdmaConfig,
+    ) -> (
+        (mdma::MdmaSize, mdma::MdmaSize),
+        (mdma::MdmaSize, mdma::MdmaSize),
+    ) {
+        let peripheral_size = mdma::MdmaSize::from_type::<
+            <PERIPHERAL as TargetAddress<DIR>>::MemSize,
+        >();
+        let memory_size = mdma::MdmaSize::from_type::<BUF_WORD>();
+
+        STREAM::source_destination_size_offset(
+            config,
+            peripheral_size,
+            memory_size,
+            DIR::direction(),
+        )
+    }
+
+    /// Returns the maximum burst size for given parameters
+    ///
+    /// * Less than transfer length
+    ///
+    /// ## AHBS Bus
+    ///
+    /// If any of the following are true, then DSIZE must be 0 (single transfer)
+    ///
+    /// * Increment offset size is Double-Word (64-bit)
+    /// * Increment mode is fixed pointer
+    /// * Increment offset size is != Data Size
+    ///
+    /// ## AXI Bus
+    ///
+    /// If the Increment mode is fixed pointer, then DIZE must be <= 4 (maximum
+    /// 16 beats)
+    fn master_max_burst_size(
+        is_ahb: bool,
+        tranfer_length: usize,
+        increment: mdma::MdmaIncrement,
+        size: mdma::MdmaSize,
+        offset: mdma::MdmaSize,
+    ) -> mdma::MdmaBurstSize {
+        let max_transfer_length: mdma::MdmaBurstSize = tranfer_length.into();
+
+        if is_ahb
+            && (offset == mdma::MdmaSize::DoubleWord
+                || increment == mdma::MdmaIncrement::Fixed
+                || offset != size)
+        {
+            return mdma::MdmaBurstSize(0); // single transfer
+        }
+        if !is_ahb && increment == mdma::MdmaIncrement::Fixed {
+            return cmp::min(mdma::MdmaBurstSize(4), max_transfer_length);
+        }
+        max_transfer_length
+    }
+
+    /// Applies all fields in MdmaConfig.
+    fn apply_config_master(
+        &mut self,
+        config: mdma::MdmaConfig,
+        is_ahb: (bool, bool),
+        transfer_length: usize,
+    ) {
+        self.stream.clear_interrupts();
+
+        let (
+            (source_size, destination_size),
+            (source_offset, destination_offset),
+        ) = Self::source_destination_size_offset(&config);
+
+        // NOTE(unsafe) These values are correct for the generic types on
+        // Transfer
+        unsafe {
+            self.stream.set_source_size(source_size);
+            self.stream.set_destination_size(destination_size);
+            self.stream.set_source_offset(source_offset);
+            self.stream.set_destination_offset(destination_offset);
+        }
+
+        // Calculate burst sizes to apply
+        let source_burst = Self::master_max_burst_size(
+            is_ahb.0,
+            transfer_length,
+            config.source_increment,
+            source_size,
+            source_offset,
+        );
+        let source_burst = source_burst.min(config.source_burst_size);
+        let destination_burst = Self::master_max_burst_size(
+            is_ahb.1,
+            transfer_length,
+            config.destination_increment,
+            destination_size,
+            destination_offset,
+        );
+        let destination_burst =
+            destination_burst.min(config.destination_burst_size);
+
+        // Set burst sizes
+        unsafe {
+            self.stream.set_source_burst_size(source_burst.0);
+            self.stream.set_destination_burst_size(destination_burst.0);
+        }
+
+        // Apply config, including offsets for this combination of configation
+        // and source/destination sizes
+        self.stream.apply_config(config);
+    }
+
+    /// Calculates the maximum number of bytes that can be transferred in an
+    /// MDMA block. The length is referred to the source size
+    ///
+    /// * `s_len`: The number of input words of s_size available. `None` if the
+    /// source is a peripheral
+    /// * `d_len`: The number of input words of d_size available. `None` if the
+    /// destination is a peripheral
+    ///
+    /// `s_len` and `d_len` cannot both be peripherals (None)
+    fn m_number_of_bytes(
+        config: &mdma::MdmaConfig,
+        s_len: Option<usize>,
+        d_len: Option<usize>,
+    ) -> usize {
+        use mdma::MdmaPackingAlignment::*;
+
+        let ((s_size, d_size), (s_offset, d_offset)) =
+            Self::source_destination_size_offset(config);
+
+        let element_size: Option<usize> = match config.packing_alignment {
+            // Packed: source and destination bytes calculated separately
+            Packed => None,
+            // Extend: number of elements * source element size
+            Extend | ExtendSignExtend | ExtendLeftAligned => {
+                assert!(s_size.n_bytes() <= d_size.n_bytes(),
+                        "Cannot extend a source that is larger than the destination");
+                Some(s_size.n_bytes())
+            }
+            // Truncate: number of elements * destination element size
+            Truncate | TruncateLeft => {
+                assert!(s_size.n_bytes() >= d_size.n_bytes(),
+                        "Cannot truncate a source that is smaller than the destination");
+                Some(d_size.n_bytes())
+            }
+        };
+
+        let len_to_bytes = |len, size: usize, offset: usize| {
+            let bytes = len * size;
+            // Include a virtual gap at the end
+            let plus_gap = bytes + offset - size;
+            // Bytes = Number of elements * element data size
+            (plus_gap / offset) * element_size.unwrap_or(size)
+        };
+
+        let s_bytes = s_len
+            .map(|len| len_to_bytes(len, s_size.n_bytes(), s_offset.n_bytes()));
+        let d_bytes = d_len
+            .map(|len| len_to_bytes(len, d_size.n_bytes(), d_offset.n_bytes()));
+
+        match (s_bytes, d_bytes) {
+            (Some(s), Some(d)) => cmp::min(s, d),
+            (Some(s), None) => s,
+            (None, Some(d)) => d,
+            (None, None) => unreachable!(),
+        }
+    }
+
+    /// Configures the MDMA source and destination and applies supplied
+    /// configuration. In a memory to memory transfer, the `second_buf` argument
+    /// is the source of the data
+    ///
+    /// # Panics
+    ///
+    /// * When a memory-memory transfer is specified but the `second_buf`
+    /// argument is `None`.
+    ///
+    /// * When the length is greater than 65536 bytes.
+    ///
+    /// * When `config` specifies a `source_increment` that is smaller than the
+    /// source size.
+    ///
+    /// * When `config` specifies a `destination_increment` that is smaller than
+    /// the destination size.
+    ///
+    /// * When `config` specifies a `transfer_length` that is not a multiple of
+    /// both the source and destination sizes.
+    ///
+    /// * When `config` specifies a `packing_alignment` that extends the source,
+    /// but the source size is larger than the destination size.
+    ///
+    /// * When `config` specifies a `packing_alignment` that truncates the
+    /// source, but the source size is smaller than the destination size.
+    pub fn init_master(
+        mut stream: STREAM,
+        peripheral: PERIPHERAL,
+        mut memory: BUF,
+        mut second_buf: Option<BUF>,
+        config: mdma::MdmaConfig,
+    ) -> Self {
+        stream.disable();
+
+        // NOTE(unsafe) We now own this buffer and we won't call any &mut
+        // methods on it until the end of the DMA transfer
+        let (buf_ptr, buf_len) = unsafe { memory.write_buffer() };
+
+        let (
+            source_address,
+            destination_address,
+            source_len,
+            destination_len,
+            is_ahb,
+        ) = match DIR::direction() {
+            DmaDirection::MemoryToMemory => {
+                // must have 2nd buffer
+                if let Some(ref mut sb) = second_buf {
+                    // NOTE(unsafe) We now own this buffer and we won't call any &mut
+                    // methods on it until the end of the DMA transfer
+                    let (sb_ptr, sb_len) = unsafe { sb.write_buffer() };
+                    let is_ahb = (
+                        mdma::is_ahb_port(sb_ptr as usize),
+                        mdma::is_ahb_port(buf_ptr as usize),
+                    );
+
+                    // second buffer is the source in mem2mem mode
+                    (
+                        sb_ptr as usize,  // source address
+                        buf_ptr as usize, // destination address
+                        Some(sb_len),
+                        Some(buf_len),
+                        is_ahb,
+                    )
+                } else {
+                    panic!("must have second buffer");
+                }
+            }
+            DmaDirection::MemoryToPeripheral => {
+                let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
+
+                (
+                    buf_ptr as usize,     // source address
+                    peripheral.address(), // destination address
+                    Some(buf_len),
+                    None,
+                    (is_ahb, false),
+                )
+            }
+            DmaDirection::PeripheralToMemory => {
+                let is_ahb = mdma::is_ahb_port(buf_ptr as usize);
+
+                (
+                    peripheral.address(), // source address
+                    buf_ptr as usize,     // destination address
+                    None,
+                    Some(buf_len),
+                    (false, is_ahb),
+                )
+            }
+        };
+
+        // Set the source/destination address
+        //
+        // # Safety
+        // Must be a valid source/destination address
+        unsafe {
+            stream.set_source_address(source_address);
+            stream.set_destination_address(destination_address);
+        }
+
+        // Set block length
+        let block_number_of_bytes =
+            Self::m_number_of_bytes(&config, source_len, destination_len);
+        assert!(
+            block_number_of_bytes <= 65536,
+            "Hardware does not support more than 65536 bytes in a single transfer"
+        );
+        // Set transfer length (within the block). If block_number_of_bytes is
+        // not a integer multiple of transfer_length, the last buffer will be
+        // shorter
+        let transfer_length =
+            cmp::min(128, config.buffer_length.unwrap_or(128)) as usize;
+        let transfer_length = cmp::min(transfer_length, block_number_of_bytes);
+        // This is overridden if set in `config`
+
+        //NOTE(unsafe) Configuration (Number of bytes, size, offset) configured
+        // to be within both source and destination buffers
+        unsafe {
+            stream.set_transfer_length(transfer_length as u8);
+            stream.set_block_bytes(block_number_of_bytes as u32);
+        }
+
+        let mut transfer = Self {
+            stream,
+            peripheral,
+            _direction: PhantomData,
+            buf: [Some(memory), None],
+            inner: MasterTransfer {
+                source_len: source_len.unwrap_or(0),
+                destination_len: destination_len.unwrap_or(0),
+                block_number_of_bytes: block_number_of_bytes as u32,
+            },
+        };
+        transfer.apply_config_master(config, is_ahb, transfer_length);
+
+        transfer
+    }
+
+    /// Changes the buffer and restarts a transfer
+    ///
+    /// The length of the transfer remains fixed. This method returns
+    /// Err([SmallBuffer](DMAError::SmallBuffer)) if the new buffer is shorter
+    /// than the original.
+    ///
+    /// This method will clear the transfer complete flag. This method can be
+    /// called before the end of an ongoing transfer. In that case, the ongoing
+    /// transfer will be canceled and a new one will be started.
+    ///
+    /// The closure will be executed immediately before restarting the stream.
+    ///
+    /// TODO: This method always panics for Memory-Memory transfers
+    pub fn next_transfer<F>(
+        &mut self,
+        new_buf: BUF,
+        f: F,
+    ) -> Result<(), DMAError>
+    where
+        F: FnOnce(&mut PERIPHERAL),
+    {
+        let mut buf = new_buf;
+
+        // Disable stream (waits for CTCIF=1), clear transfer complete flag
+        self.stream.disable();
+        self.stream.clear_transfer_complete_flag();
+
+        // NOTE(unsafe) We now own this buffer and we won't call any &mut
+        // methods on it until the end of the DMA transfer
+        let (buf_ptr, buf_len) = unsafe { buf.write_buffer() };
+
+        // Check buf_len is at least the length required for this transfer
+        let check_source = DIR::direction() == DmaDirection::MemoryToPeripheral;
+        let check_destination = !check_source;
+
+        if check_source && buf_len < self.inner.source_len {
+            return Err(DMAError::SmallBuffer);
+        }
+        if check_destination && buf_len < self.inner.destination_len {
+            return Err(DMAError::SmallBuffer);
+        }
+
+        // Configure next transfer
+        unsafe {
+            self.stream
+                .set_block_bytes(self.inner.block_number_of_bytes);
+        }
+
+        match DIR::direction() {
+            DmaDirection::MemoryToPeripheral => unsafe {
+                self.stream.set_source_address(buf_ptr as usize);
+            },
+            DmaDirection::PeripheralToMemory => unsafe {
+                self.stream.set_destination_address(buf_ptr as usize);
+            },
+            DmaDirection::MemoryToMemory => panic!(),
+        }
+
+        f(&mut self.peripheral);
+
+        // Preserve the instruction and bus ordering of preceding buffer access
+        // to the subsequent access by the DMA peripheral due to enabling it.
+        fence(Ordering::SeqCst);
+
+        unsafe {
+            self.stream.enable();
+        }
+
+        // NOTE(unsafe): previous buf was previously a valid value
+        Ok(())
+    }
+
+    #[inline(always)]
+    pub fn get_buffer_length(&self) -> u8 {
+        STREAM::get_transfer_length()
+    }
+    #[inline(always)]
+    pub fn get_block_length(&self) -> u32 {
+        STREAM::get_block_bytes()
+    }
+
+    #[inline(always)]
+    pub fn get_destination_burst_length(&self) -> usize {
+        1 << STREAM::get_destination_burst_size()
+    }
+    #[inline(always)]
+    pub fn get_source_burst_length(&self) -> usize {
+        1 << STREAM::get_source_burst_size()
+    }
+
+    /// Get the buffer transfer complete flag (tcif)
+    #[inline(always)]
+    pub fn get_buffer_transfer_complete_flag(&self) -> bool {
+        STREAM::get_buffer_transfer_complete_flag()
+    }
+    /// Get the block transfer complete (btif)
+    #[inline(always)]
+    pub fn get_block_transfer_complete_flag(&self) -> bool {
+        STREAM::get_block_transfer_complete_flag()
     }
 }
