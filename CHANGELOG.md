@@ -9,6 +9,7 @@
 * MSRV increased to 1.51.0
 * **Breaking**: Simplified API for reading device signature
   values. `VAL::get().read()` becomes `VAL::read()`
+* adc: Allow parallel execution of multiple ADCs through `start_conversion()`
 
 ## [v0.10.0] 2021-07-xx
 

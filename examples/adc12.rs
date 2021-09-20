@@ -2,6 +2,7 @@
 //!
 //! For an example of using ADC3, see examples/temperature.rs
 //! For an example of using ADC1 alone, see examples/adc.rs
+//! For an example of using ADC1 and ADC2 in parallel, see examples/adc12_parallel.rs
 
 #![no_main]
 #![no_std]

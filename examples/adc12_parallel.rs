@@ -1,13 +1,16 @@
-//! Example of reading a voltage with ADC1
+//! Example of reading a voltage with ADC1 and ADC2 on two different channels in
+//! parallel
 //!
+//! For an example of using ADC1, see examples/adc.rs
 //! For an example of using ADC3, see examples/temperature.rs
 //! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
-//! For an example of using ADC1 and ADC2 in parallel, see examples/adc12_parallel.rs
 
 #![no_main]
 #![no_std]
 
 use log::info;
+
+use nb::block;
 
 use cortex_m_rt::entry;
 
@@ -23,12 +26,12 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     // Constrain and Freeze power
-    info!("Setup PWR...                  ");
+    info!("Setup PWR...");
     let pwr = dp.PWR.constrain();
     let pwrcfg = example_power!(pwr).freeze();
 
     // Constrain and Freeze clock
-    info!("Setup RCC...                  ");
+    info!("Setup RCC...");
     let rcc = dp.RCC.constrain();
 
     // We need to configure a clock for adc_ker_ck_input. The default
@@ -51,32 +54,45 @@ fn main() -> ! {
 
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
-    // Setup ADC
-    let mut adc1 = adc::Adc::adc1(
+    // Setup ADC1 and ADC2
+    let (adc1, adc2) = adc::adc12(
         dp.ADC1,
+        dp.ADC2,
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
-    )
-    .enable();
+    );
+    let mut adc1 = adc1.enable();
     adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_sample_time(adc::AdcSampleTime::T_387);
+    let mut adc2 = adc2.enable();
+    adc2.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc2.set_sample_time(adc::AdcSampleTime::T_387);
 
-    // We can't use ADC2 here because ccdr.peripheral.ADC12 has been
-    // consumed. See examples/adc12.rs
+    // Setup GPIOA
+    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
 
-    // Setup GPIOC
-    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
-
-    // Configure pc0 as an analog input
-    let mut channel = gpioc.pc0.into_analog(); // ANALOG IN 10
+    // Configure pins 23 and 22 as an analog inputs
+    let mut channel1 = gpioa.pa4.into_analog(); // DAISY PIN 23
+    let mut channel2 = gpioa.pa5.into_analog(); // DAISY PIN 22
 
     loop {
-        let data: u32 = adc1.read(&mut channel).unwrap();
+        adc1.start_conversion(&mut channel1);
+        adc2.start_conversion(&mut channel2);
+
+        let data1 = block!(adc1.read_sample()).unwrap();
+        let data2 = block!(adc2.read_sample()).unwrap();
+
         // voltage = reading * (vref/resolution)
         info!(
-            "ADC reading: {}, voltage for nucleo: {}",
-            data,
-            data as f32 * (3.3 / adc1.max_sample() as f32)
+            "ADC1 reading: {}, voltage for Daisy pin X: {}",
+            data1,
+            data1 as f32 * (3.3 / adc1.max_sample() as f32)
+        );
+        info!(
+            "ADC2 reading: {}, voltage for Daisy pin X: {}",
+            data2,
+            data2 as f32 * (3.3 / adc2.max_sample() as f32)
         );
     }
 }
