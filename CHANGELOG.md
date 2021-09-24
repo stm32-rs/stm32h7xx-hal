@@ -4,7 +4,7 @@
 * Fixed clippy lints:
    * Added safety docs for some DMA functions
    * Implemented additional conversion utilities for `time`
-   * Changed I2S constructors to take less arguments
+   * **Breaking**: Changed I2S constructors to take less arguments
 
 * MSRV increased to 1.51.0
 * **Breaking**: Simplified API for reading device signature
