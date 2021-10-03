@@ -11,6 +11,7 @@
   values. `VAL::get().read()` becomes `VAL::read()`
 * adc: Allow parallel execution of multiple ADCs through `start_conversion()`
 * Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
+* pac: Upgrade to stm32-rs v0.14.0
 
 ## [v0.10.0] 2021-07-xx
 
