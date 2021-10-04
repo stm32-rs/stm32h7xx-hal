@@ -143,10 +143,14 @@ use crate::pwr::PowerConfiguration;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
-use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdccipr::CKPERSEL_A as CKPERSEL;
@@ -841,6 +845,7 @@ impl Rcc {
         }
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d1cfgr.modify(|_, w| unsafe {
             w.d1cpre()
                 .bits(d1cpre_bits)
@@ -849,21 +854,47 @@ impl Rcc {
                 .hpre()
                 .variant(hpre_bits)
         });
+        #[cfg(feature = "rm0455")]
+        rcc.cdcfgr1.modify(|_, w| unsafe {
+            w.cdcpre()
+                .bits(d1cpre_bits)
+                .cdppre() // D1/CD contains APB3
+                .bits(ppre3_bits)
+                .hpre()
+                .variant(hpre_bits)
+        });
         // Ensure core prescaler value is valid before future lower
         // core voltage
+        #[cfg(not(feature = "rm0455"))]
         while rcc.d1cfgr.read().d1cpre().bits() != d1cpre_bits {}
+        #[cfg(feature = "rm0455")]
+        while rcc.cdcfgr1.read().cdcpre().bits() != d1cpre_bits {}
 
         // APB1 / APB2 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d2cfgr.modify(|_, w| unsafe {
             w.d2ppre1() // D2 contains APB1
                 .bits(ppre1_bits)
                 .d2ppre2() // D2 also contains APB2
                 .bits(ppre2_bits)
         });
+        #[cfg(feature = "rm0455")]
+        rcc.cdcfgr2.modify(|_, w| unsafe {
+            w.cdppre1() // D2/CD contains APB1
+                .bits(ppre1_bits)
+                .cdppre2() // D2/CD also contains APB2
+                .bits(ppre2_bits)
+        });
 
         // APB4 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d3cfgr.modify(|_, w| unsafe {
             w.d3ppre() // D3 contains APB4
+                .bits(ppre4_bits)
+        });
+        #[cfg(feature = "rm0455")]
+        rcc.srdcfgr.modify(|_, w| unsafe {
+            w.srdppre() // D3 contains APB4
                 .bits(ppre4_bits)
         });
 

@@ -17,7 +17,6 @@ use crate::rcc::rec::Sai23ClkSelGetter;
 // clocks
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
-use stm32h7::Variant::Val;
 
 const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;
 
@@ -49,22 +48,22 @@ macro_rules! impl_sai_ker_ck {
                 /// Current kernel clock - A
                 fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
                     match prec.$get_mux_A() {
-                        Val(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
-                        Val(rec::$AccessA::I2S_CKIN) => unimplemented!(),
-                        Val(rec::$AccessA::PER) => clocks.per_ck(),
+                        Some(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
+                        Some(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
+                        Some(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessA::I2S_CKIN) => unimplemented!(),
+                        Some(rec::$AccessA::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
                 /// Current kernel clock - B
                 fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
                     match prec.$get_mux_B() {
-                        Val(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
-                        Val(rec::$AccessB::I2S_CKIN) => unimplemented!(),
-                        Val(rec::$AccessB::PER) => clocks.per_ck(),
+                        Some(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
+                        Some(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
+                        Some(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessB::I2S_CKIN) => unimplemented!(),
+                        Some(rec::$AccessB::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }

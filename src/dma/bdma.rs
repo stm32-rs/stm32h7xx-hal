@@ -70,7 +70,7 @@ impl Instance for BDMA {
 
 #[cfg(feature = "rm0455")]
 impl Instance for BDMA2 {
-    type Rec = rec::Bdma;
+    type Rec = rec::Bdma2;
 
     #[inline(always)]
     fn ptr() -> *const BDMARegisterBlock {

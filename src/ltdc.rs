@@ -125,93 +125,45 @@ impl DisplayController for Ltdc {
                 .bit(config.pixel_clock_pol)
         });
 
-        // TODO: remove when fixed upstream
-        // unsafe: bit ranges not defined for fields
-        #[cfg(feature = "rm0399")]
-        unsafe {
-            // Set synchronization pulse width
-            self.ltdc.sscr.modify(|_, w| {
-                w.vsh()
-                    .bits(config.v_sync - 1)
-                    .hsw()
-                    .bits(config.h_sync - 1)
-            });
+        // Set synchronization pulse width
+        self.ltdc.sscr.modify(|_, w| {
+            w.vsh()
+                .bits(config.v_sync - 1)
+                .hsw()
+                .bits(config.h_sync - 1)
+        });
 
-            // Set accumulated back porch
-            self.ltdc.bpcr.modify(|_, w| {
-                w.avbp()
-                    .bits(config.v_sync + config.v_back_porch - 1)
-                    .ahbp()
-                    .bits(config.h_sync + config.h_back_porch - 1)
-            });
+        // Set accumulated back porch
+        self.ltdc.bpcr.modify(|_, w| {
+            w.avbp()
+                .bits(config.v_sync + config.v_back_porch - 1)
+                .ahbp()
+                .bits(config.h_sync + config.h_back_porch - 1)
+        });
 
-            // Set accumulated active width
-            let aa_height =
-                config.v_sync + config.v_back_porch + config.active_height - 1;
-            let aa_width =
-                config.h_sync + config.h_back_porch + config.active_width - 1;
-            self.ltdc
-                .awcr
-                .modify(|_, w| w.aah().bits(aa_height).aaw().bits(aa_width));
+        // Set accumulated active width
+        let aa_height =
+            config.v_sync + config.v_back_porch + config.active_height - 1;
+        let aa_width =
+            config.h_sync + config.h_back_porch + config.active_width - 1;
+        self.ltdc
+            .awcr
+            .modify(|_, w| w.aah().bits(aa_height).aaw().bits(aa_width));
 
-            // Set total width and height
-            let total_height: u16 = config.v_sync
-                + config.v_back_porch
-                + config.active_height
-                + config.v_front_porch
-                - 1;
-            let total_width: u16 = config.h_sync
-                + config.h_back_porch
-                + config.active_width
-                + config.h_front_porch
-                - 1;
-            self.ltdc.twcr.modify(|_, w| {
-                w.totalh().bits(total_height).totalw().bits(total_width)
-            });
-        }
-
-        #[cfg(not(feature = "rm0399"))]
-        {
-            // Set synchronization pulse width
-            self.ltdc.sscr.modify(|_, w| {
-                w.vsh()
-                    .bits(config.v_sync - 1)
-                    .hsw()
-                    .bits(config.h_sync - 1)
-            });
-
-            // Set accumulated back porch
-            self.ltdc.bpcr.modify(|_, w| {
-                w.avbp()
-                    .bits(config.v_sync + config.v_back_porch - 1)
-                    .ahbp()
-                    .bits(config.h_sync + config.h_back_porch - 1)
-            });
-
-            // Set accumulated active width
-            let aa_height =
-                config.v_sync + config.v_back_porch + config.active_height - 1;
-            let aa_width =
-                config.h_sync + config.h_back_porch + config.active_width - 1;
-            self.ltdc
-                .awcr
-                .modify(|_, w| w.aah().bits(aa_height).aaw().bits(aa_width));
-
-            // Set total width and height
-            let total_height: u16 = config.v_sync
-                + config.v_back_porch
-                + config.active_height
-                + config.v_front_porch
-                - 1;
-            let total_width: u16 = config.h_sync
-                + config.h_back_porch
-                + config.active_width
-                + config.h_front_porch
-                - 1;
-            self.ltdc.twcr.modify(|_, w| {
-                w.totalh().bits(total_height).totalw().bits(total_width)
-            });
-        }
+        // Set total width and height
+        let total_height: u16 = config.v_sync
+            + config.v_back_porch
+            + config.active_height
+            + config.v_front_porch
+            - 1;
+        let total_width: u16 = config.h_sync
+            + config.h_back_porch
+            + config.active_width
+            + config.h_front_porch
+            - 1;
+        self.ltdc.twcr.modify(|_, w| {
+            w.totalh().bits(total_height).totalw().bits(total_width)
+        });
 
         // Set the background color value
         self.ltdc.bccr.reset();

@@ -35,7 +35,11 @@ impl SystemWindowWatchdog {
     /// to indicate the clock has not been used yet
     pub fn new(wwdg: WWDG, ccdr: &Ccdr) -> Self {
         // enable the peripheral inside the APB3
+        #[cfg(not(feature = "rm0455"))]
         ccdr.rb.apb3enr.modify(|_, w| w.wwdg1en().set_bit());
+        #[cfg(feature = "rm0455")]
+        ccdr.rb.apb3enr.modify(|_, w| w.wwdgen().set_bit());
+
         SystemWindowWatchdog {
             wwdg,
             down_counter: 0,

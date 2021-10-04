@@ -37,7 +37,10 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().expect("Cannot take peripherals");
 
     // Run D3 / SRD domain
+    #[cfg(not(feature = "rm0455"))]
     dp.PWR.cpucr.modify(|_, w| w.run_d3().set_bit());
+    #[cfg(feature = "rm0455")]
+    dp.PWR.cpucr.modify(|_, w| w.run_srd().set_bit());
 
     let pwr = dp.PWR.constrain();
     let pwrcfg = example_power!(pwr).freeze();
@@ -84,7 +87,7 @@ fn main() -> ! {
     #[cfg(feature = "rm0455")]
     let streams = StreamsTuple::new(
         dp.BDMA2,
-        ccdr.peripheral.BDMA.low_power(LowPowerMode::Autonomous),
+        ccdr.peripheral.BDMA2.low_power(LowPowerMode::Autonomous),
     );
 
     let config = BdmaConfig::default().memory_increment(true);

@@ -80,8 +80,6 @@ pub mod traits;
 pub use nb;
 pub use nb::block;
 
-pub use stm32h7::Variant;
-
 // Single core
 #[cfg(any(
     feature = "stm32h742",

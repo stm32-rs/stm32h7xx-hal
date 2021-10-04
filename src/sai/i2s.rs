@@ -40,7 +40,6 @@ use crate::gpio::gpiog::{PG10, PG7, PG9};
 use crate::gpio::gpioh::{PH2, PH3};
 use crate::gpio::gpioi::{PI4, PI5, PI6, PI7};
 use crate::gpio::{Alternate, AF10, AF6, AF8};
-use stm32h7::Variant::Val;
 
 use crate::traits::i2s::FullDuplex;
 // use embedded_hal::i2s::FullDuplex;
@@ -732,7 +731,7 @@ fn disable_ch(audio_ch: &CH) {
 
 fn read(audio_ch: &CH) -> nb::Result<(u32, u32), I2SError> {
     match audio_ch.sr.read().flvl().variant() {
-        Val(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
         _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
     }
 }
@@ -745,8 +744,8 @@ fn send(
     // The FIFO is 8 words long. A write consists of 2 words, in stereo mode.
     // Therefore you need to wait for 3/4s to ensure 2 words are available for writing.
     match audio_ch.sr.read().flvl().variant() {
-        Val(sr::FLVL_A::FULL) => Err(nb::Error::WouldBlock),
-        Val(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::FULL) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
         _ => {
             unsafe {
                 audio_ch.dr.write(|w| w.bits(left_word).bits(right_word));

@@ -11,7 +11,6 @@ use nb::block;
 
 use crate::stm32;
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
-use stm32h7::Variant::Val;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
@@ -836,12 +835,12 @@ macro_rules! usart_sel {
                     let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
 
                     match ccip.$sel().variant() {
-                        Val($SEL::$PCLK) => Some(clocks.$pclk()),
-                        Val($SEL::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val($SEL::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val($SEL::HSI_KER) => clocks.hsi_ck(),
-                        Val($SEL::CSI_KER) => clocks.csi_ck(),
-                        Val($SEL::LSE) => unimplemented!(),
+                        Some($SEL::$PCLK) => Some(clocks.$pclk()),
+                        Some($SEL::PLL2_Q) => clocks.pll2_q_ck(),
+                        Some($SEL::PLL3_Q) => clocks.pll3_q_ck(),
+                        Some($SEL::HSI_KER) => clocks.hsi_ck(),
+                        Some($SEL::CSI_KER) => clocks.csi_ck(),
+                        Some($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
