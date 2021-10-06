@@ -145,7 +145,7 @@ macro_rules! gpio {
         pub mod $gpiox {
             use core::marker::PhantomData;
 
-            use embedded_hal::digital::v2::{InputPin, OutputPin,
+            use embedded_hal::digital::v2::{InputPin, OutputPin, IoPin, PinState,
                                             StatefulOutputPin, toggleable};
 
             use crate::rcc::{rec, ResetEnable};
@@ -758,6 +758,46 @@ macro_rules! gpio {
                         // NOTE(unsafe) atomic read with no side effects
                         Ok(unsafe { (*$GPIOX::ptr()).idr
                                       .read().bits() & (1 << $i) } == 0)
+                    }
+                }
+
+                impl IoPin<Self, Self>
+                for $PXi<Output<OpenDrain>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<Self, Self::Error> {
+                        Ok(self)
+                    }
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
+                        self.set_state(state)?;
+                        Ok(self)
+                    }
+                }
+
+                impl IoPin<$PXi<Input<Floating>>, Self>
+                    for $PXi<Output<PushPull>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<$PXi<Input<Floating>>, Self::Error> {
+                        Ok(self.into_floating_input())
+                    }
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
+                        self.set_state(state)?;
+                        Ok(self)
+                    }
+                }
+
+                impl IoPin<Self, $PXi<Output<PushPull>>>
+                    for $PXi<Input<Floating>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<Self, Self::Error> {
+                        Ok(self)
+                    }
+                    fn into_output_pin(self, state: PinState) -> Result<$PXi<Output<PushPull>>, Self::Error> {
+                        let mut pin = self.into_push_pull_output();
+                        pin.set_state(state)?;
+                        Ok(pin)
                     }
                 }
 
