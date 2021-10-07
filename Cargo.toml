@@ -28,7 +28,6 @@ targets = ["thumbv7em-none-eabihf"]
 embedded-hal = "0.2.4"
 embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
-cortex-m-rt = "^0.6.15"
 stm32h7 = "^0.14.0"
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.2.3", default-features = false }
@@ -52,6 +51,7 @@ default-features = false
 optional = true
 
 [dev-dependencies]
+cortex-m-rt = ">=0.6.15,<0.8"
 cortex-m-rtic = { version = "0.5.8", default-features = false, features = ["cortex-m-7"] }
 log = "0.4.11"
 panic-halt = "0.2.0"
