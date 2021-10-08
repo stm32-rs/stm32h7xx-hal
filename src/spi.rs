@@ -59,25 +59,9 @@
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
-use crate::hal;
-pub use crate::hal::spi::{
-    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
-};
-
-#[cfg(feature = "rm0455")]
-use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
-
-use crate::stm32;
-use crate::stm32::spi1::{
-    cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP,
-};
 use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
-
-use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 
 use crate::gpio::gpioa::{PA11, PA12, PA15, PA4, PA5, PA6, PA7, PA9};
 use crate::gpio::gpiob::{
@@ -95,10 +79,22 @@ use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
 use crate::gpio::gpioj::{PJ10, PJ11};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1};
-
 use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
-
+use crate::hal;
+use crate::hal::spi::FullDuplex;
+pub use crate::hal::spi::{
+    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
+};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::stm32;
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::{cdccip1r as ccip1r, srdccipr};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
+use crate::stm32::spi1::{
+    cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP,
+};
+use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 use crate::time::Hertz;
 
 /// SPI error
@@ -121,6 +117,7 @@ pub enum Error {
 
 /// Enabled SPI peripheral (type state)
 pub struct Enabled;
+
 /// Disabled SPI peripheral (type state)
 pub struct Disabled;
 
@@ -128,9 +125,13 @@ pub trait Pins<SPI> {
     /// States whether or not the Hardware Chip Select is present in this set of pins
     const HCS_PRESENT: bool;
 }
+
 pub trait PinSck<SPI> {}
+
 pub trait PinMiso<SPI> {}
+
 pub trait PinMosi<SPI> {}
+
 pub trait PinHCS<SPI> {}
 
 impl<SPI, SCK, MISO, MOSI> Pins<SPI> for (SCK, MISO, MOSI)
@@ -301,8 +302,10 @@ impl HardwareCS {
 
 /// A filler type for when the SCK pin is unnecessary
 pub struct NoSck;
+
 /// A filler type for when the Miso pin is unnecessary
 pub struct NoMiso;
+
 /// A filler type for when the Mosi pin is unnecessary
 pub struct NoMosi;
 
@@ -538,6 +541,123 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
+pub trait SpiEnabledExt:
+    SpiAllExt + FullDuplex<Self::Word, Error = Error>
+{
+    type Disabled: SpiDisabledExt<
+        Spi = Self::Spi,
+        Word = Self::Word,
+        Enabled = Self,
+    >;
+
+    /// Disables the SPI peripheral. Any SPI operation is
+    /// stopped and disabled, the internal state machine is
+    /// reset, all the FIFOs content is flushed, the MODF
+    /// flag is cleared, the SSI flag is cleared, and the
+    /// CRC calculation is re-initialized. Clocks are not
+    /// disabled.
+    fn disable(self) -> Self::Disabled;
+
+    /// Resets the SPI peripheral. This is just a call to [SpiEnabledExt::disable]
+    /// and [SpiDisabledExt::enable]
+    fn reset(self) -> Self {
+        self.disable().enable()
+    }
+
+    /// Sets up a frame transaction with the given amount of data words.
+    ///
+    /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
+    /// then an error is returned with [Error::InvalidCall].
+    ///
+    /// If this is called when a transaction has already started,
+    /// then an error is returned with [Error::TransactionAlreadyStarted].
+    fn setup_transaction(
+        &mut self,
+        words: core::num::NonZeroU16,
+    ) -> Result<(), Error>;
+
+    /// Ends the current transaction, both for endless and frame transactions.
+    ///
+    /// This method must always be called for frame transaction,
+    /// even if the full size has been sent. If this is not done,
+    /// no new data can be sent even when it looks like it should.
+    ///
+    /// If it's not either a frame or endless transaction,
+    /// an error is returned with [Error::InvalidCall].
+    fn end_transaction(&mut self) -> Result<(), Error>;
+}
+
+pub trait SpiDisabledExt: SpiAllExt {
+    type Rec;
+    type Enabled: SpiEnabledExt<Spi = Self::Spi, Word = Self::Word>;
+
+    /// Enables the SPI peripheral.
+    /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
+    fn enable(self) -> Self::Enabled;
+
+    /// Enables the Rx DMA stream. If the DMA Rx is used, the
+    /// reference manual recommends that this is enabled before
+    /// enabling the DMA
+    fn enable_dma_rx(&mut self);
+
+    fn disable_dma_rx(&mut self);
+
+    /// Enables the Tx DMA stream. If the DMA Tx is used, the
+    /// reference manual recommends that this is enabled after
+    /// enabling the DMA
+    fn enable_dma_tx(&mut self);
+
+    fn disable_dma_tx(&mut self);
+
+    /// Deconstructs the SPI peripheral and returns the component parts.
+    fn free(self) -> (Self::Spi, Self::Rec);
+}
+
+pub trait SpiAllExt: Sized {
+    type Spi;
+    type Word;
+
+    /// Returns a mutable reference to the inner peripheral
+    fn inner(&self) -> &Self::Spi;
+
+    /// Returns a mutable reference to the inner peripheral
+    fn inner_mut(&mut self) -> &mut Self::Spi;
+
+    /// Enable interrupts for the given `event`:
+    ///  - Received data ready to be read (RXP)
+    ///  - Transmit data register empty (TXP)
+    ///  - Error
+    fn listen(&mut self, event: Event);
+
+    /// Disable interrupts for the given `event`:
+    ///  - Received data ready to be read (RXP)
+    ///  - Transmit data register empty (TXP)
+    ///  - Error
+    fn unlisten(&mut self, event: Event);
+
+    /// Return `true` if the TXP flag is set, i.e. new
+    /// data to transmit can be written to the SPI.
+    fn is_txp(&self) -> bool;
+
+    /// Return `true` if the RXP flag is set, i.e. new
+    /// data has been received and can be read from the
+    /// SPI.
+    fn is_rxp(&self) -> bool;
+
+    /// Return `true` if the MODF flag is set, i.e. the
+    /// SPI has experienced a mode fault
+    fn is_modf(&self) -> bool;
+
+    /// Return `true` if the OVR flag is set, i.e. new
+    /// data has been received while the receive data
+    /// register was already filled.
+    fn is_ovr(&self) -> bool;
+
+    /// Clears the MODF flag, which indicates that a
+    /// mode fault has occurred.
+    fn clear_modf(&mut self);
+}
+
 macro_rules! spi {
     (DSIZE, $spi:ident,  u8) => {
         $spi.cfg1.modify(|_, w| {
@@ -562,8 +682,9 @@ macro_rules! spi {
 	    $(
             // For each $TY
             $(
-                impl Spi<$SPIX, Enabled, $TY> {
-                    pub fn $spiX<T, CONFIG>(
+
+            impl Spi<$SPIX, Enabled, $TY> {
+                    fn $spiX<T, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
                         freq: T,
@@ -684,14 +805,12 @@ macro_rules! spi {
 
                         Spi { spi, hardware_cs_mode: config.hardware_cs.mode, _word: PhantomData, _ed: PhantomData }
                     }
+                }
 
-                    /// Disables the SPI peripheral. Any SPI operation is
-                    /// stopped and disabled, the internal state machine is
-                    /// reset, all the FIFOs content is flushed, the MODF
-                    /// flag is cleared, the SSI flag is cleared, and the
-                    /// CRC calculation is re-initialized. Clocks are not
-                    /// disabled.
-                    pub fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
+                impl SpiEnabledExt for Spi<$SPIX, Enabled, $TY> {
+                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
+
+                    fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
                         // Master communication must be suspended before the peripheral is disabled
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
@@ -704,14 +823,7 @@ macro_rules! spi {
                         }
                     }
 
-                    /// Sets up a frame transaction with the given amount of data words.
-                    ///
-                    /// If this is called when the hardware CS mode is not [HardwareCSMode::FrameTransaction],
-                    /// then an error is returned with [Error::InvalidCall].
-                    ///
-                    /// If this is called when a transaction has already started,
-                    /// then an error is returned with [Error::TransactionAlreadyStarted].
-                    pub fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), Error> {
+                    fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), Error> {
                         if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
                             return Err(Error::InvalidCall);
                         }
@@ -735,15 +847,7 @@ macro_rules! spi {
                         Ok(())
                     }
 
-                    /// Ends the current transaction, both for endless and frame transactions.
-                    ///
-                    /// This method must always be called for frame transaction,
-                    /// even if the full size has been sent. If this is not done,
-                    /// no new data can be sent even when it looks like it should.
-                    ///
-                    /// If it's not either a frame or endless transaction,
-                    /// an error is returned with [Error::InvalidCall].
-                    pub fn end_transaction(&mut self) -> Result<(), Error> {
+                    fn end_transaction(&mut self) -> Result<(), Error> {
                         if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction) {
                             return Err(Error::InvalidCall);
                         }
@@ -757,10 +861,11 @@ macro_rules! spi {
                     }
                 }
 
-                impl Spi<$SPIX, Disabled, $TY> {
-                    /// Enables the SPI peripheral.
-                    /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
-                    pub fn enable(mut self) -> Spi<$SPIX, Enabled, $TY> {
+                impl SpiDisabledExt for Spi<$SPIX, Disabled, $TY> {
+                    type Rec = rec::$Rec;
+                    type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
+
+                    fn enable(mut self) -> Self::Enabled {
                         self.clear_modf(); // SPE cannot be set when MODF is set
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
                         Spi {
@@ -771,43 +876,39 @@ macro_rules! spi {
                         }
                     }
 
-                    /// Enables the Rx DMA stream. If the DMA Rx is used, the
-                    /// reference manual recommends that this is enabled before
-                    /// enabling the DMA
-                    pub fn enable_dma_rx(&mut self) {
+                    fn enable_dma_rx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.rxdmaen().enabled());
                     }
 
-                    pub fn disable_dma_rx(&mut self) {
+                    fn disable_dma_rx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.rxdmaen().disabled());
                     }
 
-                    /// Enables the Tx DMA stream. If the DMA Tx is used, the
-                    /// reference manual recommends that this is enabled after
-                    /// enabling the DMA
-                    pub fn enable_dma_tx(&mut self) {
+                    fn enable_dma_tx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.txdmaen().enabled());
                     }
 
-                    pub fn disable_dma_tx(&mut self) {
+                    fn disable_dma_tx(&mut self) {
                         self.spi.cfg1.modify(|_,w| w.txdmaen().disabled());
                     }
 
-                    /// Deconstructs the SPI peripheral and returns the component parts.
-                    pub fn free(self) -> ($SPIX, rec::$Rec) {
+                    fn free(self) -> ($SPIX, rec::$Rec) {
                         (self.spi, rec::$Rec { _marker: PhantomData })
                     }
                 }
 
-                impl<EN> Spi<$SPIX, EN, $TY>
+                impl<EN> SpiAllExt for Spi<$SPIX, EN, $TY>
                 {
+                    type Word = $TY;
+                    type Spi = $SPIX;
+
                     /// Returns a mutable reference to the inner peripheral
-                    pub fn inner(&self) -> &$SPIX {
+                    fn inner(&self) -> &Self::Spi {
                         &self.spi
                     }
 
                     /// Returns a mutable reference to the inner peripheral
-                    pub fn inner_mut(&mut self) -> &mut $SPIX {
+                    fn inner_mut(&mut self) -> &mut Self::Spi {
                         &mut self.spi
                     }
 
@@ -815,7 +916,7 @@ macro_rules! spi {
                     ///  - Received data ready to be read (RXP)
                     ///  - Transmit data register empty (TXP)
                     ///  - Error
-                    pub fn listen(&mut self, event: Event) {
+                    fn listen(&mut self, event: Event) {
                         match event {
                             Event::Rxp => self.spi.ier.modify(|_, w|
                                                               w.rxpie().not_masked()),
@@ -838,7 +939,7 @@ macro_rules! spi {
                     ///  - Received data ready to be read (RXP)
                     ///  - Transmit data register empty (TXP)
                     ///  - Error
-                    pub fn unlisten(&mut self, event: Event) {
+                    fn unlisten(&mut self, event: Event) {
                         match event {
                             Event::Rxp => {
                                 self.spi.ier.modify(|_, w| w.rxpie().masked());
@@ -865,33 +966,33 @@ macro_rules! spi {
 
                     /// Return `true` if the TXP flag is set, i.e. new
                     /// data to transmit can be written to the SPI.
-                    pub fn is_txp(&self) -> bool {
+                    fn is_txp(&self) -> bool {
                         self.spi.sr.read().txp().is_not_full()
                     }
 
                     /// Return `true` if the RXP flag is set, i.e. new
                     /// data has been received and can be read from the
                     /// SPI.
-                    pub fn is_rxp(&self) -> bool {
+                    fn is_rxp(&self) -> bool {
                         self.spi.sr.read().rxp().is_not_empty()
                     }
 
                     /// Return `true` if the MODF flag is set, i.e. the
                     /// SPI has experienced a mode fault
-                    pub fn is_modf(&self) -> bool {
+                    fn is_modf(&self) -> bool {
                         self.spi.sr.read().modf().is_fault()
                     }
 
                     /// Return `true` if the OVR flag is set, i.e. new
                     /// data has been received while the receive data
                     /// register was already filled.
-                    pub fn is_ovr(&self) -> bool {
+                    fn is_ovr(&self) -> bool {
                         self.spi.sr.read().ovr().is_overrun()
                     }
 
                     /// Clears the MODF flag, which indicates that a
                     /// mode fault has occurred.
-                    pub fn clear_modf(&mut self) {
+                    fn clear_modf(&mut self) {
                         self.spi.ifcr.write(|w| w.modfc().clear());
                         let _ = self.spi.sr.read();
                         let _ = self.spi.sr.read(); // Delay 2 peripheral clocks
