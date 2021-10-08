@@ -9,16 +9,7 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
-use crate::stm32;
-use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
-
-#[cfg(feature = "rm0455")]
-use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
-
-use crate::stm32::{UART4, UART5, UART7, UART8};
-use crate::stm32::{USART1, USART2, USART3, USART6};
+use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A};
 
 use crate::gpio::gpioa::{
     PA0, PA1, PA10, PA11, PA12, PA15, PA2, PA3, PA4, PA8, PA9,
@@ -35,11 +26,17 @@ use crate::gpio::gpioh::{PH13, PH14};
 use crate::gpio::gpioi::PI9;
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ8, PJ9};
-
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::stm32;
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
+use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
+use crate::stm32::{UART4, UART5, UART7, UART8};
+use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::time::Hertz;
-
 use crate::Never;
 
 /// Serial error
@@ -95,11 +92,30 @@ pub mod config {
         STOP1P5,
     }
 
+    pub enum BitOrder {
+        LsbFirst,
+        MsbFirst,
+    }
+
+    pub enum ClockPhase {
+        First,
+        Second,
+    }
+
+    pub enum ClockPolarity {
+        IdleHigh,
+        IdleLow,
+    }
+
     pub struct Config {
         pub baudrate: Hertz,
         pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
+        pub clockphase: ClockPhase,
+        pub bitorder: BitOrder,
+        pub clockpolarity: ClockPolarity,
+        pub lastbitclockpulse: bool,
     }
 
     impl Config {
@@ -149,6 +165,10 @@ pub mod config {
                 wordlength: WordLength::DataBits8,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
+                clockphase: ClockPhase::First,
+                bitorder: BitOrder::LsbFirst,
+                clockpolarity: ClockPolarity::IdleLow,
+                lastbitclockpulse: false,
             }
         }
     }
@@ -163,7 +183,9 @@ pub mod config {
     }
 }
 
-pub trait Pins<USART> {}
+pub trait Pins<USART> {
+    const SYNCHRONOUS: bool = false;
+}
 pub trait PinTx<USART> {}
 pub trait PinRx<USART> {}
 pub trait PinCk<USART> {}
@@ -173,6 +195,15 @@ where
     TX: PinTx<USART>,
     RX: PinRx<USART>,
 {
+}
+
+impl<USART, TX, RX, CK> Pins<USART> for (TX, RX, CK)
+where
+    TX: PinTx<USART>,
+    RX: PinRx<USART>,
+    CK: PinCk<USART>,
+{
+    const SYNCHRONOUS: bool = true;
 }
 
 /// A filler type for when the Tx pin is unnecessary
@@ -367,9 +398,9 @@ pub struct Tx<USART> {
 pub trait SerialExt<USART>: Sized {
     type Rec: ResetEnable;
 
-    fn serial(
+    fn serial<P: Pins<USART>>(
         self,
-        _pins: impl Pins<USART>,
+        _pins: P,
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
@@ -419,7 +450,8 @@ macro_rules! usart {
                     usart: $USARTX,
                     config: impl Into<config::Config>,
                     prec: rec::$Rec,
-                    clocks: &CoreClocks
+                    clocks: &CoreClocks,
+                    synchronous: bool
                 ) -> Result<Self, config::InvalidConfig>
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
@@ -463,7 +495,35 @@ macro_rules! usart {
                             StopBits::STOP1 => STOP::STOP1,
                             StopBits::STOP1P5 => STOP::STOP1P5,
                             StopBits::STOP2 => STOP::STOP2,
+                        });
+
+                        w.msbfirst().variant(match config.bitorder {
+                            BitOrder::LsbFirst => MSBFIRST_A::LSB,
+                            BitOrder::MsbFirst => MSBFIRST_A::MSB,
+                        });
+
+                        w.lbcl().variant(if config.lastbitclockpulse {
+                             LBCL_A::OUTPUT
+                        } else {
+                             LBCL_A::NOTOUTPUT
+                        });
+
+                        w.clken().variant(if synchronous {
+                            CLKEN_A::ENABLED
+                        } else {
+                            CLKEN_A::DISABLED
+                        });
+
+                        w.cpol().variant(match config.clockpolarity {
+                            ClockPolarity::IdleHigh =>CPOL_A::HIGH,
+                            ClockPolarity::IdleLow =>CPOL_A::LOW
+                        });
+
+                        w.cpha().variant(match config.clockphase {
+                            ClockPhase::First => CPHA_A::FIRST,
+                            ClockPhase::Second => CPHA_A::SECOND
                         })
+
                     });
 
                     // Enable transmission and receiving
@@ -606,14 +666,14 @@ macro_rules! usart {
             impl SerialExt<$USARTX> for $USARTX {
                 type Rec = rec::$Rec;
 
-                fn serial(self,
-                         _pins: impl Pins<$USARTX>,
+                fn serial<P: Pins<$USARTX>>(self,
+                         _pins: P,
                          config: impl Into<config::Config>,
                          prec: rec::$Rec,
                          clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks)
+                    Serial::$usartX(self, config, prec, clocks, P::SYNCHRONOUS)
                 }
 
                 fn serial_unchecked(self,
@@ -622,7 +682,7 @@ macro_rules! usart {
                                    clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks)
+                    Serial::$usartX(self, config, prec, clocks, false)
                 }
             }
 
