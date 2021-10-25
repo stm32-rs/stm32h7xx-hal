@@ -352,6 +352,7 @@ uart_pins! {
 /// Serial abstraction
 ///
 /// # Examples
+/// 
 /// ```
 /// let dp = pac::Peripherals::take().unwrap();
 /// let rcc = dp.RCC.constrain();
@@ -363,7 +364,7 @@ uart_pins! {
 ///     &ccdr.clocks
 /// ).unwrap();
 /// // core::fmt::Write is implemented for tx.
-/// writeln!(tx, Test\r").unwrap();
+/// writeln!(tx, "Test\r").unwrap();
 /// ```
 pub struct Serial<USART> {
     pub(crate) usart: USART,
