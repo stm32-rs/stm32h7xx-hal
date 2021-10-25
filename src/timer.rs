@@ -180,7 +180,7 @@ pub trait TimerExt<TIM> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// let dp = pac::Peripherals::take().unwrap();
 /// let rcc = dp.RCC.constrain();
 /// let ccdr = rcc.freeze();
