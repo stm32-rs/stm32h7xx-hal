@@ -177,6 +177,21 @@ pub trait TimerExt<TIM> {
 }
 
 /// Hardware timers
+///
+/// # Examples
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let rcc = dp.RCC.constrain();
+/// let ccdr = rcc.freeze();
+/// let mut timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
+/// timer.start(1.hz());
+/// loop {
+///     // Do something here and then block for 1 second
+///     // do_something();
+///     block(timer.wait()).unwrap();
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Timer<TIM> {
     clk: u32,
