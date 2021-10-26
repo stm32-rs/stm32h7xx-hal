@@ -1,4 +1,8 @@
 //! Timers
+//!
+//! # Examples
+//!
+//! - [Blinky using a Timer](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky_timer.rs)
 
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
@@ -177,21 +181,6 @@ pub trait TimerExt<TIM> {
 }
 
 /// Hardware timers
-///
-/// # Examples
-///
-/// ```
-/// let dp = pac::Peripherals::take().unwrap();
-/// let rcc = dp.RCC.constrain();
-/// let ccdr = rcc.freeze();
-/// let mut timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
-/// timer.start(1.hz());
-/// loop {
-///     // Do something here and then block for 1 second
-///     // do_something();
-///     block(timer.wait()).unwrap();
-/// }
-/// ```
 #[derive(Debug)]
 pub struct Timer<TIM> {
     clk: u32,
