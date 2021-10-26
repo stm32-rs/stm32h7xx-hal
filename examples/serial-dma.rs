@@ -26,7 +26,7 @@ use stm32h7xx_hal::dma::{
 
 use log::info;
 
-// DMA1/DMA2 cannot interact with our stack. Instead, buffers for use with the
+// DMA1/DMA2 cannot interact with our stack (using the example memory.x configuration). Instead, buffers for use with the
 // DMA must be placed somewhere that DMA1/DMA2 can access. In this case we use
 // AXI SRAM.
 //

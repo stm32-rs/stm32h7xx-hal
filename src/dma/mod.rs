@@ -93,7 +93,7 @@ use core::{
     ptr,
     sync::atomic::{fence, Ordering},
 };
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, StaticWriteBuffer, WriteBuffer};
 
 #[macro_use]
 mod macros;
@@ -743,8 +743,8 @@ macro_rules! db_transfer_def {
     };
 }
 
-db_transfer_def!(DBTransfer, init, StaticWriteBuffer, write_buffer, mut;);
-db_transfer_def!(ConstDBTransfer, init_const, StaticReadBuffer, read_buffer;
+db_transfer_def!(DBTransfer, init, WriteBuffer, write_buffer, mut;);
+db_transfer_def!(ConstDBTransfer, init_const, ReadBuffer, read_buffer;
                  assert!(DIR::direction() != DmaDirection::PeripheralToMemory));
 
 impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF, TXFRT>
