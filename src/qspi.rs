@@ -27,6 +27,11 @@
 //! qspi.write(0x00, &[0xAB, 0xCD]).unwrap();
 //! ```
 //!
+//! # Examples
+//!
+//! - [Simple QSPI example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi.rs)
+//! - [QSPI using MDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_mdma.rs)
+//!
 //! # Limitations
 //!
 //! This driver currently only supports indirect operation mode of the QSPI

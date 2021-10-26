@@ -6,6 +6,11 @@
 //!
 //! Timers support up to 4 simultaneous PWM output channels
 //!
+//! ## Examples
+//!
+//! - [Simple example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm.rs)
+//! - [Advanced example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm_advanced.rs)
+//!
 //! ## Usage
 //!
 //! ```rust

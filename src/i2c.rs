@@ -1,4 +1,9 @@
 //! Inter Integrated Circuit (I2C)
+//!
+//! # Examples
+//!
+//! - [I2C simple examples](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c.rs)
+//! - [I2C example using I2C4 and BDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c4_bdma.rs)
 
 use core::cmp;
 use core::marker::PhantomData;

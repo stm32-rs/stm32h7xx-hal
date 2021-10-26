@@ -1,9 +1,7 @@
 //! Serial Peripheral Interface (SPI)
 //!
 //! This module implements the [embedded-hal](embedded-hal) traits for
-//! master mode SPI. You can find an blocking SPI example
-//! [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi.rs) and an
-//! example using DMA [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs).
+//! master mode SPI.
 //!
 //! # Usage
 //!
@@ -53,6 +51,11 @@
 //! - SPI1, SPI2, SPI3: __PLL1 Q CK__
 //! - SPI4, SPI5: __APB__
 //! - SPI6: __PCLK4__
+//!
+//! # Examples
+//!
+//! - [Blocking SPI](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi.rs)
+//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs).
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 

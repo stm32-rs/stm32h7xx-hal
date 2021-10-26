@@ -1,4 +1,8 @@
 //! Random Number Generator
+//!
+//! # Examples
+//!
+//! - [Random Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky_random.rs)
 
 use core::cmp;
 use core::mem;

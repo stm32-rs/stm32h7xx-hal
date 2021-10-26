@@ -1,4 +1,8 @@
 //! Real-Time Clock
+//!
+//! # Examples
+//!
+//! - [RTC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/rtc.rs)
 
 use cast::{f32, i32, u16, u32, u8};
 use chrono::prelude::*;

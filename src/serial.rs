@@ -1,4 +1,9 @@
 //! Serial
+//!
+//! # Examples
+//!
+//! - [Simple Blocking Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial.rs)
+//! - [Serial Transfer using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-dma.rs)
 
 use core::fmt;
 use core::marker::PhantomData;
@@ -350,22 +355,6 @@ uart_pins! {
 }
 
 /// Serial abstraction
-///
-/// # Examples
-/// 
-/// ```
-/// let dp = pac::Peripherals::take().unwrap();
-/// let rcc = dp.RCC.constrain();
-/// let ccdr = rcc.freeze();
-/// let serial = Serial::usart3(
-///     dp.USART3,
-///     serial::config::Config::default().baudrate(115200.bps()),
-///     ccdr.peripheral.USART3,
-///     &ccdr.clocks
-/// ).unwrap();
-/// // core::fmt::Write is implemented for tx.
-/// writeln!(tx, "Test\r").unwrap();
-/// ```
 pub struct Serial<USART> {
     pub(crate) usart: USART,
 }

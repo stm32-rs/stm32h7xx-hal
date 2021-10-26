@@ -25,6 +25,10 @@
 //!
 //! `sdram` usage is described
 //! [here](https://github.com/stm32-rs/stm32-fmc#usage).
+//!
+//! # Examples
+//!
+//! - [FMC example using the IS42S32800G SDRAM](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/fmc.rs)
 
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
