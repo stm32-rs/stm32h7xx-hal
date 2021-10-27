@@ -73,6 +73,12 @@
 //! * [next_transfer_with](Transfer#method.next_transfer_with)
 //! * [next_dbm_transfer_with](Transfer#method.next_dbm_transfer_with)
 //!
+//! ## Examples
+//!
+//! - [Memory to Memory Transfer](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dma.rs)
+//! - [Memory to Memory Transfer using Master DMA(MDMA)](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mdma.rs)
+//! - [Using MDMA with multiple beats per burst](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mdma_bursts.rs)
+//!
 //! ## Credits
 //!
 //! Adapted from

@@ -1,4 +1,4 @@
-//! *See the examples folder for more usage examples*
+//! *See the [examples](https://github.com/stm32-rs/stm32h7xx-hal/tree/master/examples) folder for more usage examples*
 //!
 //! This Hardware Abstraction Layer (HAL) provides the following functionality:
 //!

@@ -1,4 +1,9 @@
 //! Serial
+//!
+//! # Examples
+//!
+//! - [Simple Blocking Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial.rs)
+//! - [Serial Transfer using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-dma.rs)
 
 use core::fmt;
 use core::marker::PhantomData;

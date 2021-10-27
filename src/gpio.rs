@@ -1,4 +1,10 @@
 //! General Purpose Input / Output
+//!
+//! # Examples
+//!
+//! - [Simple Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs)
+//! - [Digital Read](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/digital_read.rs)
+//! - [External Interrupt via Button](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/exti_interrupt.rs)
 
 use core::marker::PhantomData;
 

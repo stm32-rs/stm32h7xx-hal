@@ -10,6 +10,8 @@
 //!
 //! # Example
 //!
+//! You can also find a simple example [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs).
+//!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
 //!

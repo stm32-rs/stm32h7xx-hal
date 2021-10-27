@@ -1,4 +1,8 @@
 //! Digital to Analog Converter (DAC)
+//!
+//! # Examples
+//!
+//! - [Simple DAC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dac.rs)
 
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;

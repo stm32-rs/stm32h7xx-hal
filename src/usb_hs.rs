@@ -1,6 +1,11 @@
 //! USB OTG peripherals
 //!
 //! Requires the `usb_hs` feature.
+//!
+//! # Examples
+//!
+//! - [USB Serial Port](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
+//! - [USB Passthrough Examples](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_passthrough.rs)
 
 use crate::rcc;
 use crate::stm32;

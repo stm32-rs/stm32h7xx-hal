@@ -52,6 +52,11 @@
 //! - SPI4, SPI5: __APB__
 //! - SPI6: __PCLK4__
 //!
+//! # Examples
+//!
+//! - [Blocking SPI](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi.rs)
+//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs).
+//!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use crate::hal;

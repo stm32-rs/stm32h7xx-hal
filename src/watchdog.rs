@@ -1,4 +1,8 @@
 //! System Window Watchdog
+//!
+//! # Examples
+//!
+//! - [Example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/watchdog.rs)
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;

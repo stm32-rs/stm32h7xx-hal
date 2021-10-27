@@ -4,6 +4,10 @@
 //!
 //! The H7 has two SDMMC peripherals, `SDMMC1` and `SDMMC2`.
 //!
+//! # Examples
+//!
+//! - [SDMMC example applicatio](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
+//!
 //! ## IO Setup
 //!
 //! For high speed signalling (bus clock > 16MHz), the IO speed needs to be

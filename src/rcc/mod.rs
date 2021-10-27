@@ -44,9 +44,13 @@
 //! specifying that clock. If this results in a configuration that cannot
 //! be achieved by hardware, `freeze` will panic.
 //!
-//! # Configuration Example
+//! # Examples
 //!
-//! A simple example:
+//! - [Simple RCC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/rcc.rs).
+//! - [Fractional PLL configuration](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/fractional-pll.rs)
+//! - [MCO example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mco.rs)
+//!
+//! Simple example:
 //!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
