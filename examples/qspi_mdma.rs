@@ -13,7 +13,7 @@ mod utilities;
 use core::mem;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::{pac, prelude::*, qspi, qspi::QspiMode};
+use stm32h7xx_hal::{pac, prelude::*, xspi, xspi::QspiMode};
 
 use stm32h7xx_hal::dma::{
     mdma::{
@@ -57,7 +57,7 @@ fn main() -> ! {
     info!("stm32h7xx-hal example - QSPI with MDMA");
     info!("");
 
-    let config: qspi::Config = 1.mhz().into();
+    let config: xspi::Config = 1.mhz().into();
     // Threshold when half full
     let config = config.fifo_threshold(16);
 
