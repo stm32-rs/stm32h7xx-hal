@@ -56,7 +56,7 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing = ethernet::DesRing::new();
+static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
 /// Net storage with static initialisation - another global singleton
 pub struct NetStorageStatic<'a> {
@@ -74,13 +74,13 @@ static mut STORE: NetStorageStatic = NetStorageStatic {
 };
 
 pub struct Net<'a> {
-    iface: EthernetInterface<'a, ethernet::EthernetDMA<'a>>,
+    iface: EthernetInterface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
     sockets: SocketSet<'a>,
 }
 impl<'a> Net<'a> {
     pub fn new(
         store: &'static mut NetStorageStatic<'a>,
-        ethdev: ethernet::EthernetDMA<'a>,
+        ethdev: ethernet::EthernetDMA<'a, 4, 4>,
         ethernet_addr: EthernetAddress,
     ) -> Self {
         // Set IP address

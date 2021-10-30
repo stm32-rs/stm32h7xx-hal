@@ -28,7 +28,7 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing = ethernet::DesRing::new();
+static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
 // the program entry point
 #[entry]
