@@ -14,7 +14,7 @@ use crate::{
         },
         gpiog::{PG0, PG1, PG10, PG11, PG12, PG14, PG15, PG6, PG7, PG9},
         gpioh::{PH2, PH3},
-        Alternate, AF10, AF9,
+        Alternate, AF0, AF10, AF11, AF12, AF3, AF4, AF6, AF9,
     },
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
@@ -47,165 +47,177 @@ pub trait PinIo7<OSPI> {}
 // {
 // }
 
-// macro_rules! pins {
-//     (Bank1: [IO0: [$($IO0:ty),*] IO1: [$($IO1:ty),*] IO2: [$($IO2:ty),*] IO3: [$($IO3:ty),*]]) => {
-//         $(
-//             impl PinIo0Bank1 for $IO0 {}
-//         )*
-//         $(
-//             impl PinIo1Bank1 for $IO1 {}
-//         )*
-//         $(
-//             impl PinIo2Bank1 for $IO2 {}
-//         )*
-//         $(
-//             impl PinIo3Bank1 for $IO3 {}
-//         )*
-//     };
+macro_rules! pins {
+    (
+        $($BANK:ident:
+            CLK: [$($CLK:ty),*] NCLK: [$($NCLK:ty),*] DQS: [$($DQS:ty),*] NCS: [$($NCS:ty),*]
+                IO0: [$($IO0:ty),*] IO1: [$($IO1:ty),*] IO2: [$($IO2:ty),*] IO3: [$($IO3:ty),*]
+                IO4: [$($IO4:ty),*] IO5: [$($IO5:ty),*] IO6: [$($IO6:ty),*] IO7: [$($IO7:ty),*]
+        )*
+    ) => {
+        $(
+            $(
+                impl PinClk<stm32::$BANK> for $CLK {}
+            )*
+            $(
+                impl PinNclk<stm32::$BANK> for $NCLK {}
+            )*
+            $(
+                impl PinDQS<stm32::$BANK> for $DQS {}
+            )*
+            $(
+                impl PinNCS<stm32::$BANK> for $NCS {}
+            )*
+            $(
+                impl PinIo0<stm32::$BANK> for $IO0 {}
+            )*
+            $(
+                impl PinIo1<stm32::$BANK> for $IO1 {}
+            )*
+            $(
+                impl PinIo2<stm32::$BANK> for $IO2 {}
+            )*
+            $(
+                impl PinIo3<stm32::$BANK> for $IO3 {}
+            )*
+            $(
+                impl PinIo4<stm32::$BANK> for $IO4 {}
+            )*
+            $(
+                impl PinIo5<stm32::$BANK> for $IO5 {}
+            )*
+            $(
+                impl PinIo6<stm32::$BANK> for $IO6 {}
+            )*
+            $(
+                impl PinIo7<stm32::$BANK> for $IO7 {}
+            )*
+        )*
+    };
+}
 
-//     (Bank2: [IO0: [$($IO0:ty),*] IO1: [$($IO1:ty),*] IO2: [$($IO2:ty),*] IO3: [$($IO3:ty),*]]) => {
-//         $(
-//             impl PinIo0Bank2 for $IO0 {}
-//         )*
-//         $(
-//             impl PinIo1Bank2 for $IO1 {}
-//         )*
-//         $(
-//             impl PinIo2Bank2 for $IO2 {}
-//         )*
-//         $(
-//             impl PinIo3Bank2 for $IO3 {}
-//         )*
-//     };
-
-//     (SCK: [$($SCK:ty),*], Bank1: $bank1:tt, Bank2: $bank2:tt) => {
-//         $(
-//             impl PinSck for $SCK {}
-//         )*
-//         pins!(Bank1: $bank1);
-//         pins!(Bank2: $bank2);
-//     };
-// }
-
-// pins! {
-//     OCTOSPIM_P1:
-//         CLK: [
-//             PA3<Alternate<AF12>>,
-//             PB2<Alternate<AF9>>,
-//             PF10<Alternate<AF9>>
-//         ]
-//         NCLK: [
-//             PB12<Alternate<AF3>>,
-//             PF11<Alternate<AF9>>
-//         ]
-//         DQS: [
-//             PA1<Alternate<AF12>>,
-//             PB2<Alternate<AF10>>,
-//             PC5<Alternate<AF10>>
-//         ]
-//         NCS: [
-//             PB6<Alternate<AF10>>,
-//             PB10<Alternate<AF9>>,
-//             PC11<Alternate<AF9>>,
-//             PE11<Alternate<AF11>>,
-//             PG6<Alternate<AF10>>
-//         ]
-//         IO0: [
-//             PA2<Alternate<AF6>>,
-//             PB1<Alternate<AF4>>,
-//             PB12<Alternate<AF12>>,
-//             PC3<Alternate<AF9>>,
-//             PC3<Alternate<AF0>>,
-//             PC9<Alternate<AF9>>,
-//             PD11<Alternate<AF9>>,
-//             PF8<Alternate<AF10>>
-//         ]
-//         IO1: [
-//             PB0<Alternate<AF4>>,
-//             PC10<Alternate<AF9>>,
-//             PD12<Alternate<AF9>>,
-//             PF9<Alternate<AF10>>
-//         ]
-//         IO2: [
-//             PA3<Alternate<AF6>>,
-//             PA7<Alternate<AF10>>,
-//             PB13<Alternate<AF4>>,
-//             PC2<Alternate<AF9>>,
-//             PC2<Alternate<AF0>>,
-//             PE2<Alternate<AF9>>,
-//             PF7<Alternate<AF10>>
-//         ]
-//         IO3: [
-//             PA1<Alternate<AF9>>,
-//             PA6<Alternate<AF6>>,
-//             PD13<Alternate<AF9>>,
-//             PF6<Alternate<AF10>>
-//         ]
-//         IO4: [
-//             PC1<Alternate<AF10>>,
-//             PD4<Alternate<AF10>>,
-//             PE7<Alternate<AF10>>,
-//             PH2<Alternate<AF9>>
-//         ]
-//         IO5: [
-//             PC2<Alternate<AF4>>,
-//             PC2<Alternate<AF0>>,
-//             PD5<Alternate<AF10>>,
-//             PE8<Alternate<AF10>>,
-//             PH3<Alternate<AF9>>
-//         ]
-//         IO6: [
-//             PC3<Alternate<AF4>>,
-//             PC3<Alternate<AF0>>,
-//             PD6<Alternate<AF10>>,
-//             PE9<Alternate<AF10>>,
-//             PG9<Alternate<AF9>>
-//         ]
-//         IO7: [
-//             PD7<Alternate<AF10>>,
-//             PE10<Alternate<AF10>>,
-//             PG14<Alternate<AF9>>
-//         ]
-//     OCTOSPIM_P2:
-//         CLK: [
-//             PF4<Alternate<AF9>>
-//         ]
-//         NCLK: [
-//             PF5<Alternate<AF9>>
-//         ]
-//         DQS: [
-//             PF12<Alternate<AF9>>,
-//             PG7<Alternate<AF9>>,
-//             PG15<Alternate<AF9>>
-//         ]
-//         NCS: [
-//             PG12<Alternate<AF3>>
-//         ]
-//         IO0: [
-//             PF0<Alternate<AF9>>
-//         ]
-//         IO1: [
-//             PF1<Alternate<AF9>>
-//         ]
-//         IO2: [
-//             PF2<Alternate<AF9>>
-//         ]
-//         IO3: [
-//             PF3<Alternate<AF9>>
-//         ]
-//         IO4: [
-//             PG0<Alternate<AF9>>
-//         ]
-//         IO5: [
-//             PG1<Alternate<AF9>>
-//         ]
-//         IO6: [
-//             PG10<Alternate<AF3>>
-//         ]
-//         IO7: [
-//             PG11<Alternate<AF9>>
-//         ]
-// }
+#[cfg(any(feature = "rm0468"))] // TODO
+pins! {
+    OCTOSPI1:
+        CLK: [
+            PA3<Alternate<AF12>>,
+            PB2<Alternate<AF9>>,
+            PF10<Alternate<AF9>>
+        ]
+        NCLK: [
+            PB12<Alternate<AF3>>,
+            PF11<Alternate<AF9>>
+        ]
+        DQS: [
+            PA1<Alternate<AF12>>,
+            PB2<Alternate<AF10>>,
+            PC5<Alternate<AF10>>
+        ]
+        NCS: [
+            PB6<Alternate<AF10>>,
+            PB10<Alternate<AF9>>,
+            PC11<Alternate<AF9>>,
+            PE11<Alternate<AF11>>,
+            PG6<Alternate<AF10>>
+        ]
+        IO0: [
+            PA2<Alternate<AF6>>,
+            PB1<Alternate<AF4>>,
+            PB12<Alternate<AF12>>,
+            PC3<Alternate<AF9>>,
+            PC3<Alternate<AF0>>,
+            PC9<Alternate<AF9>>,
+            PD11<Alternate<AF9>>,
+            PF8<Alternate<AF10>>
+        ]
+        IO1: [
+            PB0<Alternate<AF4>>,
+            PC10<Alternate<AF9>>,
+            PD12<Alternate<AF9>>,
+            PF9<Alternate<AF10>>
+        ]
+        IO2: [
+            PA3<Alternate<AF6>>,
+            PA7<Alternate<AF10>>,
+            PB13<Alternate<AF4>>,
+            PC2<Alternate<AF9>>,
+            PC2<Alternate<AF0>>,
+            PE2<Alternate<AF9>>,
+            PF7<Alternate<AF10>>
+        ]
+        IO3: [
+            PA1<Alternate<AF9>>,
+            PA6<Alternate<AF6>>,
+            PD13<Alternate<AF9>>,
+            PF6<Alternate<AF10>>
+        ]
+        IO4: [
+            PC1<Alternate<AF10>>,
+            PD4<Alternate<AF10>>,
+            PE7<Alternate<AF10>>,
+            PH2<Alternate<AF9>>
+        ]
+        IO5: [
+            PC2<Alternate<AF4>>,
+            PC2<Alternate<AF0>>,
+            PD5<Alternate<AF10>>,
+            PE8<Alternate<AF10>>,
+            PH3<Alternate<AF9>>
+        ]
+        IO6: [
+            PC3<Alternate<AF4>>,
+            PC3<Alternate<AF0>>,
+            PD6<Alternate<AF10>>,
+            PE9<Alternate<AF10>>,
+            PG9<Alternate<AF9>>
+        ]
+        IO7: [
+            PD7<Alternate<AF10>>,
+            PE10<Alternate<AF10>>,
+            PG14<Alternate<AF9>>
+        ]
+}
+pins! {
+    OCTOSPI2:
+        CLK: [
+            PF4<Alternate<AF9>>
+        ]
+        NCLK: [
+            PF5<Alternate<AF9>>
+        ]
+        DQS: [
+            PF12<Alternate<AF9>>,
+            PG7<Alternate<AF9>>,
+            PG15<Alternate<AF9>>
+        ]
+        NCS: [
+            PG12<Alternate<AF3>>
+        ]
+        IO0: [
+            PF0<Alternate<AF9>>
+        ]
+        IO1: [
+            PF1<Alternate<AF9>>
+        ]
+        IO2: [
+            PF2<Alternate<AF9>>
+        ]
+        IO3: [
+            PF3<Alternate<AF9>>
+        ]
+        IO4: [
+            PG0<Alternate<AF9>>
+        ]
+        IO5: [
+            PG1<Alternate<AF9>>
+        ]
+        IO6: [
+            PG10<Alternate<AF3>>
+        ]
+        IO7: [
+            PG11<Alternate<AF9>>
+        ]
+}
 
 pub trait OctospiExt<OSPI>: Sized {
     /// The `ResetEnable` singleton for this peripheral
