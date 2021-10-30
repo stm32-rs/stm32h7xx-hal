@@ -440,9 +440,14 @@ pub trait SerialExt<USART>: Sized {
     }
 }
 
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
 macro_rules! usart {
     ($(
-        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident),
+        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident $(, $synchronous:ident)?),
     )+) => {
         $(
             /// Configures a USART peripheral to provide serial
@@ -452,8 +457,8 @@ macro_rules! usart {
                     usart: $USARTX,
                     config: impl Into<config::Config>,
                     prec: rec::$Rec,
-                    clocks: &CoreClocks,
-                    synchronous: bool
+                    clocks: &CoreClocks
+                    $(, $synchronous: bool)?
                 ) -> Result<Self, config::InvalidConfig>
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
@@ -504,28 +509,33 @@ macro_rules! usart {
                             BitOrder::MsbFirst => MSBFIRST_A::MSB,
                         });
 
-                        w.lbcl().variant(if config.lastbitclockpulse {
-                             LBCL_A::OUTPUT
-                        } else {
-                             LBCL_A::NOTOUTPUT
-                        });
+                        // If synchronous mode is not supported, these bits are
+                        // reserved and must be kept at reset value
+                        $(
+                            w.lbcl().variant(if config.lastbitclockpulse {
+                                LBCL_A::OUTPUT
+                            } else {
+                                LBCL_A::NOTOUTPUT
+                            });
 
-                        w.clken().variant(if synchronous {
-                            CLKEN_A::ENABLED
-                        } else {
-                            CLKEN_A::DISABLED
-                        });
+                            w.clken().variant(if $synchronous {
+                                CLKEN_A::ENABLED
+                            } else {
+                                CLKEN_A::DISABLED
+                            });
 
-                        w.cpol().variant(match config.clockpolarity {
-                            ClockPolarity::IdleHigh =>CPOL_A::HIGH,
-                            ClockPolarity::IdleLow =>CPOL_A::LOW
-                        });
+                            w.cpol().variant(match config.clockpolarity {
+                                ClockPolarity::IdleHigh =>CPOL_A::HIGH,
+                                ClockPolarity::IdleLow =>CPOL_A::LOW
+                            });
 
-                        w.cpha().variant(match config.clockphase {
-                            ClockPhase::First => CPHA_A::FIRST,
-                            ClockPhase::Second => CPHA_A::SECOND
-                        })
+                            w.cpha().variant(match config.clockphase {
+                                ClockPhase::First => CPHA_A::FIRST,
+                                ClockPhase::Second => CPHA_A::SECOND
+                            });
+                        )?
 
+                        w
                     });
 
                     // Enable transmission and receiving
@@ -675,17 +685,24 @@ macro_rules! usart {
                          clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks, P::SYNCHRONOUS)
+                    Serial::$usartX(
+                        self, config, prec, clocks
+                            $(, replace_expr!($synchronous P::SYNCHRONOUS))?
+                    )
                 }
 
                 fn serial_unchecked(self,
                                    config: impl Into<config::Config>,
                                    prec: rec::$Rec,
                                    clocks: &CoreClocks,
+                                   #[allow(unused)]
                                    synchronous: bool,
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks, synchronous)
+                    Serial::$usartX(
+                        self, config, prec, clocks
+                            $(, replace_expr!($synchronous synchronous))?
+                    )
                 }
             }
 
@@ -913,10 +930,10 @@ macro_rules! usart_sel {
 }
 
 usart! {
-    USART1: (usart1, Usart1, pclk2),
-    USART2: (usart2, Usart2, pclk1),
-    USART3: (usart3, Usart3, pclk1),
-    USART6: (usart6, Usart6, pclk2),
+    USART1: (usart1, Usart1, pclk2, synchronous),
+    USART2: (usart2, Usart2, pclk1, synchronous),
+    USART3: (usart3, Usart3, pclk1, synchronous),
+    USART6: (usart6, Usart6, pclk2, synchronous),
 
     UART4: (uart4, Uart4, pclk1),
     UART5: (uart5, Uart5, pclk1),
