@@ -9,37 +9,54 @@ use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};
 use crate::stm32;
 use crate::time::Hertz;
 
-use crate::stm32::{SAI1, SAI2};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::{SAI3, SAI4};
-
+use crate::stm32::SAI1;
 #[cfg(feature = "rm0455")]
+use crate::stm32::SAI2;
+#[cfg(feature = "rm0468")]
+use crate::stm32::SAI4;
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
+use crate::stm32::{SAI2, SAI3, SAI4};
+
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 use crate::device::sai1::ch::sr;
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 use crate::device::sai4::ch::sr;
 
-#[cfg(feature = "rm0455")]
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 type CH = stm32::sai1::CH;
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 type CH = stm32::sai4::CH;
 
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioa::{PA0, PA1, PA12, PA2};
 use crate::gpio::gpiob::PB2;
-use crate::gpio::gpioc::{PC0, PC1};
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::gpioc::PC0;
+use crate::gpio::gpioc::PC1;
 #[cfg(not(feature = "rm0455"))]
+use crate::gpio::gpiod::PD6;
+#[cfg(not(any(feature = "rm0455", feature = "rm0468")))]
 use crate::gpio::gpiod::{
-    PD0, PD1, PD10, PD11, PD12, PD13, PD14, PD15, PD4, PD6, PD8, PD9,
+    PD0, PD1, PD10, PD11, PD12, PD13, PD14, PD15, PD4, PD8, PD9,
 };
 #[cfg(feature = "rm0455")]
 use crate::gpio::gpiod::{PD11, PD12, PD13, PD6};
-use crate::gpio::gpioe::{
-    PE0, PE11, PE12, PE13, PE14, PE2, PE3, PE4, PE5, PE6,
-};
-use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
-use crate::gpio::gpiog::{PG10, PG7, PG9};
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::gpioe::{PE0, PE11, PE12, PE13, PE14};
+use crate::gpio::gpioe::{PE2, PE3, PE4, PE5, PE6};
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::gpiof::PF11;
+use crate::gpio::gpiof::{PF6, PF7, PF8, PF9};
+use crate::gpio::gpiog::PG7;
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::gpiog::{PG10, PG9};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioh::{PH2, PH3};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::{PI4, PI5, PI6, PI7};
-use crate::gpio::{Alternate, AF10, AF6, AF8};
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::AF10;
+use crate::gpio::{Alternate, AF6, AF8};
 
 use crate::traits::i2s::FullDuplex;
 // use embedded_hal::i2s::FullDuplex;
@@ -607,13 +624,21 @@ macro_rules! i2s {
 }
 
 i2s! {
-    SAI1, Sai1: [i2s_sai1_ch_a, i2s_sai1_ch_b],
-    SAI2, Sai2: [i2s_sai2_ch_a, i2s_sai2_ch_b]
+    SAI1, Sai1: [i2s_sai1_ch_a, i2s_sai1_ch_b]
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 i2s! {
+    SAI2, Sai2: [i2s_sai2_ch_a, i2s_sai2_ch_b],
     SAI3, Sai3: [i2s_sai3_ch_a, i2s_sai3_ch_b],
     SAI4, Sai4: [i2s_sai4_ch_a, i2s_sai4_ch_b]
+}
+#[cfg(feature = "rm0455")]
+i2s! {
+    SAI2, Sai2: [i2s_sai2_ch_a, i2s_sai2_ch_b]
+}
+#[cfg(feature = "rm0468")]
+i2s! {
+    SAI4, Sai4: [i4s_sai4_ch_a, i4s_sai4_ch_b]
 }
 
 fn i2s_config_channel(
@@ -828,6 +853,9 @@ pins! {
             PE3<Alternate<AF6>>,
             PF6<Alternate<AF6>>
         ]
+}
+#[cfg(any(feature = "rm0433", feature = "rm0399", feature = "rm0455"))]
+pins! {
     SAI2:
         MCLK_A: [
             PE0<Alternate<AF10>>,
@@ -869,7 +897,7 @@ pins! {
             PG10<Alternate<AF10>>
         ]
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pins! {
     SAI3:
         MCLK_A: [
@@ -896,6 +924,9 @@ pins! {
         SD_B: [
             PD9<Alternate<AF6>>
         ]
+}
+#[cfg(any(feature = "rm0433", feature = "rm0399", feature = "rm0468"))]
+pins! {
     SAI4:
         MCLK_A: [
             PE2<Alternate<AF8>>

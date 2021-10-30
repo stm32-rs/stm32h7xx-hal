@@ -14,6 +14,8 @@ use cast::u8;
 use crate::stm32::WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm7"))]
 use crate::stm32::WWDG1 as WWDG;
+#[cfg(feature = "rm0468")]
+use crate::stm32::WWDG1 as WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm4"))]
 use crate::stm32::WWDG2 as WWDG;
 

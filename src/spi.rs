@@ -89,6 +89,7 @@ use crate::gpio::gpioe::{PE11, PE12, PE13, PE14, PE2, PE4, PE5, PE6};
 use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
 use crate::gpio::gpiog::{PG10, PG11, PG12, PG13, PG14, PG8, PG9};
 use crate::gpio::gpioh::{PH5, PH6, PH7};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ10, PJ11};
@@ -366,12 +367,14 @@ pins! {
             PB10<Alternate<AF5>>,
             PB13<Alternate<AF5>>,
             PD3<Alternate<AF5>>,
+            #[cfg(not(feature = "rm0468"))]
             PI1<Alternate<AF5>>
         ]
         MISO: [
             NoMiso,
             PB14<Alternate<AF5>>,
             PC2<Alternate<AF5>>,
+            #[cfg(not(feature = "rm0468"))]
             PI2<Alternate<AF5>>
         ]
         MOSI: [
@@ -379,6 +382,7 @@ pins! {
             PB15<Alternate<AF5>>,
             PC1<Alternate<AF5>>,
             PC3<Alternate<AF5>>,
+            #[cfg(not(feature = "rm0468"))]
             PI3<Alternate<AF5>>
         ]
         HCS: [
@@ -386,6 +390,7 @@ pins! {
             PB4<Alternate<AF7>>,
             PB9<Alternate<AF5>>,
             PB12<Alternate<AF5>>,
+            #[cfg(not(feature = "rm0468"))]
             PI0<Alternate<AF5>>
         ]
     SPI3:

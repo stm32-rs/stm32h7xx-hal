@@ -53,10 +53,16 @@
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
-#[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+#[cfg(all(
+    feature = "revision_v",
+    any(feature = "rm0433", feature = "rm0399")
+))]
 use crate::stm32::{RCC, SYSCFG};
 
-#[cfg(all(feature = "rm0433", feature = "smps"))]
+#[cfg(all(
+    feature = "rm0433",
+    any(feature = "smps", feature = "example-smps")
+))]
 compile_error!("SMPS configuration fields are not available for RM0433 parts");
 
 /// Extension trait that constrains the `PWR` peripheral
@@ -70,7 +76,10 @@ impl PwrExt for PWR {
             rb: self,
             #[cfg(any(feature = "smps"))]
             supply_configuration: SupplyConfiguration::Default,
-            #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+            #[cfg(all(
+                feature = "revision_v",
+                any(feature = "rm0433", feature = "rm0399")
+            ))]
             enable_vos0: false,
         }
     }
@@ -83,7 +92,10 @@ pub struct Pwr {
     pub(crate) rb: PWR,
     #[cfg(any(feature = "smps"))]
     supply_configuration: SupplyConfiguration,
-    #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
     enable_vos0: bool,
 }
 
@@ -252,7 +264,7 @@ impl Pwr {
         d3cr!(self.rb).write(|w| unsafe {
             // Manually set field values for each family
             w.vos().bits(
-                #[cfg(not(feature = "rm0455"))]
+                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
                 match new_scale {
                     // RM0433 Rev 7 6.8.6
                     VoltageScale::Scale3 => 0b01,
@@ -267,6 +279,14 @@ impl Pwr {
                     VoltageScale::Scale2 => 0b01,
                     VoltageScale::Scale1 => 0b10,
                     VoltageScale::Scale0 => 0b11,
+                },
+                #[cfg(feature = "rm0468")]
+                match new_scale {
+                    // RM0468 Rev 2 6.8.6
+                    VoltageScale::Scale0 => 0b00,
+                    VoltageScale::Scale3 => 0b01,
+                    VoltageScale::Scale2 => 0b10,
+                    VoltageScale::Scale1 => 0b11,
                 },
             )
         });
@@ -303,7 +323,10 @@ impl Pwr {
                          the system low-power mode",
     }
 
-    #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
         self.enable_vos0 = true;
         self
@@ -373,7 +396,10 @@ impl Pwr {
 
         // Enable overdrive for maximum clock
         // Syscfgen required to set enable overdrive
-        #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+        #[cfg(all(
+            feature = "revision_v",
+            any(feature = "rm0433", feature = "rm0399")
+        ))]
         if self.enable_vos0 {
             unsafe {
                 &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())

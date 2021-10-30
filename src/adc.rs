@@ -43,9 +43,9 @@ const ADC_KER_CK_MAX: u32 = 36_000_000;
 #[cfg(feature = "revision_v")]
 const ADC_KER_CK_MAX: u32 = 100_000_000;
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
-#[cfg(feature = "rm0455")]
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub type Resolution = crate::stm32::adc1::cfgr::RES_A;
 
 trait NumberOfBits {

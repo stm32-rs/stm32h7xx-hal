@@ -8,7 +8,7 @@ extern crate rtic;
 use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 
 use rtic::app;
-use stm32h7xx_hal::gpio::{gpioc::PC13, gpioi::PI13};
+use stm32h7xx_hal::gpio::gpioc::{PC13, PC3};
 use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
 use stm32h7xx_hal::gpio::{Output, PushPull};
 use stm32h7xx_hal::prelude::*;
@@ -23,7 +23,7 @@ use panic_halt as _;
 const APP: () = {
     struct Resources {
         button: PC13<Input<Floating>>,
-        led: PI13<Output<PushPull>>,
+        led: PC3<Output<PushPull>>,
     }
 
     #[init]
@@ -37,7 +37,6 @@ const APP: () = {
 
         // GPIO
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
-        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
 
         // Button
         let mut button = gpioc.pc13.into_floating_input();
@@ -47,7 +46,7 @@ const APP: () = {
 
         init::LateResources {
             button,
-            led: gpioi.pi13.into_push_pull_output(),
+            led: gpioc.pc3.into_push_pull_output(),
         }
     }
 
