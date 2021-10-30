@@ -25,6 +25,10 @@
 //!
 //! `sdram` usage is described
 //! [here](https://github.com/stm32-rs/stm32-fmc#usage).
+//!
+//! # Examples
+//!
+//! - [FMC example using the IS42S32800G SDRAM](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/fmc.rs)
 
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
@@ -57,6 +61,7 @@ use crate::gpio::gpiog::{
 use crate::gpio::gpioh::{
     PH10, PH11, PH12, PH13, PH14, PH15, PH2, PH3, PH5, PH6, PH7, PH8, PH9,
 };
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::{PI0, PI1, PI10, PI2, PI3, PI4, PI5, PI6, PI7, PI9};
 use crate::gpio::{Alternate, AF12, AF9};
 
@@ -145,9 +150,10 @@ unsafe impl FmcPeripheral for FMC {
 }
 
 macro_rules! pins {
-    (FMC: $($pin:ident: [$($inst:ty),*])+) => {
+    (FMC: $($pin:ident: [$( $( #[ $pmeta:meta ] )* $inst:ty),*])+) => {
         $(
             $(
+                $( #[ $pmeta ] )*
                 impl stm32_fmc::$pin for $inst {}
             )*
         )+
@@ -212,14 +218,14 @@ pins! {
         D21: [ PH13<Alternate<AF12>> ]
         D22: [ PH14<Alternate<AF12>> ]
         D23: [ PH15<Alternate<AF12>> ]
-        D24: [ PI0<Alternate<AF12>> ]
-        D25: [ PI1<Alternate<AF12>> ]
-        D26: [ PI2<Alternate<AF12>> ]
-        D27: [ PI3<Alternate<AF12>> ]
-        D28: [ PI6<Alternate<AF12>> ]
-        D29: [ PI7<Alternate<AF12>> ]
-        D30: [ PI9<Alternate<AF12>> ]
-        D31: [ PI10<Alternate<AF12>> ]
+        D24: [ #[cfg(not(feature = "rm0468"))] PI0<Alternate<AF12>> ]
+        D25: [ #[cfg(not(feature = "rm0468"))] PI1<Alternate<AF12>> ]
+        D26: [ #[cfg(not(feature = "rm0468"))] PI2<Alternate<AF12>> ]
+        D27: [ #[cfg(not(feature = "rm0468"))] PI3<Alternate<AF12>> ]
+        D28: [ #[cfg(not(feature = "rm0468"))] PI6<Alternate<AF12>> ]
+        D29: [ #[cfg(not(feature = "rm0468"))] PI7<Alternate<AF12>> ]
+        D30: [ #[cfg(not(feature = "rm0468"))] PI9<Alternate<AF12>> ]
+        D31: [ #[cfg(not(feature = "rm0468"))] PI10<Alternate<AF12>> ]
 
         DA0: [ PD14<Alternate<AF12>> ]
         DA1: [ PD15<Alternate<AF12>> ]
@@ -242,8 +248,8 @@ pins! {
 
         NBL0: [ PE0<Alternate<AF12>> ]
         NBL1: [ PE1<Alternate<AF12>> ]
-        NBL2: [ PI4<Alternate<AF12>> ]
-        NBL3: [ PI5<Alternate<AF12>> ]
+        NBL2: [ #[cfg(not(feature = "rm0468"))] PI4<Alternate<AF12>> ]
+        NBL3: [ #[cfg(not(feature = "rm0468"))] PI5<Alternate<AF12>> ]
 
         // NAND
         NCE: [

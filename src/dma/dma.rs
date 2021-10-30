@@ -936,10 +936,13 @@ peripheral_target_address!(
 peripheral_target_address!(
     (pac::SAI1, cha.dr, u32, M2P, DMAReq::SAI1A_DMA),
     (pac::SAI1, chb.dr, u32, P2M, DMAReq::SAI1B_DMA),
+);
+#[cfg(not(feature = "rm0468"))]
+peripheral_target_address!(
     (pac::SAI2, cha.dr, u32, M2P, DMAReq::SAI2A_DMA),
     (pac::SAI2, chb.dr, u32, P2M, DMAReq::SAI2B_DMA),
 );
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 peripheral_target_address!(
     (pac::SAI3, cha.dr, u32, M2P, DMAReq::SAI3_A_DMA),
     (pac::SAI3, chb.dr, u32, P2M, DMAReq::SAI3_B_DMA),

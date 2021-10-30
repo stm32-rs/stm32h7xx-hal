@@ -13,6 +13,10 @@
 * Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
 * pac: Upgrade to stm32-rs v0.14.0
 
+* ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
+  constants to specify how many transmit / receive buffers to include in
+  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>`
+
 ## [v0.10.0] 2021-07-xx
 
 * **Breaking**: Don't reset peripheral in DMA1/2 `StreamsTuple::new()` method #229

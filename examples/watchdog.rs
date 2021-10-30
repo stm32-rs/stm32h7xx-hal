@@ -33,6 +33,10 @@ fn main() -> ! {
     #[cfg(all(feature = "rm0399", feature = "cm4"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG2, &ccdr);
 
+    // RM0468
+    #[cfg(all(feature = "rm0468"))]
+    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
+
     info!("");
     info!("stm32h7xx-hal example - Watchdog");
     info!("");

@@ -2,6 +2,13 @@
 //!
 //! ADC1 and ADC2 share a reset line. To initialise both of them, use the
 //! [`adc12`](adc12) method.
+//!
+//! # Examples
+//!
+//! - [Reading a voltage using ADC1](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc.rs)
+//! - [Reading a temperature using ADC3](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/temperature.rs)
+//! - [Using ADC1 and ADC2 together](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12.rs)
+//! - [Using ADC1 and ADC2 in parallel](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12_parallel.rs)
 
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
@@ -36,9 +43,9 @@ const ADC_KER_CK_MAX: u32 = 36_000_000;
 #[cfg(feature = "revision_v")]
 const ADC_KER_CK_MAX: u32 = 100_000_000;
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
-#[cfg(feature = "rm0455")]
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub type Resolution = crate::stm32::adc1::cfgr::RES_A;
 
 trait NumberOfBits {

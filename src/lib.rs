@@ -1,4 +1,4 @@
-//! *See the examples folder for more usage examples*
+//! *See the [examples](https://github.com/stm32-rs/stm32h7xx-hal/tree/master/examples) folder for more usage examples*
 //!
 //! This Hardware Abstraction Layer (HAL) provides the following functionality:
 //!
@@ -115,6 +115,14 @@ pub use stm32h7::stm32h757cm7 as stm32;
 ))]
 pub use stm32h7::stm32h7b3 as stm32;
 
+// High Speed
+#[cfg(any(
+    feature = "stm32h725",
+    feature = "stm32h735",
+    feature = "stm32h730",
+))]
+pub use stm32h7::stm32h735 as stm32;
+
 #[cfg(all(feature = "rm0433", feature = "rm0399"))]
 compile_error!("Cannot not select both rm0433 and rm0399");
 
@@ -169,7 +177,7 @@ pub mod qei;
 #[cfg(all(
     feature = "device-selected",
     feature = "quadspi",
-    not(feature = "rm0455")
+    not(any(feature = "rm0455", feature = "rm0468"))
 ))]
 pub mod qspi;
 #[cfg(feature = "device-selected")]

@@ -60,4 +60,4 @@ SECTIONS {
     *(.sram4 .sram4.*);
     . = ALIGN(4);
     } > SRAM4
-} INSERT AFTER .bss;
+};

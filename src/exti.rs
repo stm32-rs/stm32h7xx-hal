@@ -1,4 +1,8 @@
 //! External interrupt controller
+//!
+//! # Examples
+//!
+//! - [External Interrupt via Button](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/exti_interrupt.rs)
 use crate::stm32::EXTI;
 
 /// EXTI trigger event
@@ -91,7 +95,7 @@ pub enum Event {
 }
 
 /// Return an EXTI register for the current CPU
-#[cfg(any(feature = "rm0433", feature = "rm0455"))]
+#[cfg(not(feature = "rm0399"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
         $self.cpuimr1

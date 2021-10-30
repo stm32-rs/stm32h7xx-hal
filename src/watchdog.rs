@@ -1,4 +1,8 @@
 //! System Window Watchdog
+//!
+//! # Examples
+//!
+//! - [Example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/watchdog.rs)
 
 use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
@@ -9,6 +13,8 @@ use cast::u8;
 #[cfg(any(feature = "rm0433", feature = "rm0455"))]
 use crate::stm32::WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm7"))]
+use crate::stm32::WWDG1 as WWDG;
+#[cfg(feature = "rm0468")]
 use crate::stm32::WWDG1 as WWDG;
 #[cfg(all(feature = "rm0399", feature = "cm4"))]
 use crate::stm32::WWDG2 as WWDG;

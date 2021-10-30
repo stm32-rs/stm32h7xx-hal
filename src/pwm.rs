@@ -6,6 +6,11 @@
 //!
 //! Timers support up to 4 simultaneous PWM output channels
 //!
+//! ## Examples
+//!
+//! - [Simple example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm.rs)
+//! - [Advanced example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm_advanced.rs)
+//!
 //! ## Usage
 //!
 //! ```rust
@@ -198,9 +203,13 @@ use crate::gpio::gpioe::{
 use crate::gpio::gpiof::{PF10, PF6, PF7, PF8, PF9};
 use crate::gpio::gpiog::{PG13, PG2, PG3, PG4, PG6};
 use crate::gpio::gpioh::{PH10, PH11, PH12, PH13, PH14, PH15, PH6, PH9};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::{PI0, PI1, PI2, PI4, PI5, PI6, PI7};
+#[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
+use crate::gpio::gpioj::PJ6;
 #[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpioj::{PJ10, PJ11, PJ6, PJ7, PJ8, PJ9};
+use crate::gpio::gpioj::{PJ10, PJ11, PJ7, PJ8, PJ9};
+
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1, PK2};
 
@@ -796,6 +805,7 @@ pins! {
         ]
         CH4(ComplementaryImpossible): [
             PA3<Alternate<AF2>>,
+            #[cfg(not(feature = "rm0468"))]
             PI0<Alternate<AF2>>
         ]
         CH1N: []
@@ -807,26 +817,30 @@ pins! {
     TIM8:
         CH1(ComplementaryDisabled): [
             PC6<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI5<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF3>>
         ]
         CH2(ComplementaryDisabled): [
             PC7<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI6<Alternate<AF3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
+            #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
             PJ6<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PJ10<Alternate<AF3>>
         ]
         CH3(ComplementaryDisabled): [
             PC8<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI7<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PK0<Alternate<AF3>>
         ]
         CH4(ComplementaryImpossible): [
             PC9<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI2<Alternate<AF3>>
         ]
         CH1N: [
@@ -856,6 +870,7 @@ pins! {
         BRK: [
             PA6<Alternate<AF3>>,
             PG2<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI4<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PK2<Alternate<AF3>>
@@ -863,6 +878,7 @@ pins! {
         BRK2: [
             PA8<Alternate<AF3>>,
             PG3<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI1<Alternate<AF3>>
         ]
 }

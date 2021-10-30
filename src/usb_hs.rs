@@ -1,6 +1,11 @@
 //! USB OTG peripherals
 //!
 //! Requires the `usb_hs` feature.
+//!
+//! # Examples
+//!
+//! - [USB Serial Port](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
+//! - [USB Passthrough Examples](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_passthrough.rs)
 
 use crate::rcc;
 use crate::stm32;
@@ -10,11 +15,13 @@ use crate::gpio::{
     gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5},
     gpioc::{PC0, PC2, PC3},
     gpioh::PH4,
-    gpioi::PI11,
     Alternate, AF10,
 };
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(not(feature = "rm0468"))]
+use crate::gpio::gpioi::PI11;
+
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 use crate::gpio::{
     gpiob::{PB14, PB15},
     AF12,
@@ -33,7 +40,7 @@ pub struct USB1 {
     pub hclk: Hertz,
 }
 impl USB1 {
-    #[cfg(not(feature = "rm0455"))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
@@ -45,7 +52,7 @@ impl USB1 {
     ) -> Self {
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
-    #[cfg(feature = "rm0455")]
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
@@ -74,7 +81,7 @@ impl USB1 {
     }
 }
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub struct USB2 {
     pub usb_global: stm32::OTG2_HS_GLOBAL,
     pub usb_device: stm32::OTG2_HS_DEVICE,
@@ -82,7 +89,7 @@ pub struct USB2 {
     pub prec: rcc::rec::Usb2Otg,
     pub hclk: Hertz,
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 impl USB2 {
     pub fn new(
         usb_global: stm32::OTG2_HS_GLOBAL,
@@ -156,11 +163,11 @@ usb_peripheral! {
 }
 pub type Usb1BusType = UsbBus<USB1>;
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 usb_peripheral! {
     USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub type Usb2BusType = UsbBus<USB2>;
 
 pub struct USB1_ULPI {
@@ -173,9 +180,11 @@ pub struct USB1_ULPI {
 
 pub enum Usb1UlpiDirPin {
     PC2(PC2<Alternate<AF10>>),
+    #[cfg(not(feature = "rm0468"))]
     PI11(PI11<Alternate<AF10>>),
 }
 
+#[cfg(not(feature = "rm0468"))]
 impl From<PI11<Alternate<AF10>>> for Usb1UlpiDirPin {
     fn from(v: PI11<Alternate<AF10>>) -> Self {
         Usb1UlpiDirPin::PI11(v)

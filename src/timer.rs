@@ -1,4 +1,9 @@
 //! Timers
+//!
+//! # Examples
+//!
+//! - [Blinky using a Timer](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky_timer.rs)
+//! - [64 bit microsecond timer](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/tick_timer.rs)
 
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.

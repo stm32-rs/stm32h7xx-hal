@@ -6,7 +6,7 @@
 mod utilities;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::rcc::{rec, rec::I2c123ClkSel, ResetEnable};
+use stm32h7xx_hal::rcc::{rec, rec::Spi123ClkSel, ResetEnable};
 use stm32h7xx_hal::{pac, prelude::*};
 
 fn enable_fdcan(rec: rec::Fdcan) {
@@ -34,8 +34,8 @@ fn main() -> ! {
         .pll3_r_ck(4.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
-    // Set group kernel clock to PLL3 R CK. Needs mutable ccdr
-    ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::PLL3_R);
+    // Set group kernel clock to PLL3 P CK. Needs mutable ccdr
+    ccdr.peripheral.kernel_spi123_clk_mux(Spi123ClkSel::PLL3_P);
 
     // (now ccdr can be immutable)
 
