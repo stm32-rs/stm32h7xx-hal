@@ -72,14 +72,12 @@ pub mod config {
         DataBits8,
         DataBits9,
     }
-
     #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
         ParityEven,
         ParityOdd,
     }
-
     #[derive(Copy, Clone, PartialEq)]
     pub enum StopBits {
         #[doc = "1 stop bit"]
@@ -91,34 +89,60 @@ pub mod config {
         #[doc = "1.5 stop bits"]
         STOP1P5,
     }
-
+    #[derive(Copy, Clone, PartialEq)]
     pub enum BitOrder {
         LsbFirst,
         MsbFirst,
     }
-
+    #[derive(Copy, Clone, PartialEq)]
     pub enum ClockPhase {
         First,
         Second,
     }
-
+    #[derive(Copy, Clone, PartialEq)]
     pub enum ClockPolarity {
         IdleHigh,
         IdleLow,
     }
 
+    /// A structure for specifying the USART or UART configuration. Fields
+    /// relating to synchronous mode are ignored for UART peripherals.
+    ///
+    /// This structure uses builder semantics to generate the configuration.
+    ///
+    /// ```
+    /// let config = Config::new().partity_odd();
+    /// ```
+    #[derive(Copy, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
-        pub clockphase: ClockPhase,
         pub bitorder: BitOrder,
+        pub clockphase: ClockPhase,
         pub clockpolarity: ClockPolarity,
         pub lastbitclockpulse: bool,
     }
 
     impl Config {
+        /// Create a default configuration for the USART or UART interface
+        ///
+        /// * 8 bits, 1 stop bit, no parity (8N1)
+        /// * LSB first
+        pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
+            Config {
+                baudrate: frequency.into(),
+                wordlength: WordLength::DataBits8,
+                parity: Parity::ParityNone,
+                stopbits: StopBits::STOP1,
+                bitorder: BitOrder::LsbFirst,
+                clockphase: ClockPhase::First,
+                clockpolarity: ClockPolarity::IdleLow,
+                lastbitclockpulse: false,
+            }
+        }
+
         pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
             self.baudrate = baudrate.into();
             self
@@ -149,8 +173,30 @@ pub mod config {
             self
         }
 
+        /// Specify the number of stop bits
         pub fn stopbits(mut self, stopbits: StopBits) -> Self {
             self.stopbits = stopbits;
+            self
+        }
+        /// Specify the bit order
+        pub fn bitorder(mut self, bitorder: BitOrder) -> Self {
+            self.bitorder = bitorder;
+            self
+        }
+        /// Specify the clock phase. Only applies to USART peripherals
+        pub fn clockphase(mut self, clockphase: ClockPhase) -> Self {
+            self.clockphase = clockphase;
+            self
+        }
+        /// Specify the clock polarity. Only applies to USART peripherals
+        pub fn clockpolarity(mut self, clockpolarity: ClockPolarity) -> Self {
+            self.clockpolarity = clockpolarity;
+            self
+        }
+        /// Specify if the last bit transmitted in each word has a corresponding
+        /// clock pulse in the SCLK pin. Only applies to USART peripherals
+        pub fn lastbitclockpulse(mut self, lastbitclockpulse: bool) -> Self {
+            self.lastbitclockpulse = lastbitclockpulse;
             self
         }
     }
@@ -160,25 +206,13 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            Config {
-                baudrate: Hertz(19_200), // 19k2 baud
-                wordlength: WordLength::DataBits8,
-                parity: Parity::ParityNone,
-                stopbits: StopBits::STOP1,
-                clockphase: ClockPhase::First,
-                bitorder: BitOrder::LsbFirst,
-                clockpolarity: ClockPolarity::IdleLow,
-                lastbitclockpulse: false,
-            }
+            Self::new(Hertz(19_200)) // 19k2 baud
         }
     }
 
     impl<T: Into<Hertz>> From<T> for Config {
-        fn from(f: T) -> Config {
-            Config {
-                baudrate: f.into(),
-                ..Default::default()
-            }
+        fn from(frequency: T) -> Config {
+            Self::new(frequency)
         }
     }
 }
