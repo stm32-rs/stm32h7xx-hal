@@ -1142,6 +1142,54 @@ macro_rules! sdmmc {
                     Ok(())
                 }
 
+                #[cfg(feature = "sdmmc-fatfs")]
+                pub fn sdmmc_block_device(self) -> SdmmcBlockDevice<Sdmmc<$SDMMCX>> {
+                    SdmmcBlockDevice {
+                        sdmmc: core::cell::RefCell::new(self)
+                    }
+                }
+
+            }
+
+            #[cfg(feature = "sdmmc-fatfs")]
+            impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<$SDMMCX>> {
+                type Error = Error;
+
+                fn read(
+                    &self,
+                    blocks: &mut [embedded_sdmmc::Block],
+                    start_block_idx: embedded_sdmmc::BlockIdx,
+                    _reason: &str,
+                ) -> Result<(), Self::Error> {
+                    let start = start_block_idx.0;
+                    let mut sdmmc = self.sdmmc.borrow_mut();
+                    for block_idx in start..(start + blocks.len() as u32) {
+                        sdmmc.read_block(
+                            block_idx,
+                            &mut blocks[(block_idx - start) as usize].contents,
+                        )?;
+                    }
+                    Ok(())
+                }
+
+                fn write(
+                    &self,
+                    blocks: &[embedded_sdmmc::Block],
+                    start_block_idx: embedded_sdmmc::BlockIdx,
+                ) -> Result<(), Self::Error> {
+                    let start = start_block_idx.0;
+                    let mut sdmmc = self.sdmmc.borrow_mut();
+                    for block_idx in start..(start + blocks.len() as u32) {
+                        sdmmc.write_block(block_idx, &blocks[(block_idx - start) as usize].contents)?;
+                    }
+                    Ok(())
+                }
+
+                fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
+                    let sdmmc = self.sdmmc.borrow_mut();
+                    Ok(embedded_sdmmc::BlockCount(sdmmc.card()?.size() as u32 / 512u32))
+                }
+
             }
         )+
     };
@@ -1236,5 +1284,17 @@ impl Cmd {
     /// App Command. Indicates that next command will be a app command
     const fn app_cmd(rca: u32) -> Cmd {
         Cmd::new(55, rca, Response::Short)
+    }
+}
+
+#[cfg(feature = "sdmmc-fatfs")]
+pub struct SdmmcBlockDevice<SDMMC> {
+    sdmmc: core::cell::RefCell<SDMMC>,
+}
+
+#[cfg(feature = "sdmmc-fatfs")]
+impl<SDMMC> SdmmcBlockDevice<SDMMC> {
+    pub fn free(self) -> SDMMC {
+        self.sdmmc.into_inner()
     }
 }

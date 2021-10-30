@@ -30,11 +30,12 @@ embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
 stm32h7 = "^0.14.0"
 void = { version = "1.0.2", default-features = false }
-cast = { version = "0.2.3", default-features = false }
+cast = { version = "0.3.0", default-features = false }
 nb = "1.0.0"
 paste = "1.0.1"
 bare-metal = "1.0.0"
-sdio-host = { version = "0.4", optional = true }
+sdio-host = { version = "0.5", optional = true }
+embedded-sdmmc = { version = "0.3", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
 synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
@@ -88,6 +89,7 @@ ltdc = ["embedded-display-controller"]
 quadspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
+sdmmc-fatfs = ["embedded-sdmmc", "sdmmc"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
 crc = []
@@ -152,6 +154,10 @@ required-features = ["quadspi", "rm0433"]
 [[example]]
 name = "sdmmc"
 required-features = ["sdmmc", "rm0433"]
+
+[[example]]
+name = "sdmmc_fat"
+required-features = ["sdmmc", "sdmmc-fatfs", "stm32h747cm7"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
