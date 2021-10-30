@@ -30,6 +30,8 @@ use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
 
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use crate::stm32::{UART4, UART5, UART7, UART8};
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+use crate::stm32::{UART9, USART10};
 use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::time::Hertz;
 
@@ -404,6 +406,25 @@ usart_pins! {
             gpio::PG7<Alternate<7>>
         ]
 }
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+usart_pins! {
+        USART10:
+        TX: [
+            NoTx,
+            gpio::PE3<Alternate<11>>,
+            gpio::PG12<Alternate<4>>
+        ]
+        RX: [
+            NoRx,
+            gpio::PE2<Alternate<4>>,
+            gpio::PG11<Alternate<4>>
+        ]
+        CK: [
+            NoCk,
+            gpio::PE15<Alternate<11>>,
+            gpio::PG15<Alternate<11>>
+        ]
+}
 uart_pins! {
     UART4:
         TX: [
@@ -466,6 +487,20 @@ uart_pins! {
             gpio::PE0<Alternate<8>>,
             #[cfg(not(feature = "stm32h7b0"))]
             gpio::PJ9<Alternate<8>>
+        ]
+}
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+uart_pins! {
+    UART9:
+        TX: [
+            NoTx,
+            gpio::PD15<Alternate<11>>,
+            gpio::PG1<Alternate<11>>
+        ]
+        RX: [
+            NoRx,
+            gpio::PD14<Alternate<11>>,
+            gpio::PG0<Alternate<11>>
         ]
 }
 
@@ -1171,6 +1206,11 @@ usart! {
     UART7: (uart7, Uart7, pclk1),
     UART8: (uart8, Uart8, pclk1),
 }
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+usart! {
+    UART9: (uart9, Uart9, pclk2),
+    USART10: (usart10, Usart10, pclk2, synchronous),
+}
 
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 usart_sel! {
@@ -1185,6 +1225,9 @@ usart_sel! {
 
     USART1: "USART1",
     USART6: "USART6",
+    USART10: "USART10",
+
+    UART9: "UART9",
 }
 #[cfg(feature = "rm0468")]
 usart_sel! {
@@ -1192,6 +1235,9 @@ usart_sel! {
 
     USART1: "USART1",
     USART6: "USART6",
+    USART10: "USART10",
+
+    UART9: "UART9",
 }
 
 #[cfg(not(feature = "rm0455"))]

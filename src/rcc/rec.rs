@@ -686,12 +686,16 @@ peripheral_reset_and_enable_control! {
         Spi5 [group clk: Spi45],
 
         Usart1 [group clk: Usart16910(Variant) cdccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
     #[cfg(feature = "rm0468")]
     APB2, "" => [
         Usart1 [group clk: Usart16910(Variant) d2ccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
 
 
