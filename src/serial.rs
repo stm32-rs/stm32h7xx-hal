@@ -411,6 +411,7 @@ pub trait SerialExt<USART>: Sized {
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
+        synchronous: bool,
     ) -> Result<Serial<USART>, config::InvalidConfig>;
 
     #[deprecated(since = "0.7.0", note = "Deprecated in favour of .serial(..)")]
@@ -433,8 +434,9 @@ pub trait SerialExt<USART>: Sized {
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
+        synchronous: bool,
     ) -> Result<Serial<USART>, config::InvalidConfig> {
-        self.serial_unchecked(config, prec, clocks)
+        self.serial_unchecked(config, prec, clocks, synchronous)
     }
 }
 
@@ -679,10 +681,11 @@ macro_rules! usart {
                 fn serial_unchecked(self,
                                    config: impl Into<config::Config>,
                                    prec: rec::$Rec,
-                                   clocks: &CoreClocks
+                                   clocks: &CoreClocks,
+                                   synchronous: bool,
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks, false)
+                    Serial::$usartX(self, config, prec, clocks, synchronous)
                 }
             }
 
