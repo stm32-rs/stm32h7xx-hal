@@ -771,11 +771,11 @@ macro_rules! gpio {
                 for $PXi<Output<OpenDrain>>
                 {
                     type Error = Never;
-                    fn into_input_pin(self) -> Result<Self, Self::Error> {
+                    fn into_input_pin(self) -> Result<Self, Never> {
                         Ok(self)
                     }
-                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
-                        self.set_state(state)?;
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Never> {
+                        self.set_state(state).unwrap(); // Infallible
                         Ok(self)
                     }
                 }
@@ -784,11 +784,11 @@ macro_rules! gpio {
                     for $PXi<Output<PushPull>>
                 {
                     type Error = Never;
-                    fn into_input_pin(self) -> Result<$PXi<Input<Floating>>, Self::Error> {
+                    fn into_input_pin(self) -> Result<$PXi<Input<Floating>>, Never> {
                         Ok(self.into_floating_input())
                     }
-                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
-                        self.set_state(state)?;
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Never> {
+                        self.set_state(state).unwrap(); // Infallible
                         Ok(self)
                     }
                 }
@@ -797,12 +797,12 @@ macro_rules! gpio {
                     for $PXi<Input<Floating>>
                 {
                     type Error = Never;
-                    fn into_input_pin(self) -> Result<Self, Self::Error> {
+                    fn into_input_pin(self) -> Result<Self, Never> {
                         Ok(self)
                     }
-                    fn into_output_pin(self, state: PinState) -> Result<$PXi<Output<PushPull>>, Self::Error> {
+                    fn into_output_pin(self, state: PinState) -> Result<$PXi<Output<PushPull>>, Never> {
                         let mut pin = self.into_push_pull_output();
-                        pin.set_state(state)?;
+                        pin.set_state(state).unwrap(); // Infallible
                         Ok(pin)
                     }
                 }

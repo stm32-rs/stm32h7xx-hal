@@ -25,7 +25,7 @@ features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "usb_hs", "rtc", "eth
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-embedded-hal = "0.2.4"
+embedded-hal = "0.2.6"
 embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
 stm32h7 = "^0.14.0"
