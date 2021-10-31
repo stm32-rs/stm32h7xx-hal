@@ -33,6 +33,37 @@
 //! qspi.write(0x00, &[0xAB, 0xCD]).unwrap();
 //! ```
 //!
+//! For OCTOSPI there are two peripherals, which can be initialised separately.
+//!
+//! ```
+//! use stm32h7xx_hal::{xspi, xspi::OctospiWord as XW};
+//!
+//! // Get the device peripherals and instantiate IO pins.
+//! let dp = ...;
+//! let _ = ...;
+//!
+//! let mut octospi = dp.OCTOSPI1.octospi_unchecked(12.mhz(), &ccdr.clocks,
+//!                                 ccdr.peripheral.OCTOSPI1);
+//!
+//! // Configure OCTOSPI to operate in 8-bit mode.
+//! octospi.configure_mode(xspi::OctospiMode::EightBit).unwrap();
+//!
+//! // Example RDID Read Indentification
+//! let mut read: [u8; 3] = [0; 3];
+//! octospi
+//!     .read_extended(XW::U16(0x9F60), XW::U32(0), XW::None, 4, &mut read)
+//!     .unwrap();
+//! ```
+//!
+//! # Configuration
+//!
+//! A [`Config`](#struct.Config) struct is used to configure the xSPI.
+//!
+//! ```
+//! use stm32h7xx_hal::xspi;
+//! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
+//! ```
+//!
 //! # Limitations
 //!
 //! This driver currently only supports indirect operation mode of the xSPI
