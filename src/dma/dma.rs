@@ -1018,6 +1018,23 @@ peripheral_target_address!(
         DMAReq::Uart8TxDma
     ),
 );
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+peripheral_target_address!(
+    (
+        SERIAL: pac::UART9,
+        rdr,
+        tdr,
+        116, //DMAReq::Uart9RxDma,
+        117  //DMAReq::Uart9TxDma
+    ),
+    (
+        SERIAL: pac::USART10,
+        rdr,
+        tdr,
+        118, //DMAReq::Usart10RxDma,
+        119  //DMAReq::Usart10TxDma
+    ),
+);
 
 peripheral_target_address!(
     (HAL: I2c<pac::I2C1>, rxdr, u8, P2M, DMAReq::I2c1RxDma),
