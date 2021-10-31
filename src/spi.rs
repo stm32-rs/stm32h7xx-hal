@@ -1087,53 +1087,21 @@ macro_rules! spi {
                     }
                 }
 
-                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
+                impl Spi<$SPIX, Enabled, $TY>
+                {
+                    /// Internal implementation for blocking::spi::Transfer and
+                    /// blocking::spi::Write
+                    fn transfer_internal<'w>(&mut self,
+                                             write_words: &'w [$TY],
+                                             read_words: Option<&'w mut [$TY]>
+                    ) -> Result<(), Error> {
+                        use hal::spi::FullDuplex;
 
-                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-                        use embedded_hal::spi::FullDuplex;
-
-                        if words.is_empty() {
-                            return Ok(words);
+                        // both buffers are the same length
+                        if let Some(ref read) = read_words {
+                            debug_assert!(write_words.len() == read.len());
                         }
-
-                        // Are we in frame mode?
-                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            const MAX_WORDS: usize = 0xFFFF;
-
-                            // Can we send
-                            if words.len() > MAX_WORDS {
-                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
-                            }
-
-                            // Setup that we're going to send this amount of bits
-                            // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
-                        }
-
-                        // Send the data
-                        for word in words.iter_mut() {
-                            nb::block!(self.send(word.clone()))?;
-                            *word = nb::block!(self.read())?;
-                        }
-
-                        // Are we in frame mode?
-                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            // Clean up
-                            self.end_transaction()?;
-                        }
-
-                        Ok(words)
-                    }
-                }
-
-                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
-
-                    fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
-                        use embedded_hal::spi::FullDuplex;
-
-                        if words.is_empty() {
+                        if write_words.is_empty() {
                             return Ok(());
                         }
 
@@ -1142,19 +1110,53 @@ macro_rules! spi {
                             const MAX_WORDS: usize = 0xFFFF;
 
                             // Can we send
-                            if words.len() > MAX_WORDS {
+                            if write_words.len() > MAX_WORDS {
                                 return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
 
                             // Setup that we're going to send this amount of bits
-                            // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
+                            // SAFETY: We already checked that `write_words` is not empty
+                            self.setup_transaction(unsafe {
+                                core::num::NonZeroU16::new_unchecked(write_words.len() as u16)
+                            })?;
                         }
 
-                        // Send the data
-                        for word in words {
-                            nb::block!(self.send(word.clone()))?;
-                            nb::block!(self.read())?;
+                        // Depth of FIFO to use. All current SPI implementations
+                        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+                        // Tabel 409.) but pick 4 as a conservative value.
+                        const FIFO_WORDS: usize = 4;
+
+                        // Fill the first half of the write FIFO
+                        let len = write_words.len();
+                        let mut write = write_words.iter();
+                        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                            nb::block!(self.send(*write.next().unwrap()))?;
+                        }
+
+                        if let Some(read) = read_words {
+                            let mut read = read.iter_mut();
+
+                            // Continue filling write FIFO and emptying read FIFO
+                            for word in write {
+                                nb::block!(self.send(*word))?;
+                                *read.next().unwrap() = nb::block!(self.read())?;
+                            }
+
+                            // Finish emptying the read FIFO
+                            for word in read {
+                                *word = nb::block!(self.read())?;
+                            }
+                        } else {
+                            // Continue filling write FIFO and emptying read FIFO
+                            for word in write {
+                                nb::block!(self.send(*word))?;
+                                let _ = nb::block!(self.read())?;
+                            }
+
+                            // Dummy read from the read FIFO
+                            for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                                let _ = nb::block!(self.read())?;
+                            }
                         }
 
                         // Are we in frame mode?
@@ -1164,6 +1166,27 @@ macro_rules! spi {
                         }
 
                         Ok(())
+                    }
+                }
+                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
+
+                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
+                        // SAFETY: transfer_internal always writes out bytes
+                        // before modifying them
+                        let write = unsafe {
+                            core::slice::from_raw_parts(words.as_ptr(), words.len())
+                        };
+                        self.transfer_internal(write, Some(words))?;
+
+                        Ok(words)
+                    }
+                }
+                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
+
+                    fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
+                        self.transfer_internal(words, None)
                     }
                 }
             )+
