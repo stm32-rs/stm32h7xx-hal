@@ -181,6 +181,7 @@ mod common {
 
     /// Indicates a specific QUADSPI bank to use
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub enum Bank {
         One,
         Two,
