@@ -541,10 +541,8 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
-pub trait SpiEnabledExt:
-    SpiAllExt + FullDuplex<Self::Word, Error = Error>
-{
-    type Disabled: SpiDisabledExt<
+pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
+    type Disabled: SpiDisabled<
         Spi = Self::Spi,
         Word = Self::Word,
         Enabled = Self,
@@ -558,8 +556,8 @@ pub trait SpiEnabledExt:
     /// disabled.
     fn disable(self) -> Self::Disabled;
 
-    /// Resets the SPI peripheral. This is just a call to [SpiEnabledExt::disable]
-    /// and [SpiDisabledExt::enable]
+    /// Resets the SPI peripheral. This is just a call to [SpiEnabled::disable]
+    /// and [SpiDisabled::enable]
     fn reset(self) -> Self {
         self.disable().enable()
     }
@@ -587,9 +585,9 @@ pub trait SpiEnabledExt:
     fn end_transaction(&mut self) -> Result<(), Error>;
 }
 
-pub trait SpiDisabledExt: SpiAllExt {
+pub trait SpiDisabled: SpiAll {
     type Rec;
-    type Enabled: SpiEnabledExt<Spi = Self::Spi, Word = Self::Word>;
+    type Enabled: SpiEnabled<Spi = Self::Spi, Word = Self::Word>;
 
     /// Enables the SPI peripheral.
     /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
@@ -613,7 +611,7 @@ pub trait SpiDisabledExt: SpiAllExt {
     fn free(self) -> (Self::Spi, Self::Rec);
 }
 
-pub trait SpiAllExt: Sized {
+pub trait SpiAll: Sized {
     type Spi;
     type Word;
 
@@ -807,7 +805,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiEnabledExt for Spi<$SPIX, Enabled, $TY> {
+                impl SpiEnabled for Spi<$SPIX, Enabled, $TY> {
                     type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
 
                     fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
@@ -861,7 +859,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiDisabledExt for Spi<$SPIX, Disabled, $TY> {
+                impl SpiDisabled for Spi<$SPIX, Disabled, $TY> {
                     type Rec = rec::$Rec;
                     type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
 
@@ -897,7 +895,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl<EN> SpiAllExt for Spi<$SPIX, EN, $TY>
+                impl<EN> SpiAll for Spi<$SPIX, EN, $TY>
                 {
                     type Word = $TY;
                     type Spi = $SPIX;

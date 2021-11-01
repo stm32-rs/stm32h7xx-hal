@@ -125,7 +125,7 @@ macro_rules! peripheral_target_instance {
             unsafe impl TargetAddress<M2P> for spi::Spi<$peripheral, spi::Disabled, $size> {
                 #[inline(always)]
                 fn address(&self) -> usize {
-                    use spi::SpiAllExt;
+                    use spi::SpiAll;
                     &self.inner().$txreg as *const _ as usize
                 }
 
@@ -137,7 +137,7 @@ macro_rules! peripheral_target_instance {
             unsafe impl TargetAddress<P2M> for spi::Spi<$peripheral, spi::Disabled, $size> {
                 #[inline(always)]
                 fn address(&self) -> usize {
-                    use spi::SpiAllExt;
+                    use spi::SpiAll;
                     &self.inner().$rxreg as *const _ as usize
                 }
 
