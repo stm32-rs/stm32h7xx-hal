@@ -6,7 +6,7 @@
    * Implemented additional conversion utilities for `time`
    * **Breaking**: Changed I2S constructors to take less arguments
 
-* MSRV increased to 1.51.0
+* MSRV increased to 1.52.0
 * **Breaking**: Simplified API for reading device signature
   values. `VAL::get().read()` becomes `VAL::read()`
 * adc: Allow parallel execution of multiple ADCs through `start_conversion()`
