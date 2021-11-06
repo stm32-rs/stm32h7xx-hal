@@ -15,6 +15,58 @@ pub const STANDARD_FILTER_MAX: u8 = 28;
 /// Number of Extended Filters configured by this module
 pub const EXTENDED_FILTER_MAX: u8 = 8;
 
+/// Configure Message RAM layout on H7 to match the fixed sized used on G4
+///
+/// These are protected bits, write access is only possible when bit CCE and bit
+/// INIT for FDCAN_CCCR are set to 1
+pub fn set_message_ram_layout(
+    can: &crate::stm32::fdcan1::RegisterBlock,
+) -> u16 {
+    let mut word_adr = 0u16;
+
+    // 11-bit filter
+    can.sidfc.modify(|_, w| unsafe { w.flssa().bits(word_adr) });
+    word_adr += STANDARD_FILTER_MAX as u16;
+    // 29-bit filter
+    can.xidfc.modify(|_, w| unsafe { w.flesa().bits(word_adr) });
+    word_adr += 2 * EXTENDED_FILTER_MAX as u16;
+    // Rx FIFO 0
+    can.rxf0c.modify(|_, w| unsafe {
+        w.f0sa().bits(word_adr).f0s().bits(RX_FIFO_MAX)
+    });
+    word_adr += 18 * RX_FIFO_MAX as u16;
+    // Rx FIFO 1
+    can.rxf1c.modify(|_, w| unsafe {
+        w.f1sa().bits(word_adr).f1s().bits(RX_FIFO_MAX)
+    });
+    word_adr += 18 * RX_FIFO_MAX as u16;
+    // Rx buffer - see below
+    // Tx event FIFO
+    can.txefc.modify(|_, w| unsafe {
+        w.efsa().bits(word_adr).efs().bits(TX_EVENT_MAX)
+    });
+    word_adr += 2 * TX_EVENT_MAX as u16;
+    // Tx buffers
+    can.txbc.modify(|_, w| unsafe {
+        w.tbsa().bits(word_adr).tfqs().bits(TX_FIFO_MAX)
+    });
+    word_adr += 18 * TX_FIFO_MAX as u16;
+
+    // Rx Buffer - not used
+    can.rxbc.modify(|_, w| unsafe { w.rbsa().bits(word_adr) });
+
+    // TX event FIFO?
+    // Trigger memory?
+
+    // Set the element sizes to 16 bytes
+    can.rxesc.modify(|_, w| unsafe {
+        w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111)
+    });
+    can.txesc.modify(|_, w| unsafe { w.tbds().bits(0b111) });
+
+    word_adr
+}
+
 /// MessageRam Overlay
 #[repr(C)]
 pub struct RegisterBlock {
@@ -77,21 +129,24 @@ impl Transmit {
 
 pub(crate) mod standard_filter;
 pub(crate) type StandardFilterType = u32;
-pub(crate) type StandardFilter = generic::Reg<StandardFilterType, _StandardFilter>;
+pub(crate) type StandardFilter =
+    generic::Reg<StandardFilterType, _StandardFilter>;
 pub(crate) struct _StandardFilter;
 impl generic::Readable for StandardFilter {}
 impl generic::Writable for StandardFilter {}
 
 pub(crate) mod extended_filter;
 pub(crate) type ExtendedFilterType = [u32; 2];
-pub(crate) type ExtendedFilter = generic::Reg<ExtendedFilterType, _ExtendedFilter>;
+pub(crate) type ExtendedFilter =
+    generic::Reg<ExtendedFilterType, _ExtendedFilter>;
 pub(crate) struct _ExtendedFilter;
 impl generic::Readable for ExtendedFilter {}
 impl generic::Writable for ExtendedFilter {}
 
 pub(crate) mod txevent_element;
 pub(crate) type TxEventElementType = [u32; 2];
-pub(crate) type TxEventElement = generic::Reg<TxEventElementType, _TxEventElement>;
+pub(crate) type TxEventElement =
+    generic::Reg<TxEventElementType, _TxEventElement>;
 pub(crate) struct _TxEventElement;
 impl generic::Readable for TxEventElement {}
 impl generic::Writable for TxEventElement {}
@@ -109,7 +164,8 @@ impl RxFifoElement {
     }
 }
 pub(crate) type RxFifoElementHeaderType = [u32; 2];
-pub(crate) type RxFifoElementHeader = generic::Reg<RxFifoElementHeaderType, _RxFifoElement>;
+pub(crate) type RxFifoElementHeader =
+    generic::Reg<RxFifoElementHeaderType, _RxFifoElement>;
 pub(crate) struct _RxFifoElement;
 impl generic::Readable for RxFifoElementHeader {}
 impl generic::Writable for RxFifoElementHeader {}
@@ -126,7 +182,8 @@ impl TxBufferElement {
         self.data = [0; 16];
     }
 }
-pub(crate) type TxBufferElementHeader = generic::Reg<TxBufferElementHeaderType, _TxBufferElement>;
+pub(crate) type TxBufferElementHeader =
+    generic::Reg<TxBufferElementHeaderType, _TxBufferElement>;
 pub(crate) type TxBufferElementHeaderType = [u32; 2];
 pub(crate) struct _TxBufferElement;
 impl generic::Readable for TxBufferElementHeader {}

@@ -583,6 +583,9 @@ where
         can.xidfc
             .modify(|_, w| unsafe { w.lse().bits(EXTENDED_FILTER_MAX) });
 
+        // Set memory map on H7 to match G4
+        message_ram::set_message_ram_layout(can);
+
         for fid in 0..STANDARD_FILTER_MAX {
             self.set_standard_filter(
                 (fid as u8).into(),
