@@ -156,6 +156,8 @@ pub mod dma;
 pub mod ethernet;
 #[cfg(feature = "device-selected")]
 pub mod exti;
+#[cfg(all(feature = "device-selected", feature = "fdcan"))]
+pub mod fdcan;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 #[cfg(all(feature = "device-selected", feature = "fmc"))]
