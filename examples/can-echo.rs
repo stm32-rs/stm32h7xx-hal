@@ -11,11 +11,13 @@ use crate::hal::{
     },
     gpio::{GpioExt as _, Speed},
     nb::block,
-    rcc::{Config, RccExt, SysClockSrc},
-    stm32::Peripherals,
+    pac,
+    prelude::*,
+    rcc,
+    rcc::rec,
     time::U32Ext,
 };
-use stm32g4xx_hal as hal;
+use stm32h7xx_hal as hal;
 
 use core::num::{NonZeroU16, NonZeroU8};
 
@@ -24,13 +26,11 @@ use cortex_m_rt::entry;
 use log::info;
 
 #[macro_use]
-mod utils;
+mod utilities;
 
 #[entry]
 fn main() -> ! {
-    utils::logger::init();
-
-    info!("Start");
+    utilities::logger::init();
 
     // APB1 (HSE): 24MHz, Bit rate: 125kBit/s, Sample Point 87.5%
     // Value was calculated with http://www.bittiming.can-wiki.info/
@@ -42,24 +42,40 @@ fn main() -> ! {
         sync_jump_width: NonZeroU8::new(1).unwrap(),
     };
 
-    info!("Init Clocks");
+    let dp = pac::Peripherals::take().unwrap();
+    let _cp =
+        cortex_m::Peripherals::take().expect("cannot take core peripherals");
 
-    let dp = Peripherals::take().unwrap();
-    let _cp = cortex_m::Peripherals::take().expect("cannot take core peripherals");
+    // Constrain and Freeze power
+    info!("Setup PWR...                  ");
+    let pwr = dp.PWR.constrain();
+    let pwrcfg = example_power!(pwr).freeze();
+
+    // Constrain and Freeze clock
+    info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let mut rcc = rcc.freeze(Config::new(SysClockSrc::HSE(24.mhz())));
+    let ccdr = rcc
+        .sys_ck(192.mhz())
+        .pll1_strategy(rcc::PllConfigStrategy::Iterative)
+        .pll1_q_ck(24.mhz())
+        .freeze(pwrcfg, &dp.SYSCFG);
 
-    info!("Split GPIO");
+    // Setup fdcan_tq_ck = 24MHz
+    assert_eq!(ccdr.clocks.pll1_q_ck().unwrap().0, 24_000_000);
+    let fdcan_prec = ccdr
+        .peripheral
+        .FDCAN
+        .kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
 
-    let gpiob = dp.GPIOB.split(&mut rcc);
+    let gpioh = dp.GPIOH.split(ccdr.peripheral.GPIOH);
 
     let can1 = {
         info!("Init CAN 1");
-        let rx = gpiob.pb8.into_alternate().set_speed(Speed::VeryHigh);
-        let tx = gpiob.pb9.into_alternate().set_speed(Speed::VeryHigh);
+        let rx = gpioh.ph14.into_alternate_af9().set_speed(Speed::VeryHigh);
+        let tx = gpioh.ph13.into_alternate_af9().set_speed(Speed::VeryHigh);
 
         info!("-- Create CAN 1 instance");
-        let can = FdCan::new(dp.FDCAN1, tx, rx, &rcc);
+        let can = FdCan::new(dp.FDCAN1, tx, rx, fdcan_prec);
 
         info!("-- Set CAN 1 in Config Mode");
         let mut can = can.into_config_mode();
@@ -77,8 +93,8 @@ fn main() -> ! {
         info!("-- Current Config: {:#?}", can.get_config());
 
         info!("-- Set CAN1 in to normal mode");
-        // can.into_external_loopback()
-        can.into_normal()
+        can.into_external_loopback()
+        //can.into_normal()
     };
 
     // let can2 = {
@@ -137,13 +153,14 @@ fn main() -> ! {
             }
             h
         })) {
-            block!(
-                can.transmit(rxheader.unwrap().to_tx_header(None), &mut |b| {
+            block!(can.transmit(
+                rxheader.unwrap().to_tx_header(None),
+                &mut |b| {
                     let len = b.len();
                     b[..len].clone_from_slice(&buffer[..len]);
                     info!("Transmit: {:X?}", b);
-                })
-            )
+                }
+            ))
             .unwrap();
         }
     }

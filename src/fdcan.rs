@@ -18,11 +18,11 @@ mod message_ram;
 
 use id::{Id, IdReg};
 
-use crate::rcc::Rcc;
-use crate::stm32::fdcan::RegisterBlock;
+use crate::rcc::{rec, rec::ResetEnable};
+use crate::stm32::fdcan1::RegisterBlock;
 use config::{
-    ClockDivider, DataBitTiming, FdCanConfig, FrameTransmissionConfig,
-    GlobalFilter, NominalBitTiming, TimestampSource,
+    DataBitTiming, FdCanConfig, FrameTransmissionConfig, GlobalFilter,
+    NominalBitTiming, TimestampSource,
 };
 use filter::{
     ActivateFilter as _, ExtendedFilter, ExtendedFilterSlot, StandardFilter,
@@ -46,6 +46,8 @@ mod sealed {
     pub trait Tx<CAN> {}
     /// An RX pin configured for CAN communication
     pub trait Rx<CAN> {}
+
+    pub trait Sealed {}
 }
 
 /// An FdCAN peripheral instance.
@@ -61,7 +63,7 @@ mod sealed {
 ///   register block.
 /// * `REGISTERS` is a pointer to that peripheral's register block and can be safely accessed for as
 ///   long as ownership or a borrow of the implementing type is present.
-pub unsafe trait Instance: MsgRamExt + crate::rcc::Instance {
+pub unsafe trait Instance: MsgRamExt {
     /// Pointer to the instance's register block.
     const REGISTERS: *mut RegisterBlock;
 }
@@ -529,62 +531,27 @@ where
 {
     /// Creates a CAN interface.
     ///
-    /// Sets the FDCAN clock to the P clock if no FDCAN clock has been configured
-    /// If one has been configured, it will leave it as is.
     #[inline]
-    pub fn new<TX, RX>(can_instance: I, _tx: TX, _rx: RX, rcc: &Rcc) -> Self
-    where
-        TX: sealed::Tx<I>,
-        RX: sealed::Rx<I>,
-    {
-        I::enable(&rcc.rb);
-
-        if rcc.rb.ccipr.read().fdcansel() == 0 {
-            // Select P clock as FDCAN clock source
-            rcc.rb.ccipr.modify(|_, w| {
-                // This is sound, as `FdCanClockSource` only contains valid values for this field.
-                unsafe {
-                    w.fdcansel().bits(FdCanClockSource::PCLK as u8);
-                }
-
-                w
-            });
-        }
-        //TODO: Set Speed to VeryHigh?
-
-        let can = Self::create_can(FdCanConfig::default(), can_instance);
-        let reg = can.registers();
-        assert!(reg.endn.read() == 0x87654321_u32);
-        can
-    }
-
-    /// Creates a CAN interface.
-    ///
-    /// Sets the FDCAN clock to the selected clock source
-    /// Note that this is shared across all instances.
-    /// Do not call this if there is allready an active FDCAN instance.
-    #[inline]
-    pub fn new_with_clock_source<TX, RX>(
+    pub fn new<TX, RX>(
         can_instance: I,
         _tx: TX,
         _rx: RX,
-        rcc: &Rcc,
-        clock_source: FdCanClockSource,
+        prec: rec::Fdcan,
     ) -> Self
     where
         TX: sealed::Tx<I>,
         RX: sealed::Rx<I>,
     {
-        rcc.rb.ccipr.modify(|_, w| {
-            // This is sound, as `FdCanClockSource` only contains valid values for this field.
-            unsafe {
-                w.fdcansel().bits(clock_source as u8);
-            }
+        // Enable APB1 peripheral clock
+        prec.enable();
 
-            w
-        });
+        // Assert
+        //assert_eq!(prec.get_kernel_clk_mux(), Some(rec::FdcanClkSel::PLL1_Q));
 
-        Self::new(can_instance, _tx, _rx, rcc)
+        let can = Self::create_can(FdCanConfig::default(), can_instance);
+        let reg = can.registers();
+        assert!(reg.endn.read().bits() == 0x87654321_u32);
+        can
     }
 
     /// Moves out of PoweredDownMode and into ConfigMode
@@ -611,12 +578,11 @@ where
         // set extended filters list size to 8
         // REQUIRED: we use the memory map as if these settings are set
         // instead of re-calculating them.
-        can.rxgfc.modify(|_, w| unsafe {
-            w.lse()
-                .bits(EXTENDED_FILTER_MAX)
-                .lss()
-                .bits(STANDARD_FILTER_MAX)
-        });
+        can.sidfc
+            .modify(|_, w| unsafe { w.lss().bits(STANDARD_FILTER_MAX) });
+        can.xidfc
+            .modify(|_, w| unsafe { w.lse().bits(EXTENDED_FILTER_MAX) });
+
         for fid in 0..STANDARD_FILTER_MAX {
             self.set_standard_filter(
                 (fid as u8).into(),
@@ -836,7 +802,7 @@ where
         };
 
         let can = self.registers();
-        can.cccr.modify(|_, w| w.fdoe().bit(fdoe).brse().bit(brse));
+        can.cccr.modify(|_, w| w.fdoe().bit(fdoe).bse().bit(brse));
 
         self.control.config.frame_transmit = fts;
     }
@@ -862,17 +828,6 @@ where
         self.control.config.protocol_exception_handling = enabled;
     }
 
-    /// Sets the General FdCAN clock divider for this instance
-    //TODO: ?clock divider is a shared register?
-    #[inline]
-    pub fn set_clock_divider(&mut self, div: ClockDivider) {
-        let can = self.registers();
-
-        can.ckdiv.write(|w| unsafe { w.pdiv().bits(div as u8) });
-
-        self.control.config.clock_divider = div;
-    }
-
     /// Configures and resets the timestamp counter
     #[inline]
     pub fn set_timestamp_counter_source(&mut self, select: TimestampSource) {
@@ -891,7 +846,7 @@ where
     /// Configures the global filter settings
     #[inline]
     pub fn set_global_filter(&mut self, filter: GlobalFilter) {
-        self.registers().rxgfc.modify(|_, w| {
+        self.registers().gfc.modify(|_, w| {
             unsafe {
                 w.anfs()
                     .bits(filter.handle_standard_frames as u8)
@@ -1425,6 +1380,7 @@ where
         // Check if there is a request pending to abort
         if self.has_pending_frame(idx) {
             let idx: u8 = idx.into();
+            let idx: u32 = idx as u32;
 
             // Abort Request
             can.txbcr.write(|w| unsafe { w.cr().bits(idx) });
@@ -1445,6 +1401,7 @@ where
     fn has_pending_frame(&self, idx: Mailbox) -> bool {
         let can = self.registers();
         let idx: u8 = idx.into();
+        let idx: u32 = idx as u32;
 
         can.txbrp.read().trp().bits() & idx != 0
     }
@@ -1472,18 +1429,18 @@ where
 }
 
 #[doc(hidden)]
-pub trait FifoNr: crate::sealed::Sealed {
+pub trait FifoNr: sealed::Sealed {
     const NR: usize;
 }
 #[doc(hidden)]
 pub struct Fifo0;
-impl crate::sealed::Sealed for Fifo0 {}
+impl sealed::Sealed for Fifo0 {}
 impl FifoNr for Fifo0 {
     const NR: usize = 0;
 }
 #[doc(hidden)]
 pub struct Fifo1;
-impl crate::sealed::Sealed for Fifo1 {}
+impl sealed::Sealed for Fifo1 {}
 impl FifoNr for Fifo1 {
     const NR: usize = 1;
 }
@@ -1674,138 +1631,84 @@ impl From<Mailbox> for usize {
 
 mod impls {
     use super::sealed;
+    use crate::gpio::gpioa::{PA11, PA12};
+    use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
+    use crate::gpio::gpiod::{PD0, PD1};
+    use crate::gpio::gpioh::{PH13, PH14};
+    use crate::gpio::{Alternate, AF9};
 
     /// Implements sealed::{Tx,Rx} for pins associated with a CAN peripheral
     macro_rules! pins {
         ($PER:ident =>
-            (tx: [ $($( #[ $pmetatx:meta ] )* $tx:ident<$txaf:ident>),+ $(,)? ],
-             rx: [ $($( #[ $pmetarx:meta ] )* $rx:ident<$rxaf:ident>),+ $(,)? ])) => {
+            (TX: [ $($( #[ $pmetatx:meta ] )* $tx:ty),+ $(,)? ],
+             RX: [ $($( #[ $pmetarx:meta ] )* $rx:ty),+ $(,)? ])) => {
             $(
                 $( #[ $pmetatx ] )*
-                impl super::sealed::Tx<$PER> for $tx<crate::gpio::Alternate<$txaf>> {}
+                impl sealed::Tx<crate::stm32::$PER> for $tx {}
             )+
             $(
                 $( #[ $pmetarx ] )*
-                impl super::sealed::Rx<$PER> for $rx<crate::gpio::Alternate<$rxaf>> {}
+                impl sealed::Rx<crate::stm32::$PER> for $rx {}
             )+
         };
     }
 
+    pins! {
+        FDCAN1 => (
+            TX: [
+                PA12<Alternate<AF9>>,
+                PB9<Alternate<AF9>>,
+                PD1<Alternate<AF9>>,
+                PH13<Alternate<AF9>>
+            ],
+            RX: [
+                PA11<Alternate<AF9>>,
+                PB8<Alternate<AF9>>,
+                PD0<Alternate<AF9>>,
+                PH14<Alternate<AF9>>
+            ]
+        )
+    }
+    pins! {
+        FDCAN2 => (
+            TX: [
+                PB6<Alternate<AF9>>,
+                PB13<Alternate<AF9>>
+            ],
+            RX: [
+                PB5<Alternate<AF9>>,
+                PB12<Alternate<AF9>>
+            ]
+        )
+    }
+
     mod fdcan1 {
-        use crate::fdcan;
         use crate::fdcan::message_ram;
-        use crate::gpio::{
-            gpioa::{PA11, PA12},
-            gpiob::{PB8, PB9},
-            gpiod::{PD0, PD1},
-            AF9,
-        };
-        use crate::stm32;
         use crate::stm32::FDCAN1;
+        use crate::{fdcan, stm32};
 
-        // All STM32G4 models with CAN support these pins
-        pins! {
-            FDCAN1 => (
-                tx: [
-                    PA12<AF9>,
-                    PB9<AF9>,
-                    PD1<AF9>,
-                ],
-                rx: [
-                    PA11<AF9>,
-                    PB8<AF9>,
-                    PD0<AF9>,
-                ]
-            )
-        }
-
-        unsafe impl message_ram::MsgRamExt for FDCAN1 {
-            const MSG_RAM: *mut message_ram::RegisterBlock =
-                (0x4000_a400 as *mut _);
-        }
         unsafe impl fdcan::Instance for FDCAN1 {
-            const REGISTERS: *mut stm32::fdcan::RegisterBlock =
+            const REGISTERS: *mut stm32::fdcan1::RegisterBlock =
                 FDCAN1::ptr() as *mut _;
         }
+        unsafe impl message_ram::MsgRamExt for FDCAN1 {
+            const MSG_RAM: *mut message_ram::RegisterBlock =
+                (0x4000_ac00 as *mut _);
+        }
     }
 
-    #[cfg(any(
-        feature = "stm32g471",
-        feature = "stm32g473",
-        feature = "stm32g474",
-        feature = "stm32g483",
-        feature = "stm32g484",
-        feature = "stm32g491",
-        feature = "stm32g4A1",
-    ))]
     mod fdcan2 {
-        use crate::fdcan;
         use crate::fdcan::message_ram;
-        use crate::gpio::{
-            gpiob::{PB12, PB13, PB5, PB6},
-            AF9,
-        };
-        use crate::stm32::{self, FDCAN2};
-
-        pins! {
-            FDCAN2 => (
-                tx: [
-                    PB6<AF9>,
-                    PB13<AF9>,
-                ],
-                rx: [
-                    PB5<AF9>,
-                    PB12<AF9>,
-            ])
-        }
+        use crate::stm32::FDCAN2;
+        use crate::{fdcan, stm32};
 
         unsafe impl fdcan::Instance for FDCAN2 {
-            const REGISTERS: *mut stm32::fdcan::RegisterBlock =
+            const REGISTERS: *mut stm32::fdcan1::RegisterBlock =
                 FDCAN2::ptr() as *mut _;
         }
-
         unsafe impl message_ram::MsgRamExt for FDCAN2 {
             const MSG_RAM: *mut message_ram::RegisterBlock =
-                (0x4000_a750 as *mut _);
-        }
-    }
-
-    #[cfg(any(
-        feature = "stm32g473",
-        feature = "stm32g474",
-        feature = "stm32g483",
-        feature = "stm32g484",
-    ))]
-    mod fdcan3 {
-        use crate::fdcan;
-        use crate::fdcan::message_ram;
-        use crate::gpio::{
-            gpioa::{PA15, PA8},
-            gpiob::{PB3, PB4},
-            AF11,
-        };
-        use crate::stm32::{self, FDCAN3};
-
-        pins! {
-            FDCAN3 => (
-                tx: [
-                    PA15<AF11>,
-                    PB4<AF11>,
-                ],
-                rx: [
-                    PA8<AF11>,
-                    PB3<AF11>,
-            ])
-        }
-
-        unsafe impl fdcan::Instance for FDCAN3 {
-            const REGISTERS: *mut stm32::fdcan::RegisterBlock =
-                FDCAN3::ptr() as *mut _;
-        }
-
-        unsafe impl message_ram::MsgRamExt for FDCAN3 {
-            const MSG_RAM: *mut message_ram::RegisterBlock =
-                (0x4000_aaa0 as *mut _);
+                (0x4000_b800 as *mut _); // FDCAN1 + 3kB
         }
     }
 }
