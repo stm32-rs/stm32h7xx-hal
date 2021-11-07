@@ -93,7 +93,13 @@ use core::{
     ptr,
     sync::atomic::{fence, Ordering},
 };
-use embedded_dma::{ReadBuffer, StaticWriteBuffer, WriteBuffer};
+
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
+
+use traits::{
+    sealed::Bits, Direction, DoubleBufferedConfig, DoubleBufferedStream,
+    MasterStream, Stream, TargetAddress,
+};
 
 #[macro_use]
 mod macros;
@@ -106,10 +112,6 @@ pub mod bdma;
 pub mod mdma;
 
 pub mod traits;
-use traits::{
-    sealed::Bits, Direction, DoubleBufferedConfig, DoubleBufferedStream,
-    MasterStream, Stream, TargetAddress,
-};
 
 /// Errors.
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -374,7 +376,7 @@ where
 }
 
 macro_rules! db_transfer_def {
-    ($Marker:ident, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
+    ($([$prepend: ident],)?$Marker:ident, $init:ident, $Buffer:tt, $rw_buffer:ident $(, $mut:tt)*;
      $($constraint:stmt)*) => {
         impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
             Transfer<STREAM, PERIPHERAL, DIR, BUF, $Marker>
@@ -415,7 +417,40 @@ macro_rules! db_transfer_def {
             /// * When double buffering is enabled but the `double_buf` argument is
             ///   `None`.
             /// * When the transfer length is greater than (2^16 - 1)
-            pub fn $init(
+            ///
+            /// # Safety
+            ///
+            /// * If using an unsafe variant of this function (i.e., [Transfer::init_unsafe]),
+            /// the buffer must live as long as the
+            /// hardware DMA transfer. A case where this **wouldn't be true** is demonstrated below:
+            /// ```
+            /// use stm32h7xx_hal::dma::{PeripheralToMemory, Transfer};
+            ///
+            /// let spi = spi.disable();
+            /// let mut short_buffer = [0u8; 1024];
+            /// let streams = StreamsTuple::new(dp.DMA1, ccdr.peripheral.DMA1);
+            /// let config = DmaConfig::default().memory_increment(true);
+            /// let mut transfer: Transfer<_, _, PeripheralToMemory, _, _> = unsafe {
+            ///     Transfer::init_unsafe(streams.0, spi, &mut short_buffer[..], None, config)
+            /// };
+            ///
+            /// transfer.start(|spi| {
+            ///     spi.enable_dma_tx();
+            ///     spi.inner_mut()
+            ///         .cr1
+            ///         .write(|w| w.ssi().slave_not_selected().spe().enabled());
+            ///     spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
+            /// });
+            ///
+            /// mem::forget(transfer); // <<<<<<<<
+            ///
+            /// loop {
+            ///     // &ref to buffer while DMA transfer is still writing to buffer
+            ///     info!("short_buffer = {:?}", short_buffer);
+            /// }
+            /// ```
+            #[allow(unused_unsafe)]
+            pub $($prepend)? fn $init(
                 mut stream: STREAM,
                 peripheral: PERIPHERAL,
                 $($mut)* memory: BUF,
@@ -743,8 +778,45 @@ macro_rules! db_transfer_def {
     };
 }
 
-db_transfer_def!(DBTransfer, init, WriteBuffer, write_buffer, mut;);
-db_transfer_def!(ConstDBTransfer, init_const, ReadBuffer, read_buffer;
+impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF>
+    Transfer<STREAM, PERIPHERAL, DIR, BUF, DBTransfer>
+where
+    STREAM: DoubleBufferedStream + Stream<Config = CONFIG>,
+    CONFIG: DoubleBufferedConfig,
+    DIR: Direction,
+    PERIPHERAL: TargetAddress<DIR>,
+    BUF: StaticWriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
+    BUF: WriteBuffer<Word = <PERIPHERAL as TargetAddress<DIR>>::MemSize>,
+{
+    /// Configures the DMA source and destination and applies supplied
+    /// configuration. In a memory to memory transfer, the `double_buf` argument
+    /// is the source of the data. If double buffering is enabled, the number of
+    /// transfers will be the minimum length of `memory` and `double_buf`.
+    ///
+    /// # Panics
+    ///
+    /// * When the FIFO is disabled or double buffering is enabled in
+    ///   `DmaConfig` while initializing a memory to memory transfer.
+    /// * When double buffering is enabled but the `double_buf` argument is
+    ///   `None`.
+    /// * When the transfer length is greater than (2^16 - 1)
+    pub fn init(
+        stream: STREAM,
+        peripheral: PERIPHERAL,
+        memory: BUF,
+        double_buf: Option<BUF>,
+        config: CONFIG,
+    ) -> Self {
+        unsafe {
+            Transfer::init_unsafe(
+                stream, peripheral, memory, double_buf, config,
+            )
+        }
+    }
+}
+
+db_transfer_def!([unsafe], DBTransfer, init_unsafe, WriteBuffer, write_buffer, mut;);
+db_transfer_def!(ConstDBTransfer, init_const, StaticReadBuffer, read_buffer;
                  assert!(DIR::direction() != DmaDirection::PeripheralToMemory));
 
 impl<STREAM, CONFIG, PERIPHERAL, DIR, BUF, TXFRT>
