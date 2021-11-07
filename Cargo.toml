@@ -25,7 +25,7 @@ features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "usb_hs", "rtc", "eth
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-embedded-hal = "0.2.4"
+embedded-hal = "0.2.6"
 embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
 stm32h7 = "^0.14.0"
@@ -86,7 +86,7 @@ cm4 = []
 cm7 = []
 smps = []
 ltdc = ["embedded-display-controller"]
-quadspi = []
+xspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
 sdmmc-fatfs = ["embedded-sdmmc", "sdmmc"]
@@ -145,11 +145,19 @@ required-features = ["fmc", "rm0399"]
 
 [[example]]
 name = "qspi"
-required-features = ["quadspi", "rm0433"]
+required-features = ["xspi", "rm0433"]
 
 [[example]]
 name = "qspi_mdma"
-required-features = ["quadspi", "rm0433"]
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_flash_memory"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "octospi"
+required-features = ["xspi", "rm0468"]
 
 [[example]]
 name = "sdmmc"
