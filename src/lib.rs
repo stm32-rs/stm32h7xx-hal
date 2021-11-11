@@ -27,6 +27,7 @@
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
+//! * [CAN and CAN-FD](crate::can) Feature gate `can`
 //!
 //! External Memory
 //!
@@ -146,6 +147,8 @@ pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
+#[cfg(all(feature = "device-selected", feature = "can"))]
+pub mod can;
 #[cfg(all(feature = "device-selected", feature = "crc"))]
 pub mod crc;
 #[cfg(feature = "device-selected")]

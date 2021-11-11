@@ -42,6 +42,7 @@ stm32-fmc = { version = "0.2", optional = true }
 synopsys-usb-otg = { version = "^0.3.0", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
 log = { version = "0.4.14", optional = true} # see also the dev-dependencies section
+fdcan = { version = "0.1", optional = true }
 
 [dependencies.smoltcp]
 version = "0.8.0"
@@ -99,6 +100,7 @@ sdmmc = ["sdio-host"]
 sdmmc-fatfs = ["embedded-sdmmc", "sdmmc"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
+can = ["fdcan/fdcan_h7"]
 crc = []
 rand = ["rand_core"]
 rt = ["stm32h7/rt"]
@@ -150,6 +152,10 @@ required-features = ["revision_v", "rm0433"]
 [[example]]
 name = "fmc"
 required-features = ["fmc", "rm0399"]
+
+[[example]]
+name = "can-echo"
+required-features = ["can"]
 
 [[example]]
 name = "qspi"
@@ -234,3 +240,6 @@ required-features = ["crc", "rt"]
 [[example]]
 name = "flash"
 required-features = ["rt", "stm32h743v"]
+
+[patch.crates-io]
+fdcan = { git = "https://github.com/stm32-rs/fdcan" }
