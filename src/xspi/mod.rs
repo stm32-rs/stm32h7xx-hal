@@ -62,6 +62,28 @@
 //! ```
 //! use stm32h7xx_hal::xspi;
 //! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
+//!
+//! # Hyperbus
+//!
+//! This driver supports a memory-mapped Hyperbus mode for the OCTOSPI
+//! peripheral.
+//!
+//! ```
+//! let config = HyperbusConfig::new(80.mhz())
+//!     .device_size_bytes(24) // 16 Mbyte
+//!     .refresh_interval(4.us())
+//!     .read_write_recovery(4) // 50ns
+//!     .access_initial_latency(6);
+//!
+//! let hyperram = dp.OCTOSPI1.octospi_hyperbus_unchecked(
+//!     config,
+//!     &ccdr.clocks,
+//!     ccdr.peripheral.OCTOSPI1,
+//! );
+//!
+//! // Initialise and convert raw pointer to slice
+//! let ram_ptr: *mut u32 = hyperram.init();
+//! let ram = unsafe { slice::from_raw_parts_mut(ram_ptr, size_u32) };
 //! ```
 //!
 //! # Examples
@@ -74,7 +96,8 @@
 //! # Limitations
 //!
 //! This driver currently only supports indirect operation mode of the xSPI
-//! interface. Automatic polling or memory-mapped modes are not supported.
+//! interface. Automatic polling or memory-mapped modes are not supported,
+//! except for the OCTOSPI Hyperbus mode.
 //!
 //! Using different operational modes (1-bit/2-bit/4-bit etc.) for different
 //! phases of a single transaction is not supported. It is possible to change
@@ -106,7 +129,7 @@ pub use common::{
     XspiWord as OctospiWord,
 };
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-pub use octospi::OctospiExt as XspiExt;
+pub use octospi::{Hyperbus, HyperbusConfig, OctospiExt as XspiExt};
 
 // Both
 pub use common::{Config, Event, SamplingEdge};
@@ -280,7 +303,7 @@ mod common {
         /// With zero dummy cycles, the QUADSPI peripheral will erroneously drive the
         /// output pins for an extra half clock cycle before IO is swapped from
         /// output to input. Refer to
-        /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+        /// <https://github.com/quartiq/stabilizer/issues/101> for more information.
         pub fn dummy_cycles(mut self, cycles: u8) -> Self {
             debug_assert!(
                 cycles < 32,
@@ -298,7 +321,7 @@ mod common {
         /// If zero dummy cycles are used, during read operations the QUADSPI
         /// peripheral will erroneously drive the output pins for an extra half
         /// clock cycle before IO is swapped from output to input. Refer to
-        /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+        /// <https://github.com/quartiq/stabilizer/issues/101> for more information.
         ///
         /// In this case it is recommended to sample on the falling edge. Although
         /// this doesn't stop the possible bus contention, delaying the sampling
@@ -461,22 +484,6 @@ mod common {
                         .dmode()  // data phase
                         .bits(self.mode.reg_value())
                 });
-
-                // if mode == XspiMode::EightBit {
-                //     // TODO
-                //     self.rb.ccr.modify(|_, w| unsafe {
-                //         w.admode()
-                //             .bits(mode.reg_value())
-                //             .adsize()
-                //             .bits(3) // 32-bit
-                //             .isize()
-                //             .bits(1) // 16-bit
-                //             .imode()
-                //             .bits(mode.reg_value())
-                //             .dmode()
-                //             .bits(mode.reg_value())
-                //     });
-                //     self.rb.tcr.write(|w| unsafe { w.dcyc().bits(4) });
             }
 
             /// Sets the interface in extended mode
