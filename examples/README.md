@@ -61,7 +61,7 @@ configures the ITM peripheral. If you also interact with the ITM peripheral
 yourself, you should be aware that it has already been configured.
 
 
-## Starting your own project
+# Starting your own project
 
 Although you can compile the provided examples directly, for your own project it
 is recommended to make a new binary crate or start one based on existing board
