@@ -36,18 +36,13 @@ is contained within the [examples folder](https://github.com/stm32-rs/stm32h7xx-
    the configuration feature `stm32h743v` to match the part you are using:
 
    ```toml
-   [dependencies]
-   cortex-m-rt = "0.6.12"
-   cortex-m = "0.7.1"
-   log = "0.4.11"
-   embedded-hal = "0.2.6"
-   panic-halt = "0.2"
-   cfg-if = "1.0.0"
-
    [dependencies.stm32h7xx-hal]
-   version = "0.10"
+   version = "^0"
    features = ["stm32h743v"]
    ```
+
+   You should also add dependencies for the other crates you need, such as
+   `cortex-m-rt` or `embedded-hal`.
 
 7. Build the application with
 
