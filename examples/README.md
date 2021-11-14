@@ -1,18 +1,19 @@
 Examples
 ======
 
-## Getting started
+## Starting your own project
 
-You can compile the provided examples directly, but it is recommended to create
-a new binary crate or one based on existing board specficic example or BSP crates.
-This is because most examples will require tweaks to work for your particular board.
-You then can copy the examples into your binary crate and make any necessary adjustments.
+Although you can compile the provided examples directly, for your own project it
+is recommended to make a new binary crate or start one based on existing board
+specific examples / BSPs. Most examples will require tweaks to work for your
+particular board. You should copy the examples into your binary crate and make
+any necessary adjustments.
 
-These board specific crates usually also supply files which make
-development on the board easier. They might also contain board specific code or adaptions that
-might be required to make the examples work for your particular board.
+If you can find a suitable BSP, these usually also supply files which make
+development easier. They might also contain board specific code or adaptions
+required to make the examples work for your particular board.
 
-The hello world of embedded development is usually to blinky a LED. This example
+The hello world of embedded development is usually to blink a LED. This example
 is contained within the [examples folder](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs).
 
 1. Make sure you have the required Rust cross-compiler installed. If you have not
@@ -24,18 +25,15 @@ is contained within the [examples folder](https://github.com/stm32-rs/stm32h7xx-
 
 2. Create a new binary crate with `cargo init`
 3. To ensure that `cargo build` cross-compiles, it is recommended to create
-   a `.cargo/config.toml` file. You can use the `config.toml` provided
-   in the [`cortex-m-quickstart`](https://github.com/rust-embedded/cortex-m-quickstart/blob/master/.cargo/config.toml)
+   a `.cargo/config.toml` file. You can use the [`config.toml` provided
+   in the cortex-m-quickstart](https://github.com/rust-embedded/cortex-m-quickstart/blob/master/.cargo/config.toml)
    repository and uncomment `target = "thumbv7em-none-eabihf"`.
-4. Copy the `memory.x` file into your project. This file contains information
-   required by the linker.
-5. Copy the `blinky.rs` file to the `src/main.rs` in your binaray crate and copy the `utilities`
-   folder to your `src` folder as well. The utilities
-   folder contains common code used by all examples, e.g. for logger initialization.
-6. For `blinky.rs`, you also need to add some dependencies to your `Cargo.toml`. If
-   you are doing this for another example or you'd like to use another logger, you
-   might need different dependencies. Make sure to replace the configuration
-   feature `stm32h743v` according to your used board:
+4. Copy `memory.x` into your project. This file contains information required by
+   the linker.
+5. Copy `blinky.rs` to the `src/main.rs` in your binary crate and remove
+   references to the `utilities` module.
+6. Add a dependency on the HAL in `Cargo.toml`. Make sure to replace
+   the configuration feature `stm32h743v` to match the part you are using:
 
    ```toml
    [dependencies]
@@ -57,8 +55,8 @@ is contained within the [examples folder](https://github.com/stm32-rs/stm32h7xx-
    cargo build
    ```
 
-8. Flashing the board might work differently for different boards and there is usually
-   more than one way. You can usually find instructions in the board specific crates or BSPs.
+8. Flashing the MCU typically works differently for different boards. You can
+   usually find instructions in the board specific crates or BSPs.
 
 ## Logging
 
