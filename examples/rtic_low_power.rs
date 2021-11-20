@@ -3,9 +3,10 @@
 //! After the end of init the CPU transitions into CStop mode, and D1/D2
 //! (aka. CD) transition into DStop mode.
 //!
-//! However we set the run_d3 flag, and enable Autonomous mode on the LPTIM3
-//! PREC struture. Therefore LPTIM3 continues to run and fires an interrupt that
-//! wakes the core. Following each interrupt the core returns to CStop mode.
+//! However we set the run_d3/run_srd flag, and enable Autonomous mode on the
+//! LPTIM3 PREC struture. Therefore LPTIM3 continues to run and fires an
+//! interrupt that wakes the core. Following each interrupt the core returns to
+//! CStop mode.
 //!
 //! On the first rising edge on PC13, the EXTI interrupt fires. We do not clear
 //! this interrupt, so we loop in the handler forever.
@@ -24,7 +25,7 @@ extern crate rtic;
 use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
 
 use rtic::app;
-use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14};
+use stm32h7xx_hal::gpio::gpioc::{PC2, PC3, PC4};
 use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::rcc::LowPowerMode;
@@ -34,9 +35,9 @@ use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
 #[app(device = stm32h7xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        led1: PI12<Output<PushPull>>,
-        led2: PI13<Output<PushPull>>,
-        led3: PI14<Output<PushPull>>,
+        led1: PC2<Output<PushPull>>,
+        led2: PC3<Output<PushPull>>,
+        led3: PC4<Output<PushPull>>,
         timer1: Timer<TIM1>,
         timer2: Timer<TIM2>,
         timer3: LpTimer<LPTIM3, Enabled>,
@@ -47,7 +48,10 @@ const APP: () = {
         let mut syscfg = ctx.device.SYSCFG;
 
         // Run D3 / SRD domain
+        #[cfg(not(feature = "rm0455"))]
         ctx.device.PWR.cpucr.modify(|_, w| w.run_d3().set_bit());
+        #[cfg(feature = "rm0455")] // 7b3/7a3/7b0 parts
+        ctx.device.PWR.cpucr.modify(|_, w| w.run_srd().set_bit());
 
         let pwr = ctx.device.PWR.constrain();
         let vos = pwr.freeze();
@@ -92,7 +96,6 @@ const APP: () = {
 
         // GPIO
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
-        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
 
         // Enter CStop mode
         let mut scb = ctx.core.SCB;
@@ -106,9 +109,9 @@ const APP: () = {
         wakeup.enable_interrupt(&mut exti);
 
         // LEDs
-        let mut led1 = gpioi.pi12.into_push_pull_output();
-        let mut led2 = gpioi.pi13.into_push_pull_output();
-        let mut led3 = gpioi.pi14.into_push_pull_output();
+        let mut led1 = gpioc.pc2.into_push_pull_output();
+        let mut led2 = gpioc.pc3.into_push_pull_output();
+        let mut led3 = gpioc.pc4.into_push_pull_output();
 
         led1.set_high().ok();
         led2.set_high().ok();

@@ -1,4 +1,7 @@
 //! FMC Example
+//!
+//! Tested on a STM32H747I-DISCO
+
 #![no_main]
 #![no_std]
 

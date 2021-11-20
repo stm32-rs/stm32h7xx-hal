@@ -1,4 +1,8 @@
 //! Cyclic Redundancy Check (CRC)
+//!
+//! # Examples
+//!
+//! - [CRC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/crc.rs)
 
 use core::convert::TryInto;
 use core::fmt;
@@ -57,18 +61,18 @@ impl Crc {
         let mut words = data.chunks_exact(4);
         for word in words.by_ref() {
             let word = u32::from_be_bytes(word.try_into().unwrap());
-            self.reg.dr_mut().write(|w| w.dr().bits(word));
+            self.reg.dr().write(|w| w.dr().bits(word));
         }
 
         // there will be at most 3 bytes remaining, so 1 half-word and 1 byte
         let mut half_word = words.remainder().chunks_exact(2);
         if let Some(half_word) = half_word.next() {
             let half_word = u16::from_be_bytes(half_word.try_into().unwrap());
-            self.reg.dr16_mut().write(|w| w.dr16().bits(half_word));
+            self.reg.dr16().write(|w| w.dr16().bits(half_word));
         }
 
         if let Some(byte) = half_word.remainder().first() {
-            self.reg.dr8_mut().write(|w| w.dr8().bits(*byte));
+            self.reg.dr8().write(|w| w.dr8().bits(*byte));
         }
     }
 

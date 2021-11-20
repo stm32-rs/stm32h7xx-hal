@@ -1,4 +1,4 @@
-//! *See the examples folder for more usage examples*
+//! *See the [examples](https://github.com/stm32-rs/stm32h7xx-hal/tree/master/examples) folder for more usage examples*
 //!
 //! This Hardware Abstraction Layer (HAL) provides the following functionality:
 //!
@@ -23,7 +23,7 @@
 //! * [Serial Peripheral Interface (SPI)](crate::spi)
 //! * [Serial Data (USART/UART)](crate::serial)
 //! * [Serial Audio Interface](crate::sai)
-//! * [Quad SPI](crate::qspi) Feature gate `quadspi`
+//! * [Quad or Octo SPI](crate::xspi) Feature gate `xspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ldtc`
@@ -81,8 +81,6 @@ pub mod traits;
 pub use nb;
 pub use nb::block;
 
-pub use stm32h7::Variant;
-
 // Single core
 #[cfg(any(
     feature = "stm32h742",
@@ -119,6 +117,14 @@ pub use stm32h7::stm32h757cm7 as stm32;
     feature = "stm32h7b0",
 ))]
 pub use stm32h7::stm32h7b3 as stm32;
+
+// High Speed
+#[cfg(any(
+    feature = "stm32h725",
+    feature = "stm32h735",
+    feature = "stm32h730",
+))]
+pub use stm32h7::stm32h735 as stm32;
 
 #[cfg(all(feature = "rm0433", feature = "rm0399"))]
 compile_error!("Cannot not select both rm0433 and rm0399");
@@ -171,12 +177,6 @@ pub mod pwm;
 pub mod pwr;
 #[cfg(feature = "device-selected")]
 pub mod qei;
-#[cfg(all(
-    feature = "device-selected",
-    feature = "quadspi",
-    not(feature = "rm0455")
-))]
-pub mod qspi;
 #[cfg(feature = "device-selected")]
 pub mod rcc;
 #[cfg(feature = "device-selected")]
@@ -201,3 +201,5 @@ pub mod timer;
 pub mod usb_hs;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
+#[cfg(all(feature = "device-selected", feature = "xspi"))]
+pub mod xspi;

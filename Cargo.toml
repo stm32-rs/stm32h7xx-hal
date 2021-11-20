@@ -25,17 +25,17 @@ features = ["stm32h743v", "rt", "quadspi", "sdmmc", "fmc", "usb_hs", "rtc", "eth
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-embedded-hal = "0.2.4"
+embedded-hal = "0.2.6"
 embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
-cortex-m-rt = "^0.6.12"
-stm32h7 = "^0.13.0"
+stm32h7 = "^0.14.0"
 void = { version = "1.0.2", default-features = false }
-cast = { version = "0.2.3", default-features = false }
+cast = { version = "0.3.0", default-features = false }
 nb = "1.0.0"
 paste = "1.0.1"
 bare-metal = "1.0.0"
-sdio-host = { version = "0.4", optional = true }
+sdio-host = { version = "0.5", optional = true }
+embedded-sdmmc = { version = "0.3", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
 synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
@@ -52,12 +52,13 @@ default-features = false
 optional = true
 
 [dev-dependencies]
-cortex-m-rtic = "0.5.3"
+cortex-m-rt = ">=0.6.15,<0.8"
+cortex-m-rtic = { version = "0.5.8", default-features = false, features = ["cortex-m-7"] }
 log = "0.4.11"
 panic-halt = "0.2.0"
-cfg-if = "0.1.10"
-rtt-target = { version = "0.2.0", features = ["cortex-m"] }
 panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }
+cfg-if = "1.0.0"
+rtt-target = { version = "0.3.1", features = ["cortex-m"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 cortex-m-log = { version = "~0.7.0", features = ["itm", "semihosting", "log-integration"] }
 panic-itm = { version = "~0.4.1" }
@@ -79,14 +80,16 @@ revision_v = []
 rm0433 = []                     # aka. "single core" devices
 rm0399 = []                     # aka. "dual core" devices
 rm0455 = []                     # aka. "high memory integration" devices
+rm0468 = []                     # aka. "high speed" devices
 dsi = []
 cm4 = []
 cm7 = []
 smps = []
 ltdc = ["embedded-display-controller"]
-quadspi = []
+xspi = []
 fmc = ["stm32-fmc"]
 sdmmc = ["sdio-host"]
+sdmmc-fatfs = ["embedded-sdmmc", "sdmmc"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
 crc = []
@@ -105,6 +108,7 @@ stm32h747cm4 = ["stm32h7/stm32h747cm4", "device-selected", "revision_v", "rm0399
 stm32h7b3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
 stm32h7b0 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
 stm32h7a3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
+stm32h735 = ["stm32h7/stm32h735", "device-selected", "revision_v", "rm0468", "smps"]
 # Flags for examples
 log-itm = []
 log-rtt = []
@@ -130,7 +134,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "rtic_timers"
-required-features = ["rt"]
+required-features = ["rt", "rm0433"]
 
 [[example]]
 name = "vos0"
@@ -138,19 +142,31 @@ required-features = ["revision_v", "rm0433"]
 
 [[example]]
 name = "fmc"
-required-features = ["fmc"]
+required-features = ["fmc", "rm0399"]
 
 [[example]]
 name = "qspi"
-required-features = ["quadspi", "rm0433"]
+required-features = ["xspi", "rm0433"]
 
 [[example]]
 name = "qspi_mdma"
-required-features = ["quadspi", "rm0433"]
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_flash_memory"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "octospi"
+required-features = ["xspi", "rm0468"]
 
 [[example]]
 name = "sdmmc"
 required-features = ["sdmmc", "rm0433"]
+
+[[example]]
+name = "sdmmc_fat"
+required-features = ["sdmmc", "sdmmc-fatfs", "stm32h747cm7"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
@@ -159,6 +175,10 @@ required-features = ["rt", "stm32h747cm7", "ethernet"]
 [[example]]
 name = "ethernet-rtic-stm32h747i-disco"
 required-features = ["rt", "stm32h747cm7", "ethernet"]
+
+[[example]]
+name = "ethernet-rtic-stm32h735g-dk"
+required-features = ["rt", "stm32h735", "ethernet"]
 
 [[example]]
 name = "ethernet-nucleo-h743zi2"

@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:                   # All permutations of {rust, mcu}
         rust:
-          - 1.51.0  # MSRV
+          - 1.52.0  # MSRV
           - stable
         mcu:
           - stm32h743
@@ -21,8 +21,9 @@ jobs:
           - stm32h747cm7
           - stm32h7b3
           - stm32h7b0
+          - stm32h735
     env:                        # Peripheral Feature flags
-      FLAGS: rt,quadspi,sdmmc,fmc,usb_hs,rtc,ethernet,ltdc,crc
+      FLAGS: rt,xspi,sdmmc,fmc,usb_hs,rtc,ethernet,ltdc,crc
 
     steps:
       - uses: actions/checkout@v2

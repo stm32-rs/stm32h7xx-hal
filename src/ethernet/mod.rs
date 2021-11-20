@@ -5,6 +5,11 @@
 //! - SMSC LAN8742a
 //! - Micrel KSZ8081R
 //!
+//! # Examples
+//!
+//! - [Simple link checker for the Nucleo-H743ZI2](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-nucleo-h743zi2.rs)
+//! - [Simple link checker for the STM32H747I-DISCO](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-stm32h747i-disco.rs)
+//! - [Ethernet example for the STM32H747I-DISCO using RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-rtic-stm32h747i-disco.rs)
 
 /// Station Management Interface (SMI) on an ethernet PHY
 pub trait StationManagement {
@@ -92,143 +97,60 @@ pub trait Txd2 {}
 /// Marks a type as a TXD3 pin
 pub trait Txd3 {}
 
-macro_rules! pins {
-    (REF_CLK: [$($REF_CLK:ty),*] TX_CLK: [$($TX_CLK:ty),*]
-     MDIO: [$($MDIO:ty),*] MDC: [$($MDC:ty),*] COL: [$($COL:ty),*]
-     CRS: [$($CRS:ty),*] CRS_DV: [$($CRS_DV:ty),*] PPS_OUT: [$($PPS_OUT:ty),*]
-     RX_ER: [$($RX_ER:ty),*] TX_EN: [$($TX_EN:ty),*]
-     RXD0: [$($RXD0:ty),*] RXD1: [$($RXD1:ty),*] RXD2: [$($RXD2:ty),*] RXD3: [$($RXD3:ty),*]
-     TXD0: [$($TXD0:ty),*] TXD1: [$($TXD1:ty),*] TXD2: [$($TXD2:ty),*] TXD3: [$($TXD3:ty),*]) => {
-        $(
-            impl RefClk for $REF_CLK {}
-        )*
-        $(
-            impl TxClk for $TX_CLK {}
-        )*
-        $(
-            impl Mdio for $MDIO {}
-        )*
-        $(
-            impl Mdc for $MDC {}
-        )*
-        $(
-            impl Col for $COL {}
-        )*
-        $(
-            impl Crs for $CRS {}
-        )*
-        $(
-            impl CrsDv for $CRS_DV {}
-        )*
-        $(
-            impl PpsOut for $PPS_OUT {}
-        )*
-        $(
-            impl RxEr for $RX_ER {}
-        )*
-        $(
-            impl TxEn for $TX_EN {}
-        )*
-        $(
-            impl Rxd0 for $RXD0 {}
-        )*
-        $(
-            impl Rxd1 for $RXD1 {}
-        )*
-        $(
-            impl Rxd2 for $RXD2 {}
-        )*
-        $(
-            impl Rxd3 for $RXD3 {}
-        )*
-        $(
-            impl Txd0 for $TXD0 {}
-        )*
-        $(
-            impl Txd1 for $TXD1 {}
-        )*
-        $(
-            impl Txd2 for $TXD2 {}
-        )*
-        $(
-            impl Txd3 for $TXD3 {}
-        )*
-    }
-}
-
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA7};
 use crate::gpio::gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5, PB8};
 use crate::gpio::gpioc::{PC1, PC2, PC3, PC4, PC5};
 use crate::gpio::gpioe::PE2;
 use crate::gpio::gpiog::{PG11, PG12, PG13, PG14, PG8};
 use crate::gpio::gpioh::{PH2, PH3, PH6, PH7};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::PI10;
 use crate::gpio::{Alternate, AF11};
 
-pins! {
-    REF_CLK: [
-        PA1<Alternate<AF11>>
-    ]
-    TX_CLK: [
-        PC3<Alternate<AF11>>
-    ]
-    MDIO: [
-        PA2<Alternate<AF11>>
-    ]
-    MDC: [
-        PC1<Alternate<AF11>>
-    ]
-    COL: [
-        PA3<Alternate<AF11>>,
-        PH3<Alternate<AF11>>
-    ]
-    CRS: [
-        PA0<Alternate<AF11>>,
-        PH2<Alternate<AF11>>
-    ]
-    CRS_DV: [
-        PA7<Alternate<AF11>>
-    ]
-    PPS_OUT: [
-        PB5<Alternate<AF11>>,
-        PG8<Alternate<AF11>>
-    ]
-    RX_ER: [
-        PB10<Alternate<AF11>>,
-        PI10<Alternate<AF11>>
-    ]
-    TX_EN: [
-        PB11<Alternate<AF11>>,
-        PG11<Alternate<AF11>>
-    ]
-    RXD0: [
-        PC4<Alternate<AF11>>
-    ]
-    RXD1: [
-        PC5<Alternate<AF11>>
-    ]
-    RXD2: [
-        PB0<Alternate<AF11>>,
-        PH6<Alternate<AF11>>
-    ]
-    RXD3: [
-        PB1<Alternate<AF11>>,
-        PH7<Alternate<AF11>>
-    ]
-    TXD0: [
-        PB12<Alternate<AF11>>,
-        PG13<Alternate<AF11>>
-    ]
-    TXD1: [
-        PB13<Alternate<AF11>>,
-        PG12<Alternate<AF11>>,
-        PG14<Alternate<AF11>>
-    ]
-    TXD2: [
-        PC2<Alternate<AF11>>
-    ]
-    TXD3: [
-        PB8<Alternate<AF11>>,
-        PE2<Alternate<AF11>>
-    ]
-}
+impl RefClk for PA1<Alternate<AF11>> {}
+
+impl TxClk for PC3<Alternate<AF11>> {}
+
+impl Mdio for PA2<Alternate<AF11>> {}
+
+impl Mdc for PC1<Alternate<AF11>> {}
+
+impl Col for PA3<Alternate<AF11>> {}
+impl Col for PH3<Alternate<AF11>> {}
+
+impl Crs for PA0<Alternate<AF11>> {}
+impl Crs for PH2<Alternate<AF11>> {}
+
+impl CrsDv for PA7<Alternate<AF11>> {}
+
+impl PpsOut for PB5<Alternate<AF11>> {}
+impl PpsOut for PG8<Alternate<AF11>> {}
+
+impl RxEr for PB10<Alternate<AF11>> {}
+#[cfg(not(feature = "rm0468"))]
+impl RxEr for PI10<Alternate<AF11>> {}
+
+impl TxEn for PB11<Alternate<AF11>> {}
+impl TxEn for PG11<Alternate<AF11>> {}
+
+impl Rxd0 for PC4<Alternate<AF11>> {}
+
+impl Rxd1 for PC5<Alternate<AF11>> {}
+
+impl Rxd2 for PB0<Alternate<AF11>> {}
+impl Rxd2 for PH6<Alternate<AF11>> {}
+
+impl Rxd3 for PB1<Alternate<AF11>> {}
+impl Rxd3 for PH7<Alternate<AF11>> {}
+
+impl Txd0 for PB12<Alternate<AF11>> {}
+impl Txd0 for PG13<Alternate<AF11>> {}
+
+impl Txd1 for PB13<Alternate<AF11>> {}
+impl Txd1 for PG12<Alternate<AF11>> {}
+impl Txd1 for PG14<Alternate<AF11>> {}
+
+impl Txd2 for PC2<Alternate<AF11>> {}
+
+impl Txd3 for PB8<Alternate<AF11>> {}
+impl Txd3 for PE2<Alternate<AF11>> {}

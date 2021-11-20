@@ -1,11 +1,11 @@
-//! Demo for STM32H747I-DISCO eval board using the Real Time for the Masses
+//! Demo for STM32H735G-DK eval board using the Real Time for the Masses
 //! (RTIC) framework.
 //!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
 //!
 //! We use the SysTick timer to create a 1ms timebase for use with smoltcp.
 //!
-//! The ethernet ring buffers are placed in SRAM3, where they can be
+//! The ethernet ring buffers are placed in AXI SRAM, where they can be
 //! accessed by both the core and the Ethernet DMA.
 #![deny(warnings)]
 #![no_main]
@@ -55,7 +55,7 @@ static TIME: AtomicU32 = AtomicU32::new(0);
 const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
-#[link_section = ".sram3.eth"]
+#[link_section = ".axisram.eth"]
 static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
 /// Net storage with static initialisation - another global singleton
@@ -119,7 +119,7 @@ const APP: () = {
     struct Resources {
         net: Net<'static>,
         lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
-        link_led: gpio::gpioi::PI14<gpio::Output<gpio::PushPull>>,
+        link_led: gpio::gpioc::PC3<gpio::Output<gpio::PushPull>>,
     }
 
     #[init]
@@ -129,9 +129,6 @@ const APP: () = {
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = pwr.smps().freeze();
 
-        // Link the SRAM3 power state to CPU1
-        ctx.device.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
-
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
@@ -140,6 +137,7 @@ const APP: () = {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
+        ctx.core.SCB.invalidate_icache();
         ctx.core.SCB.enable_icache();
         // TODO: ETH DMA coherence issues
         // ctx.core.SCB.enable_dcache(&mut ctx.core.CPUID);
@@ -148,9 +146,8 @@ const APP: () = {
         // Initialise IO...
         let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
-        let gpiog = ctx.device.GPIOG.split(ccdr.peripheral.GPIOG);
-        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
-        let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
+        let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
+        let mut link_led = gpioc.pc3.into_push_pull_output(); // USR LED1
         link_led.set_high().ok();
 
         let _rmii_ref_clk = gpioa.pa1.into_alternate_af11().set_speed(VeryHigh);
@@ -159,9 +156,9 @@ const APP: () = {
         let _rmii_crs_dv = gpioa.pa7.into_alternate_af11().set_speed(VeryHigh);
         let _rmii_rxd0 = gpioc.pc4.into_alternate_af11().set_speed(VeryHigh);
         let _rmii_rxd1 = gpioc.pc5.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_tx_en = gpiog.pg11.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd0 = gpiog.pg12.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd1 = gpiog.pg13.into_alternate_af11().set_speed(VeryHigh);
+        let _rmii_tx_en = gpiob.pb11.into_alternate_af11().set_speed(VeryHigh);
+        let _rmii_txd0 = gpiob.pb12.into_alternate_af11().set_speed(VeryHigh);
+        let _rmii_txd1 = gpiob.pb13.into_alternate_af11().set_speed(VeryHigh);
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz

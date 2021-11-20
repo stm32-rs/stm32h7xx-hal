@@ -35,7 +35,7 @@ fn main() -> ! {
     ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
 
     // IO
-    #[cfg(not(feature = "rm0455"))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     let (pin_dm, pin_dp) = {
         let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
         (
@@ -44,7 +44,7 @@ fn main() -> ! {
         )
     };
 
-    #[cfg(feature = "rm0455")]
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     let (pin_dm, pin_dp) = {
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
         (

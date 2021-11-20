@@ -8,9 +8,12 @@ use crate::gpio::gpioc::{PC6, PC7};
 use crate::gpio::gpiod::{PD12, PD13};
 use crate::gpio::gpioe::{PE10, PE11, PE8, PE9};
 use crate::gpio::gpioh::{PH10, PH11, PH13, PH14};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::{PI5, PI6};
+#[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
+use crate::gpio::gpioj::PJ6;
 #[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpioj::{PJ10, PJ11, PJ6, PJ7, PJ8, PJ9};
+use crate::gpio::gpioj::{PJ10, PJ11, PJ7, PJ8, PJ9};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1};
 
@@ -126,6 +129,7 @@ pins! {
             PA7<Alternate<AF3>>,
             PC6<Alternate<AF3>>,
             PH13<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI5<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PJ8<Alternate<AF3>>,
@@ -137,8 +141,9 @@ pins! {
             PB14<Alternate<AF3>>,
             PC7<Alternate<AF3>>,
             PH14<Alternate<AF3>>,
+            #[cfg(not(feature = "rm0468"))]
             PI6<Alternate<AF3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
+            #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
             PJ6<Alternate<AF3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             PJ7<Alternate<AF3>>,

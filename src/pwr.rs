@@ -10,6 +10,8 @@
 //!
 //! # Example
 //!
+//! You can also find a simple example [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs).
+//!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
 //!
@@ -51,10 +53,16 @@
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
-#[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+#[cfg(all(
+    feature = "revision_v",
+    any(feature = "rm0433", feature = "rm0399")
+))]
 use crate::stm32::{RCC, SYSCFG};
 
-#[cfg(all(feature = "rm0433", feature = "smps"))]
+#[cfg(all(
+    feature = "rm0433",
+    any(feature = "smps", feature = "example-smps")
+))]
 compile_error!("SMPS configuration fields are not available for RM0433 parts");
 
 /// Extension trait that constrains the `PWR` peripheral
@@ -68,7 +76,10 @@ impl PwrExt for PWR {
             rb: self,
             #[cfg(any(feature = "smps"))]
             supply_configuration: SupplyConfiguration::Default,
-            #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+            #[cfg(all(
+                feature = "revision_v",
+                any(feature = "rm0433", feature = "rm0399")
+            ))]
             enable_vos0: false,
         }
     }
@@ -81,7 +92,10 @@ pub struct Pwr {
     pub(crate) rb: PWR,
     #[cfg(any(feature = "smps"))]
     supply_configuration: SupplyConfiguration,
-    #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
     enable_vos0: bool,
 }
 
@@ -162,6 +176,30 @@ macro_rules! smps_level {
         $e.smpslevel()
     };
 }
+#[cfg(all(feature = "smps", not(feature = "rm0455")))]
+macro_rules! smps_en {
+    ($e:expr) => {
+        $e.sden()
+    };
+}
+#[cfg(all(feature = "smps", feature = "rm0455"))]
+macro_rules! smps_en {
+    ($e:expr) => {
+        $e.smpsen()
+    };
+}
+#[cfg(not(feature = "rm0455"))]
+macro_rules! d3cr {
+    ($e:expr) => {
+        $e.d3cr
+    };
+}
+#[cfg(feature = "rm0455")]
+macro_rules! d3cr {
+    ($e:expr) => {
+        $e.srdcr
+    };
+}
 
 /// Internal power methods
 impl Pwr {
@@ -176,15 +214,19 @@ impl Pwr {
 
         match self.supply_configuration {
             LDOSupply => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    "{}",
+                    error
+                );
                 assert!(self.rb.cr3.read().ldoen().bit_is_set(), "{}", error);
             }
             DirectSMPS => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
             }
             SMPSFeedsIntoLDO1V8 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
                     smps_level!(self.rb.cr3.read()).bits() == 1,
@@ -193,7 +235,7 @@ impl Pwr {
                 );
             }
             SMPSFeedsIntoLDO2V5 => {
-                assert!(self.rb.cr3.read().sden().bit_is_set(), "{}", error);
+                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
                     smps_level!(self.rb.cr3.read()).bits() == 2,
@@ -202,7 +244,11 @@ impl Pwr {
                 );
             }
             Bypass => {
-                assert!(self.rb.cr3.read().sden().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    "{}",
+                    error
+                );
                 assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(self.rb.cr3.read().bypass().bit_is_set(), "{}", error);
             }
@@ -215,10 +261,10 @@ impl Pwr {
     ///
     /// Does NOT implement overdrive (back-bias)
     fn voltage_scaling_transition(&self, new_scale: VoltageScale) {
-        self.rb.d3cr.write(|w| unsafe {
+        d3cr!(self.rb).write(|w| unsafe {
             // Manually set field values for each family
             w.vos().bits(
-                #[cfg(not(feature = "rm0455"))]
+                #[cfg(any(feature = "rm0433", feature = "rm0399"))]
                 match new_scale {
                     // RM0433 Rev 7 6.8.6
                     VoltageScale::Scale3 => 0b01,
@@ -234,9 +280,17 @@ impl Pwr {
                     VoltageScale::Scale1 => 0b10,
                     VoltageScale::Scale0 => 0b11,
                 },
+                #[cfg(feature = "rm0468")]
+                match new_scale {
+                    // RM0468 Rev 2 6.8.6
+                    VoltageScale::Scale0 => 0b00,
+                    VoltageScale::Scale3 => 0b01,
+                    VoltageScale::Scale2 => 0b10,
+                    VoltageScale::Scale1 => 0b11,
+                },
             )
         });
-        while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+        while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
     }
 }
 
@@ -269,7 +323,10 @@ impl Pwr {
                          the system low-power mode",
     }
 
-    #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
         self.enable_vos0 = true;
         self
@@ -292,19 +349,22 @@ impl Pwr {
             use SupplyConfiguration::*;
 
             match self.supply_configuration {
-                LDOSupply => w.sden().clear_bit().ldoen().set_bit(),
-                DirectSMPS => w.sden().set_bit().ldoen().clear_bit(),
+                LDOSupply => smps_en!(w).clear_bit().ldoen().set_bit(),
+                DirectSMPS => smps_en!(w).set_bit().ldoen().clear_bit(),
                 SMPSFeedsIntoLDO1V8 => unsafe {
-                    let reg = w.sden().set_bit().ldoen().set_bit();
+                    let reg = smps_en!(w).set_bit().ldoen().set_bit();
                     smps_level!(reg).bits(1)
                 },
                 SMPSFeedsIntoLDO2V5 => unsafe {
-                    let reg = w.sden().set_bit().ldoen().set_bit();
+                    let reg = smps_en!(w).set_bit().ldoen().set_bit();
                     smps_level!(reg).bits(2)
                 },
-                Bypass => {
-                    w.sden().clear_bit().ldoen().clear_bit().bypass().set_bit()
-                }
+                Bypass => smps_en!(w)
+                    .clear_bit()
+                    .ldoen()
+                    .clear_bit()
+                    .bypass()
+                    .set_bit(),
                 Default => {
                     // Default configuration. The actual reset value of
                     // CR3 varies between packages (See RM0399 Section
@@ -336,7 +396,10 @@ impl Pwr {
 
         // Enable overdrive for maximum clock
         // Syscfgen required to set enable overdrive
-        #[cfg(all(feature = "revision_v", not(feature = "rm0455")))]
+        #[cfg(all(
+            feature = "revision_v",
+            any(feature = "rm0433", feature = "rm0399")
+        ))]
         if self.enable_vos0 {
             unsafe {
                 &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
@@ -349,7 +412,7 @@ impl Pwr {
             unsafe {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
-            while self.rb.d3cr.read().vosrdy().bit_is_clear() {}
+            while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
         }
 

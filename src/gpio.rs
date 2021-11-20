@@ -1,4 +1,10 @@
 //! General Purpose Input / Output
+//!
+//! # Examples
+//!
+//! - [Simple Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs)
+//! - [Digital Read](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/digital_read.rs)
+//! - [External Interrupt via Button](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/exti_interrupt.rs)
 
 use core::marker::PhantomData;
 
@@ -145,7 +151,7 @@ macro_rules! gpio {
         pub mod $gpiox {
             use core::marker::PhantomData;
 
-            use embedded_hal::digital::v2::{InputPin, OutputPin,
+            use embedded_hal::digital::v2::{InputPin, OutputPin, IoPin, PinState,
                                             StatefulOutputPin, toggleable};
 
             use crate::rcc::{rec, ResetEnable};
@@ -330,7 +336,7 @@ macro_rules! gpio {
 
                 /// Enable external interrupts from this pin.
                 fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                    #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                    #[cfg(not(feature = "rm0399"))]
                     let imr1 = &exti.cpuimr1;
                     #[cfg(all(feature = "rm0399", feature = "cm7"))]
                     let imr1 = &exti.c1imr1;
@@ -342,7 +348,7 @@ macro_rules! gpio {
 
                 /// Disable external interrupts from this pin
                 fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                    #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                    #[cfg(not(feature = "rm0399"))]
                     let imr1 = &exti.cpuimr1;
                     #[cfg(all(feature = "rm0399", feature = "cm7"))]
                     let imr1 = &exti.c1imr1;
@@ -355,7 +361,7 @@ macro_rules! gpio {
                 /// Clear the interrupt pending bit for this pin
                 fn clear_interrupt_pending_bit(&mut self) {
                     unsafe {
-                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                        #[cfg(not(feature = "rm0399"))]
                         let pr1 = &(*EXTI::ptr()).cpupr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let pr1 = &(*EXTI::ptr()).c1pr1;
@@ -761,6 +767,46 @@ macro_rules! gpio {
                     }
                 }
 
+                impl IoPin<Self, Self>
+                for $PXi<Output<OpenDrain>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<Self, Never> {
+                        Ok(self)
+                    }
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Never> {
+                        self.set_state(state).unwrap(); // Infallible
+                        Ok(self)
+                    }
+                }
+
+                impl IoPin<$PXi<Input<Floating>>, Self>
+                    for $PXi<Output<PushPull>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<$PXi<Input<Floating>>, Never> {
+                        Ok(self.into_floating_input())
+                    }
+                    fn into_output_pin(mut self, state: PinState) -> Result<Self, Never> {
+                        self.set_state(state).unwrap(); // Infallible
+                        Ok(self)
+                    }
+                }
+
+                impl IoPin<Self, $PXi<Output<PushPull>>>
+                    for $PXi<Input<Floating>>
+                {
+                    type Error = Never;
+                    fn into_input_pin(self) -> Result<Self, Never> {
+                        Ok(self)
+                    }
+                    fn into_output_pin(self, state: PinState) -> Result<$PXi<Output<PushPull>>, Never> {
+                        let mut pin = self.into_push_pull_output();
+                        pin.set_state(state).unwrap(); // Infallible
+                        Ok(pin)
+                    }
+                }
+
                 impl<MODE> ExtiPin for $PXi<Input<MODE>> {
                     /// Configure EXTI Line $i to trigger from this pin.
                     fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
@@ -792,7 +838,7 @@ macro_rules! gpio {
 
                     /// Enable external interrupts from this pin.
                     fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                        #[cfg(not(feature = "rm0399"))]
                         let imr1 = &exti.cpuimr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let imr1 = &exti.c1imr1;
@@ -804,7 +850,7 @@ macro_rules! gpio {
 
                     /// Disable external interrupts from this pin
                     fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                        #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                        #[cfg(not(feature = "rm0399"))]
                         let imr1 = &exti.cpuimr1;
                         #[cfg(all(feature = "rm0399", feature = "cm7"))]
                         let imr1 = &exti.c1imr1;
@@ -817,7 +863,7 @@ macro_rules! gpio {
                     /// Clear the interrupt pending bit for this pin
                     fn clear_interrupt_pending_bit(&mut self) {
                         unsafe {
-                            #[cfg(any(feature = "rm0433", feature = "rm0455"))]
+                            #[cfg(not(feature = "rm0399"))]
                             let pr1 = &(*(EXTI::ptr())).cpupr1;
                             #[cfg(all(feature = "rm0399", feature = "cm7"))]
                             let pr1 = &(*(EXTI::ptr())).c1pr1;
@@ -987,6 +1033,7 @@ gpio!(GPIOH, gpioh, "Port H", Gpioh, PH, 7, [
     PH15: (ph15, 15, Analog, exticr4),
 ]);
 
+#[cfg(not(feature = "rm0468"))]
 gpio!(GPIOI, gpioi, "Port I", Gpioi, PI, 8, [
     PI0: (pi0, 0, Analog, exticr1),
     PI1: (pi1, 1, Analog, exticr1),

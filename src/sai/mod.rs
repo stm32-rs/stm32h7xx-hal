@@ -1,23 +1,35 @@
-//! # Serial Audio Interface
+//! Serial Audio Interface
+//!
+//! # Examples
+//!
+//! - [Configure the SAI for PDM mode](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai_pdm.rs)
+//!
+//! ## Examples using the Electro Smith Daisy Seed Board
+//!
+//! - [SAI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai_dma_passthru.rs)
+//! - [SAI with I2C](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai-i2s-passthru.rs)
 
 use core::marker::PhantomData;
 
-#[cfg(feature = "rm0455")]
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 use crate::stm32::sai1::CH;
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 use crate::stm32::sai4::CH;
 
-use crate::stm32::{SAI1, SAI2};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::{SAI3, SAI4};
+use crate::stm32::SAI1;
+#[cfg(feature = "rm0455")]
+use crate::stm32::SAI2;
+#[cfg(feature = "rm0468")]
+use crate::stm32::SAI4;
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
+use crate::stm32::{SAI2, SAI3, SAI4};
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 use crate::rcc::rec::Sai23ClkSelGetter;
 
 // clocks
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
-use stm32h7::Variant::Val;
 
 const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;
 
@@ -49,22 +61,22 @@ macro_rules! impl_sai_ker_ck {
                 /// Current kernel clock - A
                 fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
                     match prec.$get_mux_A() {
-                        Val(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
-                        Val(rec::$AccessA::I2S_CKIN) => unimplemented!(),
-                        Val(rec::$AccessA::PER) => clocks.per_ck(),
+                        Some(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
+                        Some(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
+                        Some(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessA::I2S_CKIN) => unimplemented!(),
+                        Some(rec::$AccessA::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
                 /// Current kernel clock - B
                 fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
                     match prec.$get_mux_B() {
-                        Val(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
-                        Val(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
-                        Val(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
-                        Val(rec::$AccessB::I2S_CKIN) => unimplemented!(),
-                        Val(rec::$AccessB::PER) => clocks.per_ck(),
+                        Some(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
+                        Some(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
+                        Some(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessB::I2S_CKIN) => unimplemented!(),
+                        Some(rec::$AccessB::PER) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -75,11 +87,11 @@ macro_rules! impl_sai_ker_ck {
 impl_sai_ker_ck! {
     Sai1, get_kernel_clk_mux, get_kernel_clk_mux, Sai1ClkSel, Sai1ClkSel: SAI1
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 impl_sai_ker_ck! {
     Sai2, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI2
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 impl_sai_ker_ck! {
     Sai3, get_kernel_clk_mux, get_kernel_clk_mux, Sai23ClkSel, Sai23ClkSel: SAI3
 }
@@ -308,10 +320,18 @@ macro_rules! sai_hal {
 
 sai_hal! {
     SAI1: (sai1, Sai1),
+}
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
+sai_hal! {
+    SAI2: (sai2, Sai2),
+    SAI3: (sai3, Sai3),
+    SAI4: (sai4, Sai4),
+}
+#[cfg(feature = "rm0455")]
+sai_hal! {
     SAI2: (sai2, Sai2),
 }
-#[cfg(not(feature = "rm0455"))]
+#[cfg(feature = "rm0468")]
 sai_hal! {
-    SAI3: (sai3, Sai3),
     SAI4: (sai4, Sai4),
 }

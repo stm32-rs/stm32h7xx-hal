@@ -44,9 +44,13 @@
 //! specifying that clock. If this results in a configuration that cannot
 //! be achieved by hardware, `freeze` will panic.
 //!
-//! # Configuration Example
+//! # Examples
 //!
-//! A simple example:
+//! - [Simple RCC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/rcc.rs).
+//! - [Fractional PLL configuration](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/fractional-pll.rs)
+//! - [MCO example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mco.rs)
+//!
+//! Simple example:
 //!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
@@ -143,10 +147,14 @@ use crate::pwr::PowerConfiguration;
 use crate::pwr::VoltageScale as Voltage;
 use crate::stm32::rcc::cfgr::SW_A as SW;
 use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
-use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdccipr::CKPERSEL_A as CKPERSEL;
@@ -452,7 +460,7 @@ impl Rcc {
 
         // See RM0433 Rev 7 Table 17. FLASH recommended number of wait
         // states and programming delay
-        #[cfg(not(feature = "rm0455"))]
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (wait_states, progr_delay) = match vos {
             // VOS 0 range VCORE 1.26V - 1.40V
             Voltage::Scale0 => match rcc_aclk_mhz {
@@ -532,6 +540,39 @@ impl Rcc {
                 44..=65 => (2, 1),
                 66..=87 => (3, 1),
                 _ => (7, 3),
+            },
+        };
+
+        // See RM0468 Rev 2 Table 16
+        #[cfg(feature = "rm0468")]
+        let (wait_states, progr_delay) = match vos {
+            // VOS 0 range VCORE 1.25V - 1.35V
+            Voltage::Scale0 => match rcc_aclk_mhz {
+                0..=69 => (0, 0),
+                70..=139 => (1, 1),
+                140..=209 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 1 range VCORE 1.15V - 1.25V
+            Voltage::Scale1 => match rcc_aclk_mhz {
+                0..=66 => (0, 0),
+                67..=132 => (1, 1),
+                133..=199 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 2 range VCORE 1.05V - 1.15V
+            Voltage::Scale2 => match rcc_aclk_mhz {
+                0..=49 => (0, 0),
+                50..=99 => (1, 1),
+                100..=149 => (2, 2),
+                _ => (3, 3),
+            },
+            // VOS 3 range VCORE 0.95V - 1.05V
+            Voltage::Scale3 => match rcc_aclk_mhz {
+                0..=34 => (0, 0),
+                35..=69 => (1, 1),
+                70..=84 => (2, 2),
+                _ => (3, 3),
             },
         };
 
@@ -688,7 +729,7 @@ impl Rcc {
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
         // revisions which may have lower limits.
-        #[cfg(not(feature = "rm0455"))]
+        #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
             Voltage::Scale0 => (480_000_000, 240_000_000, 120_000_000),
             Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
@@ -702,6 +743,14 @@ impl Rcc {
             Voltage::Scale1 => (225_000_000, 225_000_000, 112_500_000),
             Voltage::Scale2 => (160_000_000, 160_000_000, 80_000_000),
             _ => (88_000_000, 88_000_000, 44_000_000),
+        };
+
+        #[cfg(feature = "rm0468")] // 725 / 735 / 730
+        let (sys_d1cpre_ck_max, rcc_hclk_max, pclk_max) = match pwrcfg.vos {
+            Voltage::Scale0 => (520_000_000, 275_000_000, 137_500_000),
+            Voltage::Scale1 => (400_000_000, 200_000_000, 100_000_000),
+            Voltage::Scale2 => (300_000_000, 150_000_000, 75_000_000),
+            _ => (170_000_000, 85_000_000, 42_500_000),
         };
 
         // Check resulting sys_d1cpre_ck
@@ -841,6 +890,7 @@ impl Rcc {
         }
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d1cfgr.modify(|_, w| unsafe {
             w.d1cpre()
                 .bits(d1cpre_bits)
@@ -849,21 +899,47 @@ impl Rcc {
                 .hpre()
                 .variant(hpre_bits)
         });
+        #[cfg(feature = "rm0455")]
+        rcc.cdcfgr1.modify(|_, w| unsafe {
+            w.cdcpre()
+                .bits(d1cpre_bits)
+                .cdppre() // D1/CD contains APB3
+                .bits(ppre3_bits)
+                .hpre()
+                .variant(hpre_bits)
+        });
         // Ensure core prescaler value is valid before future lower
         // core voltage
+        #[cfg(not(feature = "rm0455"))]
         while rcc.d1cfgr.read().d1cpre().bits() != d1cpre_bits {}
+        #[cfg(feature = "rm0455")]
+        while rcc.cdcfgr1.read().cdcpre().bits() != d1cpre_bits {}
 
         // APB1 / APB2 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d2cfgr.modify(|_, w| unsafe {
             w.d2ppre1() // D2 contains APB1
                 .bits(ppre1_bits)
                 .d2ppre2() // D2 also contains APB2
                 .bits(ppre2_bits)
         });
+        #[cfg(feature = "rm0455")]
+        rcc.cdcfgr2.modify(|_, w| unsafe {
+            w.cdppre1() // D2/CD contains APB1
+                .bits(ppre1_bits)
+                .cdppre2() // D2/CD also contains APB2
+                .bits(ppre2_bits)
+        });
 
         // APB4 Prescaler
+        #[cfg(not(feature = "rm0455"))]
         rcc.d3cfgr.modify(|_, w| unsafe {
             w.d3ppre() // D3 contains APB4
+                .bits(ppre4_bits)
+        });
+        #[cfg(feature = "rm0455")]
+        rcc.srdcfgr.modify(|_, w| unsafe {
+            w.srdppre() // D3 contains APB4
                 .bits(ppre4_bits)
         });
 

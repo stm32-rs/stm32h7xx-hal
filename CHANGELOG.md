@@ -6,10 +6,16 @@
    * Implemented additional conversion utilities for `time`
    * **Breaking**: Changed I2S constructors to take less arguments
 
-* MSRV increased to 1.51.0
+* MSRV increased to 1.52.0
 * **Breaking**: Simplified API for reading device signature
   values. `VAL::get().read()` becomes `VAL::read()`
 * adc: Allow parallel execution of multiple ADCs through `start_conversion()`
+* Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
+* pac: Upgrade to stm32-rs v0.14.0
+
+* ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
+  constants to specify how many transmit / receive buffers to include in
+  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>`
 
 ## [v0.10.0] 2021-07-xx
 
@@ -22,6 +28,8 @@
 * serial: implement `fmt::Write` for `Serial<USART` #214
 * spi: Add more hardware CS features #216
 * timers: Better calculations for `set_timeout_ticks` #208
+
+* **Breaking**: Rename the `quadspi` flag to `xspi`
 
 ## [v0.9.0] 2021-03-12
 

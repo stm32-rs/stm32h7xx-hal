@@ -1250,8 +1250,23 @@ peripheral_target_address!(
     (pac::QUADSPI, dr, u32, P2M),
     (pac::QUADSPI, dr, u32, M2P),
 );
-#[cfg(all(feature = "quadspi", any(feature = "rm0433", feature = "rm0399")))]
+#[cfg(all(feature = "xspi", any(feature = "rm0433", feature = "rm0399")))]
 peripheral_target_address!(
-    (INNER: crate::qspi::Qspi, dr, u32, P2M),
-    (INNER: crate::qspi::Qspi, dr, u32, M2P),
+    (INNER: crate::xspi::Qspi<pac::QUADSPI>, dr, u32, P2M),
+    (INNER: crate::xspi::Qspi<pac::QUADSPI>, dr, u32, M2P),
+);
+
+#[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
+peripheral_target_address!(
+    (pac::OCTOSPI1, dr, u32, P2M),
+    (pac::OCTOSPI1, dr, u32, M2P),
+    (pac::OCTOSPI2, dr, u32, P2M),
+    (pac::OCTOSPI2, dr, u32, M2P),
+);
+#[cfg(all(feature = "xspi", any(feature = "rm0468")))] // TODO feature = "rm0455"
+peripheral_target_address!(
+    (INNER: crate::xspi::Octospi<pac::OCTOSPI1>, dr, u32, P2M),
+    (INNER: crate::xspi::Octospi<pac::OCTOSPI1>, dr, u32, M2P),
+    (INNER: crate::xspi::Octospi<pac::OCTOSPI2>, dr, u32, P2M),
+    (INNER: crate::xspi::Octospi<pac::OCTOSPI2>, dr, u32, M2P),
 );

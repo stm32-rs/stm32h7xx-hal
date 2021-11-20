@@ -7,6 +7,7 @@ stm32h7xx-hal
 [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/12691)
 [![CI](https://github.com/stm32-rs/stm32h7xx-hal/workflows/Continuous%20integration/badge.svg)](https://github.com/stm32-rs/stm32h7xx-hal/actions)
 [![Crates.io](https://img.shields.io/crates/v/stm32h7xx-hal.svg)](https://crates.io/crates/stm32h7xx-hal)
+![Minimum rustc version](https://img.shields.io/badge/rustc-1.52.0+-yellow.svg)
 
 [_stm32h7xx-hal_](https://github.com/stm32-rs/stm32h7xx-hal) contains
 a hardware abstraction layer on top of the peripheral access API for
@@ -33,6 +34,7 @@ Supported Configurations
 * __stm32h7b3__
 * __stm32h7b0__
 * __stm32h7a3__
+* __stm32h735__ (stm32h725, stm32h735)
 
 #### Old revision STM32H742/743/750/753 parts
 
@@ -109,7 +111,7 @@ programming interfaces are only available on the high density connectors.
 Minimum supported Rust version
 ------------------------------
 
-The Minimum Supported Rust Version (MSRV) at the moment is **1.51.0**. Older
+The Minimum Supported Rust Version (MSRV) at the moment is **1.52.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 

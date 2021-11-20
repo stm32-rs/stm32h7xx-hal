@@ -1,4 +1,9 @@
 //! Serial
+//!
+//! # Examples
+//!
+//! - [Simple Blocking Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial.rs)
+//! - [Serial Transfer using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-dma.rs)
 
 use core::fmt;
 use core::marker::PhantomData;
@@ -9,17 +14,7 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
-use crate::stm32;
-use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
-use stm32h7::Variant::Val;
-
-#[cfg(feature = "rm0455")]
-use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
-
-use crate::stm32::{UART4, UART5, UART7, UART8};
-use crate::stm32::{USART1, USART2, USART3, USART6};
+use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A};
 
 use crate::gpio::gpioa::{
     PA0, PA1, PA10, PA11, PA12, PA15, PA2, PA3, PA4, PA8, PA9,
@@ -33,14 +28,24 @@ use crate::gpio::gpioe::{PE0, PE1, PE7, PE8};
 use crate::gpio::gpiof::{PF6, PF7};
 use crate::gpio::gpiog::{PG14, PG7, PG9};
 use crate::gpio::gpioh::{PH13, PH14};
+#[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::PI9;
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpioj::{PJ8, PJ9};
-
 use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::Hertz;
+use crate::stm32;
+#[cfg(feature = "rm0455")]
+use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
+#[cfg(feature = "rm0468")]
+use crate::stm32::rcc::d2ccip2r::{USART16910SEL_A, USART234578SEL_A};
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
+use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
 
+use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
+use crate::stm32::{UART4, UART5, UART7, UART8};
+use crate::stm32::{USART1, USART2, USART3, USART6};
+use crate::time::Hertz;
 use crate::Never;
 
 /// Serial error
@@ -76,14 +81,12 @@ pub mod config {
         DataBits8,
         DataBits9,
     }
-
     #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
         ParityEven,
         ParityOdd,
     }
-
     #[derive(Copy, Clone, PartialEq)]
     pub enum StopBits {
         #[doc = "1 stop bit"]
@@ -95,15 +98,60 @@ pub mod config {
         #[doc = "1.5 stop bits"]
         STOP1P5,
     }
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum BitOrder {
+        LsbFirst,
+        MsbFirst,
+    }
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum ClockPhase {
+        First,
+        Second,
+    }
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum ClockPolarity {
+        IdleHigh,
+        IdleLow,
+    }
 
+    /// A structure for specifying the USART or UART configuration. Fields
+    /// relating to synchronous mode are ignored for UART peripherals.
+    ///
+    /// This structure uses builder semantics to generate the configuration.
+    ///
+    /// ```
+    /// let config = Config::new().partity_odd();
+    /// ```
+    #[derive(Copy, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
+        pub bitorder: BitOrder,
+        pub clockphase: ClockPhase,
+        pub clockpolarity: ClockPolarity,
+        pub lastbitclockpulse: bool,
     }
 
     impl Config {
+        /// Create a default configuration for the USART or UART interface
+        ///
+        /// * 8 bits, 1 stop bit, no parity (8N1)
+        /// * LSB first
+        pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
+            Config {
+                baudrate: frequency.into(),
+                wordlength: WordLength::DataBits8,
+                parity: Parity::ParityNone,
+                stopbits: StopBits::STOP1,
+                bitorder: BitOrder::LsbFirst,
+                clockphase: ClockPhase::First,
+                clockpolarity: ClockPolarity::IdleLow,
+                lastbitclockpulse: false,
+            }
+        }
+
         pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
             self.baudrate = baudrate.into();
             self
@@ -134,8 +182,30 @@ pub mod config {
             self
         }
 
+        /// Specify the number of stop bits
         pub fn stopbits(mut self, stopbits: StopBits) -> Self {
             self.stopbits = stopbits;
+            self
+        }
+        /// Specify the bit order
+        pub fn bitorder(mut self, bitorder: BitOrder) -> Self {
+            self.bitorder = bitorder;
+            self
+        }
+        /// Specify the clock phase. Only applies to USART peripherals
+        pub fn clockphase(mut self, clockphase: ClockPhase) -> Self {
+            self.clockphase = clockphase;
+            self
+        }
+        /// Specify the clock polarity. Only applies to USART peripherals
+        pub fn clockpolarity(mut self, clockpolarity: ClockPolarity) -> Self {
+            self.clockpolarity = clockpolarity;
+            self
+        }
+        /// Specify if the last bit transmitted in each word has a corresponding
+        /// clock pulse in the SCLK pin. Only applies to USART peripherals
+        pub fn lastbitclockpulse(mut self, lastbitclockpulse: bool) -> Self {
+            self.lastbitclockpulse = lastbitclockpulse;
             self
         }
     }
@@ -145,26 +215,20 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            Config {
-                baudrate: Hertz(19_200), // 19k2 baud
-                wordlength: WordLength::DataBits8,
-                parity: Parity::ParityNone,
-                stopbits: StopBits::STOP1,
-            }
+            Self::new(Hertz(19_200)) // 19k2 baud
         }
     }
 
     impl<T: Into<Hertz>> From<T> for Config {
-        fn from(f: T) -> Config {
-            Config {
-                baudrate: f.into(),
-                ..Default::default()
-            }
+        fn from(frequency: T) -> Config {
+            Self::new(frequency)
         }
     }
 }
 
-pub trait Pins<USART> {}
+pub trait Pins<USART> {
+    const SYNCHRONOUS: bool = false;
+}
 pub trait PinTx<USART> {}
 pub trait PinRx<USART> {}
 pub trait PinCk<USART> {}
@@ -174,6 +238,15 @@ where
     TX: PinTx<USART>,
     RX: PinRx<USART>,
 {
+}
+
+impl<USART, TX, RX, CK> Pins<USART> for (TX, RX, CK)
+where
+    TX: PinTx<USART>,
+    RX: PinRx<USART>,
+    CK: PinCk<USART>,
+{
+    const SYNCHRONOUS: bool = true;
 }
 
 /// A filler type for when the Tx pin is unnecessary
@@ -305,6 +378,7 @@ uart_pins! {
             PC11<Alternate<AF8>>,
             PD0<Alternate<AF8>>,
             PH14<Alternate<AF8>>,
+            #[cfg(not(feature = "rm0468"))]
             PI9<Alternate<AF8>>
         ]
     UART5:
@@ -368,9 +442,9 @@ pub struct Tx<USART> {
 pub trait SerialExt<USART>: Sized {
     type Rec: ResetEnable;
 
-    fn serial(
+    fn serial<P: Pins<USART>>(
         self,
-        _pins: impl Pins<USART>,
+        _pins: P,
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
@@ -381,6 +455,7 @@ pub trait SerialExt<USART>: Sized {
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
+        synchronous: bool,
     ) -> Result<Serial<USART>, config::InvalidConfig>;
 
     #[deprecated(since = "0.7.0", note = "Deprecated in favour of .serial(..)")]
@@ -403,14 +478,20 @@ pub trait SerialExt<USART>: Sized {
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
+        synchronous: bool,
     ) -> Result<Serial<USART>, config::InvalidConfig> {
-        self.serial_unchecked(config, prec, clocks)
+        self.serial_unchecked(config, prec, clocks, synchronous)
     }
 }
 
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
 macro_rules! usart {
     ($(
-        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident),
+        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident $(, $synchronous:ident)?),
     )+) => {
         $(
             /// Configures a USART peripheral to provide serial
@@ -421,6 +502,7 @@ macro_rules! usart {
                     config: impl Into<config::Config>,
                     prec: rec::$Rec,
                     clocks: &CoreClocks
+                    $(, $synchronous: bool)?
                 ) -> Result<Self, config::InvalidConfig>
                 {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
@@ -464,7 +546,40 @@ macro_rules! usart {
                             StopBits::STOP1 => STOP::STOP1,
                             StopBits::STOP1P5 => STOP::STOP1P5,
                             StopBits::STOP2 => STOP::STOP2,
-                        })
+                        });
+
+                        w.msbfirst().variant(match config.bitorder {
+                            BitOrder::LsbFirst => MSBFIRST_A::LSB,
+                            BitOrder::MsbFirst => MSBFIRST_A::MSB,
+                        });
+
+                        // If synchronous mode is not supported, these bits are
+                        // reserved and must be kept at reset value
+                        $(
+                            w.lbcl().variant(if config.lastbitclockpulse {
+                                LBCL_A::OUTPUT
+                            } else {
+                                LBCL_A::NOTOUTPUT
+                            });
+
+                            w.clken().variant(if $synchronous {
+                                CLKEN_A::ENABLED
+                            } else {
+                                CLKEN_A::DISABLED
+                            });
+
+                            w.cpol().variant(match config.clockpolarity {
+                                ClockPolarity::IdleHigh =>CPOL_A::HIGH,
+                                ClockPolarity::IdleLow =>CPOL_A::LOW
+                            });
+
+                            w.cpha().variant(match config.clockphase {
+                                ClockPhase::First => CPHA_A::FIRST,
+                                ClockPhase::Second => CPHA_A::SECOND
+                            });
+                        )?
+
+                        w
                     });
 
                     // Enable transmission and receiving
@@ -607,23 +722,31 @@ macro_rules! usart {
             impl SerialExt<$USARTX> for $USARTX {
                 type Rec = rec::$Rec;
 
-                fn serial(self,
-                         _pins: impl Pins<$USARTX>,
+                fn serial<P: Pins<$USARTX>>(self,
+                         _pins: P,
                          config: impl Into<config::Config>,
                          prec: rec::$Rec,
                          clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks)
+                    Serial::$usartX(
+                        self, config, prec, clocks
+                            $(, replace_expr!($synchronous P::SYNCHRONOUS))?
+                    )
                 }
 
                 fn serial_unchecked(self,
                                    config: impl Into<config::Config>,
                                    prec: rec::$Rec,
-                                   clocks: &CoreClocks
+                                   clocks: &CoreClocks,
+                                   #[allow(unused)]
+                                   synchronous: bool,
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
-                    Serial::$usartX(self, config, prec, clocks)
+                    Serial::$usartX(
+                        self, config, prec, clocks
+                            $(, replace_expr!($synchronous synchronous))?
+                    )
                 }
             }
 
@@ -836,12 +959,12 @@ macro_rules! usart_sel {
                     let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
 
                     match ccip.$sel().variant() {
-                        Val($SEL::$PCLK) => Some(clocks.$pclk()),
-                        Val($SEL::PLL2_Q) => clocks.pll2_q_ck(),
-                        Val($SEL::PLL3_Q) => clocks.pll3_q_ck(),
-                        Val($SEL::HSI_KER) => clocks.hsi_ck(),
-                        Val($SEL::CSI_KER) => clocks.csi_ck(),
-                        Val($SEL::LSE) => unimplemented!(),
+                        Some($SEL::$PCLK) => Some(clocks.$pclk()),
+                        Some($SEL::PLL2_Q) => clocks.pll2_q_ck(),
+                        Some($SEL::PLL3_Q) => clocks.pll3_q_ck(),
+                        Some($SEL::HSI_KER) => clocks.hsi_ck(),
+                        Some($SEL::CSI_KER) => clocks.csi_ck(),
+                        Some($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
@@ -851,10 +974,10 @@ macro_rules! usart_sel {
 }
 
 usart! {
-    USART1: (usart1, Usart1, pclk2),
-    USART2: (usart2, Usart2, pclk1),
-    USART3: (usart3, Usart3, pclk1),
-    USART6: (usart6, Usart6, pclk2),
+    USART1: (usart1, Usart1, pclk2, synchronous),
+    USART2: (usart2, Usart2, pclk1, synchronous),
+    USART3: (usart3, Usart3, pclk1, synchronous),
+    USART6: (usart6, Usart6, pclk2, synchronous),
 
     UART4: (uart4, Uart4, pclk1),
     UART5: (uart5, Uart5, pclk1),
@@ -862,7 +985,7 @@ usart! {
     UART8: (uart8, Uart8, pclk1),
 }
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 usart_sel! {
     d2ccip2r, USART16SEL_A, usart16sel, RCC_PCLK2, pclk2;
 
@@ -872,6 +995,13 @@ usart_sel! {
 #[cfg(feature = "rm0455")]
 usart_sel! {
     cdccip2r, USART16910SEL_A, usart16910sel, RCC_PCLK2, pclk2;
+
+    USART1: "USART1",
+    USART6: "USART6",
+}
+#[cfg(feature = "rm0468")]
+usart_sel! {
+    d2ccip2r, USART16910SEL_A, usart16910sel, RCC_PCLK2, pclk2;
 
     USART1: "USART1",
     USART6: "USART6",
