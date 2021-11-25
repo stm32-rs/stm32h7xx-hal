@@ -15,7 +15,7 @@ use crate::gpio::{
     gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5},
     gpioc::{PC0, PC2, PC3},
     gpioh::PH4,
-    Alternate, AF10,
+    Alternate, Speed, AF10,
 };
 
 #[cfg(not(feature = "rm0468"))]
@@ -184,6 +184,20 @@ pub enum Usb1UlpiDirPin {
     PI11(PI11<Alternate<AF10>>),
 }
 
+impl Usb1UlpiDirPin {
+    fn set_speed(self, speed: Speed) -> Usb1UlpiDirPin {
+        match self {
+            Usb1UlpiDirPin::PC2(pin) => {
+                Usb1UlpiDirPin::PC2(pin.set_speed(speed))
+            }
+            #[cfg(not(feature = "rm0468"))]
+            Usb1UlpiDirPin::PI11(pin) => {
+                Usb1UlpiDirPin::PI11(pin.set_speed(speed))
+            }
+        }
+    }
+}
+
 #[cfg(not(feature = "rm0468"))]
 impl From<PI11<Alternate<AF10>>> for Usb1UlpiDirPin {
     fn from(v: PI11<Alternate<AF10>>) -> Self {
@@ -202,6 +216,20 @@ pub enum Usb1UlpiNxtPin {
     PH4(PH4<Alternate<AF10>>),
 }
 
+impl Usb1UlpiNxtPin {
+    fn set_speed(self, speed: Speed) -> Usb1UlpiNxtPin {
+        match self {
+            Usb1UlpiNxtPin::PC3(pin) => {
+                Usb1UlpiNxtPin::PC3(pin.set_speed(speed))
+            }
+            #[cfg(not(feature = "rm0468"))]
+            Usb1UlpiNxtPin::PH4(pin) => {
+                Usb1UlpiNxtPin::PH4(pin.set_speed(speed))
+            }
+        }
+    }
+}
+
 impl From<PH4<Alternate<AF10>>> for Usb1UlpiNxtPin {
     fn from(v: PH4<Alternate<AF10>>) -> Self {
         Usb1UlpiNxtPin::PH4(v)
@@ -215,25 +243,38 @@ impl From<PC3<Alternate<AF10>>> for Usb1UlpiNxtPin {
 }
 
 impl USB1_ULPI {
+    /// Automatically sets all upli pins to gpio speed VeryHigh
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _ulpi_clk: PA5<Alternate<AF10>>,
-        _ulpi_dir: impl Into<Usb1UlpiDirPin>,
-        _ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
-        _ulpi_stp: PC0<Alternate<AF10>>,
-        _ulpi_d0: PA3<Alternate<AF10>>,
-        _ulpi_d1: PB0<Alternate<AF10>>,
-        _ulpi_d2: PB1<Alternate<AF10>>,
-        _ulpi_d3: PB10<Alternate<AF10>>,
-        _ulpi_d4: PB11<Alternate<AF10>>,
-        _ulpi_d5: PB12<Alternate<AF10>>,
-        _ulpi_d6: PB13<Alternate<AF10>>,
-        _ulpi_d7: PB5<Alternate<AF10>>,
+        ulpi_clk: PA5<Alternate<AF10>>,
+        ulpi_dir: impl Into<Usb1UlpiDirPin>,
+        ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
+        ulpi_stp: PC0<Alternate<AF10>>,
+        ulpi_d0: PA3<Alternate<AF10>>,
+        ulpi_d1: PB0<Alternate<AF10>>,
+        ulpi_d2: PB1<Alternate<AF10>>,
+        ulpi_d3: PB10<Alternate<AF10>>,
+        ulpi_d4: PB11<Alternate<AF10>>,
+        ulpi_d5: PB12<Alternate<AF10>>,
+        ulpi_d6: PB13<Alternate<AF10>>,
+        ulpi_d7: PB5<Alternate<AF10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
+        ulpi_clk.set_speed(Speed::VeryHigh);
+        ulpi_dir.into().set_speed(Speed::VeryHigh);
+        ulpi_nxt.into().set_speed(Speed::VeryHigh);
+        ulpi_stp.set_speed(Speed::VeryHigh);
+        ulpi_d0.set_speed(Speed::VeryHigh);
+        ulpi_d1.set_speed(Speed::VeryHigh);
+        ulpi_d2.set_speed(Speed::VeryHigh);
+        ulpi_d3.set_speed(Speed::VeryHigh);
+        ulpi_d4.set_speed(Speed::VeryHigh);
+        ulpi_d5.set_speed(Speed::VeryHigh);
+        ulpi_d6.set_speed(Speed::VeryHigh);
+        ulpi_d7.set_speed(Speed::VeryHigh);
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
