@@ -222,7 +222,6 @@ impl Usb1UlpiNxtPin {
             Usb1UlpiNxtPin::PC3(pin) => {
                 Usb1UlpiNxtPin::PC3(pin.set_speed(speed))
             }
-            #[cfg(not(feature = "rm0468"))]
             Usb1UlpiNxtPin::PH4(pin) => {
                 Usb1UlpiNxtPin::PH4(pin.set_speed(speed))
             }
