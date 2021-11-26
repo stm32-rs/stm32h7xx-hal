@@ -541,8 +541,10 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
-pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
-    type Disabled: SpiDisabled<
+pub trait HalEnabledSpi:
+    HalSpi + FullDuplex<Self::Word, Error = Error>
+{
+    type Disabled: HalDisabledSpi<
         Spi = Self::Spi,
         Word = Self::Word,
         Enabled = Self,
@@ -556,10 +558,16 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     /// disabled.
     fn disable(self) -> Self::Disabled;
 
-    /// Resets the SPI peripheral. This is just a call to [SpiEnabled::disable]
-    /// and [SpiDisabled::enable]
-    fn reset(self) -> Self {
-        self.disable().enable()
+    /// Resets the SPI peripheral. This is just a call to [HalEnabledSpi::disable]
+    /// and [HalDisabledSpi::enable]
+    fn reset(&mut self) {
+        // SAFETY: we are essentially `core::mem::take`ing here without replacing with a default
+        // value. This is safe because we are not using the old value and are replacing it with
+        // a valid value at the end of the function. `mem::take`ing is needed because the `disable`
+        // and `enable` methods take ownership of the HAL SPI.
+        let spi_enabled: Self = unsafe { core::mem::transmute_copy(self) };
+        let spi_disabled = spi_enabled.disable();
+        *self = spi_disabled.enable();
     }
 
     /// Sets up a frame transaction with the given amount of data words.
@@ -585,9 +593,9 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     fn end_transaction(&mut self) -> Result<(), Error>;
 }
 
-pub trait SpiDisabled: SpiAll {
+pub trait HalDisabledSpi: HalSpi {
     type Rec;
-    type Enabled: SpiEnabled<Spi = Self::Spi, Word = Self::Word>;
+    type Enabled: HalEnabledSpi<Spi = Self::Spi, Word = Self::Word>;
 
     /// Enables the SPI peripheral.
     /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
@@ -611,7 +619,7 @@ pub trait SpiDisabled: SpiAll {
     fn free(self) -> (Self::Spi, Self::Rec);
 }
 
-pub trait SpiAll: Sized {
+pub trait HalSpi: Sized {
     type Spi;
     type Word;
 
@@ -805,7 +813,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiEnabled for Spi<$SPIX, Enabled, $TY> {
+                impl HalEnabledSpi for Spi<$SPIX, Enabled, $TY> {
                     type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
 
                     fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
@@ -859,7 +867,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiDisabled for Spi<$SPIX, Disabled, $TY> {
+                impl HalDisabledSpi for Spi<$SPIX, Disabled, $TY> {
                     type Rec = rec::$Rec;
                     type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
 
@@ -895,7 +903,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl<EN> SpiAll for Spi<$SPIX, EN, $TY>
+                impl<EN> HalSpi for Spi<$SPIX, EN, $TY>
                 {
                     type Word = $TY;
                     type Spi = $SPIX;
