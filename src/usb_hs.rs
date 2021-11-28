@@ -242,7 +242,9 @@ impl From<PC3<Alternate<AF10>>> for Usb1UlpiNxtPin {
 }
 
 impl USB1_ULPI {
-    /// Automatically sets all upli pins to gpio speed VeryHigh
+    /// Automatically sets all upli pins to gpio speed VeryHigh.
+    /// If you wish to use another configuration,
+    /// please see [new_unchecked](USB1_ULPI::new_unchecked).
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
