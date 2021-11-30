@@ -34,7 +34,10 @@ use smoltcp::{
     wire::EthernetAddress,
 };
 
-use crate::ethernet::StationManagement;
+use crate::{
+    ethernet::{PinsRMII, StationManagement},
+    gpio::Speed,
+};
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
@@ -376,6 +379,40 @@ pub struct EthernetMAC {
     eth_mac: stm32::ETHERNET_MAC,
     eth_phy_addr: u8,
     clock_range: u8,
+}
+
+/// Create and initialise the ethernet driver.
+///
+/// You must move in ETH_MAC, ETH_MTL, ETH_DMA.
+///
+/// Sets up the descriptor structures, sets up the peripheral
+/// clocks and GPIO configuration, and configures the ETH MAC and
+/// DMA peripherals. Automatically sets slew rate to VeryHigh.
+/// If you wish to use another configuration, please see
+/// [new_unchecked](new_unchecked).
+///
+/// This method does not initialise the external PHY. However it does return an
+/// [EthernetMAC](EthernetMAC) which implements the
+/// [StationManagement](super::StationManagement) trait. This can be used to
+/// communicate with the external PHY.
+///
+/// # Safety
+///
+/// `EthernetDMA` shall not be moved as it is initialised here
+pub fn new<'a, const TD: usize, const RD: usize>(
+    eth_mac: stm32::ETHERNET_MAC,
+    eth_mtl: stm32::ETHERNET_MTL,
+    eth_dma: stm32::ETHERNET_DMA,
+    pins: impl PinsRMII,
+    ring: &'a mut DesRing<TD, RD>,
+    mac_addr: EthernetAddress,
+    prec: rec::Eth1Mac,
+    clocks: &CoreClocks,
+) -> (EthernetDMA<'a, TD, RD>, EthernetMAC) {
+    pins.set_speed(Speed::VeryHigh);
+    unsafe {
+        new_unchecked(eth_mac, eth_mtl, eth_dma, ring, mac_addr, prec, clocks)
+    }
 }
 
 /// Create and initialise the ethernet driver.

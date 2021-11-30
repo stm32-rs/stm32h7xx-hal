@@ -27,7 +27,6 @@ use smoltcp::socket::{SocketSet, SocketSetItem};
 use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
 
-use gpio::Speed::*;
 use stm32h7xx_hal::gpio;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
@@ -150,15 +149,15 @@ const APP: () = {
         let mut link_led = gpioc.pc3.into_push_pull_output(); // USR LED1
         link_led.set_high().ok();
 
-        let _rmii_ref_clk = gpioa.pa1.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_mdio = gpioa.pa2.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_mdc = gpioc.pc1.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_crs_dv = gpioa.pa7.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_rxd0 = gpioc.pc4.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_rxd1 = gpioc.pc5.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_tx_en = gpiob.pb11.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd0 = gpiob.pb12.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd1 = gpiob.pb13.into_alternate_af11().set_speed(VeryHigh);
+        let rmii_ref_clk = gpioa.pa1.into_alternate_af11();
+        let rmii_mdio = gpioa.pa2.into_alternate_af11();
+        let rmii_mdc = gpioc.pc1.into_alternate_af11();
+        let rmii_crs_dv = gpioa.pa7.into_alternate_af11();
+        let rmii_rxd0 = gpioc.pc4.into_alternate_af11();
+        let rmii_rxd1 = gpioc.pc5.into_alternate_af11();
+        let rmii_tx_en = gpiob.pb11.into_alternate_af11();
+        let rmii_txd0 = gpiob.pb12.into_alternate_af11();
+        let rmii_txd1 = gpiob.pb13.into_alternate_af11();
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
@@ -168,10 +167,21 @@ const APP: () = {
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
-            ethernet::new_unchecked(
+            ethernet::new(
                 ctx.device.ETHERNET_MAC,
                 ctx.device.ETHERNET_MTL,
                 ctx.device.ETHERNET_DMA,
+                (
+                    rmii_ref_clk,
+                    rmii_mdio,
+                    rmii_mdc,
+                    rmii_crs_dv,
+                    rmii_rxd0,
+                    rmii_rxd1,
+                    rmii_tx_en,
+                    rmii_txd0,
+                    rmii_txd1,
+                ),
                 &mut DES_RING,
                 mac_addr.clone(),
                 ccdr.peripheral.ETH1MAC,
