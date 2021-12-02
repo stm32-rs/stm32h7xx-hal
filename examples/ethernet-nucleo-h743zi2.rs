@@ -16,7 +16,6 @@ use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ethernet, ethernet::PHY};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
-use Speed::*;
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(syst: &mut stm32::SYST, clocks: CoreClocks) {
