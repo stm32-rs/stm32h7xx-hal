@@ -1237,7 +1237,9 @@ mdma_stream!(
     (Stream15, ch15, 15),
 );
 
+#[cfg(not(feature = "rm0455"))] // TODO remove
 type P2M = PeripheralToMemory;
+#[cfg(not(feature = "rm0455"))] // TODO remove
 type M2P = MemoryToPeripheral;
 
 // Access the QSPI data register as a u32 for bus access efficiency. The MDMA
