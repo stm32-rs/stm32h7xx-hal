@@ -26,7 +26,7 @@
 //! * [Quad or Octo SPI](crate::xspi) Feature gate `xspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
-//! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ldtc`
+//! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
 //!
 //! External Memory
 //!
