@@ -228,14 +228,11 @@ impl Default for MdmaIncrement {
 }
 
 /// MDMA burst size. This type contains the _register_ value, thus the burst
-/// size is equal to 2^N where N is the register value
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// size is equal to 2^N where N is the register value.
+///
+/// The derived Default implementation gives a burst size of 2^0 = 1
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MdmaBurstSize(pub(crate) u8);
-impl Default for MdmaBurstSize {
-    fn default() -> Self {
-        MdmaBurstSize(0)
-    }
-}
 impl MdmaBurstSize {
     // TODO: add const to make this a const fn
     fn from_size(mut v: usize) -> Self {
