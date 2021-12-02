@@ -2,6 +2,7 @@
 //!
 //! See the parent module for documentation
 
+#[allow(unused)] // TODO remove
 use crate::{
     gpio::{
         gpioa::{PA1, PA2, PA3, PA6, PA7},
