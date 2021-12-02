@@ -229,3 +229,6 @@ impl rand_core::RngCore for Rng {
         })
     }
 }
+
+#[cfg(feature = "rand")]
+impl rand_core::CryptoRng for Rng {}
