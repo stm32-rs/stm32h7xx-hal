@@ -177,7 +177,13 @@ macro_rules! rng_core_transmute {
 }
 
 rng_core!(u8, u16, u32);
+
+// Alignment of these types must be a multiple of mem::align_of::<32>()
 rng_core_large!(u64, u128);
+
+// A and B must have the same alignment
+// rng_core_transmute!(A = B)
+// assert!(mem::align_of::<A>() == mem::align_of::<B>())
 rng_core_transmute!(
     i8 = u8,
     i16 = u16,
@@ -222,10 +228,12 @@ impl rand_core::RngCore for Rng {
         dest: &mut [u8],
     ) -> Result<(), rand_core::Error> {
         self.fill(dest).map_err(|e| {
-            core::num::NonZeroU32::new(e as u32)
-                // This should never fail as long as no enum variant is equal to 0
-                .expect("Internal hal error")
-                .into()
+            core::num::NonZeroU32::new(
+                rand_core::Error::CUSTOM_START + e as u32,
+            )
+            // This should never fail as long as no enum variant is equal to 0
+            .expect("Internal hal error")
+            .into()
         })
     }
 }
