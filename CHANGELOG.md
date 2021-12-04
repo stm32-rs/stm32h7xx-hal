@@ -17,6 +17,7 @@
 * ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
   constants to specify how many transmit / receive buffers to include in
   `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>`
+* spi: Utilise FIFO in `Transfer` and `Write` implementations
 
 ## [v0.10.0] 2021-07-xx
 
