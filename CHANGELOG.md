@@ -13,6 +13,9 @@
 * Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
 * pac: Upgrade to stm32-rs v0.14.0
 * Add "rt" to the default features
+* **Breaking**: `qspi` flag renamed to `xspi`
+* **Breaking**: SAI `sai_[ab]_ker_ck` methods now return `Hertz` rather than
+  `Option<Hertz>` and if the clock is stopped they panic with a message.
 
 * ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
   constants to specify how many transmit / receive buffers to include in

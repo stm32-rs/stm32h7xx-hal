@@ -204,10 +204,7 @@ impl Qspi<stm32::QUADSPI> {
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());
 
-        let spi_kernel_ck = match Self::get_clock(clocks) {
-            Some(freq_hz) => freq_hz.0,
-            _ => panic!("QSPI kernel clock not running!"),
-        };
+        let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
 
         while regs.sr.read().busy().bit_is_set() {}
 

@@ -434,7 +434,7 @@ mod common {
                 let _ = self.rb.cr.read(); // Delay 2 peripheral clocks
             }
 
-            pub(super) fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {
+            pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
                 #[cfg(not(feature = "rm0455"))]
                 use stm32::rcc::d1ccipr as ccipr;
                 #[cfg(feature = "rm0455")]
@@ -446,10 +446,16 @@ mod common {
                 let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
 
                 match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => Some(clocks.hclk()),
-                    ccipr::[< $ccip:upper _A >]::PLL1_Q => clocks.pll1_q_ck(),
-                    ccipr::[< $ccip:upper _A >]::PLL2_R => clocks.pll2_r_ck(),
-                    ccipr::[< $ccip:upper _A >]::PER => clocks.per_ck(),
+                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => clocks.hclk(),
+                    ccipr::[< $ccip:upper _A >]::PLL1_Q => {
+                        clocks.pll1_q_ck().expect("$peripheral: PLL1_Q must be enabled")
+                    }
+                    ccipr::[< $ccip:upper _A >]::PLL2_R => {
+                        clocks.pll2_r_ck().expect("$peripheral: PLL2_R must be enabled")
+                    }
+                    ccipr::[< $ccip:upper _A >]::PER => {
+                        clocks.per_ck().expect("$peripheral: PER clock must be enabled")
+                    }
                 }
             }
 

@@ -19,15 +19,24 @@ pub enum ErrorKind {
     SeedError = 1,
 }
 
-trait KerClk {
-    fn kernel_clk(prec: rec::Rng, clocks: &CoreClocks) -> Option<Hertz>;
+pub trait KerClk {
+    /// Return the kernel clock for the Random Number Generator
+    ///
+    /// # Panics
+    ///
+    /// Panics if the kernel clock is not running
+    fn kernel_clk_unwrap(prec: rec::Rng, clocks: &CoreClocks) -> Hertz;
 }
 
 impl KerClk for RNG {
-    fn kernel_clk(prec: rec::Rng, clocks: &CoreClocks) -> Option<Hertz> {
+    fn kernel_clk_unwrap(prec: rec::Rng, clocks: &CoreClocks) -> Hertz {
         match prec.get_kernel_clk_mux() {
-            RngClkSel::HSI48 => clocks.hsi48_ck(),
-            RngClkSel::PLL1_Q => clocks.pll1_q_ck(),
+            RngClkSel::HSI48 => {
+                clocks.hsi48_ck().expect("RNG: HSI48 must be enabled")
+            }
+            RngClkSel::PLL1_Q => {
+                clocks.pll1_q_ck().expect("RNG: PLL1_Q must be enabled")
+            }
             RngClkSel::LSE => unimplemented!(),
             RngClkSel::LSI => unimplemented!(),
         }
@@ -43,12 +52,11 @@ impl RngExt for RNG {
         let prec = prec.enable().reset();
 
         let hclk = clocks.hclk();
-        let rng_clk = Self::kernel_clk(prec, clocks)
-            .expect("RNG input clock not running!");
+        let rng_clk = Self::kernel_clk_unwrap(prec, clocks);
 
         // Otherwise clock checker will always flag an error
         // See RM0433 Rev 6 Section 33.3.6
-        assert!(rng_clk.0 > hclk.0 / 32);
+        assert!(rng_clk.0 > hclk.0 / 32, "RNG: Clock too slow");
 
         self.cr.modify(|_, w| w.ced().enabled().rngen().enabled());
 

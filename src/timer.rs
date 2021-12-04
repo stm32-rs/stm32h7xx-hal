@@ -300,7 +300,7 @@ macro_rules! hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("Timer input clock not running!").0;
+                        .expect("$TIMX: Input clock not running!").0;
 
                     Timer {
                         clk,

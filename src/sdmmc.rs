@@ -454,10 +454,14 @@ macro_rules! sdmmc {
 
                     let hclk = clocks.hclk();
                     let ker_ck = match prec.get_kernel_clk_mux() {
-                        rec::SdmmcClkSel::PLL1_Q => clocks.pll1_q_ck(),
-                        rec::SdmmcClkSel::PLL2_R => clocks.pll2_r_ck(),
-                    }
-                    .expect("sdmmc_ker_ck not running!");
+                        rec::SdmmcClkSel::PLL1_Q => {
+                            clocks.pll1_q_ck().expect("SDMMC: PLL1_Q must be enabled")
+                        }
+                        rec::SdmmcClkSel::PLL2_R => {
+                            clocks.pll2_r_ck().expect("SDMMC: PLL2_R must be enabled")
+                        }
+                    };
+
 
                     // For tuning the phase of the receive sampling clock, a
                     // DLYB block can be connected between sdmmc_io_in_ck and

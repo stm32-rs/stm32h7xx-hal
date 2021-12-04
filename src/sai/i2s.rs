@@ -457,8 +457,7 @@ macro_rules! i2s {
                     }
 
                     // Clock config
-                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks)
-                        .expect("SAI kernel clock must run!");
+                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
                     let clock_ratio = if users.master.oversampling {
                         512
                     } else {
@@ -468,7 +467,7 @@ macro_rules! i2s {
                         (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
-                        .expect("SAI kernel clock is out of range for required MCLK");
+                        .expect("$SAIX A: Kernel clock is out of range for required MCLK");
 
                     // Configure SAI peripheral
                     let mut per_sai = Sai {
@@ -523,8 +522,7 @@ macro_rules! i2s {
                     }
 
                     // Clock config
-                    let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks)
-                        .expect("SAI kernel clock must run!");
+                    let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks);
                     let clock_ratio = if users.master.oversampling {
                         512
                     } else {
@@ -534,7 +532,7 @@ macro_rules! i2s {
                         (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
-                        .expect("SAI kernel clock is out of range for required MCLK");
+                        .expect("$SAIX B: Kernel clock is out of range for required MCLK");
 
                     // Configure SAI peripheral
                     let mut per_sai = Sai {

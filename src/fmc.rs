@@ -70,7 +70,7 @@ use crate::gpio::{Alternate, AF12, AF9};
 /// AHB access to the FMC peripheral must be enabled
 pub struct FMC {
     fmc: stm32::FMC,
-    fmc_ker_ck: Option<Hertz>,
+    fmc_ker_ck: Hertz,
 }
 
 /// Extension trait for FMC controller
@@ -114,10 +114,18 @@ impl FmcExt for stm32::FMC {
 
         // Calculate kernel clock
         let fmc_ker_ck = match clk_sel {
-            rec::FmcClkSel::RCC_HCLK3 => Some(clocks.hclk()),
-            rec::FmcClkSel::PLL1_Q => clocks.pll1_q_ck(),
-            rec::FmcClkSel::PLL2_R => clocks.pll2_r_ck(),
-            rec::FmcClkSel::PER => clocks.per_ck(),
+            rec::FmcClkSel::RCC_HCLK3 => {
+                Some(clocks.hclk()).expect("FMC: HCLK must be enabled")
+            }
+            rec::FmcClkSel::PLL1_Q => {
+                clocks.pll1_q_ck().expect("FMC: PLL1_Q must be enabled")
+            }
+            rec::FmcClkSel::PLL2_R => {
+                clocks.pll2_r_ck().expect("FMC: PLL2_R must be enabled")
+            }
+            rec::FmcClkSel::PER => {
+                clocks.per_ck().expect("FMC: PER clock must be enabled")
+            }
         };
 
         // Enable AHB access and reset peripheral
@@ -144,8 +152,7 @@ unsafe impl FmcPeripheral for FMC {
     }
 
     fn source_clock_hz(&self) -> u32 {
-        // Check that it runs
-        self.fmc_ker_ck.expect("FMC kernel clock is not running!").0
+        self.fmc_ker_ck.0
     }
 }
 

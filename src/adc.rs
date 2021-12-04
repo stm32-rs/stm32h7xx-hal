@@ -330,12 +330,17 @@ pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
     // Select Kernel Clock
     let adc_clock = match prec.get_kernel_clk_mux() {
-        Some(rec::AdcClkSel::PLL2_P) => clocks.pll2_p_ck(),
-        Some(rec::AdcClkSel::PLL3_R) => clocks.pll3_r_ck(),
-        Some(rec::AdcClkSel::PER) => clocks.per_ck(),
+        Some(rec::AdcClkSel::PLL2_P) => {
+            clocks.pll2_p_ck().expect("ADC: PLL2_P must be enabled")
+        }
+        Some(rec::AdcClkSel::PLL3_R) => {
+            clocks.pll3_r_ck().expect("ADC: PLL3_R must be enabled")
+        }
+        Some(rec::AdcClkSel::PER) => {
+            clocks.per_ck().expect("ADC: PER clock must be enabled")
+        }
         _ => unreachable!(),
-    }
-    .expect("adc_ker_ck_input is not running!");
+    };
 
     // Check against datasheet requirements
     assert!(
