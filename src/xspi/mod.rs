@@ -64,6 +64,13 @@
 //! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
 //! ```
 //!
+//! # Examples
+//!
+//! - [Simple QSPI example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi.rs)
+//! - [QSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_flash_memory.rs)
+//! - [QSPI using MDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_mdma.rs)
+//! - [OCTOSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/octospi.rs)
+//!
 //! # Limitations
 //!
 //! This driver currently only supports indirect operation mode of the xSPI
