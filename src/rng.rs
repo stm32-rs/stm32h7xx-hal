@@ -38,7 +38,9 @@ impl KerClk for RNG {
                 clocks.pll1_q_ck().expect("RNG: PLL1_Q must be enabled")
             }
             RngClkSel::LSE => unimplemented!(),
-            RngClkSel::LSI => unimplemented!(),
+            RngClkSel::LSI => {
+                clocks.lsi_ck().expect("RNG: LSI must be enabled")
+            }
         }
     }
 }
