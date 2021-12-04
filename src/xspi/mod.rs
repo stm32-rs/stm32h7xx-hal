@@ -448,13 +448,19 @@ mod common {
                 match ccipr.$ccip().variant() {
                     ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => clocks.hclk(),
                     ccipr::[< $ccip:upper _A >]::PLL1_Q => {
-                        clocks.pll1_q_ck().expect("$peripheral: PLL1_Q must be enabled")
+                        clocks.pll1_q_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
+                        )
                     }
                     ccipr::[< $ccip:upper _A >]::PLL2_R => {
-                        clocks.pll2_r_ck().expect("$peripheral: PLL2_R must be enabled")
+                        clocks.pll2_r_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL2_R must be enabled")
+                        )
                     }
                     ccipr::[< $ccip:upper _A >]::PER => {
-                        clocks.per_ck().expect("$peripheral: PER clock must be enabled")
+                        clocks.per_ck().expect(
+                            concat!(stringify!($peripheral), ": PER clock must be enabled")
+                        )
                     }
                 }
             }

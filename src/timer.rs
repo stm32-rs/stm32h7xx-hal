@@ -300,7 +300,7 @@ macro_rules! hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("$TIMX: Input clock not running!").0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
 
                     Timer {
                         clk,
@@ -591,7 +591,7 @@ macro_rules! lptim_hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("Timer input clock not running!").0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
 
                     let mut timer = LpTimer {
                         clk,

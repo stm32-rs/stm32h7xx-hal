@@ -978,16 +978,24 @@ macro_rules! usart_sel {
                     match ccip.$sel().variant() {
                         Some($SEL::$PCLK) => clocks.$pclk(),
                         Some($SEL::PLL2_Q) => {
-                            clocks.pll2_q_ck().expect("$USARTX: PLL2_Q must be enabled")
+                            clocks.pll2_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL2_Q must be enabled")
+                            )
                         }
                         Some($SEL::PLL3_Q) => {
-                            clocks.pll3_q_ck().expect("$USARTX: PLL3_Q must be enabled")
+                            clocks.pll3_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL3_Q must be enabled")
+                            )
                         }
                         Some($SEL::HSI_KER) => {
-                            clocks.hsi_ck().expect("$USARTX: HSI clock must be enabled")
+                            clocks.hsi_ck().expect(
+                                concat!(stringify!($USARTX), ": HSI clock must be enabled")
+                            )
                         }
                         Some($SEL::CSI_KER) => {
-                            clocks.csi_ck().expect("$USARTX: CSI clock must be enabled")
+                            clocks.csi_ck().expect(
+                                concat!(stringify!($USARTX), ": CSI clock must be enabled")
+                            )
                         }
                         Some($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),

@@ -1052,7 +1052,7 @@ macro_rules! tim_hal {
                 prec.enable().reset();
 
                 let clk = $TIMX::get_clk(clocks)
-                    .expect("$TIMX: Input clock not running!");
+                    .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
 
                 let (period, prescale) = match $bits {
                     16 => calculate_frequency_16bit(clk, freq, Alignment::Left),
@@ -1096,7 +1096,7 @@ macro_rules! tim_hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("$TIMX: Input clock not running!")
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!"))
                         .0;
 
                     PwmBuilder {
@@ -1646,7 +1646,8 @@ macro_rules! lptim_hal {
                 prec.enable().reset();
 
                 let clk = $TIMX::get_clk(clocks)
-                    .expect("$TIMX: Input clock not running").0;
+                    .expect(concat!(stringify!($TIMX), ": Input clock not running!"))
+                    .0;
                 let freq = freq.0;
                 let reload = clk / freq;
                 assert!(reload < 128 * (1 << 16));
