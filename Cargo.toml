@@ -28,7 +28,7 @@ targets = ["thumbv7em-none-eabihf"]
 embedded-hal = "0.2.6"
 embedded-dma = "0.1.2"
 cortex-m = "^0.7.1"
-stm32h7 = "^0.14.0"
+stm32h7 = { version = "^0.14.0", default-features = false }
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.3.0", default-features = false }
 nb = "1.0.0"
@@ -73,7 +73,7 @@ default-features = false
 features = ["ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
-default = ["unproven"]
+default = ["unproven", "rt"]
 unproven = ["embedded-hal/unproven"]
 device-selected = []
 revision_v = []

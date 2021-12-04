@@ -12,6 +12,7 @@
 * adc: Allow parallel execution of multiple ADCs through `start_conversion()`
 * Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
 * pac: Upgrade to stm32-rs v0.14.0
+* Add "rt" to the default features
 
 * ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
   constants to specify how many transmit / receive buffers to include in
