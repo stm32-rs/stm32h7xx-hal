@@ -51,6 +51,11 @@ version = "0.4"
 default-features = false
 optional = true
 
+[dependencies.rand_core]
+version = "0.6"
+default-features = false
+optional = true
+
 [dev-dependencies]
 cortex-m-rt = ">=0.6.15,<0.8"
 cortex-m-rtic = { version = "0.5.8", default-features = false, features = ["cortex-m-7"] }
@@ -93,6 +98,7 @@ sdmmc-fatfs = ["embedded-sdmmc", "sdmmc"]
 ethernet = ["smoltcp"]
 rtc = ["chrono"]
 crc = []
+rand = ["rand_core"]
 rt = ["stm32h7/rt"]
 usb_hs = ["synopsys-usb-otg", "synopsys-usb-otg/hs"]
 stm32h742 = ["stm32h7/stm32h743", "device-selected", "rm0433"]

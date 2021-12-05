@@ -31,7 +31,7 @@
 //! External Memory
 //!
 //! * [Flexible Memory Controller (FMC)](crate::fmc) Feature gate `fmc`
-//! * [SD Card (SDMMC)](crate::sdmmc) Feature gate `sdmmc`
+//! * [SD Card (SDMMC)](crate::sdmmc) Feature gate `sdmmc` (FAT16/32 driver is available under the `sdmmc-fatfs` feature gate)
 //!
 //! Timing functions
 //!
@@ -44,7 +44,7 @@
 //! Others
 //!
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
-//! * [Random Number Generator](crate::rng)
+//! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the`rand` feature gate)
 //! * [System Window Watchdog](crate::watchdog)
 
 #![cfg_attr(not(test), no_std)]
