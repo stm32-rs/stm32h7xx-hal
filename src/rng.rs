@@ -15,8 +15,8 @@ use crate::time::Hertz;
 
 #[derive(Debug)]
 pub enum ErrorKind {
-    ClockError = 1,
-    SeedError = 2,
+    ClockError = 0,
+    SeedError = 1,
 }
 
 trait KerClk {
