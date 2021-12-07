@@ -1187,7 +1187,7 @@ macro_rules! sdmmc {
 
                 fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
                     let sdmmc = self.sdmmc.borrow_mut();
-                    Ok(embedded_sdmmc::BlockCount(sdmmc.card()?.size() as u32 / 512u32))
+                    Ok(embedded_sdmmc::BlockCount((sdmmc.card()?.size() / 512u64) as u32))
                 }
 
             }
