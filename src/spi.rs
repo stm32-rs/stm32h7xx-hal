@@ -558,17 +558,8 @@ pub trait HalEnabledSpi:
     /// disabled.
     fn disable(self) -> Self::Disabled;
 
-    /// Resets the SPI peripheral. This is just a call to [HalEnabledSpi::disable]
-    /// and [HalDisabledSpi::enable]
-    fn reset(&mut self) {
-        // SAFETY: we are essentially `core::mem::take`ing here without replacing with a default
-        // value. This is safe because we are not using the old value and are replacing it with
-        // a valid value at the end of the function. `mem::take`ing is needed because the `disable`
-        // and `enable` methods take ownership of the HAL SPI.
-        let spi_enabled: Self = unsafe { core::mem::transmute_copy(self) };
-        let spi_disabled = spi_enabled.disable();
-        *self = spi_disabled.enable();
-    }
+    /// Resets the SPI peripheral.
+    fn reset(&mut self);
 
     /// Sets up a frame transaction with the given amount of data words.
     ///
@@ -689,7 +680,7 @@ macro_rules! spi {
             // For each $TY
             $(
 
-            impl Spi<$SPIX, Enabled, $TY> {
+                impl Spi<$SPIX, Enabled, $TY> {
                     fn $spiX<T, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
@@ -813,14 +804,33 @@ macro_rules! spi {
                     }
                 }
 
-                impl HalEnabledSpi for Spi<$SPIX, Enabled, $TY> {
-                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
-
-                    fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
-                        // Master communication must be suspended before the peripheral is disabled
+                impl <Ed> Spi<$SPIX, Ed, $TY> {
+                    /// internally disable the SPI without changing its type-state
+                    fn internal_disable(&mut self) {
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                    }
+
+                    /// internally enable the SPI without changing its type-state
+                    fn internal_enable(&mut self) {
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    }
+                }
+
+                impl HalEnabledSpi for Spi<$SPIX, Enabled, $TY> {
+                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
+
+                    fn reset(&mut self) {
+                        self.internal_disable();
+                        self.internal_enable();
+                    }
+
+                    fn disable(mut self) -> Spi<$SPIX, Disabled, $TY> {
+                        // Master communication must be suspended before the peripheral is disabled
+                        self.internal_disable();
+
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
@@ -872,8 +882,7 @@ macro_rules! spi {
                     type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
 
                     fn enable(mut self) -> Self::Enabled {
-                        self.clear_modf(); // SPE cannot be set when MODF is set
-                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                        self.internal_enable();
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
