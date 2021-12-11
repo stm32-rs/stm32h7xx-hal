@@ -20,12 +20,11 @@ mod utilities;
 use log::info;
 
 use smoltcp::iface::{
-    EthernetInterface, EthernetInterfaceBuilder, Neighbor, NeighborCache,
-    Route, Routes,
+    Interface, InterfaceBuilder, Neighbor, NeighborCache, Route, Routes,
+    SocketStorage,
 };
-use smoltcp::socket::{SocketSet, SocketSetItem};
 use smoltcp::time::Instant;
-use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
+use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, Ipv6Cidr};
 
 use stm32h7xx_hal::gpio;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
@@ -60,27 +59,26 @@ static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 /// Net storage with static initialisation - another global singleton
 pub struct NetStorageStatic<'a> {
     ip_addrs: [IpCidr; 1],
-    socket_set_entries: [Option<SocketSetItem<'a>>; 8],
+    socket_storage: [SocketStorage<'a>; 8],
     neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; 8],
     routes_storage: [Option<(IpCidr, Route)>; 1],
 }
 static mut STORE: NetStorageStatic = NetStorageStatic {
     // Garbage
     ip_addrs: [IpCidr::Ipv6(Ipv6Cidr::SOLICITED_NODE_PREFIX)],
-    socket_set_entries: [None, None, None, None, None, None, None, None],
+    socket_storage: [SocketStorage::EMPTY; 8],
     neighbor_cache_storage: [None; 8],
     routes_storage: [None; 1],
 };
 
 pub struct Net<'a> {
-    iface: EthernetInterface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
-    sockets: SocketSet<'a>,
+    iface: Interface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
 }
 impl<'a> Net<'a> {
     pub fn new(
         store: &'static mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<'a, 4, 4>,
-        ethernet_addr: EthernetAddress,
+        ethernet_addr: HardwareAddress,
     ) -> Self {
         // Set IP address
         store.ip_addrs =
@@ -90,15 +88,15 @@ impl<'a> Net<'a> {
             NeighborCache::new(&mut store.neighbor_cache_storage[..]);
         let routes = Routes::new(&mut store.routes_storage[..]);
 
-        let iface = EthernetInterfaceBuilder::new(ethdev)
-            .ethernet_addr(ethernet_addr)
-            .neighbor_cache(neighbor_cache)
-            .ip_addrs(&mut store.ip_addrs[..])
-            .routes(routes)
-            .finalize();
-        let sockets = SocketSet::new(&mut store.socket_set_entries[..]);
+        let iface =
+            InterfaceBuilder::new(ethdev, &mut store.socket_storage[..])
+                .hardware_addr(ethernet_addr)
+                .neighbor_cache(neighbor_cache)
+                .ip_addrs(&mut store.ip_addrs[..])
+                .routes(routes)
+                .finalize();
 
-        return Net { iface, sockets };
+        return Net { iface };
     }
 
     /// Polls on the ethernet interface. You should refer to the smoltcp
@@ -107,7 +105,7 @@ impl<'a> Net<'a> {
         let timestamp = Instant::from_millis(now);
 
         self.iface
-            .poll(&mut self.sockets, timestamp)
+            .poll(timestamp)
             .map(|_| ())
             .unwrap_or_else(|e| info!("Poll: {:?}", e));
     }
@@ -198,13 +196,11 @@ const APP: () = {
         lan8742a.phy_init();
         // The eth_dma should not be used until the PHY reports the link is up
 
-        unsafe {
-            ethernet::enable_interrupt();
-        }
+        unsafe { ethernet::enable_interrupt() };
 
         // unsafe: mutable reference to static storage, we only do this once
         let store = unsafe { &mut STORE };
-        let net = Net::new(store, eth_dma, mac_addr);
+        let net = Net::new(store, eth_dma, mac_addr.into());
 
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);
