@@ -41,9 +41,9 @@ synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = tru
 embedded-display-controller = { version = "^0.1.0", optional = true }
 
 [dependencies.smoltcp]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
-features = ["ethernet", "proto-ipv4", "socket-raw"]
+features = ["medium-ethernet", "proto-ipv4", "socket-raw"]
 optional = true
 
 [dependencies.chrono]
@@ -73,9 +73,9 @@ usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 
 [dev-dependencies.smoltcp]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
-features = ["ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
+features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
 default = ["unproven", "rt"]
