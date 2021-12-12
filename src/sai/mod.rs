@@ -45,8 +45,18 @@ pub use i2s::{
 pub trait GetClkSAI {
     type Rec: ResetEnable;
 
-    fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz>;
-    fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz>;
+    /// Return the kernel clock for the SAI - A
+    ///
+    /// # Panics
+    ///
+    /// Panics if the kernel clock is not running
+    fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz;
+    /// Return the kernel clock for the SAI - B
+    ///
+    /// # Panics
+    ///
+    /// Panics if the kernel clock is not running
+    fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz;
 }
 
 // Return kernel clocks for this SAI
@@ -59,24 +69,56 @@ macro_rules! impl_sai_ker_ck {
                 type Rec = rec::$Rec;
 
                 /// Current kernel clock - A
-                fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
+                fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz {
                     match prec.$get_mux_A() {
-                        Some(rec::$AccessA::PLL1_Q) => clocks.pll1_q_ck(),
-                        Some(rec::$AccessA::PLL2_P) => clocks.pll2_p_ck(),
-                        Some(rec::$AccessA::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessA::PLL1_Q) => {
+                            clocks.pll1_q_ck().expect(
+                                concat!(stringify!($SAIX), " A: PLL1_Q must be enabled")
+                            )
+                        }
+                        Some(rec::$AccessA::PLL2_P) => {
+                            clocks.pll2_p_ck().expect(
+                                concat!(stringify!($SAIX), " A: PLL2_P must be enabled")
+                            )
+                        }
+                        Some(rec::$AccessA::PLL3_P) => {
+                            clocks.pll3_p_ck().expect(
+                                concat!(stringify!($SAIX), " A: PLL3_P must be enabled")
+                            )
+                        }
                         Some(rec::$AccessA::I2S_CKIN) => unimplemented!(),
-                        Some(rec::$AccessA::PER) => clocks.per_ck(),
+                        Some(rec::$AccessA::PER) => {
+                            clocks.per_ck().expect(
+                                concat!(stringify!($SAIX), " A: PER clock must be enabled")
+                            )
+                        }
                         _ => unreachable!(),
                     }
                 }
                 /// Current kernel clock - B
-                fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Option<Hertz> {
+                fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz {
                     match prec.$get_mux_B() {
-                        Some(rec::$AccessB::PLL1_Q) => clocks.pll1_q_ck(),
-                        Some(rec::$AccessB::PLL2_P) => clocks.pll2_p_ck(),
-                        Some(rec::$AccessB::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(rec::$AccessB::PLL1_Q) => {
+                            clocks.pll1_q_ck().expect(
+                                concat!(stringify!($SAIX), " B: PLL1_Q must be enabled")
+                            )
+                        }
+                        Some(rec::$AccessB::PLL2_P) => {
+                            clocks.pll2_p_ck().expect(
+                                concat!(stringify!($SAIX), " B: PLL2_P must be enabled")
+                            )
+                        }
+                        Some(rec::$AccessB::PLL3_P) => {
+                            clocks.pll3_p_ck().expect(
+                                concat!(stringify!($SAIX), " B: PLL3_P must be enabled")
+                            )
+                        }
                         Some(rec::$AccessB::I2S_CKIN) => unimplemented!(),
-                        Some(rec::$AccessB::PER) => clocks.per_ck(),
+                        Some(rec::$AccessB::PER) => {
+                            clocks.per_ck().expect(
+                                concat!(stringify!($SAIX), " B: PER clock must be enabled")
+                            )
+                        }
                         _ => unreachable!(),
                     }
                 }

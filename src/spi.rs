@@ -701,10 +701,7 @@ macro_rules! spi {
                         let config: Config = config.into();
 
                         let spi_freq = freq.into().0;
-	                    let spi_ker_ck = match Self::kernel_clk(clocks) {
-                            Some(ker_hz) => ker_hz.0,
-                            _ => panic!("$SPIX kernel clock not running!")
-                        };
+	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
                         let mbr = match spi_ker_ck / spi_freq {
                             0 => unreachable!(),
                             1..=2 => MBR::DIV2,
@@ -1217,7 +1214,7 @@ macro_rules! spi123sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
                     #[cfg(feature = "rm0455")]
@@ -1233,6 +1230,36 @@ macro_rules! spi123sel {
                         _ => unreachable!(),
                     }
                 }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI1, SPI2, SPI3
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
+
+                    match ccip1r.spi123sel().variant() {
+                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => {
+                            clocks.pll1_q_ck().expect("SPI123: PLL1_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI123SEL_A::PLL2_P) => {
+                            clocks.pll2_p_ck().expect("SPI123: PLL2_P must be enabled")
+                        }
+                        Some(ccip1r::SPI123SEL_A::PLL3_P) => {
+                            clocks.pll3_p_ck().expect("SPI123: PLL3_P must be enabled")
+                        }
+                        // Need a method of specifying pin clock
+                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::PER) => {
+                            clocks.per_ck().expect("SPI123: PER clock must be enabled")
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
         )+
     }
@@ -1243,7 +1270,7 @@ macro_rules! spi45sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
                     #[cfg(feature = "rm0455")]
@@ -1259,6 +1286,38 @@ macro_rules! spi45sel {
                         _ => unreachable!(),
                     }
                 }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI4, SPI5
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
+
+                    match ccip1r.spi45sel().variant() {
+                        Some(ccip1r::SPI45SEL_A::APB) => clocks.pclk2(),
+                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect("SPI45: PLL2_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect("SPI45: PLL3_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::HSI_KER) => {
+                            clocks.hsi_ck().expect("SPI45: HSI clock must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::CSI_KER) => {
+                            clocks.csi_ck().expect("SPI45: CSI clock must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::HSE) => {
+                            clocks.hse_ck().expect("SPI45: HSE clock must be enabled")
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
         )+
     }
@@ -1269,7 +1328,7 @@ macro_rules! spi6sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
                     #[cfg(feature = "rm0455")]
@@ -1282,6 +1341,34 @@ macro_rules! spi6sel {
                         Some(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
                         Some(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
                         Some(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                        _ => unreachable!(),
+                    }
+                }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI6
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
+                    #[cfg(feature = "rm0455")]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
+
+                    match srdccipr.spi6sel().variant() {
+                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => clocks.pclk4(),
+                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect("SPI6: PLL2_Q must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect("SPI6: PLL3_Q must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::HSI_KER) => {
+                            clocks.hsi_ck().expect("SPI6: HSI clock must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::CSI_KER) => {
+                            clocks.csi_ck().expect("SPI6: CSI clock must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::HSE) => {
+                            clocks.hse_ck().expect("SPI6: HSE clock must be enabled")
+                        }
                         _ => unreachable!(),
                     }
                 }

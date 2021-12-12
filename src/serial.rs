@@ -514,10 +514,7 @@ macro_rules! usart {
                     prec.enable().reset();
 
                     // Get kernel clock
-	                let usart_ker_ck = match Self::kernel_clk(clocks) {
-                        Some(ker_hz) => ker_hz.0,
-                        _ => panic!("$USARTX kernel clock not running!")
-                    };
+	                let usart_ker_ck = Self::kernel_clk_unwrap(clocks).0;
 
                     // Prescaler not used for now
                     let usart_ker_ck_presc = usart_ker_ck;
@@ -954,7 +951,7 @@ macro_rules! usart_sel {
             impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock for
                 #[doc=$doc]
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     // unsafe: read only
                     let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
 
@@ -964,6 +961,42 @@ macro_rules! usart_sel {
                         Some($SEL::PLL3_Q) => clocks.pll3_q_ck(),
                         Some($SEL::HSI_KER) => clocks.hsi_ck(),
                         Some($SEL::CSI_KER) => clocks.csi_ck(),
+                        Some($SEL::LSE) => unimplemented!(),
+                        _ => unreachable!(),
+                    }
+                }
+                /// Returns the frequency of the current kernel clock for
+                #[doc=$doc]
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    // unsafe: read only
+                    let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
+
+                    match ccip.$sel().variant() {
+                        Some($SEL::$PCLK) => clocks.$pclk(),
+                        Some($SEL::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL2_Q must be enabled")
+                            )
+                        }
+                        Some($SEL::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL3_Q must be enabled")
+                            )
+                        }
+                        Some($SEL::HSI_KER) => {
+                            clocks.hsi_ck().expect(
+                                concat!(stringify!($USARTX), ": HSI clock must be enabled")
+                            )
+                        }
+                        Some($SEL::CSI_KER) => {
+                            clocks.csi_ck().expect(
+                                concat!(stringify!($USARTX), ": CSI clock must be enabled")
+                            )
+                        }
                         Some($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }
