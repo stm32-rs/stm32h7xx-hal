@@ -541,8 +541,10 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
-pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
-    type Disabled: SpiDisabled<
+pub trait HalEnabledSpi:
+    HalSpi + FullDuplex<Self::Word, Error = Error>
+{
+    type Disabled: HalDisabledSpi<
         Spi = Self::Spi,
         Word = Self::Word,
         Enabled = Self,
@@ -556,11 +558,8 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     /// disabled.
     fn disable(self) -> Self::Disabled;
 
-    /// Resets the SPI peripheral. This is just a call to [SpiEnabled::disable]
-    /// and [SpiDisabled::enable]
-    fn reset(self) -> Self {
-        self.disable().enable()
-    }
+    /// Resets the SPI peripheral.
+    fn reset(&mut self);
 
     /// Sets up a frame transaction with the given amount of data words.
     ///
@@ -585,9 +584,9 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     fn end_transaction(&mut self) -> Result<(), Error>;
 }
 
-pub trait SpiDisabled: SpiAll {
+pub trait HalDisabledSpi: HalSpi {
     type Rec;
-    type Enabled: SpiEnabled<Spi = Self::Spi, Word = Self::Word>;
+    type Enabled: HalEnabledSpi<Spi = Self::Spi, Word = Self::Word>;
 
     /// Enables the SPI peripheral.
     /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
@@ -611,7 +610,7 @@ pub trait SpiDisabled: SpiAll {
     fn free(self) -> (Self::Spi, Self::Rec);
 }
 
-pub trait SpiAll: Sized {
+pub trait HalSpi: Sized {
     type Spi;
     type Word;
 
@@ -681,7 +680,7 @@ macro_rules! spi {
             // For each $TY
             $(
 
-            impl Spi<$SPIX, Enabled, $TY> {
+                impl Spi<$SPIX, Enabled, $TY> {
                     fn $spiX<T, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
@@ -805,14 +804,33 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiEnabled for Spi<$SPIX, Enabled, $TY> {
-                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
-
-                    fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
-                        // Master communication must be suspended before the peripheral is disabled
+                impl <Ed> Spi<$SPIX, Ed, $TY> {
+                    /// internally disable the SPI without changing its type-state
+                    fn internal_disable(&mut self) {
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                    }
+
+                    /// internally enable the SPI without changing its type-state
+                    fn internal_enable(&mut self) {
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    }
+                }
+
+                impl HalEnabledSpi for Spi<$SPIX, Enabled, $TY> {
+                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
+
+                    fn reset(&mut self) {
+                        self.internal_disable();
+                        self.internal_enable();
+                    }
+
+                    fn disable(mut self) -> Spi<$SPIX, Disabled, $TY> {
+                        // Master communication must be suspended before the peripheral is disabled
+                        self.internal_disable();
+
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
@@ -859,13 +877,12 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiDisabled for Spi<$SPIX, Disabled, $TY> {
+                impl HalDisabledSpi for Spi<$SPIX, Disabled, $TY> {
                     type Rec = rec::$Rec;
                     type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
 
                     fn enable(mut self) -> Self::Enabled {
-                        self.clear_modf(); // SPE cannot be set when MODF is set
-                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                        self.internal_enable();
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
@@ -895,7 +912,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl<EN> SpiAll for Spi<$SPIX, EN, $TY>
+                impl<EN> HalSpi for Spi<$SPIX, EN, $TY>
                 {
                     type Word = $TY;
                     type Spi = $SPIX;

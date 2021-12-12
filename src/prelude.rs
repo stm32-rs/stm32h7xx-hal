@@ -23,9 +23,9 @@ pub use crate::sai::SaiPdmExt as _stm32h7xx_hal_spi_SaiPdmExt;
 #[cfg(feature = "sdmmc")]
 pub use crate::sdmmc::SdmmcExt as _stm32h7xx_hal_sdmmc_SdmmcExt;
 pub use crate::serial::SerialExt as _stm32h7xx_hal_serial_SerialExt;
-pub use crate::spi::SpiAll as _stm32h7xx_hal_spi_SpiAll;
-pub use crate::spi::SpiDisabled as _stm32h7xx_hal_spi_SpiDisabled;
-pub use crate::spi::SpiEnabled as _stm32h7xx_hal_spi_SpiEnabled;
+pub use crate::spi::HalDisabledSpi as _stm32h7xx_hal_spi_HalDisabledSpi;
+pub use crate::spi::HalEnabledSpi as _stm32h7xx_hal_spi_HalEnabledSpi;
+pub use crate::spi::HalSpi as _stm32h7xx_hal_spi_HalSpi;
 pub use crate::spi::SpiExt as _stm32h7xx_hal_spi_SpiExt;
 pub use crate::time::U32Ext as _stm32h7xx_hal_time_U32Ext;
 pub use crate::timer::TimerExt as _stm32h7xx_hal_timer_TimerExt;

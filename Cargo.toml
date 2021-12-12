@@ -166,6 +166,10 @@ name = "octospi"
 required-features = ["xspi", "rm0468"]
 
 [[example]]
+name = "octospi_hyperram"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
 name = "sdmmc"
 required-features = ["sdmmc", "rm0433"]
 
