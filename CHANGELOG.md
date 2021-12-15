@@ -21,6 +21,7 @@
   constants to specify how many transmit / receive buffers to include in
   `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>`
 * spi: Utilise FIFO in `Transfer` and `Write` implementations
+* **Breaking**: manual control over serial data length removed, now set automatically based on parity
 
 ## [v0.10.0] 2021-07-xx
 

@@ -76,11 +76,12 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
-    #[derive(Copy, Clone, PartialEq)]
-    pub enum WordLength {
-        DataBits8,
-        DataBits9,
-    }
+    /// The parity bits appended to each serial data word
+    ///
+    /// When enabled parity bits will be automatically added by hardware on transmit, and automatically checked by
+    /// hardware on receive. For example, `read()` would return [`Error::Parity`](super::Error::Parity).
+    ///
+    /// Note that parity bits are included in the serial word length, so if parity is used word length will be set to 9.
     #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
@@ -125,7 +126,6 @@ pub mod config {
     #[derive(Copy, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
-        pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
         pub bitorder: BitOrder,
@@ -142,7 +142,6 @@ pub mod config {
         pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
             Config {
                 baudrate: frequency.into(),
-                wordlength: WordLength::DataBits8,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
                 bitorder: BitOrder::LsbFirst,
@@ -162,23 +161,21 @@ pub mod config {
             self
         }
 
+        /// Enables Even Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
+        /// to 9.
         pub fn parity_even(mut self) -> Self {
             self.parity = Parity::ParityEven;
             self
         }
 
+        /// Enables Odd Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
+        /// to 9.
         pub fn parity_odd(mut self) -> Self {
             self.parity = Parity::ParityOdd;
-            self
-        }
-
-        pub fn wordlength_8(mut self) -> Self {
-            self.wordlength = WordLength::DataBits8;
-            self
-        }
-
-        pub fn wordlength_9(mut self) -> Self {
-            self.wordlength = WordLength::DataBits9;
             self
         }
 
@@ -595,9 +592,9 @@ macro_rules! usart {
                             .m1()
                             .clear_bit()
                             .m0()
-                            .variant(match config.wordlength {
-                                WordLength::DataBits8 => M0::BIT8,
-                                WordLength::DataBits9 => M0::BIT9,
+                            .variant(match config.parity {
+                                Parity::ParityNone => M0::BIT8,
+                                _ => M0::BIT9,
                             }).pce()
                             .variant(match config.parity {
                                 Parity::ParityNone => PCE::DISABLED,
