@@ -76,11 +76,21 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
+    /// The number of bits in a serial data word
+    ///
+    /// Note that the length includes the data bits and any parity bits, but not start or stop bits.
     #[derive(Copy, Clone, PartialEq)]
     pub enum WordLength {
         DataBits8,
         DataBits9,
     }
+    /// The parity bits appended to each serial data word
+    ///
+    /// When enabled parity bits will be automatically added by hardware on transmit, and automatically checked by
+    /// hardware on receive. For example, `read()` would return [`Error::Parity`](super::Error::Parity).
+    ///
+    /// Note that parity bits are included in the serial word length, so if parity is used word length should be set to
+    /// [`WordLength::DataBits9`].
     #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
@@ -162,11 +172,19 @@ pub mod config {
             self
         }
 
+        /// Enables Even Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length should be set
+        /// to [`WordLength::DataBits9`].
         pub fn parity_even(mut self) -> Self {
             self.parity = Parity::ParityEven;
             self
         }
 
+        /// Enables Odd Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length should be set
+        /// to [`WordLength::DataBits9`].
         pub fn parity_odd(mut self) -> Self {
             self.parity = Parity::ParityOdd;
             self
@@ -177,6 +195,10 @@ pub mod config {
             self
         }
 
+        /// Set the serial word length to 9
+        ///
+        /// Note that the HAL currently only supports transmitting 8-bit serial data, so the 9th bit will always be zero
+        /// except when it is a parity bit.
         pub fn wordlength_9(mut self) -> Self {
             self.wordlength = WordLength::DataBits9;
             self
