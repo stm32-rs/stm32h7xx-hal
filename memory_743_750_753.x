@@ -111,4 +111,4 @@ SECTIONS {
     . = ALIGN(4);
     } > BSRAM  
     
-} INSERT AFTER .bss;
+};
