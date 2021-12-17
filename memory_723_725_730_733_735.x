@@ -22,19 +22,20 @@ MEMORY
   DTCM    : ORIGIN = 0x20000000, LENGTH = 128K
 
   /* Instruction TCM */
-  /* - Used for latency-critical interrupt handlers etc. */
-  /* - Zero wait-states.                                 */
-  ITCM    : ORIGIN = 0x00000000, LENGTH = 64K
+  /* - More memory can be assigned to ITCM. See AXI SRAM notes, below. */
+  /* - Used for latency-critical interrupt handlers etc.               */
+  /* - Zero wait-states.                                               */
+  ITCM    : ORIGIN = 0x00000000, LENGTH = 64K + 0K
   
   /* AXI SRAM */
   /* - AXISRAM is in D1 and accessible by all system masters except BDMA.         */
   /* - Suitable for application data not stored in DTCM.                          */
   /* - Zero wait-states.                                                          */
   /* - The 192k of extra shared RAM is fully allotted to the AXI SRAM by default. */
-  /*   This results in: 64k for ITCM and 320k (128k + 192k) for AXI SRAM.         */
+  /*   As a result: 64k (64k + 0k) for ITCM and 320k (128k + 192k) for AXI SRAM.  */
   /*   This can be re-configured via the TCM_AXI_SHARED[1,0] register when more   */
   /*   ITCM is required.                                                          */
-  AXISRAM : ORIGIN = 0x24000000, LENGTH = 320K
+  AXISRAM : ORIGIN = 0x24000000, LENGTH = 128K + 192K
   
   /* AHB SRAM */
   /* - SRAM1-2 are in D2 and accessible by all system masters except BDMA, LTDC */
