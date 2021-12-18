@@ -6,7 +6,7 @@
 //!
 //! # Examples
 //!
-//! - [SDMMC example applicatio](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
+//! - [SDMMC example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
 //!
 //! ## IO Setup
 //!

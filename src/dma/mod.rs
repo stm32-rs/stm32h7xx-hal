@@ -76,6 +76,10 @@
 //! ## Examples
 //!
 //! - [Memory to Memory Transfer](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dma.rs)
+//! - [I2C Read using Basic DMA (BDMA)](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c4_bdma.rs)
+//! - [Serial Transmit using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-dma.rs)
+//! - [SPI using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs)
+//! - [SPI using DMA and the RTIC framework](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma-rtic.rs)
 //! - [Memory to Memory Transfer using Master DMA(MDMA)](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mdma.rs)
 //! - [Using MDMA with multiple beats per burst](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/mdma_bursts.rs)
 //!

@@ -62,6 +62,7 @@
 //! ```
 //! use stm32h7xx_hal::xspi;
 //! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
+//! ```
 //!
 //! # Hyperbus
 //!

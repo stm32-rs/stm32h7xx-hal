@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
@@ -21,7 +21,7 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743v", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc"]
+features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]

@@ -71,7 +71,7 @@ target device feature must be specified in the `Cargo.toml` file:
 [dependencies]
 cortex-m = "0.7.1"
 cortex-m-rt = "0.6.12"
-stm32h7xx-hal = {version = "0.10.0", features = ["stm32h743v","rt"]}
+stm32h7xx-hal = {version = "0.11.0", features = ["stm32h743v","rt"]}
 ```
 
 If you are unfamiliar with embedded development using Rust, there are
