@@ -33,6 +33,14 @@ fn main() -> ! {
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
     ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
 
+    // If your hardware uses the internal USB voltage regulator in ON mode, you
+    // should uncomment this block.
+    // unsafe {
+    //     let pwr = &*stm32::PWR::ptr();
+    //     pwr.cr3.modify(|_, w| w.usbregen().set_bit());
+    //     while pwr.cr3.read().usb33rdy().bit_is_clear() {}
+    // }
+
     // IO
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
