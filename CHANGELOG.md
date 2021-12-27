@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* pwr: Add backup domain voltage regulator control [#303][303]
+
 ## [v0.11.0] 2021-12-18
 
 * **Breaking**: Simplified API for reading device signature
@@ -211,3 +213,4 @@
 [287]: https://github.com/stm32-rs/stm32h7xx-hal/pull/287
 [292]: https://github.com/stm32-rs/stm32h7xx-hal/pull/292
 [297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
+[303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303
