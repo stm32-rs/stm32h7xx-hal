@@ -1,50 +1,53 @@
 // This demo code runs on the Electro Smith Daisy Seed board
 // https://www.electro-smith.com/daisy
-#![allow(unused_macros)]
 #![deny(warnings)]
-// #![deny(unsafe_code)]
+#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
-use rtic::app;
-
-use cortex_m::asm::nop;
-
-use cortex_m::asm::delay as delay_cycles;
-
-pub use stm32h7xx_hal::hal::digital::v2::OutputPin;
-use stm32h7xx_hal::prelude::*;
-use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
-use stm32h7xx_hal::sai::{
-    self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, I2sUsers, Sai,
-    SaiChannel, SaiI2sExt, I2S,
-};
-use stm32h7xx_hal::stm32;
-use stm32h7xx_hal::time::{Hertz, U32Ext};
-
-use stm32h7xx_hal::traits::i2s::FullDuplex;
-
 #[macro_use]
 mod utilities;
-use log::info;
 
+use stm32h7xx_hal::time::Hertz;
 pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256
 // But not less than so targetting 257
 const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 
-#[app( device = stm32h7xx_hal::stm32, peripherals = true )]
-const APP: () = {
-    struct Resources {
+#[rtic::app( device = stm32h7xx_hal::stm32, peripherals = true )]
+mod app {
+    use cortex_m::asm::delay as delay_cycles;
+    use cortex_m::asm::nop;
+
+    use stm32h7xx_hal::hal::digital::v2::OutputPin;
+    use stm32h7xx_hal::prelude::*;
+    use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
+    use stm32h7xx_hal::sai::{
+        self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, I2sUsers, Sai,
+        SaiChannel, SaiI2sExt, I2S,
+    };
+    use stm32h7xx_hal::traits::i2s::FullDuplex;
+    use stm32h7xx_hal::{stm32, time::U32Ext};
+
+    use super::*;
+    use log::info;
+
+    #[shared]
+    struct SharedResources {
+        #[lock_free]
         audio: Sai<stm32::SAI1, I2S>,
     }
+    #[local]
+    struct LocalResources {}
 
     #[init]
-    fn init(mut ctx: init::Context) -> init::LateResources {
+    fn init(
+        mut ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
         utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
-        let vos = pwr.freeze();
+        let vos = example_power!(pwr).freeze();
 
         // Clocks
         let ccdr = ctx
@@ -110,13 +113,17 @@ const APP: () = {
         audio.try_send(0, 0).unwrap();
         info!("Startup complete!");
 
-        init::LateResources { audio }
+        (
+            SharedResources { audio },
+            LocalResources {},
+            init::Monotonics(),
+        )
     }
 
-    #[task( binds = SAI1, resources =  [audio] )]
+    #[task(binds = SAI1, shared = [audio] )]
     fn passthru(ctx: passthru::Context) {
-        if let Ok((left, right)) = ctx.resources.audio.try_read() {
-            ctx.resources.audio.try_send(left, right).unwrap();
+        if let Ok((left, right)) = ctx.shared.audio.try_read() {
+            ctx.shared.audio.try_send(left, right).unwrap();
         }
     }
 
@@ -127,4 +134,4 @@ const APP: () = {
             nop();
         }
     }
-};
+}

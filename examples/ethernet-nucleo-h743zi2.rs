@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -11,7 +12,6 @@ extern crate cortex_m;
 mod utilities;
 use log::info;
 
-use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ethernet, ethernet::PHY};

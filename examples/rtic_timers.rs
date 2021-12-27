@@ -4,26 +4,24 @@
 #![no_std]
 #![no_main]
 
-extern crate rtic;
-
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
-
-use rtic::app;
-use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
-use stm32h7xx_hal::gpio::{Output, PushPull};
-use stm32h7xx_hal::prelude::*;
-use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
-use stm32h7xx_hal::timer::{Event, Timer};
-
 #[macro_use]
-#[path = "utilities/power.rs"]
-mod power;
+mod utilities;
 
-use panic_halt as _;
+#[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
+mod app {
+    use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
+    use stm32h7xx_hal::gpio::{Output, PushPull};
+    use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
+    use stm32h7xx_hal::prelude::*;
+    use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
+    use stm32h7xx_hal::timer::{Event, Timer};
 
-#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+    use super::*;
+
+    #[shared]
+    struct SharedResources {}
+    #[local]
+    struct LocalResources {
         timer1: Timer<TIM1>,
         timer2: Timer<TIM2>,
         timer3: Timer<TIM12>,
@@ -35,7 +33,10 @@ const APP: () = {
     }
 
     #[init]
-    fn init(ctx: init::Context) -> init::LateResources {
+    fn init(
+        ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
+        utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = example_power!(pwr).freeze();
 
@@ -73,39 +74,43 @@ const APP: () = {
         // GPIO
         let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
 
-        init::LateResources {
-            timer1,
-            timer2,
-            timer3,
-            timer4,
-            led1: gpioi.pi12.into_push_pull_output(),
-            led2: gpioi.pi13.into_push_pull_output(),
-            led3: gpioi.pi14.into_push_pull_output(),
-            led4: gpioi.pi15.into_push_pull_output(),
-        }
+        (
+            SharedResources {},
+            LocalResources {
+                timer1,
+                timer2,
+                timer3,
+                timer4,
+                led1: gpioi.pi12.into_push_pull_output(),
+                led2: gpioi.pi13.into_push_pull_output(),
+                led3: gpioi.pi14.into_push_pull_output(),
+                led4: gpioi.pi15.into_push_pull_output(),
+            },
+            init::Monotonics(),
+        )
     }
 
-    #[task(binds = TIM1_UP, resources = [led1, timer1])]
+    #[task(binds = TIM1_UP, local = [led1, timer1])]
     fn timer1_tick(ctx: timer1_tick::Context) {
-        ctx.resources.timer1.clear_irq();
-        ctx.resources.led1.toggle().unwrap();
+        ctx.local.timer1.clear_irq();
+        ctx.local.led1.toggle().unwrap();
     }
 
-    #[task(binds = TIM2, resources = [led2, timer2])]
+    #[task(binds = TIM2, local = [led2, timer2])]
     fn timer2_tick(ctx: timer2_tick::Context) {
-        ctx.resources.timer2.clear_irq();
-        ctx.resources.led2.toggle().unwrap();
+        ctx.local.timer2.clear_irq();
+        ctx.local.led2.toggle().unwrap();
     }
 
-    #[task(binds = TIM8_BRK_TIM12, resources = [led3, timer3])]
+    #[task(binds = TIM8_BRK_TIM12, local = [led3, timer3])]
     fn timer3_tick(ctx: timer3_tick::Context) {
-        ctx.resources.timer3.clear_irq();
-        ctx.resources.led3.toggle().unwrap();
+        ctx.local.timer3.clear_irq();
+        ctx.local.led3.toggle().unwrap();
     }
 
-    #[task(binds = TIM17, resources = [led4, timer4])]
+    #[task(binds = TIM17, local = [led4, timer4])]
     fn timer4_tick(ctx: timer4_tick::Context) {
-        ctx.resources.timer4.clear_irq();
-        ctx.resources.led4.toggle().unwrap();
+        ctx.local.timer4.clear_irq();
+        ctx.local.led4.toggle().unwrap();
     }
-};
+}
