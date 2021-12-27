@@ -210,7 +210,4 @@
 [284]: https://github.com/stm32-rs/stm32h7xx-hal/pull/284
 [287]: https://github.com/stm32-rs/stm32h7xx-hal/pull/287
 [292]: https://github.com/stm32-rs/stm32h7xx-hal/pull/292
-<<<<<<< HEAD
-=======
 [297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
->>>>>>> 566dfc4... Update CHANGELOG
