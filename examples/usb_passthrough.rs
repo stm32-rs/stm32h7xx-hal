@@ -1,8 +1,6 @@
 //! Dual CDC-ACM serial port example using polling in a busy loop.
 //!
 //! Characters written to one serial port appear on both.
-//!
-//! Note: This example must be built in release mode to work reliably
 #![no_std]
 #![no_main]
 

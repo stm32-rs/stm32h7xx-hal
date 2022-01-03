@@ -10,7 +10,7 @@ authors = ["Andrew Straw <strawman@astraw.com>",
            "Matthew Meyer <mtthw.meyer@gmail.com>",
            "Florian Jung <flo@windfisch.org>",
            "Matt Ickstadt <mattico8@gmail.com>"]
-edition = "2018"
+edition = "2021"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Hardware Abstraction Layer implementation for STM32H7 series microcontrollers"
 keywords = ["arm", "cortex-m", "stm32h7xx", "hal", "embedded-hal"]

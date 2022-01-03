@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 * pwr: Add backup domain voltage regulator control [#303][303]
+* MSRV increased to 1.56.1
 
 ## [v0.11.0] 2021-12-18
 

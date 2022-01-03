@@ -112,7 +112,7 @@ fn main() -> ! {
         let mut cycles = 0;
         for _ in 0..10 {
             cycles += {
-                let start = DWT::get_cycle_count();
+                let start = DWT::cycle_count();
 
                 // Start block
                 transfer.start(|_| {});
@@ -120,7 +120,7 @@ fn main() -> ! {
                 // Wait for transfer to complete
                 while !transfer.get_transfer_complete_flag() {}
 
-                DWT::get_cycle_count() - start
+                DWT::cycle_count() - start
             };
         }
 
