@@ -27,6 +27,7 @@
 pub struct BackupREC {
     #[cfg(feature = "rtc")]
     pub RTC: Rtc,
+    backup_regulator: bool,
 }
 
 impl BackupREC {
@@ -36,13 +37,19 @@ impl BackupREC {
     ///
     /// Must only be called once, after the backup domain write
     /// protection is disabled.
-    pub(crate) unsafe fn new_singleton() -> Self {
+    pub(crate) unsafe fn new_singleton(backup_regulator: bool) -> Self {
         Self {
             #[cfg(feature = "rtc")]
             RTC: Rtc {
                 _marker: core::marker::PhantomData,
             },
+            backup_regulator,
         }
+    }
+
+    /// Returns `true` if the Backup Domain Voltage Regulator is enabled
+    pub fn backup_regulator_enabled(&self) -> bool {
+        self.backup_regulator
     }
 }
 
