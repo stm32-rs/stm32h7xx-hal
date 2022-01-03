@@ -1,6 +1,4 @@
 //! CDC-ACM serial port example using polling in a busy loop
-//!
-//! Note: This example must be built in release mode to work reliably
 #![no_std]
 #![no_main]
 

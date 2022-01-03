@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* MSRV increased to 1.56.1
+
 ## [v0.11.0] 2021-12-18
 
 * **Breaking**: Simplified API for reading device signature
