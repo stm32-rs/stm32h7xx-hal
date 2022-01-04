@@ -294,6 +294,16 @@ impl Pwr {
         });
         while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &PWR {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut PWR {
+        &mut self.rb
+    }
 }
 
 /// Builder methods

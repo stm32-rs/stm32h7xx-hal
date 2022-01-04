@@ -99,6 +99,16 @@ impl Ltdc {
         // unsafe: clear write-one interrupt flag
         unsafe { (*LTDC::ptr()).icr.write(|w| w.crrif().set_bit()) };
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &LTDC {
+        &self.ltdc
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut LTDC {
+        &mut self.ltdc
+    }
 }
 
 impl DisplayController for Ltdc {

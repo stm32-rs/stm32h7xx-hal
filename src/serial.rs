@@ -714,6 +714,16 @@ macro_rules! usart {
 
                     self.usart
                 }
+
+                /// Returns a reference to the inner peripheral
+                pub fn inner(&self) -> &$USARTX {
+                    &self.usart
+                }
+
+                /// Returns a mutable reference to the inner peripheral
+                pub fn inner_mut(&mut self) -> &mut $USARTX {
+                    &mut self.usart
+                }
             }
 
             impl SerialExt<$USARTX> for $USARTX {

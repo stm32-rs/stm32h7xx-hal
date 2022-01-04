@@ -138,6 +138,18 @@ impl FmcExt for stm32::FMC {
     }
 }
 
+impl FMC {
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &stm32::FMC {
+        &self.fmc
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut stm32::FMC {
+        &mut self.fmc
+    }
+}
+
 unsafe impl FmcPeripheral for FMC {
     const REGISTERS: *const () = stm32::FMC::ptr() as *const ();
 

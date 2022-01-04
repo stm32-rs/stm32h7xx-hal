@@ -96,6 +96,16 @@ impl Rng {
     pub fn release(self) -> RNG {
         self.rb
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &RNG {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut RNG {
+        &mut self.rb
+    }
 }
 
 impl core::iter::Iterator for Rng {
