@@ -134,6 +134,7 @@ pub mod config {
         pub clockphase: ClockPhase,
         pub clockpolarity: ClockPolarity,
         pub lastbitclockpulse: bool,
+        pub swaptxrx: bool,
     }
 
     impl Config {
@@ -150,6 +151,7 @@ pub mod config {
                 clockphase: ClockPhase::First,
                 clockpolarity: ClockPolarity::IdleLow,
                 lastbitclockpulse: false,
+                swaptxrx: false,
             }
         }
 
@@ -205,6 +207,12 @@ pub mod config {
         /// clock pulse in the SCLK pin. Only applies to USART peripherals
         pub fn lastbitclockpulse(mut self, lastbitclockpulse: bool) -> Self {
             self.lastbitclockpulse = lastbitclockpulse;
+            self
+        }
+
+        /// If `true`, swap the Tx and Rx pins
+        pub fn swaptxrx(mut self, swaptxrx: bool) -> Self {
+            self.swaptxrx = swaptxrx;
             self
         }
     }
@@ -541,6 +549,10 @@ macro_rules! usart {
                     // Reset registers to disable advanced USART features
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
+
+                    if config.swaptxrx {
+                        self.usart.cr2.modify(|_, w| w.swap().swapped());
+                    }
 
                     // Set stop bits
                     self.usart.cr2.write(|w| {
