@@ -203,6 +203,10 @@ name = "usb_serial"
 required-features = ["usb_hs"]
 
 [[example]]
+name = "usb_rtic"
+required-features = ["rt", "usb_hs"]
+
+[[example]]
 name = "usb_passthrough"
 required-features = ["usb_hs", "rm0399"]
 

@@ -6,6 +6,7 @@
 //!
 //! - [USB Serial Port](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
 //! - [USB Passthrough Examples](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_passthrough.rs)
+//! - [USB Serial Port with Interrupts and RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_rtic.rs)
 
 use crate::rcc;
 use crate::stm32;
