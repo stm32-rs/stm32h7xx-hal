@@ -785,4 +785,14 @@ impl Rtc {
         // We're allowed to change this once after the LSE fails
         self.prec.kernel_clk_mux(backup::RtcClkSel::LSI);
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &RTC {
+        &self.reg
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut RTC {
+        &mut self.reg
+    }
 }

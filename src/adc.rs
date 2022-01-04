@@ -858,6 +858,16 @@ macro_rules! adc_hal {
                         panic!("Cannot read linear calibration value when the ADC is disabled");
                     }
                 }
+
+                /// Returns a reference to the inner peripheral
+                pub fn inner(&self) -> &$ADC {
+                    &self.rb
+                }
+
+                /// Returns a mutable reference to the inner peripheral
+                pub fn inner_mut(&mut self) -> &mut $ADC {
+                    &mut self.rb
+                }
             }
 
             impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC, Enabled>

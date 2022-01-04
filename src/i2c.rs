@@ -346,6 +346,11 @@ macro_rules! i2c {
                     &self.i2c
                 }
 
+                /// Returns a mutable reference to the inner peripheral
+                pub fn inner_mut(&mut self) -> &mut $I2CX {
+                    &mut self.i2c
+                }
+
                 /// Enable or disable the DMA mode for reception
                 pub fn rx_dma(&mut self, enable: bool) {
                     self.i2c.cr1.modify(|_,w| w.rxdmaen().bit(enable));

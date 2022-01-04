@@ -133,6 +133,16 @@ impl Crc {
     pub fn get_idr(&self) -> u32 {
         self.reg.idr.read().idr().bits()
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &CRC {
+        &self.reg
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut CRC {
+        &mut self.reg
+    }
 }
 
 #[macro_use]

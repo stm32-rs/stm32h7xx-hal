@@ -393,6 +393,16 @@ impl<S> Sdmmc<S> {
             _ => Err(Error::BadClock),
         }
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &S {
+        &self.sdmmc
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.sdmmc
+    }
 }
 
 macro_rules! sdmmc {
