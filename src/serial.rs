@@ -427,12 +427,13 @@ uart_pins! {
 /// Serial abstraction
 pub struct Serial<USART> {
     pub(crate) usart: USART,
-    pub(crate) ker_ck: Hertz,
+    ker_ck: Hertz,
 }
 
 /// Serial receiver
 pub struct Rx<USART> {
     _usart: PhantomData<USART>,
+    ker_ck: Hertz,
 }
 
 /// Serial transmitter
@@ -737,9 +738,19 @@ macro_rules! usart {
                         },
                         Rx {
                             _usart: PhantomData,
+                            ker_ck: self.ker_ck,
                         },
                     )
                 }
+
+                #[allow(unused_variables)]
+                pub fn join(tx: Tx<$USARTX>, rx: Rx<$USARTX>) -> Self {
+                    Self {
+                        usart: unsafe { core::mem::transmute::<(), $USARTX>(()) },
+                        ker_ck: rx.ker_ck,
+                    }
+                }
+
                 /// Releases the USART peripheral
                 pub fn release(self) -> $USARTX {
                     // Wait until both TXFIFO and shift register are empty
@@ -786,6 +797,7 @@ macro_rules! usart {
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     let mut rx: Rx<$USARTX> = Rx {
                         _usart: PhantomData,
+                        ker_ck: self.ker_ck,
                     };
                     rx.read()
                 }
