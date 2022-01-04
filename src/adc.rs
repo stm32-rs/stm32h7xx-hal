@@ -333,21 +333,11 @@ pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 #[cfg(feature = "defmt")]
 impl defmt::Format for StoredConfig {
     fn format(&self, fmt: defmt::Formatter) {
-        use stm32h7::stm32h743v::adc3::cfgr::RES_A;
-        let res = match self.1 {
-            RES_A::SIXTEENBIT => defmt::intern!("SIXTEENBIT"),
-            RES_A::FOURTEENBIT => defmt::intern!("FOURTEENBIT"),
-            RES_A::FOURTEENBITV => defmt::intern!("FOURTEENBITV"),
-            RES_A::TWELVEBIT => defmt::intern!("TWELVEBIT"),
-            RES_A::TWELVEBITV => defmt::intern!("TWELVEBITV"),
-            RES_A::TENBIT => defmt::intern!("TENBIT"),
-            RES_A::EIGHTBIT => defmt::intern!("EIGHTBIT"),
-        };
         defmt::write!(
             fmt,
-            "StoredConfig({:?}, {=istr}, {:?})",
+            "StoredConfig({:?}, {:?}, {:?})",
             self.0,
-            res,
+            defmt::Debug2Format(&self.1),
             self.2
         )
     }
