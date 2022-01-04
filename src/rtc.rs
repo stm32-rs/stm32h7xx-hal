@@ -62,6 +62,7 @@ pub enum RtcClock {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// An error preventing the RTC from initializing
 pub enum InitError {
     RtcNotRunning,
@@ -70,6 +71,7 @@ pub enum InitError {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DstError {
     ClockNotInitialized,
     AlreadyDst,

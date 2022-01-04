@@ -47,6 +47,10 @@
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
 //! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
 //! * [System Window Watchdog](crate::watchdog)
+//!
+//! Cargo Features
+//!
+//! * [`defmt`](https://defmt.ferrous-systems.com/) formatting for some types can be enabled with the feature `defmt`.
 
 #![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
@@ -54,6 +58,7 @@
 extern crate paste;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Never {}
 
 #[cfg(not(feature = "device-selected"))]

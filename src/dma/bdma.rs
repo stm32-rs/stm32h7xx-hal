@@ -87,6 +87,7 @@ impl Instance for BDMA2 {
 
 /// BDMA interrupts
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BdmaInterrupts {
     transfer_complete: bool,
     transfer_error: bool,
@@ -95,6 +96,7 @@ pub struct BdmaInterrupts {
 
 /// Contains the complete set of configuration for a DMA stream.
 #[derive(Debug, Default, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) memory_increment: bool,

@@ -213,8 +213,9 @@ pins! {
 
 /// The signalling scheme used on the SDMMC bus
 #[non_exhaustive]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Signalling {
     SDR12,
     SDR25,
@@ -232,6 +233,7 @@ impl Default for Signalling {
 #[non_exhaustive]
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error {
     Timeout,
     SoftwareTimeout,

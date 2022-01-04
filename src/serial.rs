@@ -49,7 +49,8 @@ use crate::time::Hertz;
 use crate::Never;
 
 /// Serial error
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
     /// Framing error
@@ -64,6 +65,7 @@ pub enum Error {
 
 /// Interrupt event
 #[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Event {
     /// New data has been received
     Rxne,
@@ -208,6 +210,7 @@ pub mod config {
     }
 
     #[derive(Debug)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct InvalidConfig;
 
     impl Default for Config {

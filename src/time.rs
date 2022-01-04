@@ -6,30 +6,37 @@ use cortex_m::peripheral::DWT;
 
 /// Bits per second
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Bps(pub u32);
 
 /// Hertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Hertz(pub u32);
 
 /// KiloHertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct KiloHertz(pub u32);
 
 /// MegaHertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MegaHertz(pub u32);
 
 /// MilliSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MilliSeconds(pub u32);
 
 /// MicroSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MicroSeconds(pub u32);
 
 /// NanoSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct NanoSeconds(pub u32);
 
 impl fmt::Display for Bps {

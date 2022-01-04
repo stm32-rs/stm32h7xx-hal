@@ -94,6 +94,7 @@ impl Instance for MDMA {
 
 /// MDMA Stream Transfer Requests
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaTransferRequest {
     Dma1Tcif0 = 0,
     Dma1Tcif1,
@@ -161,6 +162,7 @@ pub enum MdmaTransferRequest {
 
 /// MDMA Source/Destination sizes
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaSize {
     /// Byte (8-bit)
     Byte = 0,
@@ -206,6 +208,7 @@ impl MdmaSize {
 
 /// MDMA increment mode
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaIncrement {
     Fixed,
     /// Increment by one source/destination element each element
@@ -262,9 +265,20 @@ impl fmt::Debug for MdmaBurstSize {
         }
     }
 }
+#[cfg(feature = "defmt")]
+impl defmt::Format for MdmaBurstSize {
+    fn format(&self, fmt: defmt::Formatter) {
+        if self.0 > 0 {
+            defmt::write!(fmt, "{=u32}", 1 << self.0);
+        } else {
+            defmt::intern!("single").format(fmt);
+        }
+    }
+}
 
 /// MDMA Packing/Alignment mode
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaPackingAlignment {
     /// Source data is packed/unpacked into the destination data size
     Packed,
@@ -292,6 +306,7 @@ impl Default for MdmaPackingAlignment {
 
 /// MDMA trigger mode
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaTrigger {
     /// Each MDMA request triggers a buffer transfer
     Buffer = 0b00,
@@ -310,6 +325,7 @@ impl Default for MdmaTrigger {
 
 /// MDMA interrupts
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MdmaInterrupts {
     transfer_complete: bool,
     transfer_error: bool,
@@ -320,6 +336,7 @@ pub struct MdmaInterrupts {
 
 /// Contains the complete set of configuration for a MDMA stream.
 #[derive(Debug, Default, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MdmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) destination_increment: MdmaIncrement,

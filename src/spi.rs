@@ -99,6 +99,7 @@ use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
     /// Overrun occurred
@@ -262,6 +263,7 @@ pub struct HardwareCS {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum HardwareCSMode {
     /// Handling the CS is left for the user to do in software
     Disabled,
