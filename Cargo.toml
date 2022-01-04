@@ -204,7 +204,7 @@ required-features = ["usb_hs"]
 
 [[example]]
 name = "usb_rtic"
-required-features = ["rt", "usb_hs"]
+required-features = ["rt", "usb_hs", "rm0433"]
 
 [[example]]
 name = "usb_passthrough"
@@ -212,7 +212,7 @@ required-features = ["usb_hs", "rm0399"]
 
 [[example]]
 name = "usb_phy_serial_interrupt"
-required-features = ["rt", "usb_hs"]
+required-features = ["rt", "usb_hs", "rm0433"]
 
 [[example]]
 name = "rtc"
