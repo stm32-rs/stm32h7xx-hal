@@ -11,13 +11,12 @@
 #![no_main]
 #![no_std]
 
-use cortex_m;
-use rtic::app;
-
 #[macro_use]
 #[allow(unused)]
 mod utilities;
 use log::info;
+
+use core::sync::atomic::AtomicU32;
 
 use smoltcp::iface::{
     Interface, InterfaceBuilder, Neighbor, NeighborCache, Route, Routes,
@@ -26,13 +25,7 @@ use smoltcp::iface::{
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, Ipv6Cidr};
 
-use stm32h7xx_hal::gpio;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
-use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::PHY};
-use stm32h7xx_hal::{prelude::*, stm32};
-
-use core::sync::atomic::{AtomicU32, Ordering};
+use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
@@ -111,16 +104,27 @@ impl<'a> Net<'a> {
     }
 }
 
-#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+#[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
+mod app {
+    use stm32h7xx_hal::hal::digital::v2::OutputPin;
+    use stm32h7xx_hal::{ethernet, ethernet::PHY, gpio, prelude::*};
+
+    use super::*;
+    use core::sync::atomic::Ordering;
+
+    #[shared]
+    struct SharedResources {}
+    #[local]
+    struct LocalResources {
         net: Net<'static>,
         lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
         link_led: gpio::gpioc::PC3<gpio::Output<gpio::PushPull>>,
     }
 
     #[init]
-    fn init(mut ctx: init::Context) -> init::LateResources {
+    fn init(
+        mut ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
@@ -202,35 +206,39 @@ const APP: () = {
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);
 
-        init::LateResources {
-            net,
-            lan8742a,
-            link_led,
-        }
+        (
+            SharedResources {},
+            LocalResources {
+                net,
+                lan8742a,
+                link_led,
+            },
+            init::Monotonics(),
+        )
     }
 
-    #[idle(resources = [lan8742a, link_led])]
+    #[idle(local = [lan8742a, link_led])]
     fn idle(ctx: idle::Context) -> ! {
         loop {
             // Ethernet
-            match ctx.resources.lan8742a.poll_link() {
-                true => ctx.resources.link_led.set_low(),
-                _ => ctx.resources.link_led.set_high(),
+            match ctx.local.lan8742a.poll_link() {
+                true => ctx.local.link_led.set_low(),
+                _ => ctx.local.link_led.set_high(),
             }
             .ok();
         }
     }
 
-    #[task(binds = ETH, resources = [net])]
+    #[task(binds = ETH, local = [net])]
     fn ethernet_event(ctx: ethernet_event::Context) {
         unsafe { ethernet::interrupt_handler() }
 
         let time = TIME.load(Ordering::Relaxed);
-        ctx.resources.net.poll(time as i64);
+        ctx.local.net.poll(time as i64);
     }
 
     #[task(binds = SysTick, priority=15)]
     fn systick_tick(_: systick_tick::Context) {
         TIME.fetch_add(1, Ordering::Relaxed);
     }
-};
+}

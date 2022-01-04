@@ -9,15 +9,8 @@
 
 use core::mem::MaybeUninit;
 
-use embedded_hal::digital::v2::OutputPin;
-use rtic::app;
-
 #[macro_use]
-#[allow(unused)]
 mod utilities;
-
-use hal::prelude::*;
-use stm32h7xx_hal as hal;
 
 // The number of bytes to transfer.
 const BUFFER_SIZE: usize = 100;
@@ -30,9 +23,16 @@ const BUFFER_SIZE: usize = 100;
 #[link_section = ".axisram.buffers"]
 static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
 
-#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+#[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
+mod app {
+    use embedded_hal::digital::v2::OutputPin;
+    use hal::prelude::*;
+    use stm32h7xx_hal as hal;
+
+    use super::*;
+
+    #[shared]
+    struct SharedResources {
         cs: hal::gpio::gpiob::PB12<hal::gpio::Output<hal::gpio::PushPull>>,
         transfer: hal::dma::Transfer<
             hal::dma::dma::Stream1<hal::stm32::DMA1>,
@@ -43,8 +43,12 @@ const APP: () = {
         >,
     }
 
+    #[local]
+    struct LocalResources {}
     #[init]
-    fn init(ctx: init::Context) -> init::LateResources {
+    fn init(
+        ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
         utilities::logger::init();
 
         // Initialise power...
@@ -129,39 +133,41 @@ const APP: () = {
             _,
         > = hal::dma::Transfer::init(streams.1, spi, buffer, None, config);
 
-        init::LateResources { cs, transfer }
+        (
+            SharedResources { cs, transfer },
+            LocalResources {},
+            init::Monotonics(),
+        )
     }
 
-    #[task(binds=DMA1_STR1, resources=[transfer, cs], priority=2)]
-    fn dma_complete(mut ctx: dma_complete::Context) {
+    #[task(binds=DMA1_STR1, shared = [transfer, cs], priority=2)]
+    fn dma_complete(ctx: dma_complete::Context) {
         // If desired, the transfer can scheduled again here to continue transmitting.
-        let cs = &mut ctx.resources.cs;
-        ctx.resources.transfer.clear_transfer_complete_interrupt();
-        ctx.resources.transfer.pause(|spi| {
-            // At this point, the DMA transfer is done, but the data is still in the SPI output
-            // FIFO. Wait for it to complete before disabling CS.
-            while spi.inner().sr.read().txc().bit_is_clear() {}
-            cs.set_high().unwrap();
+        (ctx.shared.transfer, ctx.shared.cs).lock(|transfer, cs| {
+            transfer.clear_transfer_complete_interrupt();
+            transfer.pause(|spi| {
+                // At this point, the DMA transfer is done, but the data is still in the SPI output
+                // FIFO. Wait for it to complete before disabling CS.
+                while spi.inner().sr.read().txc().bit_is_clear() {}
+                cs.set_high().unwrap();
+            });
         });
     }
 
-    #[idle(resources=[transfer, cs])]
-    fn idle(mut ctx: idle::Context) -> ! {
+    #[idle(shared = [transfer, cs])]
+    fn idle(ctx: idle::Context) -> ! {
         // Start the DMA transfer over SPI.
-        let mut cs = ctx.resources.cs;
-        ctx.resources.transfer.lock(|transfer| {
-            cs.lock(|cs| {
-                transfer.start(|spi| {
-                    // Set CS low for the transfer.
-                    cs.set_low().unwrap();
+        (ctx.shared.transfer, ctx.shared.cs).lock(|transfer, cs| {
+            transfer.start(|spi| {
+                // Set CS low for the transfer.
+                cs.set_low().unwrap();
 
-                    // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
-                    spi.enable_dma_tx();
-                    spi.inner_mut().cr1.modify(|_, w| w.spe().enabled());
-                    spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
+                // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
+                spi.enable_dma_tx();
+                spi.inner_mut().cr1.modify(|_, w| w.spe().enabled());
+                spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
 
-                    // The transaction immediately begins as the TX FIFO is now being filled by DMA.
-                });
+                // The transaction immediately begins as the TX FIFO is now being filled by DMA.
             });
         });
 
@@ -169,4 +175,4 @@ const APP: () = {
             cortex_m::asm::nop();
         }
     }
-};
+}
