@@ -427,6 +427,7 @@ uart_pins! {
 /// Serial abstraction
 pub struct Serial<USART> {
     pub(crate) usart: USART,
+    pub(crate) ker_ck: Hertz,
 }
 
 /// Serial receiver
@@ -505,20 +506,24 @@ macro_rules! usart {
                     $(, $synchronous: bool)?
                 ) -> Result<Self, config::InvalidConfig>
                 {
-                    use crate::stm32::usart1::cr2::STOP_A as STOP;
-                    use self::config::*;
-
-                    let config = config.into();
-
                     // Enable clock for USART and reset
                     prec.enable().reset();
 
-                    // Get kernel clock
-	                let usart_ker_ck = Self::kernel_clk_unwrap(clocks).0;
+                    let ker_ck = Self::kernel_clk_unwrap(clocks);
+                    let mut serial = Serial { usart, ker_ck };
+                    let config = config.into();
+                    serial.configure(&config $(, $synchronous )?);
+
+                    Ok(serial)
+                }
+
+                fn configure(&mut self, config: &config::Config $(, $synchronous: bool)?) {
+                    use crate::stm32::usart1::cr2::STOP_A as STOP;
+                    use self::config::*;
 
                     // Prescaler not used for now
-                    let usart_ker_ck_presc = usart_ker_ck;
-                    usart.presc.reset();
+                    let usart_ker_ck_presc = self.ker_ck.0;
+                    self.usart.presc.reset();
 
                     // Calculate baudrate divisor
                     let usartdiv = usart_ker_ck_presc / config.baudrate.0;
@@ -526,18 +531,18 @@ macro_rules! usart {
 
                     // 16 times oversampling, OVER8 = 0
                     let brr = usartdiv as u16;
-                    usart.brr.write(|w| { w.brr().bits(brr) });
+                    self.usart.brr.write(|w| { w.brr().bits(brr) });
 
                     // disable hardware flow control
                     // TODO enable DMA
-                    // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                    // self.usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
 
                     // Reset registers to disable advanced USART features
-                    usart.cr2.reset();
-                    usart.cr3.reset();
+                    self.usart.cr2.reset();
+                    self.usart.cr3.reset();
 
                     // Set stop bits
-                    usart.cr2.write(|w| {
+                    self.usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
                             StopBits::STOP0P5 => STOP::STOP0P5,
                             StopBits::STOP1 => STOP::STOP1,
@@ -581,7 +586,7 @@ macro_rules! usart {
 
                     // Enable transmission and receiving
                     // and configure frame
-                    usart.cr1.write(|w| {
+                    self.usart.cr1.write(|w| {
                         w.fifoen()
                             .set_bit() // FIFO mode enabled
                             .over8()
@@ -608,8 +613,26 @@ macro_rules! usart {
                                 _ => PS::EVEN,
                             })
                     });
+                }
 
-                    Ok(Serial { usart })
+                /// Applies the configuration to the serial port.
+                ///
+                /// Ensure that the serial port is not transmitting data when calling this method.
+                ///
+                /// # Panics
+                ///
+                /// Panics if DMA Rx or Tx are enabled.
+                pub fn reconfigure(&mut self, config: impl Into<config::Config> $(, $synchronous: bool)?) {
+                    if self.dma_rx_enabled() || self.dma_tx_enabled() {
+                        panic!("Cannot reconfigure serial while DMA enabled");
+                    }
+
+                    self.usart.cr1.modify(|_, w| w.ue().disabled());
+
+                    let config = config.into();
+                    self.configure(&config $(, $synchronous )?);
+
+                    self.usart.cr1.modify(|_, w| w.ue().enabled());
                 }
 
                 /// Enables the Rx DMA stream.
@@ -622,6 +645,11 @@ macro_rules! usart {
                     self.usart.cr3.modify(|_, w| w.dmar().clear_bit());
                 }
 
+                /// Returns `true` if the Rx DMA stream is enabled.
+                pub fn dma_rx_enabled(&self) -> bool {
+                    self.usart.cr3.read().dmar().bit_is_set()
+                }
+
                 /// Enables the Tx DMA stream.
                 pub fn enable_dma_tx(&mut self) {
                     self.usart.cr3.modify(|_, w| w.dmat().set_bit());
@@ -630,6 +658,11 @@ macro_rules! usart {
                 /// Disables the Tx DMA stream.
                 pub fn disable_dma_tx(&mut self) {
                     self.usart.cr3.modify(|_, w| w.dmat().clear_bit());
+                }
+
+                /// Returns `true` if the Tx DMA stream is enabled.
+                pub fn dma_tx_enabled(&self) -> bool {
+                    self.usart.cr3.read().dmat().bit_is_set()
                 }
 
                 /// Starts listening for an interrupt event
