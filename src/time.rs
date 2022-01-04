@@ -266,7 +266,7 @@ impl From<NanoSeconds> for Duration {
 //     /// Returns an `Instant` corresponding to "now"
 //     pub fn now(&self) -> Instant {
 //         Instant {
-//             now: DWT::get_cycle_count(),
+//             now: DWT::cycle_count(),
 //         }
 //     }
 // }

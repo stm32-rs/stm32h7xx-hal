@@ -27,7 +27,7 @@ targets = ["thumbv7em-none-eabihf"]
 [dependencies]
 embedded-hal = "0.2.6"
 embedded-dma = "0.1.2"
-cortex-m = "^0.7.1"
+cortex-m = "^0.7.4"
 defmt = { version = ">=0.2.0,<0.4", optional = true }
 stm32h7 = { version = "^0.14.0", default-features = false }
 void = { version = "1.0.2", default-features = false }
