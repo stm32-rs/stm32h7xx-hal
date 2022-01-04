@@ -39,7 +39,7 @@ bare-metal = "1.0.0"
 sdio-host = { version = "0.5", optional = true }
 embedded-sdmmc = { version = "0.3", optional = true }
 stm32-fmc = { version = "0.2", optional = true }
-synopsys-usb-otg = { version = "^0.2.4", features = ["cortex-m"], optional = true }
+synopsys-usb-otg = { version = "^0.3.0", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
 
 [dependencies.smoltcp]
