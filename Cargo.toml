@@ -211,6 +211,10 @@ name = "usb_passthrough"
 required-features = ["usb_hs", "rm0399"]
 
 [[example]]
+name = "usb_phy_serial_interrupt"
+required-features = ["rt", "usb_hs"]
+
+[[example]]
 name = "rtc"
 required-features = ["rt", "rtc"]
 
