@@ -814,6 +814,16 @@ where
         }
     }
 
+    /// Returns a reference to the inner peripheral
+    pub fn peripheral(&self) -> &PERIPHERAL {
+        &self.peripheral
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn peripheral_mut(&mut self) -> &mut PERIPHERAL {
+        &mut self.peripheral
+    }
+
     /// Clear all interrupts for the DMA stream.
     #[inline(always)]
     pub fn clear_interrupts(&mut self) {
