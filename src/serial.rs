@@ -550,10 +550,6 @@ macro_rules! usart {
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
 
-                    if config.swaptxrx {
-                        self.usart.cr2.modify(|_, w| w.swap().swapped());
-                    }
-
                     // Set stop bits
                     self.usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
@@ -567,6 +563,8 @@ macro_rules! usart {
                             BitOrder::LsbFirst => MSBFIRST_A::LSB,
                             BitOrder::MsbFirst => MSBFIRST_A::MSB,
                         });
+
+                        w.swap().bit(config.swaptxrx);
 
                         // If synchronous mode is not supported, these bits are
                         // reserved and must be kept at reset value
