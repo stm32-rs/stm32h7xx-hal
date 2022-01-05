@@ -521,6 +521,7 @@ macro_rules! usart {
                     let ker_ck = Self::kernel_clk_unwrap(clocks);
                     let mut serial = Serial { usart, ker_ck };
                     let config = config.into();
+                    serial.usart.cr1.reset();
                     serial.configure(&config $(, $synchronous )?);
 
                     Ok(serial)
@@ -595,9 +596,9 @@ macro_rules! usart {
                         w
                     });
 
-                    // Enable transmission and receiving
-                    // and configure frame
-                    self.usart.cr1.write(|w| {
+                    // Enable transmission and receiving and configure frame
+                    // Retain enabled events
+                    self.usart.cr1.modify(|_, w| {
                         w.fifoen()
                             .set_bit() // FIFO mode enabled
                             .over8()
