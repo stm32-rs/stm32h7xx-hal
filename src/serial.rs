@@ -642,8 +642,6 @@ macro_rules! usart {
 
                     let config = config.into();
                     self.configure(&config $(, $synchronous )?);
-
-                    self.usart.cr1.modify(|_, w| w.ue().enabled());
                 }
 
                 /// Enables the Rx DMA stream.
