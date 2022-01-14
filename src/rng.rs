@@ -130,6 +130,10 @@ macro_rules! rng_core {
                     let mut i = 0_usize;
                     while i < buffer.len() {
                         let random_word = self.value()?;
+
+                        // using to_ne_bytes does not work for u8 and would make the macro
+                        // implementation more complicated
+                        #[allow(clippy::transmute_num_to_bytes)]
                         let bytes: [$type; BATCH_SIZE] = unsafe { mem::transmute(random_word) };
                         let n = cmp::min(BATCH_SIZE, buffer.len() - i);
                         buffer[i..i + n].copy_from_slice(&bytes[..n]);
