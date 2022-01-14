@@ -98,7 +98,7 @@ use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 use crate::time::Hertz;
 
 /// SPI error
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
