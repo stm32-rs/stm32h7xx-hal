@@ -64,15 +64,14 @@ pub struct Delay {
 }
 
 /// Implements [CountDown](embedded_hal::timer::CountDown) for the System timer (SysTick).
-/// Time is measured in microseconds
-pub struct CountdownUs<'a> {
+pub struct Countdown<'a> {
     clocks: CoreClocks,
     syst: &'a mut SYST,
     total_rvr: u64,
     finished: bool,
 }
 
-impl<'a> CountdownUs<'a> {
+impl<'a> Countdown<'a> {
     /// Create a new [CountDown] measured in microseconds.
     pub fn new(syst: &'a mut SYST, clocks: CoreClocks) -> Self {
         Self {
@@ -107,14 +106,14 @@ impl<'a> CountdownUs<'a> {
     }
 }
 
-impl<'a> CountDown for CountdownUs<'a> {
-    type Time = u32;
+impl<'a> CountDown for Countdown<'a> {
+    type Time = fugit::MicrosDurationU32;
 
     fn start<T>(&mut self, count: T)
     where
         T: Into<Self::Time>,
     {
-        let us = count.into();
+        let us = count.into().ticks();
 
         // With c_ck up to 480e6, we need u64 for delays > 8.9s
 
@@ -189,7 +188,7 @@ impl DelayUs<u32> for Delay {
             // See errata ES0392 §2.2.3. Revision Y does not have the /8 divider
             u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000)
         } else if cfg!(feature = "cm4") {
-            // CM4 dervived from HCLK
+            // CM4 derived from HCLK
             u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000)
         } else {
             // Normally divide by 8
