@@ -777,7 +777,8 @@ fn send(
         Some(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
         _ => {
             unsafe {
-                audio_ch.dr.write(|w| w.bits(left_word).bits(right_word));
+                audio_ch.dr.write(|w| w.bits(left_word));
+                audio_ch.dr.write(|w| w.bits(right_word));
             }
             Ok(())
         }
