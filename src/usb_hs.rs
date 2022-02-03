@@ -2,6 +2,15 @@
 //!
 //! Requires the `usb_hs` feature.
 //!
+//! ## ULPI Transciever Delay
+//!
+//! Some ULPI PHYs like the Microchip USB334x series require a delay between the
+//! ULPI register write that initiates the HS Chirp and the subsequent transmit
+//! command, otherwise the HS Chirp does not get executed and the deivce
+//! enumerates in FS mode. The STM32H7 series supports adding this delay to work
+//! with the affected PHYs. Enable the `synopsys-usb-otg/xcvrdly` feature to add
+//! this delay.
+//!
 //! # Examples
 //!
 //! - [USB Serial Port](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
