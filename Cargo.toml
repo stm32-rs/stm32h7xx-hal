@@ -27,7 +27,7 @@ targets = ["thumbv7em-none-eabihf"]
 [dependencies]
 fugit = "0.3.3"
 embedded-hal = { version = "0.2.6", features = ["unproven"] }
-embedded-dma = "0.1.2"
+embedded-dma = "0.2.0"
 cortex-m = "^0.7.4"
 defmt = { version = ">=0.2.0,<0.4", optional = true }
 stm32h7 = { version = "^0.14.0", default-features = false }
