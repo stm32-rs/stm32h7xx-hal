@@ -6,7 +6,7 @@
 //!
 //! # Examples
 //!
-//! - [SDMMC example applicatio](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
+//! - [SDMMC example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
 //!
 //! ## IO Setup
 //!
@@ -213,8 +213,9 @@ pins! {
 
 /// The signalling scheme used on the SDMMC bus
 #[non_exhaustive]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Signalling {
     SDR12,
     SDR25,
@@ -232,6 +233,7 @@ impl Default for Signalling {
 #[non_exhaustive]
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error {
     Timeout,
     SoftwareTimeout,
@@ -454,10 +456,18 @@ macro_rules! sdmmc {
 
                     let hclk = clocks.hclk();
                     let ker_ck = match prec.get_kernel_clk_mux() {
-                        rec::SdmmcClkSel::PLL1_Q => clocks.pll1_q_ck(),
-                        rec::SdmmcClkSel::PLL2_R => clocks.pll2_r_ck(),
-                    }
-                    .expect("sdmmc_ker_ck not running!");
+                        rec::SdmmcClkSel::PLL1_Q => {
+                            clocks.pll1_q_ck().expect(
+                                concat!(stringify!($SDMMCX), ": PLL1_Q must be enabled")
+                            )
+                        }
+                        rec::SdmmcClkSel::PLL2_R => {
+                            clocks.pll2_r_ck().expect(
+                                concat!(stringify!($SDMMCX), ": PLL2_R must be enabled")
+                            )
+                        }
+                    };
+
 
                     // For tuning the phase of the receive sampling clock, a
                     // DLYB block can be connected between sdmmc_io_in_ck and
@@ -1187,7 +1197,7 @@ macro_rules! sdmmc {
 
                 fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
                     let sdmmc = self.sdmmc.borrow_mut();
-                    Ok(embedded_sdmmc::BlockCount(sdmmc.card()?.size() as u32 / 512u32))
+                    Ok(embedded_sdmmc::BlockCount((sdmmc.card()?.size() / 512u64) as u32))
                 }
 
             }

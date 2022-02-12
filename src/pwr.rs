@@ -81,6 +81,7 @@ impl PwrExt for PWR {
                 any(feature = "rm0433", feature = "rm0399")
             ))]
             enable_vos0: false,
+            backup_regulator: false,
         }
     }
 }
@@ -97,6 +98,7 @@ pub struct Pwr {
         any(feature = "rm0433", feature = "rm0399")
     ))]
     enable_vos0: bool,
+    backup_regulator: bool,
 }
 
 /// Voltage Scale
@@ -332,6 +334,15 @@ impl Pwr {
         self
     }
 
+    /// Enable the backup domain voltage regulator
+    ///
+    /// The backup domain voltage regulator maintains the contents of backup SRAM
+    /// in Standby and VBAT modes.
+    pub fn backup_regulator(mut self) -> Self {
+        self.backup_regulator = true;
+        self
+    }
+
     pub fn freeze(self) -> PowerConfiguration {
         // NB. The lower bytes of CR3 can only be written once after
         // POR, and must be written with a valid combination. Refer to
@@ -418,7 +429,14 @@ impl Pwr {
 
         // Disable backup power domain write protection
         self.rb.cr1.modify(|_, w| w.dbp().set_bit());
-        let backup = unsafe { BackupREC::new_singleton() };
+        while self.rb.cr1.read().dbp().bit_is_clear() {}
+
+        if self.backup_regulator {
+            self.rb.cr2.modify(|_, w| w.bren().set_bit());
+            while self.rb.cr2.read().brrdy().bit_is_clear() {}
+        }
+
+        let backup = unsafe { BackupREC::new_singleton(self.backup_regulator) };
 
         PowerConfiguration {
             vos,

@@ -11,30 +11,21 @@
 #![no_main]
 #![no_std]
 
-use cortex_m;
-use rtic::app;
-
 #[macro_use]
 #[allow(unused)]
 mod utilities;
 use log::info;
 
+use core::sync::atomic::AtomicU32;
+
 use smoltcp::iface::{
-    EthernetInterface, EthernetInterfaceBuilder, Neighbor, NeighborCache,
-    Route, Routes,
+    Interface, InterfaceBuilder, Neighbor, NeighborCache, Route, Routes,
+    SocketStorage,
 };
-use smoltcp::socket::{SocketSet, SocketSetItem};
 use smoltcp::time::Instant;
-use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
+use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, Ipv6Cidr};
 
-use gpio::Speed::*;
-use stm32h7xx_hal::gpio;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
-use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::PHY};
-use stm32h7xx_hal::{prelude::*, stm32};
-
-use core::sync::atomic::{AtomicU32, Ordering};
+use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
@@ -61,27 +52,26 @@ static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 /// Net storage with static initialisation - another global singleton
 pub struct NetStorageStatic<'a> {
     ip_addrs: [IpCidr; 1],
-    socket_set_entries: [Option<SocketSetItem<'a>>; 8],
+    socket_storage: [SocketStorage<'a>; 8],
     neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; 8],
     routes_storage: [Option<(IpCidr, Route)>; 1],
 }
 static mut STORE: NetStorageStatic = NetStorageStatic {
     // Garbage
     ip_addrs: [IpCidr::Ipv6(Ipv6Cidr::SOLICITED_NODE_PREFIX)],
-    socket_set_entries: [None, None, None, None, None, None, None, None],
+    socket_storage: [SocketStorage::EMPTY; 8],
     neighbor_cache_storage: [None; 8],
     routes_storage: [None; 1],
 };
 
 pub struct Net<'a> {
-    iface: EthernetInterface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
-    sockets: SocketSet<'a>,
+    iface: Interface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
 }
 impl<'a> Net<'a> {
     pub fn new(
         store: &'static mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<'a, 4, 4>,
-        ethernet_addr: EthernetAddress,
+        ethernet_addr: HardwareAddress,
     ) -> Self {
         // Set IP address
         store.ip_addrs =
@@ -91,15 +81,15 @@ impl<'a> Net<'a> {
             NeighborCache::new(&mut store.neighbor_cache_storage[..]);
         let routes = Routes::new(&mut store.routes_storage[..]);
 
-        let iface = EthernetInterfaceBuilder::new(ethdev)
-            .ethernet_addr(ethernet_addr)
-            .neighbor_cache(neighbor_cache)
-            .ip_addrs(&mut store.ip_addrs[..])
-            .routes(routes)
-            .finalize();
-        let sockets = SocketSet::new(&mut store.socket_set_entries[..]);
+        let iface =
+            InterfaceBuilder::new(ethdev, &mut store.socket_storage[..])
+                .hardware_addr(ethernet_addr)
+                .neighbor_cache(neighbor_cache)
+                .ip_addrs(&mut store.ip_addrs[..])
+                .routes(routes)
+                .finalize();
 
-        return Net { iface, sockets };
+        return Net { iface };
     }
 
     /// Polls on the ethernet interface. You should refer to the smoltcp
@@ -108,22 +98,33 @@ impl<'a> Net<'a> {
         let timestamp = Instant::from_millis(now);
 
         self.iface
-            .poll(&mut self.sockets, timestamp)
+            .poll(timestamp)
             .map(|_| ())
             .unwrap_or_else(|e| info!("Poll: {:?}", e));
     }
 }
 
-#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+#[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
+mod app {
+    use stm32h7xx_hal::hal::digital::v2::OutputPin;
+    use stm32h7xx_hal::{ethernet, ethernet::PHY, gpio, prelude::*};
+
+    use super::*;
+    use core::sync::atomic::Ordering;
+
+    #[shared]
+    struct SharedResources {}
+    #[local]
+    struct LocalResources {
         net: Net<'static>,
         lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
         link_led: gpio::gpioi::PI14<gpio::Output<gpio::PushPull>>,
     }
 
     #[init]
-    fn init(mut ctx: init::Context) -> init::LateResources {
+    fn init(
+        mut ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
@@ -153,15 +154,15 @@ const APP: () = {
         let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
         link_led.set_high().ok();
 
-        let _rmii_ref_clk = gpioa.pa1.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_mdio = gpioa.pa2.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_mdc = gpioc.pc1.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_crs_dv = gpioa.pa7.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_rxd0 = gpioc.pc4.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_rxd1 = gpioc.pc5.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_tx_en = gpiog.pg11.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd0 = gpiog.pg12.into_alternate_af11().set_speed(VeryHigh);
-        let _rmii_txd1 = gpiog.pg13.into_alternate_af11().set_speed(VeryHigh);
+        let rmii_ref_clk = gpioa.pa1.into_alternate_af11();
+        let rmii_mdio = gpioa.pa2.into_alternate_af11();
+        let rmii_mdc = gpioc.pc1.into_alternate_af11();
+        let rmii_crs_dv = gpioa.pa7.into_alternate_af11();
+        let rmii_rxd0 = gpioc.pc4.into_alternate_af11();
+        let rmii_rxd1 = gpioc.pc5.into_alternate_af11();
+        let rmii_tx_en = gpiog.pg11.into_alternate_af11();
+        let rmii_txd0 = gpiog.pg13.into_alternate_af11();
+        let rmii_txd1 = gpiog.pg12.into_alternate_af11();
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
@@ -171,10 +172,21 @@ const APP: () = {
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
-            ethernet::new_unchecked(
+            ethernet::new(
                 ctx.device.ETHERNET_MAC,
                 ctx.device.ETHERNET_MTL,
                 ctx.device.ETHERNET_DMA,
+                (
+                    rmii_ref_clk,
+                    rmii_mdio,
+                    rmii_mdc,
+                    rmii_crs_dv,
+                    rmii_rxd0,
+                    rmii_rxd1,
+                    rmii_tx_en,
+                    rmii_txd0,
+                    rmii_txd1,
+                ),
                 &mut DES_RING,
                 mac_addr.clone(),
                 ccdr.peripheral.ETH1MAC,
@@ -188,46 +200,48 @@ const APP: () = {
         lan8742a.phy_init();
         // The eth_dma should not be used until the PHY reports the link is up
 
-        unsafe {
-            ethernet::enable_interrupt();
-        }
+        unsafe { ethernet::enable_interrupt() };
 
         // unsafe: mutable reference to static storage, we only do this once
         let store = unsafe { &mut STORE };
-        let net = Net::new(store, eth_dma, mac_addr);
+        let net = Net::new(store, eth_dma, mac_addr.into());
 
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);
 
-        init::LateResources {
-            net,
-            lan8742a,
-            link_led,
-        }
+        (
+            SharedResources {},
+            LocalResources {
+                net,
+                lan8742a,
+                link_led,
+            },
+            init::Monotonics(),
+        )
     }
 
-    #[idle(resources = [lan8742a, link_led])]
+    #[idle(local = [lan8742a, link_led])]
     fn idle(ctx: idle::Context) -> ! {
         loop {
             // Ethernet
-            match ctx.resources.lan8742a.poll_link() {
-                true => ctx.resources.link_led.set_low(),
-                _ => ctx.resources.link_led.set_high(),
+            match ctx.local.lan8742a.poll_link() {
+                true => ctx.local.link_led.set_low(),
+                _ => ctx.local.link_led.set_high(),
             }
             .ok();
         }
     }
 
-    #[task(binds = ETH, resources = [net])]
+    #[task(binds = ETH, local = [net])]
     fn ethernet_event(ctx: ethernet_event::Context) {
         unsafe { ethernet::interrupt_handler() }
 
         let time = TIME.load(Ordering::Relaxed);
-        ctx.resources.net.poll(time as i64);
+        ctx.local.net.poll(time as i64);
     }
 
     #[task(binds = SysTick, priority=15)]
     fn systick_tick(_: systick_tick::Context) {
         TIME.fetch_add(1, Ordering::Relaxed);
     }
-};
+}

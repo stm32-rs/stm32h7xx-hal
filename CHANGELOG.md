@@ -1,23 +1,51 @@
 # Changelog
 
 ## [Unreleased]
+
+* pwr: Add backup domain voltage regulator control [#303][303]
+* MSRV increased to 1.56.1
+
+## [v0.11.0] 2021-12-18
+
+* **Breaking**: Simplified API for reading device signature
+  values. `VAL::get().read()` becomes `VAL::read()`
+* **Breaking**: SAI `sai_[ab]_ker_ck` methods now return `Hertz` rather than
+  `Option<Hertz>` and if the clock is stopped they panic with a message.
+* **Breaking**: Rename the `quadspi` flag to `xspi`
+* **Breaking**: serial: manual control over data length removed, now set automatically based on parity [#297][297]
+* Upgrade to cortex-m-rt v0.7.0 [#257][257] [#264][264]
+* **Breaking**: If you use RTIC v0.5, you need to depend on it with
+  `default-features = false, features = ["cortex-m-7"]`. See
+  [rtic-rs/cortex-m-rtic#509](https://github.com/rtic-rs/cortex-m-rtic/pull/509)
+* Add support for OCTOSPI on supported parts, also using the `xspi` feature flag [#230][230]
+* Add support for STM32H735 (feature flag `stm32h735` [#235][235]
+* Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
 * Fixed clippy lints:
    * Added safety docs for some DMA functions
    * Implemented additional conversion utilities for `time`
    * **Breaking**: Changed I2S constructors to take less arguments
-
 * MSRV increased to 1.52.0
-* **Breaking**: Simplified API for reading device signature
-  values. `VAL::get().read()` becomes `VAL::read()`
-* adc: Allow parallel execution of multiple ADCs through `start_conversion()`
-* Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
-* pac: Upgrade to stm32-rs v0.14.0
-
+* Add "rt" to the default features [#287][287]
+* adc: Allow parallel execution of multiple ADCs through `start_conversion()` [#250][250]
+* dma: Add support for MDMA [#186][186]
 * ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
   constants to specify how many transmit / receive buffers to include in
-  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>`
+  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>` [#247][247]
+* ethernet: Avoid creating intermediate references to packed fields [#225][225]
+* ethernet: Upgrade smoltcp to v0.8.0 [#292][292]
+* ethernet: Fix MAC address filtering [#249][249]
+* gpio: Implement IoPin [#256][256]
+* gpio: Add InputPin implementation for Alternate Pins [#244][244]
+* i2c: Fix scldec/sdadel and adjust i2c divider calculations [#252][252]
+* pac: Upgrade to stm32-rs v0.14.0 [#240][240]
+* quadspi: Add support for flash memory
+* rng: Implement rand_core::RngCore and support all integers in Rng [#284][284]
+* sdmmc: Implement [embedded-sdmmc](https://github.com/rust-embedded-community/embedded-sdmmc-rs) traits [#262][262]
+* spi: use the FIFO in Transfer and Write implementations [#269][269]
+* serial: Improve sync mode support, add additional config options [#261][261] [#267][267]
+* serial: Fix parity configuration option [#242][242]
 
-## [v0.10.0] 2021-07-xx
+## [v0.10.0] 2021-07-21
 
 * **Breaking**: Don't reset peripheral in DMA1/2 `StreamsTuple::new()` method #229
 * adc: Add `free()` method for ADC12 #213
@@ -28,8 +56,6 @@
 * serial: implement `fmt::Write` for `Serial<USART` #214
 * spi: Add more hardware CS features #216
 * timers: Better calculations for `set_timeout_ticks` #208
-
-* **Breaking**: Rename the `quadspi` flag to `xspi`
 
 ## [v0.9.0] 2021-03-12
 
@@ -154,7 +180,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...HEAD
+[v0.11.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.7.1...v0.8.0
@@ -164,3 +191,27 @@
 [v0.5.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.2.1...v0.3.0
+
+[186]: https://github.com/stm32-rs/stm32h7xx-hal/pull/186
+[225]: https://github.com/stm32-rs/stm32h7xx-hal/pull/225
+[230]: https://github.com/stm32-rs/stm32h7xx-hal/pull/230
+[235]: https://github.com/stm32-rs/stm32h7xx-hal/pull/235
+[240]: https://github.com/stm32-rs/stm32h7xx-hal/pull/240
+[242]: https://github.com/stm32-rs/stm32h7xx-hal/pull/242
+[244]: https://github.com/stm32-rs/stm32h7xx-hal/pull/244
+[247]: https://github.com/stm32-rs/stm32h7xx-hal/pull/247
+[249]: https://github.com/stm32-rs/stm32h7xx-hal/pull/249
+[250]: https://github.com/stm32-rs/stm32h7xx-hal/pull/250
+[252]: https://github.com/stm32-rs/stm32h7xx-hal/pull/252
+[256]: https://github.com/stm32-rs/stm32h7xx-hal/pull/256
+[257]: https://github.com/stm32-rs/stm32h7xx-hal/pull/257
+[261]: https://github.com/stm32-rs/stm32h7xx-hal/pull/261
+[262]: https://github.com/stm32-rs/stm32h7xx-hal/pull/262
+[264]: https://github.com/stm32-rs/stm32h7xx-hal/pull/264
+[267]: https://github.com/stm32-rs/stm32h7xx-hal/pull/267
+[269]: https://github.com/stm32-rs/stm32h7xx-hal/pull/269
+[284]: https://github.com/stm32-rs/stm32h7xx-hal/pull/284
+[287]: https://github.com/stm32-rs/stm32h7xx-hal/pull/287
+[292]: https://github.com/stm32-rs/stm32h7xx-hal/pull/292
+[297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
+[303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303

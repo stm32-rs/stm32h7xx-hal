@@ -250,11 +250,13 @@ macro_rules! hal {
                     let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
 
                     // Calculate divider
-                    let ker_ck_a =
-                        $SAIX::sai_a_ker_ck(&prec, clocks).expect("SAI kernel clock must run!");
+                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
                     let kernel_clock_divider: u8 = (ker_ck_a.0 / mclk_a_hz)
                         .try_into()
-                        .expect("SAI kernel clock is out of range for required MCLK");
+                        .expect(concat!(stringify!($SAIX),
+                                        ": Kernel clock is out of range for required MCLK"
+                        ));
+
 
                     // Configure SAI peripeheral
                     let mut s = Sai {

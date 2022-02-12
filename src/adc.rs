@@ -88,6 +88,7 @@ pub struct Adc<ADC, ED> {
 //
 // Refer to RM0433 Rev 6 - Chapter 24.4.13
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
 pub enum AdcSampleTime {
     /// 1.5 cycles sampling time
@@ -134,6 +135,7 @@ impl From<AdcSampleTime> for u8 {
 ///
 /// Only values in range of 0..=15 are allowed.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcLshift(u8);
 
 impl AdcLshift {
@@ -155,6 +157,7 @@ impl AdcLshift {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalOffset(u16);
 
 impl AdcCalOffset {
@@ -164,6 +167,7 @@ impl AdcCalOffset {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalLinear([u32; 6]);
 
 impl AdcCalLinear {
@@ -326,16 +330,34 @@ pub trait AdcExt<ADC>: Sized {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StoredConfig(AdcSampleTime, Resolution, AdcLshift);
 
+#[cfg(feature = "defmt")]
+impl defmt::Format for StoredConfig {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "StoredConfig({:?}, {:?}, {:?})",
+            self.0,
+            defmt::Debug2Format(&self.1),
+            self.2
+        )
+    }
+}
+
 /// Get and check the adc_ker_ck_input
 fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
     // Select Kernel Clock
     let adc_clock = match prec.get_kernel_clk_mux() {
-        Some(rec::AdcClkSel::PLL2_P) => clocks.pll2_p_ck(),
-        Some(rec::AdcClkSel::PLL3_R) => clocks.pll3_r_ck(),
-        Some(rec::AdcClkSel::PER) => clocks.per_ck(),
+        Some(rec::AdcClkSel::PLL2_P) => {
+            clocks.pll2_p_ck().expect("ADC: PLL2_P must be enabled")
+        }
+        Some(rec::AdcClkSel::PLL3_R) => {
+            clocks.pll3_r_ck().expect("ADC: PLL3_R must be enabled")
+        }
+        Some(rec::AdcClkSel::PER) => {
+            clocks.per_ck().expect("ADC: PER clock must be enabled")
+        }
         _ => unreachable!(),
-    }
-    .expect("adc_ker_ck_input is not running!");
+    };
 
     // Check against datasheet requirements
     assert!(

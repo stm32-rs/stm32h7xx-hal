@@ -183,6 +183,7 @@ pub trait TimerExt<TIM> {
 
 /// Hardware timers
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Timer<TIM> {
     clk: u32,
     tim: TIM,
@@ -300,7 +301,7 @@ macro_rules! hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("Timer input clock not running!").0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
 
                     Timer {
                         clk,
@@ -591,7 +592,7 @@ macro_rules! lptim_hal {
                     prec.enable().reset();
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect("Timer input clock not running!").0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
 
                     let mut timer = LpTimer {
                         clk,

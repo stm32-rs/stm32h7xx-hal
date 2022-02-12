@@ -49,7 +49,8 @@ use crate::time::Hertz;
 use crate::Never;
 
 /// Serial error
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
     /// Framing error
@@ -64,6 +65,7 @@ pub enum Error {
 
 /// Interrupt event
 #[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Event {
     /// New data has been received
     Rxne,
@@ -76,11 +78,12 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
-    #[derive(Copy, Clone, PartialEq)]
-    pub enum WordLength {
-        DataBits8,
-        DataBits9,
-    }
+    /// The parity bits appended to each serial data word
+    ///
+    /// When enabled parity bits will be automatically added by hardware on transmit, and automatically checked by
+    /// hardware on receive. For example, `read()` would return [`Error::Parity`](super::Error::Parity).
+    ///
+    /// Note that parity bits are included in the serial word length, so if parity is used word length will be set to 9.
     #[derive(Copy, Clone, PartialEq)]
     pub enum Parity {
         ParityNone,
@@ -125,7 +128,6 @@ pub mod config {
     #[derive(Copy, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
-        pub wordlength: WordLength,
         pub parity: Parity,
         pub stopbits: StopBits,
         pub bitorder: BitOrder,
@@ -142,7 +144,6 @@ pub mod config {
         pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
             Config {
                 baudrate: frequency.into(),
-                wordlength: WordLength::DataBits8,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
                 bitorder: BitOrder::LsbFirst,
@@ -162,23 +163,21 @@ pub mod config {
             self
         }
 
+        /// Enables Even Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
+        /// to 9.
         pub fn parity_even(mut self) -> Self {
             self.parity = Parity::ParityEven;
             self
         }
 
+        /// Enables Odd Parity
+        ///
+        /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
+        /// to 9.
         pub fn parity_odd(mut self) -> Self {
             self.parity = Parity::ParityOdd;
-            self
-        }
-
-        pub fn wordlength_8(mut self) -> Self {
-            self.wordlength = WordLength::DataBits8;
-            self
-        }
-
-        pub fn wordlength_9(mut self) -> Self {
-            self.wordlength = WordLength::DataBits9;
             self
         }
 
@@ -211,6 +210,7 @@ pub mod config {
     }
 
     #[derive(Debug)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct InvalidConfig;
 
     impl Default for Config {
@@ -514,10 +514,7 @@ macro_rules! usart {
                     prec.enable().reset();
 
                     // Get kernel clock
-	                let usart_ker_ck = match Self::kernel_clk(clocks) {
-                        Some(ker_hz) => ker_hz.0,
-                        _ => panic!("$USARTX kernel clock not running!")
-                    };
+	                let usart_ker_ck = Self::kernel_clk_unwrap(clocks).0;
 
                     // Prescaler not used for now
                     let usart_ker_ck_presc = usart_ker_ck;
@@ -598,9 +595,9 @@ macro_rules! usart {
                             .m1()
                             .clear_bit()
                             .m0()
-                            .variant(match config.wordlength {
-                                WordLength::DataBits8 => M0::BIT8,
-                                WordLength::DataBits9 => M0::BIT9,
+                            .variant(match config.parity {
+                                Parity::ParityNone => M0::BIT8,
+                                _ => M0::BIT9,
                             }).pce()
                             .variant(match config.parity {
                                 Parity::ParityNone => PCE::DISABLED,
@@ -954,7 +951,7 @@ macro_rules! usart_sel {
             impl Serial<$USARTX> {
                 /// Returns the frequency of the current kernel clock for
                 #[doc=$doc]
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     // unsafe: read only
                     let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
 
@@ -964,6 +961,42 @@ macro_rules! usart_sel {
                         Some($SEL::PLL3_Q) => clocks.pll3_q_ck(),
                         Some($SEL::HSI_KER) => clocks.hsi_ck(),
                         Some($SEL::CSI_KER) => clocks.csi_ck(),
+                        Some($SEL::LSE) => unimplemented!(),
+                        _ => unreachable!(),
+                    }
+                }
+                /// Returns the frequency of the current kernel clock for
+                #[doc=$doc]
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    // unsafe: read only
+                    let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
+
+                    match ccip.$sel().variant() {
+                        Some($SEL::$PCLK) => clocks.$pclk(),
+                        Some($SEL::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL2_Q must be enabled")
+                            )
+                        }
+                        Some($SEL::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect(
+                                concat!(stringify!($USARTX), ": PLL3_Q must be enabled")
+                            )
+                        }
+                        Some($SEL::HSI_KER) => {
+                            clocks.hsi_ck().expect(
+                                concat!(stringify!($USARTX), ": HSI clock must be enabled")
+                            )
+                        }
+                        Some($SEL::CSI_KER) => {
+                            clocks.csi_ck().expect(
+                                concat!(stringify!($USARTX), ": CSI clock must be enabled")
+                            )
+                        }
                         Some($SEL::LSE) => unimplemented!(),
                         _ => unreachable!(),
                     }

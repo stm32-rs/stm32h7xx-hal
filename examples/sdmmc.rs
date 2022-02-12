@@ -141,14 +141,14 @@ fn main() -> ! {
     let mut buffer = [0u8; 5120];
 
     cp.DWT.enable_cycle_counter();
-    let start = pac::DWT::get_cycle_count();
+    let start = pac::DWT::cycle_count();
 
     for i in 0..10 {
         // Read 10 blocks
         sdmmc.read_blocks(10 * i, &mut buffer).unwrap();
     }
 
-    let end = pac::DWT::get_cycle_count();
+    let end = pac::DWT::cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
 
     info!("Read 100 blocks at {} bytes/s", 5120. / duration);

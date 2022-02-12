@@ -105,6 +105,7 @@ pub enum I2SSync {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum I2SError {
     NoChannelAvailable,
 }
@@ -457,8 +458,7 @@ macro_rules! i2s {
                     }
 
                     // Clock config
-                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks)
-                        .expect("SAI kernel clock must run!");
+                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
                     let clock_ratio = if users.master.oversampling {
                         512
                     } else {
@@ -468,7 +468,9 @@ macro_rules! i2s {
                         (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
-                        .expect("SAI kernel clock is out of range for required MCLK");
+                        .expect(concat!(stringify!($SAIX),
+                                        " A: Kernel clock is out of range for required MCLK"
+                        ));
 
                     // Configure SAI peripheral
                     let mut per_sai = Sai {
@@ -523,8 +525,7 @@ macro_rules! i2s {
                     }
 
                     // Clock config
-                    let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks)
-                        .expect("SAI kernel clock must run!");
+                    let ker_ck_a = $SAIX::sai_b_ker_ck(&prec, clocks);
                     let clock_ratio = if users.master.oversampling {
                         512
                     } else {
@@ -534,7 +535,10 @@ macro_rules! i2s {
                         (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
-                        .expect("SAI kernel clock is out of range for required MCLK");
+                        .expect(concat!(stringify!($SAIX),
+                                        " B: Kernel clock is out of range for required MCLK"
+                        ));
+
 
                     // Configure SAI peripheral
                     let mut per_sai = Sai {
@@ -773,7 +777,8 @@ fn send(
         Some(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
         _ => {
             unsafe {
-                audio_ch.dr.write(|w| w.bits(left_word).bits(right_word));
+                audio_ch.dr.write(|w| w.bits(left_word));
+                audio_ch.dr.write(|w| w.bits(right_word));
             }
             Ok(())
         }

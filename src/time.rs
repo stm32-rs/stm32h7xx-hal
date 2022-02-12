@@ -6,30 +6,37 @@ use cortex_m::peripheral::DWT;
 
 /// Bits per second
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Bps(pub u32);
 
 /// Hertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Hertz(pub u32);
 
 /// KiloHertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct KiloHertz(pub u32);
 
 /// MegaHertz
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MegaHertz(pub u32);
 
 /// MilliSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MilliSeconds(pub u32);
 
 /// MicroSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MicroSeconds(pub u32);
 
 /// NanoSeconds
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct NanoSeconds(pub u32);
 
 impl fmt::Display for Bps {
@@ -259,7 +266,7 @@ impl From<NanoSeconds> for Duration {
 //     /// Returns an `Instant` corresponding to "now"
 //     pub fn now(&self) -> Instant {
 //         Instant {
-//             now: DWT::get_cycle_count(),
+//             now: DWT::cycle_count(),
 //         }
 //     }
 // }
@@ -273,6 +280,6 @@ pub struct Instant {
 impl Instant {
     /// Ticks elapsed since the `Instant` was created
     pub fn elapsed(&self) -> u32 {
-        DWT::get_cycle_count().wrapping_sub(self.now)
+        DWT::cycle_count().wrapping_sub(self.now)
     }
 }

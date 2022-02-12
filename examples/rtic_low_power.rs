@@ -19,22 +19,27 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_itm;
 extern crate rtic;
 
-use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
+#[macro_use]
+mod utilities;
 
-use rtic::app;
-use stm32h7xx_hal::gpio::gpioc::{PC2, PC3, PC4};
-use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
-use stm32h7xx_hal::prelude::*;
-use stm32h7xx_hal::rcc::LowPowerMode;
-use stm32h7xx_hal::stm32::{LPTIM3, TIM1, TIM2};
-use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
+#[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
+mod app {
+    use stm32h7xx_hal::gpio::gpioc::{PC2, PC3, PC4};
+    use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
+    use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
+    use stm32h7xx_hal::prelude::*;
+    use stm32h7xx_hal::rcc::LowPowerMode;
+    use stm32h7xx_hal::stm32::{LPTIM3, TIM1, TIM2};
+    use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
 
-#[app(device = stm32h7xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+    use super::*;
+
+    #[shared]
+    struct SharedResources {}
+    #[local]
+    struct LocalResources {
         led1: PC2<Output<PushPull>>,
         led2: PC3<Output<PushPull>>,
         led3: PC4<Output<PushPull>>,
@@ -44,7 +49,10 @@ const APP: () = {
     }
 
     #[init]
-    fn init(ctx: init::Context) -> init::LateResources {
+    fn init(
+        ctx: init::Context,
+    ) -> (SharedResources, LocalResources, init::Monotonics) {
+        utilities::logger::init();
         let mut syscfg = ctx.device.SYSCFG;
 
         // Run D3 / SRD domain
@@ -54,7 +62,7 @@ const APP: () = {
         ctx.device.PWR.cpucr.modify(|_, w| w.run_srd().set_bit());
 
         let pwr = ctx.device.PWR.constrain();
-        let vos = pwr.freeze();
+        let vos = example_power!(pwr).freeze();
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
@@ -117,38 +125,42 @@ const APP: () = {
         led2.set_high().ok();
         led3.set_high().ok();
 
-        init::LateResources {
-            led1,
-            led2,
-            led3,
-            timer1,
-            timer2,
-            timer3,
-        }
+        (
+            SharedResources {},
+            LocalResources {
+                led1,
+                led2,
+                led3,
+                timer1,
+                timer2,
+                timer3,
+            },
+            init::Monotonics(),
+        )
     }
 
     // RTIC inserts a default idle loop that calls asm::wfi()
 
-    #[task(binds = EXTI15_10, resources = [], priority = 1)]
+    #[task(binds = EXTI15_10, local = [], priority = 1)]
     fn exti15_10_interrupt(_: exti15_10_interrupt::Context) {
         // Once the wakeup is triggered, we loop here forever
     }
 
-    #[task(binds = TIM1_UP, resources = [led1, timer1], priority = 2)]
+    #[task(binds = TIM1_UP, local = [led1, timer1], priority = 2)]
     fn timer1_tick(ctx: timer1_tick::Context) {
-        ctx.resources.timer1.clear_irq();
-        ctx.resources.led1.toggle().unwrap();
+        ctx.local.timer1.clear_irq();
+        ctx.local.led1.toggle().unwrap();
     }
 
-    #[task(binds = TIM2, resources = [led2, timer2], priority = 2)]
+    #[task(binds = TIM2, local = [led2, timer2], priority = 2)]
     fn timer2_tick(ctx: timer2_tick::Context) {
-        ctx.resources.timer2.clear_irq();
-        ctx.resources.led2.toggle().unwrap();
+        ctx.local.timer2.clear_irq();
+        ctx.local.led2.toggle().unwrap();
     }
 
-    #[task(binds = LPTIM3, resources = [led3, timer3], priority = 2)]
+    #[task(binds = LPTIM3, local = [led3, timer3], priority = 2)]
     fn timer3_tick(ctx: timer3_tick::Context) {
-        ctx.resources.timer3.clear_irq();
-        ctx.resources.led3.toggle().unwrap();
+        ctx.local.timer3.clear_irq();
+        ctx.local.led3.toggle().unwrap();
     }
-};
+}

@@ -73,6 +73,7 @@ impl Instance for DMA2 {
 
 /// DMA interrupts
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct DmaInterrupts {
     transfer_complete: bool,
     transfer_error: bool,
@@ -83,6 +84,7 @@ pub struct DmaInterrupts {
 
 /// Contains configuration for a DMA stream
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct DmaConfig {
     pub(crate) priority: config::Priority,
     pub(crate) memory_increment: bool,

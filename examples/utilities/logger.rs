@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "log-itm", allow(unsafe_code))]
+
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "log-itm"))] {
         use panic_itm as _;

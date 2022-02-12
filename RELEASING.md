@@ -45,5 +45,5 @@ Checkout in a clean tree and publish
 ```
 cd [clean tree]
 git pull upstream
-cargo publish --features stm32h743,rt
+cargo publish --features stm32h743
 ```

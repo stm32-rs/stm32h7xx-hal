@@ -98,7 +98,8 @@ use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 use crate::time::Hertz;
 
 /// SPI error
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
     /// Overrun occurred
@@ -262,6 +263,7 @@ pub struct HardwareCS {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum HardwareCSMode {
     /// Handling the CS is left for the user to do in software
     Disabled,
@@ -541,8 +543,10 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
-pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
-    type Disabled: SpiDisabled<
+pub trait HalEnabledSpi:
+    HalSpi + FullDuplex<Self::Word, Error = Error>
+{
+    type Disabled: HalDisabledSpi<
         Spi = Self::Spi,
         Word = Self::Word,
         Enabled = Self,
@@ -556,11 +560,8 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     /// disabled.
     fn disable(self) -> Self::Disabled;
 
-    /// Resets the SPI peripheral. This is just a call to [SpiEnabled::disable]
-    /// and [SpiDisabled::enable]
-    fn reset(self) -> Self {
-        self.disable().enable()
-    }
+    /// Resets the SPI peripheral.
+    fn reset(&mut self);
 
     /// Sets up a frame transaction with the given amount of data words.
     ///
@@ -585,9 +586,9 @@ pub trait SpiEnabled: SpiAll + FullDuplex<Self::Word, Error = Error> {
     fn end_transaction(&mut self) -> Result<(), Error>;
 }
 
-pub trait SpiDisabled: SpiAll {
+pub trait HalDisabledSpi: HalSpi {
     type Rec;
-    type Enabled: SpiEnabled<Spi = Self::Spi, Word = Self::Word>;
+    type Enabled: HalEnabledSpi<Spi = Self::Spi, Word = Self::Word>;
 
     /// Enables the SPI peripheral.
     /// Clears the MODF flag, the SSI flag, and sets the SPE bit.
@@ -611,7 +612,7 @@ pub trait SpiDisabled: SpiAll {
     fn free(self) -> (Self::Spi, Self::Rec);
 }
 
-pub trait SpiAll: Sized {
+pub trait HalSpi: Sized {
     type Spi;
     type Word;
 
@@ -681,7 +682,7 @@ macro_rules! spi {
             // For each $TY
             $(
 
-            impl Spi<$SPIX, Enabled, $TY> {
+                impl Spi<$SPIX, Enabled, $TY> {
                     fn $spiX<T, CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
@@ -702,10 +703,7 @@ macro_rules! spi {
                         let config: Config = config.into();
 
                         let spi_freq = freq.into().0;
-	                    let spi_ker_ck = match Self::kernel_clk(clocks) {
-                            Some(ker_hz) => ker_hz.0,
-                            _ => panic!("$SPIX kernel clock not running!")
-                        };
+	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
                         let mbr = match spi_ker_ck / spi_freq {
                             0 => unreachable!(),
                             1..=2 => MBR::DIV2,
@@ -805,14 +803,33 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiEnabled for Spi<$SPIX, Enabled, $TY> {
-                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
-
-                    fn disable(self) -> Spi<$SPIX, Disabled, $TY> {
-                        // Master communication must be suspended before the peripheral is disabled
+                impl <Ed> Spi<$SPIX, Ed, $TY> {
+                    /// internally disable the SPI without changing its type-state
+                    fn internal_disable(&mut self) {
                         self.spi.cr1.modify(|_, w| w.csusp().requested());
                         while self.spi.sr.read().eot().is_completed() {}
                         self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().disabled());
+                    }
+
+                    /// internally enable the SPI without changing its type-state
+                    fn internal_enable(&mut self) {
+                        self.clear_modf(); // SPE cannot be set when MODF is set
+                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    }
+                }
+
+                impl HalEnabledSpi for Spi<$SPIX, Enabled, $TY> {
+                    type Disabled = Spi<Self::Spi, Disabled, Self::Word>;
+
+                    fn reset(&mut self) {
+                        self.internal_disable();
+                        self.internal_enable();
+                    }
+
+                    fn disable(mut self) -> Spi<$SPIX, Disabled, $TY> {
+                        // Master communication must be suspended before the peripheral is disabled
+                        self.internal_disable();
+
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
@@ -859,13 +876,12 @@ macro_rules! spi {
                     }
                 }
 
-                impl SpiDisabled for Spi<$SPIX, Disabled, $TY> {
+                impl HalDisabledSpi for Spi<$SPIX, Disabled, $TY> {
                     type Rec = rec::$Rec;
                     type Enabled = Spi<Self::Spi, Enabled, Self::Word>;
 
                     fn enable(mut self) -> Self::Enabled {
-                        self.clear_modf(); // SPE cannot be set when MODF is set
-                        self.spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                        self.internal_enable();
                         Spi {
                             spi: self.spi,
                             hardware_cs_mode: self.hardware_cs_mode,
@@ -895,7 +911,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl<EN> SpiAll for Spi<$SPIX, EN, $TY>
+                impl<EN> HalSpi for Spi<$SPIX, EN, $TY>
                 {
                     type Word = $TY;
                     type Spi = $SPIX;
@@ -1087,53 +1103,21 @@ macro_rules! spi {
                     }
                 }
 
-                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
+                impl Spi<$SPIX, Enabled, $TY>
+                {
+                    /// Internal implementation for blocking::spi::Transfer and
+                    /// blocking::spi::Write
+                    fn transfer_internal<'w>(&mut self,
+                                             write_words: &'w [$TY],
+                                             read_words: Option<&'w mut [$TY]>
+                    ) -> Result<(), Error> {
+                        use hal::spi::FullDuplex;
 
-                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-                        use embedded_hal::spi::FullDuplex;
-
-                        if words.is_empty() {
-                            return Ok(words);
+                        // both buffers are the same length
+                        if let Some(ref read) = read_words {
+                            debug_assert!(write_words.len() == read.len());
                         }
-
-                        // Are we in frame mode?
-                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            const MAX_WORDS: usize = 0xFFFF;
-
-                            // Can we send
-                            if words.len() > MAX_WORDS {
-                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
-                            }
-
-                            // Setup that we're going to send this amount of bits
-                            // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
-                        }
-
-                        // Send the data
-                        for word in words.iter_mut() {
-                            nb::block!(self.send(word.clone()))?;
-                            *word = nb::block!(self.read())?;
-                        }
-
-                        // Are we in frame mode?
-                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-                            // Clean up
-                            self.end_transaction()?;
-                        }
-
-                        Ok(words)
-                    }
-                }
-
-                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
-
-                    fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
-                        use embedded_hal::spi::FullDuplex;
-
-                        if words.is_empty() {
+                        if write_words.is_empty() {
                             return Ok(());
                         }
 
@@ -1142,19 +1126,53 @@ macro_rules! spi {
                             const MAX_WORDS: usize = 0xFFFF;
 
                             // Can we send
-                            if words.len() > MAX_WORDS {
+                            if write_words.len() > MAX_WORDS {
                                 return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
 
                             // Setup that we're going to send this amount of bits
-                            // SAFETY: We already checked that `words` is not empty
-                            self.setup_transaction(unsafe{ core::num::NonZeroU16::new_unchecked(words.len() as u16) })?;
+                            // SAFETY: We already checked that `write_words` is not empty
+                            self.setup_transaction(unsafe {
+                                core::num::NonZeroU16::new_unchecked(write_words.len() as u16)
+                            })?;
                         }
 
-                        // Send the data
-                        for word in words {
-                            nb::block!(self.send(word.clone()))?;
-                            nb::block!(self.read())?;
+                        // Depth of FIFO to use. All current SPI implementations
+                        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+                        // Tabel 409.) but pick 4 as a conservative value.
+                        const FIFO_WORDS: usize = 4;
+
+                        // Fill the first half of the write FIFO
+                        let len = write_words.len();
+                        let mut write = write_words.iter();
+                        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                            nb::block!(self.send(*write.next().unwrap()))?;
+                        }
+
+                        if let Some(read) = read_words {
+                            let mut read = read.iter_mut();
+
+                            // Continue filling write FIFO and emptying read FIFO
+                            for word in write {
+                                nb::block!(self.send(*word))?;
+                                *read.next().unwrap() = nb::block!(self.read())?;
+                            }
+
+                            // Finish emptying the read FIFO
+                            for word in read {
+                                *word = nb::block!(self.read())?;
+                            }
+                        } else {
+                            // Continue filling write FIFO and emptying read FIFO
+                            for word in write {
+                                nb::block!(self.send(*word))?;
+                                let _ = nb::block!(self.read())?;
+                            }
+
+                            // Dummy read from the read FIFO
+                            for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                                let _ = nb::block!(self.read())?;
+                            }
                         }
 
                         // Are we in frame mode?
@@ -1164,6 +1182,27 @@ macro_rules! spi {
                         }
 
                         Ok(())
+                    }
+                }
+                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
+
+                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
+                        // SAFETY: transfer_internal always writes out bytes
+                        // before modifying them
+                        let write = unsafe {
+                            core::slice::from_raw_parts(words.as_ptr(), words.len())
+                        };
+                        self.transfer_internal(write, Some(words))?;
+
+                        Ok(words)
+                    }
+                }
+                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
+                    type Error = Error;
+
+                    fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
+                        self.transfer_internal(words, None)
                     }
                 }
             )+
@@ -1177,7 +1216,7 @@ macro_rules! spi123sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI1, SPI2, SPI3
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
                     #[cfg(feature = "rm0455")]
@@ -1193,6 +1232,36 @@ macro_rules! spi123sel {
                         _ => unreachable!(),
                     }
                 }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI1, SPI2, SPI3
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
+
+                    match ccip1r.spi123sel().variant() {
+                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => {
+                            clocks.pll1_q_ck().expect("SPI123: PLL1_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI123SEL_A::PLL2_P) => {
+                            clocks.pll2_p_ck().expect("SPI123: PLL2_P must be enabled")
+                        }
+                        Some(ccip1r::SPI123SEL_A::PLL3_P) => {
+                            clocks.pll3_p_ck().expect("SPI123: PLL3_P must be enabled")
+                        }
+                        // Need a method of specifying pin clock
+                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::PER) => {
+                            clocks.per_ck().expect("SPI123: PER clock must be enabled")
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
         )+
     }
@@ -1203,7 +1272,7 @@ macro_rules! spi45sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI4, SPI5
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
                     #[cfg(feature = "rm0455")]
@@ -1219,6 +1288,38 @@ macro_rules! spi45sel {
                         _ => unreachable!(),
                     }
                 }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI4, SPI5
+                ///
+                /// # Panics
+                ///
+                /// Panics if the kernel clock is not running
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).d2ccip1r.read() };
+                    #[cfg(feature = "rm0455")]
+                    let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
+
+                    match ccip1r.spi45sel().variant() {
+                        Some(ccip1r::SPI45SEL_A::APB) => clocks.pclk2(),
+                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect("SPI45: PLL2_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect("SPI45: PLL3_Q must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::HSI_KER) => {
+                            clocks.hsi_ck().expect("SPI45: HSI clock must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::CSI_KER) => {
+                            clocks.csi_ck().expect("SPI45: CSI clock must be enabled")
+                        }
+                        Some(ccip1r::SPI45SEL_A::HSE) => {
+                            clocks.hse_ck().expect("SPI45: HSE clock must be enabled")
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
         )+
     }
@@ -1229,7 +1330,7 @@ macro_rules! spi6sel {
             impl<WORD> Spi<$SPIX, Enabled, WORD> {
                 /// Returns the frequency of the current kernel clock
                 /// for SPI6
-                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
                     #[cfg(feature = "rm0455")]
@@ -1242,6 +1343,34 @@ macro_rules! spi6sel {
                         Some(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
                         Some(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
                         Some(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                        _ => unreachable!(),
+                    }
+                }
+                /// Returns the frequency of the current kernel clock
+                /// for SPI6
+                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                    #[cfg(not(feature = "rm0455"))]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).d3ccipr.read() };
+                    #[cfg(feature = "rm0455")]
+                    let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
+
+                    match srdccipr.spi6sel().variant() {
+                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => clocks.pclk4(),
+                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => {
+                            clocks.pll2_q_ck().expect("SPI6: PLL2_Q must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => {
+                            clocks.pll3_q_ck().expect("SPI6: PLL3_Q must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::HSI_KER) => {
+                            clocks.hsi_ck().expect("SPI6: HSI clock must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::CSI_KER) => {
+                            clocks.csi_ck().expect("SPI6: CSI clock must be enabled")
+                        }
+                        Some(srdccipr::SPI6SEL_A::HSE) => {
+                            clocks.hse_ck().expect("SPI6: HSE clock must be enabled")
+                        }
                         _ => unreachable!(),
                     }
                 }

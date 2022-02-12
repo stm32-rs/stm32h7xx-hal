@@ -34,7 +34,10 @@ use smoltcp::{
     wire::EthernetAddress,
 };
 
-use crate::ethernet::StationManagement;
+use crate::{
+    ethernet::{PinsRMII, StationManagement},
+    gpio::Speed,
+};
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
@@ -384,12 +387,52 @@ pub struct EthernetMAC {
 ///
 /// Sets up the descriptor structures, sets up the peripheral
 /// clocks and GPIO configuration, and configures the ETH MAC and
+/// DMA peripherals. Automatically sets slew rate to VeryHigh.
+/// If you wish to use another configuration, please see
+/// [new_unchecked](new_unchecked).
+///
+/// This method does not initialise the external PHY. However it does return an
+/// [EthernetMAC](EthernetMAC) which implements the
+/// [StationManagement](super::StationManagement) trait. This can be used to
+/// communicate with the external PHY.
+///
+/// # Safety
+///
+/// `EthernetDMA` shall not be moved as it is initialised here
+pub fn new<'a, const TD: usize, const RD: usize>(
+    eth_mac: stm32::ETHERNET_MAC,
+    eth_mtl: stm32::ETHERNET_MTL,
+    eth_dma: stm32::ETHERNET_DMA,
+    pins: impl PinsRMII,
+    ring: &'a mut DesRing<TD, RD>,
+    mac_addr: EthernetAddress,
+    prec: rec::Eth1Mac,
+    clocks: &CoreClocks,
+) -> (EthernetDMA<'a, TD, RD>, EthernetMAC) {
+    pins.set_speed(Speed::VeryHigh);
+    unsafe {
+        new_unchecked(eth_mac, eth_mtl, eth_dma, ring, mac_addr, prec, clocks)
+    }
+}
+
+/// Create and initialise the ethernet driver.
+///
+/// You must move in ETH_MAC, ETH_MTL, ETH_DMA.
+///
+/// Sets up the descriptor structures, sets up the peripheral
+/// clocks and GPIO configuration, and configures the ETH MAC and
 /// DMA peripherals.
 ///
 /// This method does not initialise the external PHY. However it does return an
 /// [EthernetMAC](EthernetMAC) which implements the
 /// [StationManagement](super::StationManagement) trait. This can be used to
 /// communicate with the external PHY.
+///
+/// All the documented interrupts in the `MMC_TX_INTERRUPT_MASK` and
+/// `MMC_RX_INTERRUPT_MASK` registers are masked, since these cause unexpected
+/// interrupts after a number of days of heavy ethernet traffic. If these
+/// interrupts are desired, you can be unmask them in your own code after this
+/// method.
 ///
 /// # Safety
 ///
@@ -535,6 +578,46 @@ pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
             w.pt().bits(0x100)
         });
         eth_mac.macrx_fcr.modify(|_, w| w);
+
+        // Mask away Ethernet MAC MMC RX/TX interrupts. These are statistics
+        // counter interrupts and are enabled by default. We need to manually
+        // disable various ethernet interrupts so they don't unintentionally
+        // hang the device. The user is free to re-enable them later to provide
+        // ethernet MAC-related statistics
+        eth_mac.mmc_rx_interrupt_mask.modify(|_, w| {
+            w.rxlpiuscim()
+                .set_bit()
+                .rxucgpim()
+                .set_bit()
+                .rxalgnerpim()
+                .set_bit()
+                .rxcrcerpim()
+                .set_bit()
+        });
+
+        eth_mac.mmc_tx_interrupt_mask.modify(|_, w| {
+            w.txlpiuscim()
+                .set_bit()
+                .txgpktim()
+                .set_bit()
+                .txmcolgpim()
+                .set_bit()
+                .txscolgpim()
+                .set_bit()
+        });
+        // TODO: The MMC_TX/RX_INTERRUPT_MASK registers incorrectly mark
+        // LPITRCIM as read-only, so svd2rust doens't generate bindings to
+        // modify them. Instead, as a workaround, we manually manipulate the
+        // bits
+        unsafe {
+            eth_mac
+                .mmc_tx_interrupt_mask
+                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
+            eth_mac
+                .mmc_rx_interrupt_mask
+                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
+        }
+
         eth_mtl.mtlrx_qomr.modify(|_, w| {
             w
                 // Receive store and forward

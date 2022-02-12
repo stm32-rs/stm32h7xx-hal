@@ -26,12 +26,12 @@
 //! * [Quad or Octo SPI](crate::xspi) Feature gate `xspi`
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
-//! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ldtc`
+//! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
 //!
 //! External Memory
 //!
 //! * [Flexible Memory Controller (FMC)](crate::fmc) Feature gate `fmc`
-//! * [SD Card (SDMMC)](crate::sdmmc) Feature gate `sdmmc`
+//! * [SD Card (SDMMC)](crate::sdmmc) Feature gate `sdmmc` (FAT16/32 driver is available under the `sdmmc-fatfs` feature gate)
 //!
 //! Timing functions
 //!
@@ -43,9 +43,14 @@
 //!
 //! Others
 //!
+//! * [Direct Memory Access (DMA)](crate::dma)
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
-//! * [Random Number Generator](crate::rng)
+//! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
 //! * [System Window Watchdog](crate::watchdog)
+//!
+//! Cargo Features
+//!
+//! * [`defmt`](https://defmt.ferrous-systems.com/) formatting for some types can be enabled with the feature `defmt`.
 
 #![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
@@ -53,6 +58,7 @@
 extern crate paste;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Never {}
 
 #[cfg(not(feature = "device-selected"))]

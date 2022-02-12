@@ -64,10 +64,41 @@
 //! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
 //! ```
 //!
+//! # Hyperbus
+//!
+//! This driver supports a memory-mapped Hyperbus mode for the OCTOSPI
+//! peripheral.
+//!
+//! ```
+//! let config = HyperbusConfig::new(80.mhz())
+//!     .device_size_bytes(24) // 16 Mbyte
+//!     .refresh_interval(4.us())
+//!     .read_write_recovery(4) // 50ns
+//!     .access_initial_latency(6);
+//!
+//! let hyperram = dp.OCTOSPI1.octospi_hyperbus_unchecked(
+//!     config,
+//!     &ccdr.clocks,
+//!     ccdr.peripheral.OCTOSPI1,
+//! );
+//!
+//! // Initialise and convert raw pointer to slice
+//! let ram_ptr: *mut u32 = hyperram.init();
+//! let ram = unsafe { slice::from_raw_parts_mut(ram_ptr, size_u32) };
+//! ```
+//!
+//! # Examples
+//!
+//! - [Simple QSPI example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi.rs)
+//! - [QSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_flash_memory.rs)
+//! - [QSPI using MDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_mdma.rs)
+//! - [OCTOSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/octospi.rs)
+//!
 //! # Limitations
 //!
 //! This driver currently only supports indirect operation mode of the xSPI
-//! interface. Automatic polling or memory-mapped modes are not supported.
+//! interface. Automatic polling or memory-mapped modes are not supported,
+//! except for the OCTOSPI Hyperbus mode.
 //!
 //! Using different operational modes (1-bit/2-bit/4-bit etc.) for different
 //! phases of a single transaction is not supported. It is possible to change
@@ -99,7 +130,7 @@ pub use common::{
     XspiWord as OctospiWord,
 };
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-pub use octospi::OctospiExt as XspiExt;
+pub use octospi::{Hyperbus, HyperbusConfig, OctospiExt as XspiExt};
 
 // Both
 pub use common::{Config, Event, SamplingEdge};
@@ -115,6 +146,7 @@ mod common {
 
     /// Represents operation modes of the XSPI interface.
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiMode {
         /// Only a single IO line (IO0) is used for transmit and a separate line
         /// (IO1) is used for receive.
@@ -144,6 +176,7 @@ mod common {
     }
     /// Indicates an error with the XSPI peripheral.
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiError {
         Busy,
         Underflow,
@@ -155,6 +188,7 @@ mod common {
 
     /// Instruction, Address or Alternate Byte word used by the XSPI interface
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiWord {
         None,
         U8(u8),
@@ -194,6 +228,7 @@ mod common {
 
     /// Sampling mode for the XSPI interface
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum SamplingEdge {
         Falling,
         Rising,
@@ -201,6 +236,7 @@ mod common {
 
     /// Interrupt events
     #[derive(Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Event {
         /// FIFO Threashold
         FIFOThreashold,
@@ -212,6 +248,7 @@ mod common {
 
     /// Indicates a specific QUADSPI bank to use
     #[derive(Debug, Copy, Clone, PartialEq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub enum Bank {
         One,
@@ -273,7 +310,7 @@ mod common {
         /// With zero dummy cycles, the QUADSPI peripheral will erroneously drive the
         /// output pins for an extra half clock cycle before IO is swapped from
         /// output to input. Refer to
-        /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+        /// <https://github.com/quartiq/stabilizer/issues/101> for more information.
         pub fn dummy_cycles(mut self, cycles: u8) -> Self {
             debug_assert!(
                 cycles < 32,
@@ -291,7 +328,7 @@ mod common {
         /// If zero dummy cycles are used, during read operations the QUADSPI
         /// peripheral will erroneously drive the output pins for an extra half
         /// clock cycle before IO is swapped from output to input. Refer to
-        /// https://github.com/quartiq/stabilizer/issues/101 for more information.
+        /// <https://github.com/quartiq/stabilizer/issues/101> for more information.
         ///
         /// In this case it is recommended to sample on the falling edge. Although
         /// this doesn't stop the possible bus contention, delaying the sampling
@@ -404,7 +441,7 @@ mod common {
                 let _ = self.rb.cr.read(); // Delay 2 peripheral clocks
             }
 
-            pub(super) fn get_clock(clocks: &CoreClocks) -> Option<Hertz> {
+            pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
                 #[cfg(not(feature = "rm0455"))]
                 use stm32::rcc::d1ccipr as ccipr;
                 #[cfg(feature = "rm0455")]
@@ -416,10 +453,22 @@ mod common {
                 let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
 
                 match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => Some(clocks.hclk()),
-                    ccipr::[< $ccip:upper _A >]::PLL1_Q => clocks.pll1_q_ck(),
-                    ccipr::[< $ccip:upper _A >]::PLL2_R => clocks.pll2_r_ck(),
-                    ccipr::[< $ccip:upper _A >]::PER => clocks.per_ck(),
+                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => clocks.hclk(),
+                    ccipr::[< $ccip:upper _A >]::PLL1_Q => {
+                        clocks.pll1_q_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
+                        )
+                    }
+                    ccipr::[< $ccip:upper _A >]::PLL2_R => {
+                        clocks.pll2_r_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL2_R must be enabled")
+                        )
+                    }
+                    ccipr::[< $ccip:upper _A >]::PER => {
+                        clocks.per_ck().expect(
+                            concat!(stringify!($peripheral), ": PER clock must be enabled")
+                        )
+                    }
                 }
             }
 
@@ -454,22 +503,6 @@ mod common {
                         .dmode()  // data phase
                         .bits(self.mode.reg_value())
                 });
-
-                // if mode == XspiMode::EightBit {
-                //     // TODO
-                //     self.rb.ccr.modify(|_, w| unsafe {
-                //         w.admode()
-                //             .bits(mode.reg_value())
-                //             .adsize()
-                //             .bits(3) // 32-bit
-                //             .isize()
-                //             .bits(1) // 16-bit
-                //             .imode()
-                //             .bits(mode.reg_value())
-                //             .dmode()
-                //             .bits(mode.reg_value())
-                //     });
-                //     self.rb.tcr.write(|w| unsafe { w.dcyc().bits(4) });
             }
 
             /// Sets the interface in extended mode
