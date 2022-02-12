@@ -55,7 +55,7 @@ use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
 #[cfg(all(
     feature = "revision_v",
-    any(feature = "rm0433", feature = "rm0399")
+    any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
 ))]
 use crate::stm32::{RCC, SYSCFG};
 
@@ -78,7 +78,11 @@ impl PwrExt for PWR {
             supply_configuration: SupplyConfiguration::Default,
             #[cfg(all(
                 feature = "revision_v",
-                any(feature = "rm0433", feature = "rm0399")
+                any(
+                    feature = "rm0433",
+                    feature = "rm0399",
+                    feature = "rm0468"
+                )
             ))]
             enable_vos0: false,
             backup_regulator: false,
@@ -95,7 +99,7 @@ pub struct Pwr {
     supply_configuration: SupplyConfiguration,
     #[cfg(all(
         feature = "revision_v",
-        any(feature = "rm0433", feature = "rm0399")
+        any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
     ))]
     enable_vos0: bool,
     backup_regulator: bool,
@@ -327,7 +331,7 @@ impl Pwr {
 
     #[cfg(all(
         feature = "revision_v",
-        any(feature = "rm0433", feature = "rm0399")
+        any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
     ))]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
         self.enable_vos0 = true;
@@ -425,6 +429,14 @@ impl Pwr {
             };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
+        }
+
+        // 725, 735, and the like don't have the overdrive bit,
+        // and vos0 can be switched to just like vos1-3.
+        #[cfg(all(feature = "revision_v", feature = "rm0468"))]
+        if self.enable_vos0 {
+            vos = VoltageScale::Scale0;
+            self.voltage_scaling_transition(vos);
         }
 
         // Disable backup power domain write protection
