@@ -542,7 +542,7 @@ macro_rules! gpio {
                             (*$GPIOX::ptr()).moder.modify(|r, w| {
                                 w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
                             }
-							)};
+                            )};
 
                         $PXi { _mode: PhantomData }
                     }
@@ -598,7 +598,7 @@ macro_rules! gpio {
                             (*$GPIOX::ptr()).moder.modify(|r, w| {
                                 w.bits((r.bits() & !(0b11 << offset)) | (0b11 << offset))
                             }
-							)};
+                            )};
 
                         $PXi { _mode: PhantomData }
                     }
@@ -681,13 +681,13 @@ macro_rules! gpio {
                     /// This is useful when you want to collect the
                     /// pins into an array where you need all the
                     /// elements to have the same type
-					pub fn erase(&self) -> ErasedPin<MODE> {
-						ErasedPin::new($extigpionr, $i)
-						// ErasedPin {
-						// 	pin_port: $extigpionr << 4 | $i,
-						// 	_mode: self._mode,
-						// }
-					}
+                    pub fn erase(&self) -> ErasedPin<MODE> {
+                        ErasedPin::new($extigpionr, $i)
+                        // ErasedPin {
+                        //      pin_port: $extigpionr << 4 | $i,
+                        //      _mode: self._mode,
+                        // }
+                    }
 
                     /// Erases the pin number from the type
                     ///
@@ -781,7 +781,7 @@ macro_rules! gpio {
                 }
 
                 impl IoPin<Self, Self>
-					for $PXi<Output<OpenDrain>>
+                    for $PXi<Output<OpenDrain>>
                 {
                     type Error = Never;
                     fn into_input_pin(self) -> Result<Self, Never> {
