@@ -53,9 +53,11 @@
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
+#[cfg(all(feature = "revision_v", feature = "rm0468"))]
+use crate::stm32::SYSCFG;
 #[cfg(all(
     feature = "revision_v",
-    any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
+    any(feature = "rm0433", feature = "rm0399")
 ))]
 use crate::stm32::{RCC, SYSCFG};
 
