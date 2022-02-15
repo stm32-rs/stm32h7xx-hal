@@ -433,12 +433,17 @@ impl Pwr {
             vos = VoltageScale::Scale0;
         }
 
-        // 725, 735, and the like don't have the overdrive bit,
-        // and vos0 can be switched to just like vos1-3.
+        // RM0468 chips don't have the overdrive bit
         #[cfg(all(feature = "revision_v", feature = "rm0468"))]
         if self.enable_vos0 {
             vos = VoltageScale::Scale0;
             self.voltage_scaling_transition(vos);
+            // RM0468 section 6.8.6 says that before being able to use VOS0,
+            // D3CR.VOS must equal CSR1.ACTVOS and CSR1.ACTVOSRDY must be set.
+            while d3cr!(self.rb).read().vos().bits()
+                != self.rb.csr1.read().actvos().bits()
+            {}
+            while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
         }
 
         // Disable backup power domain write protection
