@@ -150,6 +150,7 @@ use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
+use log::debug;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
@@ -971,6 +972,10 @@ impl Rcc {
             w.en().set_bit().cs().clear_bit().hslv().clear_bit()
         });
         while syscfg.cccsr.read().ready().bit_is_clear() {}
+
+        debug!("--- RCC register settings");
+        debug!("PLLCFGR: {:#x}", rcc.pllcfgr.read().bits());
+
 
         // Return frozen clock configuration
         Ccdr {
