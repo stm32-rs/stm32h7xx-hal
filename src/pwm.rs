@@ -196,7 +196,7 @@ use crate::gpio::gpiob::{
 #[cfg(feature = "rm0455")]
 use crate::gpio::gpioc::PC12;
 use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
-use crate::gpio::gpiod::{PD13, PD14, PD15};
+use crate::gpio::gpiod::{PD12, PD13, PD14, PD15};
 use crate::gpio::gpioe::{
     PE10, PE11, PE12, PE13, PE14, PE15, PE3, PE4, PE5, PE6, PE8, PE9,
 };
@@ -771,7 +771,8 @@ pins! {
         BRK2: []
     TIM4:
         CH1(ComplementaryImpossible): [
-            PB6<Alternate<AF2>>
+            PB6<Alternate<AF2>>,
+            PD12<Alternate<AF2>>
         ]
         CH2(ComplementaryImpossible): [
             PB7<Alternate<AF2>>,
