@@ -1156,10 +1156,7 @@ pub mod erased {
             const GPIO_REGISTER_OFFSET: usize = 0x0400;
 
             let offset = GPIO_REGISTER_OFFSET * self.port_id() as usize;
-            let block_ptr = (crate::pac::GPIOA::ptr() as usize + offset)
-                as *const crate::pac::gpioa::RegisterBlock;
-
-            unsafe { &*block_ptr }
+			unsafe { &*crate::pac::GPIOA::ptr().add(offset) }
         }
 
         /// Configures the pin to operate as a floating
