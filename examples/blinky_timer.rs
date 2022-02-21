@@ -8,7 +8,7 @@ mod utilities;
 extern crate nb;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::{pac, prelude::*};
+use stm32h7xx_hal::{pac, prelude::*, time::MilliSeconds};
 
 use log::info;
 
@@ -42,13 +42,13 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     // Configure the timer.
-    let mut timer = dp.TIM2.timer(1.hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+    let mut timer = dp.TIM2.timer(1.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
 
     loop {
         for _ in 0..5 {
             // 20ms wait with timer
             led.toggle();
-            timer.start(20.ms());
+            timer.start(MilliSeconds::from_ticks(20).into_rate());
             block!(timer.wait()).ok();
 
             // Delay for 500ms. Timer must operate correctly on next

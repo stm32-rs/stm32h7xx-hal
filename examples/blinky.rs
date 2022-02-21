@@ -24,7 +24,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
     info!("stm32h7xx-hal example - Blinky");

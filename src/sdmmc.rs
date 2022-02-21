@@ -375,11 +375,11 @@ impl<S, P: SdmmcPeripheral> Sdmmc<S, P> {
     /// Returns `(clk_div, clk_f)`, where `clk_div` is the divisor register
     /// value and `clk_f` is the resulting new clock frequency.
     fn clk_div(ker_ck: Hertz, sdmmc_ck: u32) -> Result<(u16, Hertz), Error> {
-        match (ker_ck.0 + sdmmc_ck - 1) / sdmmc_ck {
+        match (ker_ck.raw() + sdmmc_ck - 1) / sdmmc_ck {
             0 | 1 => Ok((0, ker_ck)),
             x @ 2..=2046 => {
                 let clk_div = ((x + 1) / 2) as u16;
-                let clk = Hertz(ker_ck.0 / (clk_div as u32 * 2));
+                let clk = Hertz::from_raw(ker_ck.raw() / (clk_div as u32 * 2));
 
                 Ok((clk_div, clk))
             }
@@ -431,8 +431,8 @@ macro_rules! sdmmc {
                     let (clkdiv, new_clock) = Self::clk_div(self.ker_ck, freq)?;
                     // Enforce AHB and SDMMC_CK clock relation. See RM0433 Rev 7
                     // Section 55.5.8
-                    let sdmmc_bus_bandwidth = new_clock.0 * (width as u32);
-                    debug_assert!(self.hclk.0 > 3 * sdmmc_bus_bandwidth / 32);
+                    let sdmmc_bus_bandwidth = new_clock.raw() * (width as u32);
+                    debug_assert!(self.hclk.raw() > 3 * sdmmc_bus_bandwidth / 32);
                     self.clock = new_clock;
 
                     // CPSMACT and DPSMACT must be 0 to set CLKDIV
@@ -983,9 +983,9 @@ macro_rules! sdmmc {
                     });
 
                     // Set Clock
-                    if freq.0 <= 25_000_000 {
+                    if freq.raw() <= 25_000_000 {
                         // Final clock frequency
-                        self.clkcr_set_clkdiv(freq.0, width)?;
+                        self.clkcr_set_clkdiv(freq.raw(), width)?;
                     } else {
                         // Switch to max clock for SDR12
                         self.clkcr_set_clkdiv(25_000_000, width)?;
@@ -994,13 +994,13 @@ macro_rules! sdmmc {
                     // Read status
                     self.read_sd_status()?;
 
-                    if freq.0 > 25_000_000 {
+                    if freq.raw() > 25_000_000 {
                         // Switch to SDR25
                         self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
 
                         if self.signalling == Signalling::SDR25 {
                             // Set final clock frequency
-                            self.clkcr_set_clkdiv(freq.0, width)?;
+                            self.clkcr_set_clkdiv(freq.raw(), width)?;
 
                             if !self.card_ready()? {
                                 return Err(Error::SignalingSwitchFailed);
@@ -1310,7 +1310,7 @@ macro_rules! sdmmc {
                         })
                     });
 
-                    self.clkcr_set_clkdiv(freq.into().0, width)?;
+                    self.clkcr_set_clkdiv(freq.into().raw(), width)?;
                     Ok(())
                 }
             }

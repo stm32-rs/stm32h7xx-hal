@@ -51,11 +51,11 @@ impl HyperbusConfig {
     /// * Chip select high between transactions = 4
     /// * Read-write recovery = 4
     /// * Access initial latency = 6
-    pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
+    pub fn new(frequency: Hertz) -> Self {
         HyperbusConfig {
-            frequency: frequency.into(),
+            frequency,
             size_order: 23, // 8 MByte
-            refresh_interval: MicroSeconds(4),
+            refresh_interval: MicroSeconds::from_ticks(4),
             chip_select_high: 4,       // 40ns @ 100MHz
             read_write_recovery: 4,    // 40ns @ 100MHz
             access_initial_latency: 6, // 60ns @ 100MHz
@@ -423,7 +423,7 @@ macro_rules! octospi_impl {
                 // Disable OCTOSPI before configuring it.
                 regs.cr.write(|w| w.en().clear_bit());
 
-                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
+                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
                 while regs.sr.read().busy().bit_is_set() {}
 
@@ -471,7 +471,7 @@ macro_rules! octospi_impl {
                 });
 
                 // Prescaler
-                let spi_frequency = config.frequency.0;
+                let spi_frequency = config.frequency.raw();
                 let divisor =
                     match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
                         divisor @ 1..=256 => divisor - 1,
@@ -518,17 +518,17 @@ macro_rules! octospi_impl {
                 // Disable OCTOSPI before configuring it.
                 regs.cr.write(|w| w.en().clear_bit());
 
-                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
+                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
                 // Configure clock
                 let hyperbus: HyperbusConfig = hyperbus.into();
-                let spi_frequency = hyperbus.frequency.0;
+                let spi_frequency = hyperbus.frequency.raw();
                 let divisor =
                     match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
                         divisor @ 1..=256 => divisor as u8,
                         _ => panic!("Invalid OCTOSPI frequency requested"),
                     };
-                let frequency = Hertz(spi_kernel_ck / divisor as u32);
+                let frequency = Hertz::from_raw(spi_kernel_ck / divisor as u32);
 
                 // Calculate the achieved clock period in ns
                 let period_ns = 1e9 * (divisor as f32) / (spi_kernel_ck as f32);
@@ -579,7 +579,7 @@ macro_rules! octospi_impl {
                 // Release nCS for refresh
                 let refresh_cycles = {
                     let interval_ns =
-                        (1000 * hyperbus.refresh_interval.0 as u32);
+                        (1000 * hyperbus.refresh_interval.ticks() as u32);
                     (interval_ns + period_ns - 1) / period_ns
                 };
                 regs.dcr4

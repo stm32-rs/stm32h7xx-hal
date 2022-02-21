@@ -162,9 +162,8 @@ pub trait TimerExt<TIM> {
     /// Configures a periodic timer
     ///
     /// Generates an overflow event at the `timeout` frequency.
-    fn timer<T>(self, timeout: T, prec: Self::Rec, clocks: &CoreClocks) -> TIM
-    where
-        T: Into<Hertz>;
+    fn timer(self, timeout: Hertz, prec: Self::Rec, clocks: &CoreClocks)
+        -> TIM;
 
     /// Configures the timer to count up at the given frequency
     ///
@@ -175,14 +174,12 @@ pub trait TimerExt<TIM> {
     /// For example, calling `.tick_timer(1.MHz(), ..)` for a 16-bit timer will
     /// result in a timers that increments every microsecond and overflows every
     /// ~65 milliseconds
-    fn tick_timer<T>(
+    fn tick_timer(
         self,
-        frequency: T,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> TIM
-    where
-        T: Into<Hertz>;
+    ) -> TIM;
 }
 
 /// Hardware timers
@@ -233,7 +230,7 @@ macro_rules! hal {
                     self.clear_irq();
 
                     // Set PSC and ARR
-                    self.set_freq(timeout);
+                    self.set_freq(timeout.into());
 
                     // Generate an update event to force an update of the ARR register. This ensures
                     // the first timer cycle is of the specified duration.
@@ -256,23 +253,17 @@ macro_rules! hal {
             impl TimerExt<Timer<$TIMX>> for $TIMX {
                 type Rec = rec::$Rec;
 
-                fn timer<T>(self, timeout: T,
+                fn timer(self, timeout: Hertz,
                             prec: Self::Rec, clocks: &CoreClocks
-                ) -> Timer<$TIMX>
-                where
-                    T: Into<Hertz>,
-                {
+                ) -> Timer<$TIMX> {
                     let mut timer = Timer::$timX(self, prec, clocks);
                     timer.start(timeout);
                     timer
                 }
 
-                fn tick_timer<T>(self, frequency: T,
+                fn tick_timer(self, frequency: Hertz,
                                  prec: Self::Rec, clocks: &CoreClocks
-                ) -> Timer<$TIMX>
-                where
-                    T: Into<Hertz>,
-                {
+                ) -> Timer<$TIMX> {
                     let mut timer = Timer::$timX(self, prec, clocks);
 
                     timer.pause();
@@ -305,7 +296,7 @@ macro_rules! hal {
                     let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).raw();
 
                     Timer {
                         clk,
@@ -315,12 +306,8 @@ macro_rules! hal {
 
                 /// Configures the timer's frequency and counter reload value
                 /// so that it underflows at the timeout's frequency
-                pub fn set_freq<T>(&mut self, timeout: T)
-                where
-                    T: Into<Hertz>,
-                {
-                    let timeout = timeout.into();
-                    let ticks = self.clk / timeout.0;
+                pub fn set_freq(&mut self, timeout: Hertz) {
+                    let ticks = self.clk / timeout.raw();
 
                     self.set_timeout_ticks(ticks);
                 }
@@ -382,12 +369,8 @@ macro_rules! hal {
                 /// Counts from 0 to the counter's maximum value, then repeats.
                 /// Because this only uses the timer prescaler, the frequency
                 /// is rounded to a multiple of the timer's kernel clock.
-                pub fn set_tick_freq<T>(&mut self, frequency: T)
-                where
-                    T: Into<Hertz>,
-                {
-                    let frequency = frequency.into();
-                    let div = self.clk / frequency.0;
+                pub fn set_tick_freq(&mut self, frequency: Hertz) {
+                    let div = self.clk / frequency.raw();
 
                     let psc = u16(div - 1).unwrap();
                     self.tim.psc.write(|w| w.psc().bits(psc));
@@ -553,7 +536,7 @@ macro_rules! lptim_hal {
                     self.tim.cr.write(|w| w.enable().disabled());
 
                     // Set prescale and ARR
-                    self.priv_set_freq(timeout); // side effect: enables counter
+                    self.priv_set_freq(timeout.into()); // side effect: enables counter
 
                     // Clear IRQ
                     self.clear_irq();
@@ -575,31 +558,26 @@ macro_rules! lptim_hal {
             impl TimerExt<LpTimer<$TIMX, Enabled>> for $TIMX {
                 type Rec = rec::$Rec;
 
-                fn timer<T>(self, timeout: T,
+                fn timer(self, timeout: Hertz,
                             prec: Self::Rec, clocks: &CoreClocks
-                ) -> LpTimer<$TIMX, Enabled>
-                    where
-                        T: Into<Hertz>,
-                {
+                ) -> LpTimer<$TIMX, Enabled> {
                     LpTimer::$timx(self, timeout, prec, clocks)
                 }
 
-                fn tick_timer<T>(self, frequency: T,
+                fn tick_timer(self, frequency: Hertz,
                                  prec: Self::Rec, clocks: &CoreClocks
                 ) -> LpTimer<$TIMX, Enabled>
-                where
-                    T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean state
                     let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).raw();
 
                     let mut timer = LpTimer {
                         clk,
                         tim: self,
-                        timeout: Hertz(0),
+                        timeout: Hertz::from_raw(0),
                         _enabled: PhantomData,
                     };
 
@@ -626,22 +604,19 @@ macro_rules! lptim_hal {
 
             impl LpTimer<$TIMX, Enabled> {
                 /// Configures a LPTIM peripheral as a periodic count down timer
-                pub fn $timx<T>(tim: $TIMX, timeout: T,
+                pub fn $timx(tim: $TIMX, timeout: Hertz,
                                 prec: rec::$Rec, clocks: &CoreClocks
-                ) -> Self
-                where
-                    T: Into<Hertz>,
-                {
+                ) -> Self {
                     // enable and reset peripheral to a clean state
                     let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).raw();
 
                     let mut timer = LpTimer {
                         clk,
                         tim,
-                        timeout: Hertz(0),
+                        timeout: Hertz::from_raw(0),
                         _enabled: PhantomData,
                     };
                     timer.start(timeout);
@@ -676,10 +651,7 @@ macro_rules! lptim_hal {
                 /// Sets the frequency of the LPTIM counter
                 ///
                 /// The counter must be disabled
-                pub fn set_freq<T>(&mut self, timeout: T)
-                where
-                    T: Into<Hertz>,
-                {
+                pub fn set_freq(&mut self, timeout: Hertz) {
                     self.priv_set_freq(timeout); // side effect: enables counter
 
                     // Disable timer
@@ -689,9 +661,7 @@ macro_rules! lptim_hal {
                 /// Configures the timer to count up at the given frequency
                 ///
                 /// The counter must be disabled
-                pub fn set_tick_freq<T>(&mut self, frequency: T)
-                where
-                    T: Into<Hertz>,
+                pub fn set_tick_freq(&mut self, frequency: Hertz)
                 {
                     self.priv_set_tick_freq(frequency); // side effect: enables counter
 
@@ -744,14 +714,11 @@ macro_rules! lptim_hal {
                 /// Private method to set the frequency of the LPTIM
                 /// counter. The counter must be disabled, but it will be
                 /// enabled at the end of this method.
-                fn priv_set_freq<T>(&mut self, timeout: T)
-                where
-                    T: Into<Hertz>,
-                {
-                    self.timeout = timeout.into();
+                fn priv_set_freq(&mut self, timeout: Hertz) {
+                    self.timeout = timeout;
 
                     let clk = self.clk;
-                    let frequency = self.timeout.0;
+                    let frequency = self.timeout.raw();
                     let ticks = clk / frequency;
                     assert!(ticks < 128 * (1 << 16));
 
@@ -789,12 +756,10 @@ macro_rules! lptim_hal {
                 ///
                 /// The counter must be disabled, but it will be enabled at the
                 /// end of this method
-                fn priv_set_tick_freq<T>(&mut self, frequency: T)
-                where
-                    T: Into<Hertz>,
+                fn priv_set_tick_freq(&mut self, frequency: Hertz)
                 {
                     // Calculate prescaler
-                    let frequency = frequency.into().0;
+                    let frequency = frequency.raw();
                     let ticks = (self.clk + frequency - 1) / frequency;
                     assert!(ticks <= 128,
                             "LPTIM input clock is too slow to achieve this frequency");

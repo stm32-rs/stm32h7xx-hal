@@ -296,7 +296,7 @@ macro_rules! pll_setup {
                                     });
 
                                 rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
-                                Some(Hertz(vco_ck / dividers.$DD))
+                                Some(Hertz::from_raw(vco_ck / dividers.$DD))
                             },
                             None => {
                                 rcc.pllcfgr.modify(|_, w| w.$diven().disabled());

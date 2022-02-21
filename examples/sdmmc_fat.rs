@@ -44,9 +44,9 @@ unsafe fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .sys_ck(200.mhz())
+        .sys_ck(200.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
-        .pll1_q_ck(100.mhz())
+        .pll1_q_ck(100.MHz())
         .pll2_strategy(rcc::PllConfigStrategy::Iterative)
         .pll3_strategy(rcc::PllConfigStrategy::Iterative)
         .freeze(pwrcfg, &dp.SYSCFG);
@@ -75,7 +75,7 @@ unsafe fn main() -> ! {
         // On most development boards this can be increased up to 50MHz. We choose a
         // lower frequency here so that it should work even with flying leads
         // connected to a SD card breakout.
-        match sd.init(2.mhz()) {
+        match sd.init(2.MHz()) {
             Ok(_) => break,
             Err(err) => {
                 log::info!("Init err: {:?}", err);

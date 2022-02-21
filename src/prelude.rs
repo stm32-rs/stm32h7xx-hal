@@ -34,3 +34,4 @@ pub use crate::time::U32Ext as _stm32h7xx_hal_time_U32Ext;
 pub use crate::timer::TimerExt as _stm32h7xx_hal_timer_TimerExt;
 #[cfg(all(feature = "xspi"))]
 pub use crate::xspi::XspiExt as _stm32h7xx_hal_xspi_XspiExt;
+pub use fugit::{ExtU32 as _, RateExtU32 as _};

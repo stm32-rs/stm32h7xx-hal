@@ -280,10 +280,10 @@ mod common {
         /// * Bus in 1-bit Mode
         /// * No dummy cycle
         /// * Sample on falling edge
-        pub fn new<T: Into<Hertz>>(freq: T) -> Self {
+        pub fn new(frequency: Hertz) -> Self {
             Config {
                 mode: XspiMode::OneBit,
-                frequency: freq.into(),
+                frequency,
                 dummy_cycles: 0,
                 sampling_edge: SamplingEdge::Falling,
                 fifo_threshold: 1,
@@ -355,8 +355,8 @@ mod common {
         }
     }
 
-    impl<T: Into<Hertz>> From<T> for Config {
-        fn from(frequency: T) -> Self {
+    impl From<Hertz> for Config {
+        fn from(frequency: Hertz) -> Self {
             Self::new(frequency)
         }
     }

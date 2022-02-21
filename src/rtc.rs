@@ -171,12 +171,12 @@ impl Rtc {
                 assert!(divider < 64, "HSE Divider larger than 63");
                 rcc.cfgr.modify(|_, w| w.rtcpre().bits(divider));
 
-                clocks.hse_ck().map(|x| Hertz(x.0 / u32(divider)))
+                clocks.hse_ck().map(|x| x / u32(divider))
             }
             RtcClock::Lsi => clocks.lsi_ck(),
         }
         .expect("rtc_ker_ck not running")
-        .0;
+        .raw();
 
         assert!(ker_ck <= 1 << 22, "rtc_ker_ck too fast for prescaler");
 

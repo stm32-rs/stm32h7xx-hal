@@ -36,8 +36,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(96.mhz())
-        .pll1_q_ck(48.mhz())
+        .sys_ck(96.MHz())
+        .pll1_q_ck(48.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOA peripheral. This also enables the clock for
@@ -71,7 +71,7 @@ fn main() -> ! {
                 // Our CS should be high when not active and low when asserted
                 polarity: spi::Polarity::IdleHigh,
             }),
-        3.mhz(),
+        3.MHz(),
         ccdr.peripheral.SPI1,
         &ccdr.clocks,
     );

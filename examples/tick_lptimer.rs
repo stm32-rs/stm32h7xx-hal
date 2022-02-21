@@ -39,7 +39,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
 
-    let ccdr = rcc.sys_ck(4.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(4.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
     info!("stm32h7xx-hal example - Tick Timer");
@@ -47,7 +47,7 @@ fn main() -> ! {
 
     let mut timer = dp
         .LPTIM2
-        .tick_timer(10.khz(), ccdr.peripheral.LPTIM2, &ccdr.clocks)
+        .tick_timer(10.kHz(), ccdr.peripheral.LPTIM2, &ccdr.clocks)
         .pause();
     timer.listen(timer::Event::TimeOut);
     let timer = timer.resume();

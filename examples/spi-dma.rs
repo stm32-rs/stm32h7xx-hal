@@ -51,8 +51,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(200.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(200.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
@@ -73,7 +73,7 @@ fn main() -> ! {
     let spi: spi::Spi<_, _, u8> = dp.SPI2.spi(
         (sck, miso, mosi),
         spi::MODE_0,
-        1.mhz(),
+        1.MHz(),
         ccdr.peripheral.SPI2,
         &ccdr.clocks,
     );

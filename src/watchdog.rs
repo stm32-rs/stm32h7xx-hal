@@ -119,13 +119,13 @@ impl WatchdogEnable for SystemWindowWatchdog {
     where
         T: Into<Self::Time>,
     {
-        let period_ms = period.into().0;
+        let period_ms = period.into().ticks();
         let maximum =
-            (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.0 / 1000);
+            (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.raw() / 1000);
         assert!(period_ms <= maximum);
 
         // timeout = pclk * 4096 * 2^WDGTB[2:0] * (t[5:0] +1)
-        let ratio = period_ms * (self.pclk3_frequency.0 / 1000) / 4096;
+        let ratio = period_ms * (self.pclk3_frequency.raw() / 1000) / 4096;
 
         // Prescaler
         let (tb_div, wdgtb) = match ratio / 64 {

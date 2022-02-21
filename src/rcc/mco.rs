@@ -52,7 +52,7 @@ macro_rules! calculate_prescaler {
                     }
                 };
 
-                (prescaler as u8, Some(Hertz(in_ck / prescaler)))
+                (prescaler as u8, Some(Hertz::from_raw(in_ck / prescaler)))
             } else {
                 // Disabled
                 (0, None)
@@ -153,12 +153,9 @@ macro_rules! mco1_setters {
                 /// not enable the MCO1 output pin itself (use the GPIO for
                 /// that).
                 #[must_use]
-                pub fn $mco_setter<F>(mut self, freq: F) -> Self
-                where
-                    F: Into<Hertz>,
-                {
+                pub fn $mco_setter(mut self, freq: Hertz) -> Self {
                     self.config.mco1.source = MCO1::$source;
-                    self.config.mco1.frequency = Some(freq.into().0);
+                    self.config.mco1.frequency = Some(freq.raw());
                     self
                 }
             )+
@@ -185,12 +182,9 @@ macro_rules! mco2_setters {
                 /// not enable the MCO2 output pin itself (use the GPIO for
                 /// that).
                 #[must_use]
-                pub fn $mco_setter<F>(mut self, freq: F) -> Self
-                where
-                    F: Into<Hertz>,
-                {
+                pub fn $mco_setter(mut self, freq: Hertz) -> Self {
                     self.config.mco2.source = MCO2::$source;
-                    self.config.mco2.frequency = Some(freq.into().0);
+                    self.config.mco2.frequency = Some(freq.raw());
                     self
                 }
             )+

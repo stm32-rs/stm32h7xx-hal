@@ -59,7 +59,7 @@ impl RngExt for RNG {
 
         // Otherwise clock checker will always flag an error
         // See RM0433 Rev 6 Section 33.3.6
-        assert!(rng_clk.0 > hclk.0 / 32, "RNG: Clock too slow");
+        assert!(rng_clk > hclk / 32, "RNG: Clock too slow");
 
         self.cr.modify(|_, w| w.ced().enabled().rngen().enabled());
 

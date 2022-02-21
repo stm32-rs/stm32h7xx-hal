@@ -141,7 +141,7 @@ unsafe impl FmcPeripheral for FMC {
     }
 
     fn source_clock_hz(&self) -> u32 {
-        self.fmc_ker_ck.0
+        self.fmc_ker_ck.raw()
     }
 }
 

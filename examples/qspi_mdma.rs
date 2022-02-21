@@ -36,7 +36,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(200.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(200.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals. This also enables the clock for
     // the GPIOs in the RCC register.
@@ -57,7 +57,7 @@ fn main() -> ! {
     info!("stm32h7xx-hal example - QSPI with MDMA");
     info!("");
 
-    let config: xspi::Config = 1.mhz().into();
+    let config: xspi::Config = 1.MHz().into();
     // Threshold when half full
     let config = config.fifo_threshold(16);
 

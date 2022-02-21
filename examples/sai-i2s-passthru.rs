@@ -9,11 +9,11 @@
 mod utilities;
 
 use stm32h7xx_hal::time::Hertz;
-pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
+pub const AUDIO_SAMPLE_HZ: Hertz = Hertz::from_raw(48_000);
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256
 // But not less than so targetting 257
-const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
+const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 
 #[rtic::app( device = stm32h7xx_hal::stm32, peripherals = true )]
 mod app {
@@ -26,8 +26,8 @@ mod app {
         self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, I2sUsers, Sai,
         SaiChannel, SaiI2sExt, I2S,
     };
+    use stm32h7xx_hal::stm32;
     use stm32h7xx_hal::traits::i2s::FullDuplex;
-    use stm32h7xx_hal::{stm32, time::U32Ext};
 
     use super::*;
     use log::info;
@@ -53,8 +53,8 @@ mod app {
             .device
             .RCC
             .constrain()
-            .use_hse(16.mhz())
-            .sys_ck(400.mhz())
+            .use_hse(16.MHz())
+            .sys_ck(400.MHz())
             .pll3_p_ck(PLL3_P_HZ)
             .freeze(vos, &ctx.device.SYSCFG);
 

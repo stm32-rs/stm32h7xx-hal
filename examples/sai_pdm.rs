@@ -25,8 +25,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .pll1_q_ck(20_480.khz()) // SAI1 clock source
+        .sys_ck(100.MHz())
+        .pll1_q_ck(20_480.kHz()) // SAI1 clock source
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire GPIO peripherals. This also enables the clock for each
@@ -45,7 +45,7 @@ fn main() -> ! {
     // Configure SAI for PDM mode
     let mut sai =
         dp.SAI1
-            .pdm(pins, 1_024.khz(), ccdr.peripheral.SAI1, &ccdr.clocks);
+            .pdm(pins, 1_024.kHz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 
     loop {
         info!("0x{:04x}", 0xFFFF & block!(sai.read_data()).unwrap());

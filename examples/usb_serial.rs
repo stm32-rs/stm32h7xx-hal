@@ -26,7 +26,7 @@ fn main() -> ! {
 
     // RCC
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(80.mhz()).freeze(vos, &dp.SYSCFG);
+    let mut ccdr = rcc.sys_ck(80.MHz()).freeze(vos, &dp.SYSCFG);
 
     // 48MHz CLOCK
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");

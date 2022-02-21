@@ -29,7 +29,7 @@ use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
-    let c_ck_mhz = clocks.c_ck().0 / 1_000_000;
+    let c_ck_mhz = clocks.c_ck().to_MHz();
 
     let syst_calib = 0x3E8;
 
@@ -135,8 +135,8 @@ mod app {
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz())
+            .sys_ck(200.MHz())
+            .hclk(200.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
@@ -164,10 +164,10 @@ mod app {
         let rmii_txd1 = gpiog.pg12.into_alternate();
 
         // Initialise ethernet...
-        assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
-        assert_eq!(ccdr.clocks.pclk1().0, 100_000_000); // PCLK 100MHz
-        assert_eq!(ccdr.clocks.pclk2().0, 100_000_000); // PCLK 100MHz
-        assert_eq!(ccdr.clocks.pclk4().0, 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
+        assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {

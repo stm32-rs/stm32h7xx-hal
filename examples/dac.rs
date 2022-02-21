@@ -27,7 +27,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(8.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     let mut delay = cp.SYST.delay(ccdr.clocks);
 

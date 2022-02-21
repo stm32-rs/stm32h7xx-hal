@@ -28,10 +28,10 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 48MHz
-    assert_eq!(ccdr.clocks.hclk().0, 48_000_000);
+    assert_eq!(ccdr.clocks.hclk().raw(), 48_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
         OctospiClkSel::RCC_HCLK3
@@ -61,7 +61,7 @@ fn main() -> ! {
 
     // Initialise the OCTOSPI peripheral.
     let mut octospi = dp.OCTOSPI1.octospi_unchecked(
-        12.mhz(),
+        12.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.OCTOSPI1,
     );

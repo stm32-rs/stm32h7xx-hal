@@ -194,7 +194,7 @@ impl Qspi<stm32::QUADSPI> {
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());
 
-        let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
+        let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
         while regs.sr.read().busy().bit_is_set() {}
 
@@ -232,7 +232,7 @@ impl Qspi<stm32::QUADSPI> {
                 .bits(config.dummy_cycles)
         });
 
-        let spi_frequency = config.frequency.0;
+        let spi_frequency = config.frequency.raw();
         let divisor = match (spi_kernel_ck + spi_frequency - 1) / spi_frequency
         {
             divisor @ 1..=256 => divisor - 1,

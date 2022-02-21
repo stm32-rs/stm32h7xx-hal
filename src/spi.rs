@@ -530,28 +530,26 @@ pub struct Spi<SPI, ED, WORD = u8> {
 pub trait SpiExt<SPI, WORD>: Sized {
     type Rec: ResetEnable;
 
-    fn spi<PINS, T, CONFIG>(
+    fn spi<PINS, CONFIG>(
         self,
         _pins: PINS,
         config: CONFIG,
-        freq: T,
+        freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
         PINS: Pins<SPI>,
-        T: Into<Hertz>,
         CONFIG: Into<Config>;
 
-    fn spi_unchecked<T, CONFIG>(
+    fn spi_unchecked<CONFIG>(
         self,
         config: CONFIG,
-        freq: T,
+        freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
-        T: Into<Hertz>,
         CONFIG: Into<Config>;
 }
 
@@ -695,15 +693,14 @@ macro_rules! spi {
             $(
 
                 impl Spi<$SPIX, Enabled, $TY> {
-                    fn $spiX<T, CONFIG>(
+                    fn $spiX<CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
-                        freq: T,
+                        freq: Hertz,
                         prec: rec::$Rec,
                         clocks: &CoreClocks,
                     ) -> Self
                     where
-                        T: Into<Hertz>,
                         CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
@@ -714,8 +711,8 @@ macro_rules! spi {
 
                         let config: Config = config.into();
 
-                        let spi_freq = freq.into().0;
-	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
+                        let spi_freq = freq.raw();
+	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).raw();
                         let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
                             1..=2 => MBR::DIV2,
                             3..=4 => MBR::DIV4,
@@ -1027,15 +1024,14 @@ macro_rules! spi {
                 impl SpiExt<$SPIX, $TY> for $SPIX {
                     type Rec = rec::$Rec;
 
-	                fn spi<PINS, T, CONFIG>(self,
+	                fn spi<PINS, CONFIG>(self,
                                     _pins: PINS,
                                     config: CONFIG,
-                                    freq: T,
+                                    freq: Hertz,
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
-	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
                         let config = config.into();
@@ -1047,13 +1043,12 @@ macro_rules! spi {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
-	                fn spi_unchecked<T, CONFIG>(self,
+	                fn spi_unchecked<CONFIG>(self,
                                         config: CONFIG,
-                                        freq: T,
+                                        freq: Hertz,
                                         prec: rec::$Rec,
                                         clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
-	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)

@@ -22,11 +22,11 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "defmt", "log"]
+features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "defmt", "log", "fugit/defmt"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
-fugit = "0.3.3"
+fugit = "0.3.5"
 embedded-hal = { version = "0.2.6", features = ["unproven"] }
 embedded-dma = "0.2.0"
 cortex-m = "^0.7.4"
@@ -125,7 +125,6 @@ log-rtt = []
 log-semihost = []
 example-smps = []
 example-ldo = []
-
 
 [profile.dev]
 codegen-units = 1 # better optimizations

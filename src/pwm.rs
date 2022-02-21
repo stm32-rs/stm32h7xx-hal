@@ -183,8 +183,9 @@ use crate::stm32::{
 };
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::time::{Hertz, NanoSeconds, U32Ext};
+use crate::time::{Hertz, NanoSeconds};
 use crate::timer::GetClk;
+use fugit::ExtU32;
 
 use crate::gpio::{self, Alternate};
 
@@ -868,13 +869,13 @@ fn calculate_frequency_32bit(
     alignment: Alignment,
 ) -> (u32, u16) {
     let divisor = if let Alignment::Center = alignment {
-        freq.0 * 2
+        freq.raw() * 2
     } else {
-        freq.0
+        freq.raw()
     };
 
     // Round to the nearest period
-    let arr = (base_freq.0 + (divisor >> 1)) / divisor - 1;
+    let arr = (base_freq.raw() + (divisor >> 1)) / divisor - 1;
 
     (arr, 0)
 }
@@ -915,7 +916,7 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
     // Cortex-M7 has 32x32->64 multiply but no 64-bit divide
     // Divide by 100000 then 10000 by multiplying and shifting
     // This can't overflow because both values being multiplied are u32
-    let deadtime_ticks = deadtime.0 as u64 * base_freq.0 as u64;
+    let deadtime_ticks = deadtime.ticks() as u64 * base_freq.raw() as u64;
     // Make sure we won't overflow when multiplying; DTG is max 1008 ticks and CKD is max prescaler of 4
     // so deadtimes over 4032 ticks are impossible (4032*10^9 before dividing)
     assert!(deadtime_ticks <= 4_032_000_000_000u64);
@@ -960,16 +961,15 @@ pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
     /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
-    fn pwm<PINS, T, U, V>(
+    fn pwm<PINS, U, V>(
         self,
         _pins: PINS,
-        frequency: T,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> PINS::Channel
     where
-        PINS: Pins<Self, U, V>,
-        T: Into<Hertz>;
+        PINS: Pins<Self, U, V>;
 }
 
 pub trait PwmAdvExt<WIDTH>: Sized {
@@ -991,18 +991,17 @@ macro_rules! pwm_ext_hal {
         impl PwmExt for $TIMX {
             type Rec = rec::$Rec;
 
-            fn pwm<PINS, T, U, V>(
+            fn pwm<PINS, U, V>(
                 self,
                 pins: PINS,
-                frequency: T,
+                frequency: Hertz,
                 prec: rec::$Rec,
                 clocks: &CoreClocks,
             ) -> PINS::Channel
             where
                 PINS: Pins<Self, U, V>,
-                T: Into<Hertz>,
             {
-                $timX(self, pins, frequency.into(), prec, clocks)
+                $timX(self, pins, frequency, prec, clocks)
             }
         }
     };
@@ -1073,8 +1072,7 @@ macro_rules! tim_hal {
                     let _ = prec.enable().reset(); // drop
 
                     let clk = $TIMX::get_clk(clocks)
-                        .expect(concat!(stringify!($TIMX), ": Input clock not running!"))
-                        .0;
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
 
                     PwmBuilder {
                         _tim: PhantomData,
@@ -1083,12 +1081,12 @@ macro_rules! tim_hal {
                         _fault: PhantomData,
                         _comp: PhantomData,
                         alignment: Alignment::Left,
-                        base_freq: clk.hz(),
+                        base_freq: clk,
                         count: CountSettings::Explicit { period: 65535, prescaler: 0, },
                         bkin_enabled: false,
                         bkin2_enabled: false,
                         fault_polarity: Polarity::ActiveLow,
-                        deadtime: 0.ns(),
+                        deadtime: 0.nanos(),
                     }
                 }
             }
@@ -1193,11 +1191,13 @@ macro_rules! tim_hal {
                     }
                 }
 
-                /// Set the PWM frequency; will overwrite the previous prescaler and period
-                /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
+                /// Set the PWM frequency; will overwrite the previous prescaler
+                /// and period The requested frequency will be rounded to the
+                /// nearest achievable frequency; the actual frequency may be
+                /// higher or lower than requested.
                 #[must_use]
-                pub fn frequency<T: Into<Hertz>>(mut self, freq: T) -> Self {
-                    self.count = CountSettings::Frequency( freq.into() );
+                pub fn frequency(mut self, freq: Hertz) -> Self {
+                    self.count = CountSettings::Frequency( freq );
 
                     self
                 }
@@ -1630,9 +1630,7 @@ macro_rules! lptim_hal {
                 let _ = prec.enable().reset(); // drop
 
                 let clk = $TIMX::get_clk(clocks)
-                    .expect(concat!(stringify!($TIMX), ": Input clock not running!"))
-                    .0;
-                let freq = freq.0;
+                    .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
                 let reload = clk / freq;
                 assert!(reload < 128 * (1 << 16));
 

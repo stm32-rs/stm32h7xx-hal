@@ -147,7 +147,7 @@ macro_rules! usb_peripheral {
                 // than 30MHz. See RM0433 Rev 7. Section 57.4.4. This is checked
                 // by the UsbBus implementation in synopsys-usb-otg.
 
-                self.hclk.0
+                self.hclk.raw()
             }
         }
     };
@@ -316,7 +316,7 @@ unsafe impl UsbPeripheral for USB1_ULPI {
     }
 
     fn ahb_frequency_hz(&self) -> u32 {
-        self.hclk.0
+        self.hclk.raw()
     }
 
     fn phy_type(&self) -> synopsys_usb_otg::PhyType {

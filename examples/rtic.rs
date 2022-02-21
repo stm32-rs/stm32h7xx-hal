@@ -33,7 +33,7 @@ mod app {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
+        let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // GPIO
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);

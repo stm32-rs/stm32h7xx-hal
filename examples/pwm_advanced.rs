@@ -70,7 +70,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(8.mhz()).hclk(4.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.MHz()).hclk(4.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOA-GPIOG peripherals. This also enables the clocks for
     // GPIOA-GPIOG in the RCC register.
@@ -106,7 +106,7 @@ fn main() -> ! {
         )
         .prescaler(39)
         .period(49_999)
-        .with_deadtime(1.ms())
+        .with_deadtime(1.millis())
         .with_break_pin(gpioe.pe15.into_alternate(), Polarity::ActiveLow)
         .center_aligned();
 
@@ -173,7 +173,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM3,
             &ccdr.clocks,
         )
-        .frequency(1_000.hz())
+        .frequency(1_000.Hz())
         .center_aligned()
         .finalize();
 
@@ -193,7 +193,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM4,
             &ccdr.clocks,
         )
-        .frequency(2.khz())
+        .frequency(2.kHz())
         .finalize();
 
     let mut t4c4 = t4c4.into_active_low();
@@ -212,7 +212,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM5,
             &ccdr.clocks,
         )
-        .frequency(2_500.hz())
+        .frequency(2_500.Hz())
         .center_aligned();
 
     let (_t5control, mut t5c4) = t5builder.finalize();
@@ -236,8 +236,8 @@ fn main() -> ! {
             ccdr.peripheral.TIM8,
             &ccdr.clocks,
         )
-        .frequency(4.khz())
-        .with_deadtime(2.us())
+        .frequency(4.kHz())
+        .with_deadtime(2.micros())
         .with_break_pin(gpiog.pg3.into_alternate(), Polarity::ActiveHigh)
         .right_aligned()
         .finalize();
@@ -261,7 +261,7 @@ fn main() -> ! {
     // Configure TIM12 PWM
     let (mut t12c2, t12c1) = dp.TIM12.pwm(
         (gpiob.pb15.into_alternate(), gpiob.pb14.into_alternate()),
-        5.khz(),
+        5.kHz(),
         ccdr.peripheral.TIM12,
         &ccdr.clocks,
     );
@@ -284,7 +284,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM13,
             &ccdr.clocks,
         )
-        .frequency(6.khz())
+        .frequency(6.kHz())
         .finalize();
 
     let mut t13c1 = t13c1.into_active_low();
@@ -303,7 +303,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM14,
             &ccdr.clocks,
         )
-        .frequency(7000.hz())
+        .frequency(7000.Hz())
         .finalize();
 
     // Output TIM14 PWM
@@ -320,7 +320,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM15,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
+        .frequency(500.kHz())
         .with_break_pin(gpioe.pe3.into_alternate(), Polarity::ActiveLow)
         .left_aligned()
         .finalize();
@@ -346,7 +346,7 @@ fn main() -> ! {
             ccdr.peripheral.TIM16,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
+        .frequency(500.kHz())
         .with_break_pin(gpiof.pf10.into_alternate(), Polarity::ActiveHigh)
         .finalize();
 
@@ -366,8 +366,8 @@ fn main() -> ! {
             ccdr.peripheral.TIM17,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
-        .with_deadtime(250.ns())
+        .frequency(500.kHz())
+        .with_deadtime(250.nanos())
         .finalize();
 
     let mut t17c1 = t17c1.into_complementary(gpiof.pf9.into_alternate());
