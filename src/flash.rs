@@ -99,7 +99,7 @@ impl Bank {
         self.start_address() + (sector * SECTOR_SIZE)
     }
     /// The number of sectors within the bank, including sector zero
-    fn num_sectors(&self) -> usize {
+    pub fn num_sectors(&self) -> usize {
         match *self {
             Bank::UserBank1 => {
                 (BANK1_ADDR_END - BANK1_ADDR_START) / SECTOR_SIZE
@@ -107,6 +107,12 @@ impl Bank {
             Bank::UserBank2 => {
                 (BANK2_ADDR_END - BANK2_ADDR_START) / SECTOR_SIZE
             }
+        }
+    }
+    pub fn sector_size(&self) -> usize {
+        match *self {
+            Bank::UserBank1 => SECTOR_SIZE,
+            Bank::UserBank2 => SECTOR_SIZE,
         }
     }
 }
@@ -353,7 +359,7 @@ impl Flash {
 
     /// Write data beginning at the bank, sector and start offset
     /// If the data length goes beyond bank 1, then writing is continued seemlessly to bank 2
-    /// If the data length goes beyond bank 2 then a panic will occur
+    /// Writing must occur after an erase of the flash data
     ///
     /// # Panics
     ///
