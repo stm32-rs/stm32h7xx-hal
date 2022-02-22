@@ -1,8 +1,10 @@
 //! Flash memory
 
-use crate::stm32::flash::BANK;
 use crate::stm32::{flash, FLASH};
 
+#[cfg(any(feature = "rm0433"))]
+use crate::stm32::flash::BANK;
+#[cfg(any(feature = "rm0433"))]
 use core;
 
 /// Extension trait to constrain the FLASH peripheral
@@ -14,6 +16,7 @@ pub trait FlashExt {
 impl FlashExt for FLASH {
     fn constrain(self) -> Flash {
         Flash {
+            #[cfg(any(feature = "rm0433"))]
             regs: self,
             acr: ACR { _0: () },
         }
@@ -22,10 +25,15 @@ impl FlashExt for FLASH {
 
 /// Constrained FLASH peripheral
 /// Currently only standard flash operations are supported, secure operations are not yet supported
+/// Supported devices:
+///     - STM32H742xI/743xI/753xI
+///     - STM32H742xG/743xG
+/// Note: STM32H750xB is not yet supported
 pub struct Flash {
     /// Opaque ACR register
     pub acr: ACR,
     /// Flash peripheral
+    #[cfg(any(feature = "rm0433"))]
     regs: FLASH,
 }
 
@@ -42,17 +50,23 @@ impl ACR {
     }
 }
 
-/// BANK1 starting address
+#[cfg(any(feature = "rm0433"))]
+/// BANK1 start address
 const BANK1_ADDR_START: usize = 0x0800_0000;
+#[cfg(any(feature = "rm0433"))]
+/// BANK1 end address
 const BANK1_ADDR_END: usize = 0x080F_FFFF;
-
-/// BANK2 starting address for STM32H742xI/743xI/753xI & STM32H742xG/743xG. stm32h750 is not supported
+#[cfg(any(feature = "rm0433"))]
+/// BANK2 start address
 const BANK2_ADDR_START: usize = 0x0810_0000;
+#[cfg(any(feature = "rm0433"))]
+/// BANK2 end address
 const BANK2_ADDR_END: usize = 0x081F_FFFF;
-
+#[cfg(any(feature = "rm0433"))]
 /// Sector size of 128kb
 const SECTOR_SIZE: usize = 0x2_0000;
 
+#[cfg(any(feature = "rm0433"))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Bank {
     /// User Bank 1
@@ -61,6 +75,7 @@ pub enum Bank {
     UserBank2,
 }
 
+#[cfg(any(feature = "rm0433"))]
 impl Bank {
     /// The start address of the bank
     fn start_address(&self) -> usize {
@@ -86,12 +101,17 @@ impl Bank {
     /// The number of sectors within the bank, including sector zero
     fn num_sectors(&self) -> usize {
         match *self {
-            Bank::UserBank1 => 7,
-            Bank::UserBank2 => 7,
+            Bank::UserBank1 => {
+                (BANK1_ADDR_END - BANK1_ADDR_START) / SECTOR_SIZE
+            }
+            Bank::UserBank2 => {
+                (BANK2_ADDR_END - BANK2_ADDR_START) / SECTOR_SIZE
+            }
         }
     }
 }
 
+#[cfg(any(feature = "rm0433"))]
 #[derive(Copy, Clone, Debug)]
 /// Possible error states for flash operations.
 pub enum Error {
@@ -101,6 +121,7 @@ pub enum Error {
     Unlock,
 }
 
+#[cfg(any(feature = "rm0433"))]
 impl Flash {
     fn bank_registers(&self, bank: Bank) -> &BANK {
         match bank {
@@ -109,7 +130,7 @@ impl Flash {
         }
     }
 
-    fn configure_clocks(&mut self) {
+    fn _configure_clocks(&mut self) {
         // TODO: Configure clocks for optimal performance for both read and write operations
 
         // For Writes:
@@ -149,6 +170,7 @@ impl Flash {
         let regs = self.bank_registers(bank);
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
+
         if regs.cr.read().lock().bit_is_clear() {
             Ok(())
         } else {
@@ -436,6 +458,7 @@ impl Flash {
     }
 }
 
+#[cfg(any(feature = "rm0433"))]
 /// Handle illegal status flags
 fn handle_illegal(regs: &BANK) -> Result<(), Error> {
     let sr = regs.sr.read();
