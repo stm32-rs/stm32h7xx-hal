@@ -12,7 +12,7 @@ use stm32h7xx_hal::{pac, prelude::*, flash::Bank};
 
 #[entry]
 fn main() -> ! {
-    info!("stm32h7xx-hal example - FLASH");
+    info!("stm32h7xx-hal example - erase, write and read FLASH");
 
     let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
@@ -40,13 +40,13 @@ fn main() -> ! {
 
     // Write data spanning over two banks
     flash
-        .write_sector(Bank::UserBank1, 7, 0x2_0000 - 256, &buff)
+        .write_sector(Bank::UserBank1, 7, Bank::UserBank1.sector_size() - 256, &buff)
         .unwrap();
 
     // Read data spanning over two banks
     let mut read = [0u8; 1024 * 15];
     flash
-        .read_sector(Bank::UserBank1, 7, 0x2_0000 - 256, &mut read)
+        .read_sector(Bank::UserBank1, 7, Bank::UserBank1.sector_size() - 256, &mut read)
         .unwrap();
     for i in 0..read.len() {
         assert_eq!(read[i], buff[i]);
@@ -59,7 +59,7 @@ fn main() -> ! {
     for i in 0..read.len() {
         assert_eq!(read[i], out[i]);
     }
-    
+
     info!("Successfully erased, written and read back flash data");
 
     loop {}
