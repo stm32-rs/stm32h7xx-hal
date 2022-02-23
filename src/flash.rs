@@ -98,17 +98,18 @@ impl Bank {
         }
         self.start_address() + (sector * SECTOR_SIZE)
     }
-    /// The number of sectors within the bank, including sector zero
-    pub fn num_sectors(&self) -> usize {
+    /// The number of bytes within the bank
+    pub fn size(&self) -> usize {
         match *self {
-            Bank::UserBank1 => {
-                (BANK1_ADDR_END - BANK1_ADDR_START) / SECTOR_SIZE
-            }
-            Bank::UserBank2 => {
-                (BANK2_ADDR_END - BANK2_ADDR_START) / SECTOR_SIZE
-            }
+            Bank::UserBank1 => (BANK1_ADDR_END - BANK1_ADDR_START),
+            Bank::UserBank2 => (BANK2_ADDR_END - BANK2_ADDR_START),
         }
     }
+    /// The number of sectors within the bank, including sector zero
+    pub fn num_sectors(&self) -> usize {
+        self.size() / SECTOR_SIZE
+    }
+    /// Sector size
     pub fn sector_size(&self) -> usize {
         match *self {
             Bank::UserBank1 => SECTOR_SIZE,
@@ -253,7 +254,7 @@ impl Flash {
 
                 // Read words from the flash
                 let word = core::ptr::read_volatile(addr);
-                chunk[0..4].copy_from_slice(&word.to_be_bytes());
+                chunk[0..4].copy_from_slice(&word.to_le_bytes());
                 addr = addr.add(1);
                 count += 4;
             }
@@ -437,7 +438,7 @@ impl Flash {
             }
 
             unsafe {
-                let word = u32::from_be_bytes(chunk.try_into().unwrap());
+                let word = u32::from_le_bytes(chunk.try_into().unwrap());
                 core::ptr::write_volatile(addr, word);
                 addr = addr.add(1);
                 count += 4;
