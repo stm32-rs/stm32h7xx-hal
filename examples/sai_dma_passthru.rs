@@ -46,9 +46,9 @@ const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
-pub const CLOCK_RATE_HZ: Hertz = Hertz::from_raw(400_000_000_u32);
+pub const CLOCK_RATE_HZ: Hertz = Hertz::MHz(400);
 
-const HSE_CLOCK_MHZ: u32 = 16;
+const HSE_CLOCK_MHZ: Hertz = Hertz::MHz(16);
 
 // PCLKx
 const PCLK_HZ: Hertz = Hertz::from_raw(CLOCK_RATE_HZ.raw() / 4);
@@ -69,7 +69,7 @@ fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .use_hse(HSE_CLOCK_MHZ.MHz())
+        .use_hse(HSE_CLOCK_MHZ)
         .sys_ck(CLOCK_RATE_HZ)
         .pclk1(PCLK_HZ) // DMA clock
         // PLL1

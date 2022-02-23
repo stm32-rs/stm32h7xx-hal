@@ -54,13 +54,13 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(192.mhz())
+        .sys_ck(192.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
-        .pll1_q_ck(24.mhz())
+        .pll1_q_ck(24.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Setup fdcan_tq_ck = 24MHz
-    assert_eq!(ccdr.clocks.pll1_q_ck().unwrap().0, 24_000_000);
+    assert_eq!(ccdr.clocks.pll1_q_ck().unwrap().raw(), 24_000_000);
     let fdcan_prec = ccdr
         .peripheral
         .FDCAN
