@@ -1110,6 +1110,7 @@ pub mod erased {
         PullUp, PushPull,
     };
     use crate::Never;
+	use core::fmt;
     use core::marker::PhantomData;
     use embedded_hal::digital::v2::{
         toggleable, InputPin, OutputPin, StatefulOutputPin,
@@ -1368,4 +1369,15 @@ pub mod erased {
             Ok(self.block().idr.read().bits() & (1 << self.pin_id()) == 0)
         }
     }
+
+
+	impl<MODE> fmt::Debug for ErasedPin<MODE> {
+		fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+			formatter.write_fmt(format_args!(
+				"P({}{})",
+				char::from(self.port_id() + 'A' as u8),
+				self.pin_id()
+			))
+		}
+	}
 }
