@@ -543,10 +543,6 @@ macro_rules! usart {
                     let brr = usartdiv as u16;
                     self.usart.brr.write(|w| { w.brr().bits(brr) });
 
-                    // disable hardware flow control
-                    // TODO enable DMA
-                    // self.usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
-
                     // Reset registers to disable advanced USART features
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
