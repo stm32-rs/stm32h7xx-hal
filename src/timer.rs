@@ -815,7 +815,7 @@ macro_rules! lptim_hal {
                 }
 
                 /// Read the counter of the LPTIM peripheral
-                pub fn counter(&self) -> u32 {
+                pub fn counter(&self) -> u16 {
                     loop {
                         // Read once
                         let count1 = self.tim.cnt.read().cnt().bits();
@@ -823,7 +823,7 @@ macro_rules! lptim_hal {
                         // Read twice - see RM0433 Rev 7. 43.4.14
                         let count2 = self.tim.cnt.read().cnt().bits();
 
-                        if count1 == count2 { return count2.into(); }
+                        if count1 == count2 { return count2; }
                     }
                 }
 
