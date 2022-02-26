@@ -1195,6 +1195,7 @@ macro_rules! tim_hal {
 
                 /// Set the PWM frequency; will overwrite the previous prescaler and period
                 /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
+                #[must_use]
                 pub fn frequency<T: Into<Hertz>>(mut self, freq: T) -> Self {
                     self.count = CountSettings::Frequency( freq.into() );
 
@@ -1202,6 +1203,7 @@ macro_rules! tim_hal {
                 }
 
                 /// Set the prescaler; PWM count runs at base_frequency/(prescaler+1)
+                #[must_use]
                 pub fn prescaler(mut self, prescaler: u16) -> Self {
                     let period = match self.count {
                         CountSettings::Frequency(_) => 65535,
@@ -1214,6 +1216,7 @@ macro_rules! tim_hal {
                 }
 
                 /// Set the period; PWM count runs from 0 to period, repeating every (period+1) counts
+                #[must_use]
                 pub fn period(mut self, period: $typ) -> Self {
                     let prescaler = match self.count {
                         CountSettings::Frequency(_) => 0,
@@ -1229,6 +1232,7 @@ macro_rules! tim_hal {
                 // Timers with complementary and deadtime and faults
                 $(
                     /// Set the deadtime for complementary PWM channels of this timer
+                    #[must_use]
                     pub fn with_deadtime<T: Into<NanoSeconds>>(mut self, deadtime: T) -> Self {
                         // $bdtr is an Ident that only exists for timers with deadtime, so we can use it as a variable name to
                         // only implement this method for timers that support deadtime.
@@ -1240,7 +1244,8 @@ macro_rules! tim_hal {
                     }
                 )*
 
-                pub fn left_aligned( mut self ) -> Self {
+                #[must_use]
+                pub fn left_aligned(mut self) -> Self {
                     self.alignment = Alignment::Left;
 
                     self
@@ -1248,7 +1253,8 @@ macro_rules! tim_hal {
 
                 // Timers with advanced counting options, including center aligned and right aligned PWM
                 $(
-                    pub fn center_aligned( mut self ) -> Self {
+                    #[must_use]
+                    pub fn center_aligned(mut self) -> Self {
                         // $cms is an Ident that only exists for timers with center/right aligned PWM, so we can use it as a variable name to
                         // only implement this method for timers that support center/right aligned PWM.
                         let $cms = Alignment::Center;
@@ -1258,7 +1264,8 @@ macro_rules! tim_hal {
                         self
                     }
 
-                    pub fn right_aligned( mut self ) -> Self {
+                    #[must_use]
+                    pub fn right_aligned(mut self) -> Self {
                         self.alignment = Alignment::Right;
 
                         self

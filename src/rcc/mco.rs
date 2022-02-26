@@ -152,6 +152,7 @@ macro_rules! mco1_setters {
                 /// This only enables the signal within the RCC block, it does
                 /// not enable the MCO1 output pin itself (use the GPIO for
                 /// that).
+                #[must_use]
                 pub fn $mco_setter<F>(mut self, freq: F) -> Self
                 where
                     F: Into<Hertz>,
@@ -183,6 +184,7 @@ macro_rules! mco2_setters {
                 /// This only enables the signal within the RCC block, it does
                 /// not enable the MCO2 output pin itself (use the GPIO for
                 /// that).
+                #[must_use]
                 pub fn $mco_setter<F>(mut self, freq: F) -> Self
                 where
                     F: Into<Hertz>,

@@ -199,6 +199,7 @@ impl Config {
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
     /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
+    #[must_use]
     pub fn swap_mosi_miso(mut self) -> Self {
         self.swap_miso_mosi = true;
         self
@@ -208,6 +209,7 @@ impl Config {
     ///
     /// This also affects the way data is sent using [HardwareCSMode].
     /// By default the hardware cs is disabled.
+    #[must_use]
     pub fn hardware_cs(mut self, hardware_cs: HardwareCS) -> Self {
         self.hardware_cs = hardware_cs;
         self
@@ -217,12 +219,14 @@ impl Config {
     ///
     /// Note:
     /// * This value is converted to a number of spi peripheral clock ticks and at most 15 of those.
+    #[must_use]
     pub fn inter_word_delay(mut self, inter_word_delay: f32) -> Self {
         self.inter_word_delay = inter_word_delay;
         self
     }
 
     /// Select the communication mode of the SPI bus.
+    #[must_use]
     pub fn communication_mode(mut self, mode: CommunicationMode) -> Self {
         self.communication_mode = mode;
         self

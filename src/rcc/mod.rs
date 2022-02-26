@@ -272,6 +272,7 @@ macro_rules! pclk_setter {
         $(
             /// Set the peripheral clock frequency for APB
             /// peripherals.
+            #[must_use]
             pub fn $name<F>(mut self, freq: F) -> Self
             where
                 F: Into<Hertz>,
@@ -289,6 +290,7 @@ macro_rules! pll_setter {
         $(
             $(
                 /// Set the target clock frequency for PLL output
+                #[must_use]
                 pub fn $name<F>(mut self, freq: F) -> Self
                 where
                     F: Into<Hertz>,
@@ -307,6 +309,7 @@ macro_rules! pll_strategy_setter {
         $(
             /// Set the PLL divider strategy to be used when the PLL
             /// is configured
+            #[must_use]
             pub fn $name(mut self, strategy: PllConfigStrategy) -> Self
             {
                 self.config.$pll.strategy = strategy;
@@ -320,6 +323,7 @@ impl Rcc {
     /// Uses HSE (external oscillator) instead of HSI (internal RC
     /// oscillator) as the clock source. Will result in a hang if an
     /// external oscillator is not connected or it fails to start.
+    #[must_use]
     pub fn use_hse<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -330,12 +334,14 @@ impl Rcc {
 
     /// Use an external clock signal rather than a crystal oscillator,
     /// bypassing the XTAL driver.
+    #[must_use]
     pub fn bypass_hse(mut self) -> Self {
         self.config.bypass_hse = true;
         self
     }
 
     /// Set input frequency to the SCGU
+    #[must_use]
     pub fn sys_ck<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -345,6 +351,7 @@ impl Rcc {
     }
 
     /// Set input frequency to the SCGU - ALIAS
+    #[must_use]
     pub fn sysclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -354,6 +361,7 @@ impl Rcc {
     }
 
     /// Set peripheral clock frequency
+    #[must_use]
     pub fn per_ck<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -366,6 +374,7 @@ impl Rcc {
     /// are several gated versions `rcc_hclk[1-4]` for different power domains,
     /// and the AXI bus clock is called `rcc_aclk`. However they are all the
     /// same frequency.
+    #[must_use]
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,

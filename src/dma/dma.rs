@@ -138,6 +138,7 @@ impl DoubleBufferedConfig for DmaConfig {
 impl DmaConfig {
     /// Set the priority.
     #[inline(always)]
+    #[must_use]
     pub fn priority(mut self, priority: config::Priority) -> Self {
         self.priority = priority;
         self
@@ -145,18 +146,21 @@ impl DmaConfig {
 
     /// Set the memory_increment.
     #[inline(always)]
+    #[must_use]
     pub fn memory_increment(mut self, memory_increment: bool) -> Self {
         self.memory_increment = memory_increment;
         self
     }
     /// Set the peripheral_increment.
     #[inline(always)]
+    #[must_use]
     pub fn peripheral_increment(mut self, peripheral_increment: bool) -> Self {
         self.peripheral_increment = peripheral_increment;
         self
     }
     /// Set the transfer_complete_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn transfer_complete_interrupt(
         mut self,
         transfer_complete_interrupt: bool,
@@ -166,6 +170,7 @@ impl DmaConfig {
     }
     /// Set the half_transfer_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn half_transfer_interrupt(
         mut self,
         half_transfer_interrupt: bool,
@@ -175,6 +180,7 @@ impl DmaConfig {
     }
     /// Set the transfer_error_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn transfer_error_interrupt(
         mut self,
         transfer_error_interrupt: bool,
@@ -184,6 +190,7 @@ impl DmaConfig {
     }
     /// Set the direct_mode_error_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn direct_mode_error_interrupt(
         mut self,
         direct_mode_error_interrupt: bool,
@@ -193,24 +200,28 @@ impl DmaConfig {
     }
     /// Set the fifo_error_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn fifo_error_interrupt(mut self, fifo_error_interrupt: bool) -> Self {
         self.fifo_error_interrupt = fifo_error_interrupt;
         self
     }
     /// Set the circular_buffer.
     #[inline(always)]
+    #[must_use]
     pub fn circular_buffer(mut self, circular_buffer: bool) -> Self {
         self.circular_buffer = circular_buffer;
         self
     }
     /// Set the double_buffer.
     #[inline(always)]
+    #[must_use]
     pub fn double_buffer(mut self, double_buffer: bool) -> Self {
         self.double_buffer = double_buffer;
         self
     }
     /// Set the fifo_threshold.
     #[inline(always)]
+    #[must_use]
     pub fn fifo_threshold(
         mut self,
         fifo_threshold: config::FifoThreshold,
@@ -220,18 +231,21 @@ impl DmaConfig {
     }
     /// Set the fifo_enable.
     #[inline(always)]
+    #[must_use]
     pub fn fifo_enable(mut self, fifo_enable: bool) -> Self {
         self.fifo_enable = fifo_enable;
         self
     }
     /// Set the memory_burst.
     #[inline(always)]
+    #[must_use]
     pub fn memory_burst(mut self, memory_burst: config::BurstMode) -> Self {
         self.memory_burst = memory_burst;
         self
     }
     /// Set the peripheral_burst.
     #[inline(always)]
+    #[must_use]
     pub fn peripheral_burst(
         mut self,
         peripheral_burst: config::BurstMode,

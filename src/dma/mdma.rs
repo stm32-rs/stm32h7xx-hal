@@ -360,12 +360,14 @@ pub struct MdmaConfig {
 impl MdmaConfig {
     /// Set the priority
     #[inline(always)]
+    #[must_use]
     pub fn priority(mut self, priority: config::Priority) -> Self {
         self.priority = priority;
         self
     }
     /// Set the destination increment
     #[inline(always)]
+    #[must_use]
     pub fn destination_increment(
         mut self,
         destination_increment: MdmaIncrement,
@@ -375,12 +377,14 @@ impl MdmaConfig {
     }
     /// Set the source increment
     #[inline(always)]
+    #[must_use]
     pub fn source_increment(mut self, source_increment: MdmaIncrement) -> Self {
         self.source_increment = source_increment;
         self
     }
     /// Set the destination burst size
     #[inline(always)]
+    #[must_use]
     pub fn destination_burst_size(
         mut self,
         destination_burst_size: impl Into<MdmaBurstSize>,
@@ -390,6 +394,7 @@ impl MdmaConfig {
     }
     /// Set the source burst size
     #[inline(always)]
+    #[must_use]
     pub fn source_burst_size(
         mut self,
         source_burst_size: impl Into<MdmaBurstSize>,
@@ -400,6 +405,7 @@ impl MdmaConfig {
     /// Sets a hardware transfer request line. Unlike DMA1/DMA2, it is valid to
     /// use the same hardware transfer request line for multiple streams
     #[inline(always)]
+    #[must_use]
     pub fn hardware_transfer_request(
         mut self,
         transfer_request: MdmaTransferRequest,
@@ -409,6 +415,7 @@ impl MdmaConfig {
     }
     /// Sets a software-triggered transfer request line. This is the default
     #[inline(always)]
+    #[must_use]
     pub fn software_transfer_request(mut self) -> Self {
         self.transfer_request = None;
         self
@@ -416,6 +423,7 @@ impl MdmaConfig {
     /// Sets the trigger mode. If the trigger mode is `Buffer`, then the MDMA
     /// must be repeatedly triggered to complete a block transfer.
     #[inline(always)]
+    #[must_use]
     pub fn trigger_mode(mut self, trigger: MdmaTrigger) -> Self {
         self.trigger_mode = trigger;
         self
@@ -434,6 +442,7 @@ impl MdmaConfig {
     /// If the number of bytes in the block is not a multiple of the buffer
     /// length, then the final buffer will be shorter than the others.
     #[inline(always)]
+    #[must_use]
     pub fn buffer_length(mut self, bytes: u8) -> Self {
         debug_assert!(
             bytes <= 128,
@@ -446,6 +455,7 @@ impl MdmaConfig {
     /// Set the MDMA packing and alignment. When the source and destination have
     /// the same storage type, this has no effect
     #[inline(always)]
+    #[must_use]
     pub fn packing_alignment(mut self, packing: MdmaPackingAlignment) -> Self {
         self.packing_alignment = packing;
         self
@@ -453,6 +463,7 @@ impl MdmaConfig {
     /// Set word endianness exchange. Applies when the destination is
     /// 64-bit. Otherwise don't care
     #[inline(always)]
+    #[must_use]
     pub fn word_endianness_exchange(mut self, exchange: bool) -> Self {
         self.word_endianness_exchange = exchange;
         self
@@ -460,6 +471,7 @@ impl MdmaConfig {
     /// Set half word endianness exchange. Applies when the destination is a
     /// 64,32-bit. Otherwise don't care
     #[inline(always)]
+    #[must_use]
     pub fn half_word_endianness_exchange(mut self, exchange: bool) -> Self {
         self.half_word_endianness_exchange = exchange;
         self
@@ -467,12 +479,14 @@ impl MdmaConfig {
     /// Set byte endianness exchange. Applies when the destination is
     /// 64,32,16-bit. Otherwise don't care
     #[inline(always)]
+    #[must_use]
     pub fn byte_endianness_exchange(mut self, exchange: bool) -> Self {
         self.byte_endianness_exchange = exchange;
         self
     }
     /// Set the transfer_complete_interrupt
     #[inline(always)]
+    #[must_use]
     pub fn transfer_complete_interrupt(
         mut self,
         transfer_complete_interrupt: bool,
@@ -482,6 +496,7 @@ impl MdmaConfig {
     }
     /// Set the transfer_error_interrupt
     #[inline(always)]
+    #[must_use]
     pub fn transfer_error_interrupt(
         mut self,
         transfer_error_interrupt: bool,
@@ -491,6 +506,7 @@ impl MdmaConfig {
     }
     /// Set the buffer_transfer_complete_interrupt
     #[inline(always)]
+    #[must_use]
     pub fn buffer_transfer_complete_interrupt(
         mut self,
         buffer_transfer_complete_interrupt: bool,
@@ -501,6 +517,7 @@ impl MdmaConfig {
     }
     /// Set the block_transfer_complete_interrupt
     #[inline(always)]
+    #[must_use]
     pub fn block_transfer_complete_interrupt(
         mut self,
         block_transfer_complete_interrupt: bool,
@@ -511,6 +528,7 @@ impl MdmaConfig {
     }
     /// Set the block_repeat_transfer_complete_interrupt
     #[inline(always)]
+    #[must_use]
     pub fn block_repeat_transfer_complete_interrupt(
         mut self,
         block_repeat_transfer_complete_interrupt: bool,
