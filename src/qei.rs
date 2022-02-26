@@ -192,8 +192,8 @@ macro_rules! tim_hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn release(self) -> $TIM {
-                    self.tim
+                pub fn release(self) -> ($TIM, rec::$Rec) {
+                    (self.tim, rec::$Rec { _marker: core::marker::PhantomData })
                 }
             }
 

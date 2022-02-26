@@ -20,6 +20,7 @@
 
 * spi: add DuplexFailed error
 * spi: Fix arithmetic error in spi divider calculation
+* qei: Include REC in the `free()` method
 
 ## [v0.11.0] 2021-12-18
 
