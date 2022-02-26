@@ -171,6 +171,10 @@ pub trait TimerExt<TIM> {
     /// Counts from 0 to the counter's maximum value, then repeats.
     /// Because this only uses the timer prescaler, the frequency
     /// is rounded to a multiple of the timer's kernel clock.
+    ///
+    /// For example, calling `.tick_timer(1.MHz(), ..)` for a 16-bit timer will
+    /// result in a timers that increments every microsecond and overflows every
+    /// ~65 milliseconds
     fn tick_timer<T>(
         self,
         frequency: T,
@@ -423,7 +427,7 @@ macro_rules! hal {
 
                 /// Read the counter of the TIM peripheral
                 pub fn counter(&self) -> u32 {
-                    self.tim.cnt.read().bits()
+                    self.tim.cnt.read().cnt().bits().into()
                 }
 
                 /// Start listening for `event`
@@ -570,13 +574,43 @@ macro_rules! lptim_hal {
                     LpTimer::$timx(self, timeout, prec, clocks)
                 }
 
-                fn tick_timer<T>(self, _frequency: T,
-                                 _prec: Self::Rec, _clocks: &CoreClocks
+                fn tick_timer<T>(self, frequency: T,
+                                 prec: Self::Rec, clocks: &CoreClocks
                 ) -> LpTimer<$TIMX, Enabled>
                 where
                     T: Into<Hertz>,
                 {
-                    unimplemented!()
+                    // enable and reset peripheral to a clean state
+                    prec.enable().reset();
+
+                    let clk = $TIMX::get_clk(clocks)
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
+
+                    let mut timer = LpTimer {
+                        clk,
+                        tim: self,
+                        timeout: Hertz(0),
+                        _enabled: PhantomData,
+                    };
+
+                    // Configures the timer to count up at the given frequency
+
+                    // Reset: counter must be running
+                    timer.reset_counter();
+
+                    // Disable counter
+                    timer.tim.cr.write(|w| w.enable().disabled());
+
+                    // Set tick frequency
+                    timer.priv_set_tick_freq(frequency);
+
+                    // Clear IRQ
+                    timer.clear_irq();
+
+                    // Start counter
+                    timer.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
+
+                    timer
                 }
             }
 
@@ -629,14 +663,27 @@ macro_rules! lptim_hal {
             }
 
             impl LpTimer<$TIMX, Disabled> {
-                /// Sets the frequency of the LPTIM counter.
+                /// Sets the frequency of the LPTIM counter
                 ///
-                /// The counter must be disabled.
+                /// The counter must be disabled
                 pub fn set_freq<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
                 {
                     self.priv_set_freq(timeout); // side effect: enables counter
+
+                    // Disable timer
+                    self.tim.cr.write(|w| w.enable().disabled());
+                }
+
+                /// Configures the timer to count up at the given frequency
+                ///
+                /// The counter must be disabled
+                pub fn set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    self.priv_set_tick_freq(frequency); // side effect: enables counter
 
                     // Disable timer
                     self.tim.cr.write(|w| w.enable().disabled());
@@ -727,14 +774,54 @@ macro_rules! lptim_hal {
                     self.tim.icr.write(|w| w.arrokcf().clear());
                 }
 
+                /// Private method to configure the timer to count up at the
+                /// given frequency
+                ///
+                /// The counter must be disabled, but it will be enabled at the
+                /// end of this method
+                fn priv_set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    // Calculate prescaler
+                    let frequency = frequency.into().0;
+                    let ticks = (self.clk + frequency - 1) / frequency;
+                    assert!(ticks <= 128,
+                            "LPTIM input clock is too slow to achieve this frequency");
+
+                    let (prescale, _prescale_div) = match ticks {
+                        0..=1 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
+                        2 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
+                        3..=4 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
+                        5..=8 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
+                        9..=16 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
+                        17..=32 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
+                        33..=64 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
+                        _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
+                    };
+
+                    // Write CFGR: LPTIM must be disabled
+                    self.tim.cfgr.modify(|_, w| w.presc().variant(prescale));
+
+                    // Enable
+                    self.tim.cr.write(|w| w.enable().enabled());
+
+                    // Set ARR = max
+
+                    // Write ARR: LPTIM must be enabled
+                    self.tim.arr.write(|w| w.arr().bits(0xFFFF as u16));
+                    while self.tim.isr.read().arrok().bit_is_clear() {}
+                    self.tim.icr.write(|w| w.arrokcf().clear());
+                }
+
                 /// Read the counter of the LPTIM peripheral
-                pub fn counter(&self) -> u32 {
+                pub fn counter(&self) -> u16 {
                     loop {
                         // Read once
-                        let count1 = self.tim.cnt.read().bits();
+                        let count1 = self.tim.cnt.read().cnt().bits();
 
                         // Read twice - see RM0433 Rev 7. 43.4.14
-                        let count2 = self.tim.cnt.read().bits();
+                        let count2 = self.tim.cnt.read().cnt().bits();
 
                         if count1 == count2 { return count2; }
                     }
