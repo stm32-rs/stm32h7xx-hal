@@ -57,6 +57,17 @@
 //! // Can't set group kernel clock (it would also affect I2C3)
 //! // ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
 //! ```
+//!
+//! # REC object
+//!
+//! There is a REC object for each peripheral. For example:
+//!
+//! ```
+//! let rec_object = ccdr.peripheral.FDCAN;
+//! ```
+//!
+//! If REC object is dropped by user code, then the Reset or Enable state of
+//! this peripheral cannot be modified for the lifetime of the program.
 #![deny(missing_docs)]
 
 use core::marker::PhantomData;

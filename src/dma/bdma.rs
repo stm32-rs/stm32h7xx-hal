@@ -237,7 +237,7 @@ pub struct StreamsTuple<T>(
 impl<I: Instance> StreamsTuple<I> {
     /// Splits the DMA peripheral into streams.
     pub fn new(_regs: I, prec: I::Rec) -> Self {
-        prec.enable().reset();
+        let _ = prec.enable().reset(); // drop
         Self(
             Stream0 { _dma: PhantomData },
             Stream1 { _dma: PhantomData },

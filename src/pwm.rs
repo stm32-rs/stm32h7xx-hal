@@ -1026,7 +1026,7 @@ macro_rules! tim_hal {
             where
                 PINS: Pins<$TIMX, T, U>,
             {
-                prec.enable().reset();
+                let _ = prec.enable().reset(); // drop
 
                 let clk = $TIMX::get_clk(clocks)
                     .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
@@ -1070,7 +1070,7 @@ macro_rules! tim_hal {
                 where
                     PINS: Pins<Self, CHANNEL, COMP>
                 {
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop
 
                     let clk = $TIMX::get_clk(clocks)
                         .expect(concat!(stringify!($TIMX), ": Input clock not running!"))
@@ -1627,7 +1627,7 @@ macro_rules! lptim_hal {
             where
                 PINS: Pins<$TIMX, T, U>,
             {
-                prec.enable().reset();
+                let _ = prec.enable().reset(); // drop
 
                 let clk = $TIMX::get_clk(clocks)
                     .expect(concat!(stringify!($TIMX), ": Input clock not running!"))

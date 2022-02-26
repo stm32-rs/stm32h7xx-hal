@@ -707,7 +707,7 @@ macro_rules! spi {
                         CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
-                        prec.enable();
+                        let _ = prec.enable(); // drop, can be recreated by free method
 
                         // Disable SS output
                         spi.cfg2.write(|w| w.ssoe().disabled());

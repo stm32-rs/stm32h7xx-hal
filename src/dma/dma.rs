@@ -317,7 +317,7 @@ impl<I: Instance> StreamsTuple<I> {
     /// the other DMA2/1 if is has transfers are enabled. See
     /// <https://github.com/stm32-rs/stm32h7xx-hal/issues/228>
     pub fn new(_regs: I, prec: I::Rec) -> Self {
-        prec.enable();
+        let _ = prec.enable(); // drop
         Self(
             Stream0 { _dma: PhantomData },
             Stream1 { _dma: PhantomData },

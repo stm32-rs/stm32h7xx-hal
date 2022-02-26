@@ -194,7 +194,7 @@ macro_rules! sai_hal {
                 /// Low level RCC initialisation
                 fn sai_rcc_init(&mut self, prec: rec::$Rec)
                 {
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
                 }
 
                 /// Access to the current master channel

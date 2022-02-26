@@ -144,13 +144,11 @@ pub mod config {
             }
         }
 
-        #[must_use]
         pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
             self.baudrate = baudrate.into();
             self
         }
 
-        #[must_use]
         pub fn parity_none(mut self) -> Self {
             self.parity = Parity::ParityNone;
             self
@@ -160,7 +158,6 @@ pub mod config {
         ///
         /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
         /// to 9.
-        #[must_use]
         pub fn parity_even(mut self) -> Self {
             self.parity = Parity::ParityEven;
             self
@@ -170,39 +167,33 @@ pub mod config {
         ///
         /// Note that parity bits are included in the serial word length, so if parity is used word length will be set
         /// to 9.
-        #[must_use]
         pub fn parity_odd(mut self) -> Self {
             self.parity = Parity::ParityOdd;
             self
         }
 
         /// Specify the number of stop bits
-        #[must_use]
         pub fn stopbits(mut self, stopbits: StopBits) -> Self {
             self.stopbits = stopbits;
             self
         }
         /// Specify the bit order
-        #[must_use]
         pub fn bitorder(mut self, bitorder: BitOrder) -> Self {
             self.bitorder = bitorder;
             self
         }
         /// Specify the clock phase. Only applies to USART peripherals
-        #[must_use]
         pub fn clockphase(mut self, clockphase: ClockPhase) -> Self {
             self.clockphase = clockphase;
             self
         }
         /// Specify the clock polarity. Only applies to USART peripherals
-        #[must_use]
         pub fn clockpolarity(mut self, clockpolarity: ClockPolarity) -> Self {
             self.clockpolarity = clockpolarity;
             self
         }
         /// Specify if the last bit transmitted in each word has a corresponding
         /// clock pulse in the SCLK pin. Only applies to USART peripherals
-        #[must_use]
         pub fn lastbitclockpulse(mut self, lastbitclockpulse: bool) -> Self {
             self.lastbitclockpulse = lastbitclockpulse;
             self

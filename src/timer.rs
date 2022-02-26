@@ -302,7 +302,7 @@ macro_rules! hal {
                 pub fn $timX(tim: $TIMX, prec: rec::$Rec, clocks: &CoreClocks) -> Self
                 {
                     // enable and reset peripheral to a clean state
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
                         .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
@@ -591,7 +591,7 @@ macro_rules! lptim_hal {
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean state
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
                         .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
@@ -633,7 +633,7 @@ macro_rules! lptim_hal {
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean state
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let clk = $TIMX::get_clk(clocks)
                         .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;

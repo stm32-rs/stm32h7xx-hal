@@ -389,7 +389,7 @@ pub fn adc12(
     adc2.power_down();
 
     // Reset peripheral
-    prec.reset();
+    let _ = prec.reset(); // drop, can be recreated by free method
 
     // Power Up, Preconfigure and Calibrate
     adc1.power_up(delay);
@@ -475,7 +475,7 @@ macro_rules! adc_hal {
                     adc.power_down();
 
                     // Reset peripheral
-                    prec.reset();
+                    let _ = prec.reset(); // drop, can be recreated by free method
 
                     // Power Up, Preconfigure and Calibrate
                     adc.power_up(delay);

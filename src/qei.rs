@@ -160,7 +160,7 @@ macro_rules! tim_hal {
                 pub fn $tim(tim: $TIM, prec: rec::$Rec) -> Self
                 {
                     // enable and reset peripheral to a clean slate
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop
 
                     // Configure TxC1 and TxC2 as captures
                     tim.ccmr1_output().write(|w| unsafe {
