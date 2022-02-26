@@ -4,6 +4,10 @@
 
 * pwr: Add backup domain voltage regulator control [#303][303]
 * MSRV increased to 1.56.1
+* timer: Implemented tick_timer method for LP Timers
+* timer: `counter()` method on LP Timers returns u16
+* timer: Fix bug in `counter()` TIM1/8/12/13/14 where return value would also
+  include UIF bit
 
 ## [v0.11.0] 2021-12-18
 

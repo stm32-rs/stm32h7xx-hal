@@ -193,10 +193,12 @@ use crate::gpio::gpiob::{
     PB0, PB1, PB10, PB11, PB12, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB7, PB8,
     PB9,
 };
-#[cfg(feature = "rm0455")]
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 use crate::gpio::gpioc::PC12;
 use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
-use crate::gpio::gpiod::{PD13, PD14, PD15};
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+use crate::gpio::gpiod::PD2;
+use crate::gpio::gpiod::{PD12, PD13, PD14, PD15};
 use crate::gpio::gpioe::{
     PE10, PE11, PE12, PE13, PE14, PE15, PE3, PE4, PE5, PE6, PE8, PE9,
 };
@@ -612,7 +614,7 @@ pins! {
         CH1(ComplementaryDisabled): [
             PA2<Alternate<AF4>>,
             PE5<Alternate<AF4>>,
-            #[cfg(feature = "rm0455")]
+            #[cfg(any(feature = "rm0455", feature = "rm0468"))]
             PC12<Alternate<AF2>>
         ]
         CH2(ComplementaryImpossible): [
@@ -626,6 +628,8 @@ pins! {
         CH2N: []
         BRK: [
             PA0<Alternate<AF4>>,
+            #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+            PD2<Alternate<AF4>>,
             PE3<Alternate<AF4>>
         ]
         BRK2: []
@@ -771,7 +775,8 @@ pins! {
         BRK2: []
     TIM4:
         CH1(ComplementaryImpossible): [
-            PB6<Alternate<AF2>>
+            PB6<Alternate<AF2>>,
+            PD12<Alternate<AF2>>
         ]
         CH2(ComplementaryImpossible): [
             PB7<Alternate<AF2>>,
