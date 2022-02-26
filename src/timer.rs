@@ -580,12 +580,36 @@ macro_rules! lptim_hal {
                 where
                     T: Into<Hertz>,
                 {
-                    //Configures the timer to count up at the given frequency
-                    let timer = LpTimer::$timx(self, frequency, prec, clocks);
-                    //We need to "fix" the ARR that was set in priv_set_freq()
-                    timer.tim.arr.write(|w| w.arr().bits(0xFFFF as u16));
-                    while timer.tim.isr.read().arrok().bit_is_clear() {}
-                    timer.tim.icr.write(|w| w.arrokcf().clear());
+                    // enable and reset peripheral to a clean state
+                    prec.enable().reset();
+
+                    let clk = $TIMX::get_clk(clocks)
+                        .expect(concat!(stringify!($TIMX), ": Input clock not running!")).0;
+
+                    let mut timer = LpTimer {
+                        clk,
+                        tim: self,
+                        timeout: Hertz(0),
+                        _enabled: PhantomData,
+                    };
+
+                    // Configures the timer to count up at the given frequency
+
+                    // Reset: counter must be running
+                    timer.reset_counter();
+
+                    // Disable counter
+                    timer.tim.cr.write(|w| w.enable().disabled());
+
+                    // Set tick frequency
+                    timer.priv_set_tick_freq(frequency);
+
+                    // Clear IRQ
+                    timer.clear_irq();
+
+                    // Start counter
+                    timer.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
+
                     timer
                 }
             }
@@ -647,6 +671,19 @@ macro_rules! lptim_hal {
                     T: Into<Hertz>,
                 {
                     self.priv_set_freq(timeout); // side effect: enables counter
+
+                    // Disable timer
+                    self.tim.cr.write(|w| w.enable().disabled());
+                }
+
+                /// Configures the timer to count up at the given frequency
+                ///
+                /// The counter must be disabled
+                pub fn set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    self.priv_set_tick_freq(frequency); // side effect: enables counter
 
                     // Disable timer
                     self.tim.cr.write(|w| w.enable().disabled());
@@ -733,6 +770,46 @@ macro_rules! lptim_hal {
 
                     // Write ARR: LPTIM must be enabled
                     self.tim.arr.write(|w| w.arr().bits(arr as u16));
+                    while self.tim.isr.read().arrok().bit_is_clear() {}
+                    self.tim.icr.write(|w| w.arrokcf().clear());
+                }
+
+                /// Private method to configure the timer to count up at the
+                /// given frequency
+                ///
+                /// The counter must be disabled, but it will be enabled at the
+                /// end of this method
+                fn priv_set_tick_freq<T>(&mut self, frequency: T)
+                where
+                    T: Into<Hertz>,
+                {
+                    // Calculate prescaler
+                    let frequency = frequency.into().0;
+                    let ticks = (self.clk + frequency - 1) / frequency;
+                    assert!(ticks <= 128,
+                            "LPTIM input clock is too slow to achieve this frequency");
+
+                    let (prescale, _prescale_div) = match ticks {
+                        0..=1 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
+                        2 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
+                        3..=4 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
+                        5..=8 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
+                        9..=16 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
+                        17..=32 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
+                        33..=64 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
+                        _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
+                    };
+
+                    // Write CFGR: LPTIM must be disabled
+                    self.tim.cfgr.modify(|_, w| w.presc().variant(prescale));
+
+                    // Enable
+                    self.tim.cr.write(|w| w.enable().enabled());
+
+                    // Set ARR = max
+
+                    // Write ARR: LPTIM must be enabled
+                    self.tim.arr.write(|w| w.arr().bits(0xFFFF as u16));
                     while self.tim.isr.read().arrok().bit_is_clear() {}
                     self.tim.icr.write(|w| w.arrokcf().clear());
                 }
