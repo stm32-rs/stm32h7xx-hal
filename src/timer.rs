@@ -570,13 +570,19 @@ macro_rules! lptim_hal {
                     LpTimer::$timx(self, timeout, prec, clocks)
                 }
 
-                fn tick_timer<T>(self, _frequency: T,
-                                 _prec: Self::Rec, _clocks: &CoreClocks
+                fn tick_timer<T>(self, frequency: T,
+                                 prec: Self::Rec, clocks: &CoreClocks
                 ) -> LpTimer<$TIMX, Enabled>
                 where
                     T: Into<Hertz>,
                 {
-                    unimplemented!()
+                    //Configures the timer to count up at the given frequency
+                    let timer = LpTimer::$timx(self, frequency, prec, clocks);
+                    //We need to "fix" the ARR that was set in priv_set_freq()
+                    timer.tim.arr.write(|w| w.arr().bits(0xFFFF as u16));
+                    while timer.tim.isr.read().arrok().bit_is_clear() {}
+                    timer.tim.icr.write(|w| w.arrokcf().clear());
+                    timer
                 }
             }
 
