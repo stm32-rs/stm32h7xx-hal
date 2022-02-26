@@ -171,6 +171,10 @@ pub trait TimerExt<TIM> {
     /// Counts from 0 to the counter's maximum value, then repeats.
     /// Because this only uses the timer prescaler, the frequency
     /// is rounded to a multiple of the timer's kernel clock.
+    ///
+    /// For example, calling `.tick_timer(1.MHz(), ..)` for a 16-bit timer will
+    /// result in a timers that increments every microsecond and overflows every
+    /// ~65 milliseconds
     fn tick_timer<T>(
         self,
         frequency: T,
@@ -635,9 +639,9 @@ macro_rules! lptim_hal {
             }
 
             impl LpTimer<$TIMX, Disabled> {
-                /// Sets the frequency of the LPTIM counter.
+                /// Sets the frequency of the LPTIM counter
                 ///
-                /// The counter must be disabled.
+                /// The counter must be disabled
                 pub fn set_freq<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
