@@ -9,6 +9,9 @@
 * timer: Fix bug in `counter()` TIM1/8/12/13/14 where return value would also
   include UIF bit
 
+* spi: add DuplexFailed error
+* spi: Fix arithmetic error in spi divider calculation
+
 ## [v0.11.0] 2021-12-18
 
 * **Breaking**: Simplified API for reading device signature
