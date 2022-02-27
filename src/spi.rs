@@ -1138,9 +1138,15 @@ macro_rules! spi {
                         }, { // else if sr.txc().is_completed() {
                             txc, is_completed,
                             {
-                                // The Tx FIFO completed, but no words were
-                                // available in the Rx FIFO. This is a duplex failure
-                                nb::Error::Other(Error::DuplexFailed)
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
                             }
                         })
                     }
@@ -1164,9 +1170,15 @@ macro_rules! spi {
                         }, { // else if sr.txc().is_completed()
                             txc, is_completed,
                             {
-                                // The Tx FIFO completed, but no words were
-                                // available in the Rx FIFO. This is a duplex failuren
-                                nb::Error::Other(Error::DuplexFailed)
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
                             }
                         })
                     }
