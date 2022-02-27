@@ -1,8 +1,6 @@
 #![no_main]
 #![no_std]
 
-pub fn init() {}
-
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::{erased::EPin, Floating, Input, Output, PushPull};
 use stm32h7xx_hal::hal::digital::v2::{InputPin, OutputPin};
