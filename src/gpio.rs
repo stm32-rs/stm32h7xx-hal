@@ -1110,7 +1110,7 @@ pub mod erased {
         PullUp, PushPull,
     };
     use crate::Never;
-	use core::fmt;
+    use core::fmt;
     use core::marker::PhantomData;
     use embedded_hal::digital::v2::{
         toggleable, InputPin, OutputPin, StatefulOutputPin,
@@ -1157,7 +1157,7 @@ pub mod erased {
             const GPIO_REGISTER_OFFSET: usize = 0x0400;
 
             let offset = GPIO_REGISTER_OFFSET * self.port_id() as usize;
-			unsafe { &*crate::pac::GPIOA::ptr().add(offset) }
+            unsafe { &*crate::pac::GPIOA::ptr().add(offset) }
         }
 
         /// Configures the pin to operate as a floating
@@ -1370,14 +1370,13 @@ pub mod erased {
         }
     }
 
-
-	impl<MODE> fmt::Debug for ErasedPin<MODE> {
-		fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-			formatter.write_fmt(format_args!(
-				"P({}{})",
-				char::from(self.port_id() + 'A' as u8),
-				self.pin_id()
-			))
-		}
-	}
+    impl<MODE> fmt::Debug for ErasedPin<MODE> {
+        fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_fmt(format_args!(
+                "P({}{})",
+                char::from(self.port_id() + b'A'),
+                self.pin_id()
+            ))
+        }
+    }
 }
