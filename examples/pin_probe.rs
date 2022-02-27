@@ -1,3 +1,13 @@
+//! Example for experimenting with pinouts by shorting outputs to A0
+//!
+//! Also an example for using erased pins to have a single array containing most pins on stm32.
+//!
+//! The example iterates through each pin, setting it high then testing if A0 went high as well,
+//! then resetting the tested pin to low.
+//! This allows for any pin to be quickly discovered by shorting A0 and the pin in question.
+//! If multiple pins connect to the same output, it will only report the first discovered pin in the array.
+
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
