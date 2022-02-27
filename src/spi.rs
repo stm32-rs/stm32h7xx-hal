@@ -704,15 +704,14 @@ macro_rules! spi {
 
                         let spi_freq = freq.into().0;
 	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
-                        let mbr = match spi_ker_ck / spi_freq {
-                            0 => unreachable!(),
+                        let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
                             1..=2 => MBR::DIV2,
-                            3..=5 => MBR::DIV4,
-                            6..=11 => MBR::DIV8,
-                            12..=23 => MBR::DIV16,
-                            24..=47 => MBR::DIV32,
-                            48..=95 => MBR::DIV64,
-                            96..=191 => MBR::DIV128,
+                            3..=4 => MBR::DIV4,
+                            5..=8 => MBR::DIV8,
+                            9..=16 => MBR::DIV16,
+                            17..=32 => MBR::DIV32,
+                            33..=64 => MBR::DIV64,
+                            65..=128 => MBR::DIV128,
                             _ => MBR::DIV256,
                         };
                         spi.cfg1.modify(|_, w| {
