@@ -229,3 +229,7 @@ required-features = ["rm0433","rt"]
 [[example]]
 name = "crc"
 required-features = ["crc", "rt"]
+
+[[example]]
+name = "flash"
+required-features = ["rt", "rm0433"]
