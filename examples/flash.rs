@@ -1,4 +1,5 @@
 //! Example of Flash erasing, writing and reading with the stm32h743zi (rm0433)
+//! Assumes this example runs at sector 0 of bank 1 (0x0800_0000)
 
 #![deny(warnings)]
 #![no_main]
@@ -8,7 +9,7 @@ use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 use log::info;
-use stm32h7xx_hal::{pac, prelude::*, flash::Bank};
+use stm32h7xx_hal::{flash::Bank, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -38,26 +39,22 @@ fn main() -> ! {
         }
     }
 
-    // Write data spanning over two banks
-    flash
-        .write_sector(Bank::UserBank1, 7, Bank::UserBank1.sector_size() - 256, &buff)
-        .unwrap();
-
-    // Read data spanning over two banks
+    // Write data on bank 1 and read it back
+    flash.write_sector(Bank::UserBank1, 1, 0, &buff).unwrap();
     let mut read = [0u8; 1024 * 15];
-    flash
-        .read_sector(Bank::UserBank1, 7, Bank::UserBank1.sector_size() - 256, &mut read)
-        .unwrap();
+    flash.read_sector(Bank::UserBank1, 1, 0, &mut read).unwrap();
     for i in 0..read.len() {
         assert_eq!(read[i], buff[i]);
     }
 
-    // Read bank 2 and ensure data is correct
-    let mut read = [0u8; 1024 * 15 - 256];
-    flash.read_sector(Bank::UserBank2, 0, 0, &mut read).unwrap();
-    let out = &buff[256..];
+    // Write data on bank 2 and read it back
+    flash.write_sector(Bank::UserBank2, 0, 256, &buff).unwrap();
+    let mut read = [0u8; 1024 * 15];
+    flash
+        .read_sector(Bank::UserBank2, 0, 256, &mut read)
+        .unwrap();
     for i in 0..read.len() {
-        assert_eq!(read[i], out[i]);
+        assert_eq!(read[i], buff[i]);
     }
 
     info!("Successfully erased, written and read back flash data");

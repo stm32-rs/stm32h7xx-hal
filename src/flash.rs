@@ -126,47 +126,18 @@ pub enum Error {
     Illegal,
     /// (Legal) command failed
     Unlock,
+    /// Operation out of bounds
+    OutOfBounds,
 }
 
 #[cfg(any(feature = "rm0433"))]
 impl Flash {
+    /// Get underlying bank registers
     fn bank_registers(&self, bank: Bank) -> &BANK {
         match bank {
             Bank::UserBank1 => self.regs.bank1(),
             Bank::UserBank2 => self.regs.bank2(),
         }
-    }
-
-    fn _configure_clocks(&mut self) {
-        // TODO: Configure clocks for optimal performance for both read and write operations
-
-        // For Writes:
-        // Program operation timing constraints depend of the embedded Flash memory clock frequency, which directly impacts the performance. If timing constraints are too tight, the non-volatile memory will not operate correctly, if they are too lax, the programming speed will not be optimal.
-        // The user must therefore trim the optimal programming delay through the WRHIGHFREQ parameter in the FLASH_ACR register. Refer to Table 17 in Section 4.3.8: FLASH read operations for the recommended programming delay depending on the embedded Flash memory clock frequency.
-        // FLASH_ACR configuration register is common to both banks.
-        // The application software must check that no program/erase operation is ongoing before modifying WRHIGHFREQ parameter.
-
-        // For Reads:
-        // The embedded Flash memory clock must be enabled and running before reading data from non-volatile memory.
-        // To correctly read data from Flash memory, the number of wait states (LATENCY) must be correctly programmed in the Flash access control register (FLASH_ACR) according to the embedded Flash memory AXI interface clock frequency (sys_ck) and the internal voltage range of the device (Vcore).
-        // Table 17 shows the correspondence between the number of wait states (LATENCY), the programming delay parameter (WRHIGHFREQ), the embedded Flash memory clock frequency and its supply voltage ranges.
-
-        // Adjusting system frequency
-        // After power-on, a default 7 wait-state latency is specified in FLASH_ACR register, in order to accommodate AXI interface clock frequencies with a safety margin (see Table 17).
-        // When changing the AXI bus frequency, the application software must follow the below sequence in order to tune the number of wait states required to access the non-volatile memory.
-        // To increase the embedded Flash memory clock source frequency:
-        // 1. If necessary, program the LATENCY and WRHIGHFREQ bits to the right value in the
-        // FLASH_ACR register, as described in Table 17.
-        // 2. Check that the new number of wait states is taken into account by reading back the
-        // FLASH_ACR register.
-        // 3. Modify the embedded Flash memory clock source and/or the AXI bus clock prescaler in the RCC_CFGR register of the reset and clock controller (RCC).
-        // 4. Check that the new embedded Flash memory clock source and/or the new AXI bus clock prescaler value are taken in account by reading back the embedded Flash memory clock source status and/or the AXI bus prescaler value in the RCC_CFGR register of the reset and clock controller (RCC).
-        // To decrease the embedded Flash memory clock source frequency:
-        // 1. Modify the embedded Flash memory clock source and/or the AXI bus clock prescaler in the RCC_CFGR register of reset and clock controller (RCC).
-        // 2. Check that the embedded Flash memory new clock source and/or the new AXI bus clock prescaler value are taken into account by reading back the embedded Flash
-        // memory clock source status and/or the AXI interface prescaler value in the RCC_CFGR register of reset and clock controller (RCC).
-        // 3. If necessary, program the LATENCY and WRHIGHFREQ bits to the right value in FLASH_ACR register, as described in Table 17.
-        // 4. Check that the new number of wait states has been taken into account by reading back the FLASH_ACR register.
     }
 
     /// Unlock the flash memory, must only be executed on locked flash
@@ -198,7 +169,6 @@ impl Flash {
     /// Panics if the sector is beyond the number of sectors supported by the user bank for this device
     /// Panics if the buff length is not a multiple of a 32bit word
     /// Panics if the start offset is not a multiple of a 32bit word
-    /// Panics if the buff length exceeds the user bank 2 end address for this device
     pub fn read_sector(
         &mut self,
         bank: Bank,
@@ -215,7 +185,7 @@ impl Flash {
 
         let regs = self.bank_registers(bank);
 
-        // Check that no Flash main memory operation is ongoing by checking the BSY bit
+        // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
         // H742 RM, section 4.3.8, Page 158
@@ -229,34 +199,18 @@ impl Flash {
         // Get the address of the sector/bank
         let mut addr = bank.sector_address(sector) as *mut u32;
 
-        let mut count = 0;
-
         unsafe {
             // Offset it by the start position
             addr = addr.add(start / 4);
-
-            let chunks = buff.chunks_exact_mut(4);
-
-            for chunk in chunks {
+            // Iterate on chunks of 32bits
+            for chunk in buff.chunks_exact_mut(4) {
                 if addr as usize > bank.end_address() {
-                    if bank == Bank::UserBank2 {
-                        // Address is beyond the final flash bank of the stm32h7, nothing we can do.
-                        panic!("address is outside of bank range");
-                    }
-                    // Roll over to the beginning of user bank 2
-                    return self.read_sector(
-                        Bank::UserBank2,
-                        0,
-                        0,
-                        &mut buff[count..],
-                    );
+                    return Err(Error::OutOfBounds);
                 }
-
                 // Read words from the flash
                 let word = core::ptr::read_volatile(addr);
                 chunk[0..4].copy_from_slice(&word.to_le_bytes());
                 addr = addr.add(1);
-                count += 4;
             }
         }
 
@@ -289,14 +243,12 @@ impl Flash {
 
         let regs = self.bank_registers(bank);
 
-        // Check that no Flash main memory operation is ongoing by checking the BSY bit
+        // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
         // 1. Check and clear (optional) all the error flags due to previous programming/erase
         // operation. Refer to Section 4.7: FLASH error management for details.
-        if handle_illegal(regs).is_err() {
-            return Err(Error::Illegal);
-        };
+        handle_illegal(regs)?;
 
         // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         self.unlock(bank)?;
@@ -335,9 +287,7 @@ impl Flash {
         while regs.sr.read().bsy().bit_is_set() {}
 
         // 1. Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
-        if handle_illegal(regs).is_err() {
-            return Err(Error::Illegal);
-        };
+        handle_illegal(regs)?;
 
         // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
@@ -359,7 +309,6 @@ impl Flash {
     }
 
     /// Write data beginning at the bank, sector and start offset
-    /// If the data length goes beyond bank 1, then writing is continued seemlessly to bank 2
     /// Writing must occur after an erase of the flash data
     ///
     /// # Panics
@@ -367,7 +316,6 @@ impl Flash {
     /// Panics if the sector is beyond the number of sectors supported by the user bank for this device
     /// Panics if the data length is not a multiple of a 256bit flash word
     /// Panics if the start offset is not a multiple of a 256bit flash word
-    /// Panics if the buff length exceeds the user bank 2 end address for this device
     pub fn write_sector(
         &mut self,
         bank: Bank,
@@ -394,13 +342,11 @@ impl Flash {
 
         let regs = self.bank_registers(bank);
 
-        // Check that no Flash main memory operation is ongoing by checking the BSY bit
+        // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
         // Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
-        if handle_illegal(regs).is_err() {
-            return Err(Error::Illegal);
-        };
+        handle_illegal(regs)?;
 
         // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
@@ -417,31 +363,16 @@ impl Flash {
         // Offset it by the start position
         addr = unsafe { addr.add(start / 4) };
 
-        let mut count = 0;
-
+        // Iterate on chunks of 32bit
         for chunk in data.chunks_exact(4) {
-            if addr as usize >= bank.end_address() {
-                if bank == Bank::UserBank2 {
-                    // Address is beyond the final flash bank of the stm32h7, nothing we can do.
-                    panic!("address is outside of bank range");
-                }
-                // Cleanup and relock bank 1
-                regs.cr.modify(|_, w| w.pg().clear_bit());
-                self.lock(bank);
-                // Roll over to the beginning of user bank 2 for further writing
-                return self.write_sector(
-                    Bank::UserBank2,
-                    0,
-                    0,
-                    &data[count..],
-                );
+            if addr as usize > bank.end_address() {
+                return Err(Error::OutOfBounds);
             }
 
             unsafe {
                 let word = u32::from_le_bytes(chunk.try_into().unwrap());
                 core::ptr::write_volatile(addr, word);
                 addr = addr.add(1);
-                count += 4;
             }
 
             // 5. Check that QW1 (respectively QW2) has been raised and wait until it is reset to 0.
@@ -467,6 +398,7 @@ impl Flash {
 
 #[cfg(any(feature = "rm0433"))]
 /// Handle illegal status flags
+/// TODO: Clear error flags
 fn handle_illegal(regs: &BANK) -> Result<(), Error> {
     let sr = regs.sr.read();
     if sr.pgserr().bit_is_set()
@@ -477,7 +409,6 @@ fn handle_illegal(regs: &BANK) -> Result<(), Error> {
         || sr.rdperr().bit_is_set()
         || sr.rdserr().bit_is_set()
     {
-        // TODO: Clear error flags?
         return Err(Error::Illegal);
     }
     Ok(())
