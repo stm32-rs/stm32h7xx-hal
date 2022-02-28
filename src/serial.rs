@@ -527,6 +527,9 @@ macro_rules! usart {
                     Ok(serial)
                 }
 
+                /// Runs the serial port configuration process
+                ///
+                /// The serial port must be disabled when called.
                 fn configure(&mut self, config: &config::Config $(, $synchronous: bool)?) {
                     use crate::stm32::usart1::cr2::STOP_A as STOP;
                     use self::config::*;
@@ -547,7 +550,7 @@ macro_rules! usart {
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
 
-                    // Set stop bits
+                    // Configure serial mode
                     self.usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
                             StopBits::STOP0P5 => STOP::STOP0P5,
@@ -736,6 +739,8 @@ macro_rules! usart {
                     unsafe { (*$USARTX::ptr()).isr.read().rxne().bit_is_set() }
                 }
 
+                /// Splits the [`Serial`] struct into transmit ([`Tx`]) and receive ([`Rx`]) parts which can be used
+                /// separately.
                 pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
                     (
                         Tx {
@@ -748,10 +753,12 @@ macro_rules! usart {
                     )
                 }
 
+                /// Combines the [`Tx`] and [`Rx`] structs from [`Serial::split()`] into a [`Serial`]
                 #[allow(unused_variables)]
                 pub fn join(tx: Tx<$USARTX>, rx: Rx<$USARTX>) -> Self {
+                    assert_eq!(core::mem::size_of::<$USARTX>(), 0);
                     Self {
-                        usart: unsafe { core::mem::transmute::<(), $USARTX>(()) },
+                        usart: unsafe { core::mem::zeroed::<$USARTX>() },
                         ker_ck: rx.ker_ck,
                     }
                 }
