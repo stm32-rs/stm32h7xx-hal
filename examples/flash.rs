@@ -18,7 +18,11 @@ fn main() -> ! {
 
     let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-
+    // Constrain and Freeze power
+    info!("Setup PWR...                  ");
+    let pwr = dp.PWR.constrain();
+    let pwrcfg = example_power!(pwr).freeze();
+    
     let mut flash = dp.FLASH.constrain();
 
     // Skipping sector 0, erase all other sectors of user bank 1
