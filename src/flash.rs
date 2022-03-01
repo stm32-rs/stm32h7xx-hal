@@ -1,4 +1,19 @@
 //! Flash memory
+//! 
+//! # Examples
+//!
+//! - [Flash example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/flash.rs)
+//! 
+//! # Supported modes
+//! 
+//!     - Standard flash operations are supported only
+//! 
+//! # Supported devices
+//! 
+//!     - STM32H742xI/743xI/753xI
+//!     - STM32H742xG/743xG
+//! 
+//! Note: STM32H750xB is not yet supported
 
 use crate::stm32::{flash, FLASH};
 
