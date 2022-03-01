@@ -13,6 +13,7 @@ use stm32h7xx_hal::{flash::Bank, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
+    utilities::logger::init();
     info!("stm32h7xx-hal example - erase, write and read FLASH");
 
     let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
