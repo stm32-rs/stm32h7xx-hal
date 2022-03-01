@@ -366,6 +366,10 @@ impl Flash {
         // Iterate on chunks of 32bit
         for chunk in data.chunks_exact(4) {
             if addr as usize > bank.end_address() {
+                // Unable to write outside of the bank end address
+                // Cleanup and return out
+                regs.cr.modify(|_, w| w.pg().clear_bit());
+                self.lock(bank);
                 return Err(Error::OutOfBounds);
             }
 
