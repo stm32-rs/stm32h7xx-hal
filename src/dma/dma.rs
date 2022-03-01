@@ -13,7 +13,7 @@ use crate::{
     i2c::I2c,
     pac::{self, DMA1, DMA2, DMAMUX1},
     rcc::{rec, rec::ResetEnable},
-    serial, spi,
+    sai, serial, spi,
 };
 
 use core::ops::Deref;
@@ -936,16 +936,107 @@ peripheral_target_address!(
 );
 
 peripheral_target_address!(
+    // implementation on PAC types, fixed output Channel A and input Channel B
     (pac::SAI1, cha.dr, u32, M2P, DMAReq::SAI1A_DMA),
     (pac::SAI1, chb.dr, u32, P2M, DMAReq::SAI1B_DMA),
+    // implementation on compound types (either Channel A or Channel B)
+    (
+        sai::dma::ChannelA<pac::SAI1>,
+        cha.dr,
+        u32,
+        P2M,
+        DMAReq::SAI1A_DMA
+    ),
+    (
+        sai::dma::ChannelA<pac::SAI1>,
+        cha.dr,
+        u32,
+        M2P,
+        DMAReq::SAI1A_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI1>,
+        chb.dr,
+        u32,
+        P2M,
+        DMAReq::SAI1B_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI1>,
+        chb.dr,
+        u32,
+        M2P,
+        DMAReq::SAI1B_DMA
+    ),
 );
 #[cfg(not(feature = "rm0468"))]
 peripheral_target_address!(
+    // implementation on PAC types, fixed output Channel A and input Channel B
     (pac::SAI2, cha.dr, u32, M2P, DMAReq::SAI2A_DMA),
     (pac::SAI2, chb.dr, u32, P2M, DMAReq::SAI2B_DMA),
+    // implementation on compound types (either Channel A or Channel B)
+    (
+        sai::dma::ChannelA<pac::SAI2>,
+        cha.dr,
+        u32,
+        P2M,
+        DMAReq::SAI2A_DMA
+    ),
+    (
+        sai::dma::ChannelA<pac::SAI2>,
+        cha.dr,
+        u32,
+        M2P,
+        DMAReq::SAI2A_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI2>,
+        chb.dr,
+        u32,
+        P2M,
+        DMAReq::SAI2B_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI2>,
+        chb.dr,
+        u32,
+        M2P,
+        DMAReq::SAI2B_DMA
+    ),
+
 );
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 peripheral_target_address!(
+    // implementation on PAC types, fixed output Channel A and input Channel B
     (pac::SAI3, cha.dr, u32, M2P, DMAReq::SAI3_A_DMA),
     (pac::SAI3, chb.dr, u32, P2M, DMAReq::SAI3_B_DMA),
+    // implementation on compound types (either Channel A or Channel B)
+    (
+        sai::dma::ChannelA<pac::SAI3>,
+        cha.dr,
+        u32,
+        P2M,
+        DMAReq::SAI3_A_DMA
+    ),
+    (
+        sai::dma::ChannelA<pac::SAI3>,
+        cha.dr,
+        u32,
+        M2P,
+        DMAReq::SAI3_A_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI3>,
+        chb.dr,
+        u32,
+        P2M,
+        DMAReq::SAI3_B_DMA
+    ),
+    (
+        sai::dma::ChannelB<pac::SAI3>,
+        chb.dr,
+        u32,
+        M2P,
+        DMAReq::SAI3_B_DMA
+    ),
 );

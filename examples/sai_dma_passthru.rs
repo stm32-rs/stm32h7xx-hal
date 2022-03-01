@@ -118,7 +118,7 @@ fn main() -> ! {
     let mut dma1_str0: dma::Transfer<_, _, dma::MemoryToPeripheral, _, _> =
         dma::Transfer::init(
             dma1_streams.0,
-            unsafe { pac::Peripherals::steal().SAI1 },
+            unsafe { pac::Peripherals::steal().SAI1.dma_ch_b() }, // Channel B
             tx_buffer,
             None,
             dma_config,
@@ -133,7 +133,7 @@ fn main() -> ! {
     let mut dma1_str1: dma::Transfer<_, _, dma::PeripheralToMemory, _, _> =
         dma::Transfer::init(
             dma1_streams.1,
-            unsafe { pac::Peripherals::steal().SAI1 },
+            unsafe { pac::Peripherals::steal().SAI1.dma_ch_a() }, // Channel A
             rx_buffer,
             None,
             dma_config,
@@ -204,7 +204,7 @@ fn main() -> ! {
 
     type TransferDma1Str1 = dma::Transfer<
         dma::dma::Stream1<stm32::DMA1>,
-        stm32::SAI1,
+        sai::dma::ChannelA<stm32::SAI1>,
         dma::PeripheralToMemory,
         &'static mut [u32; DMA_BUFFER_LENGTH],
         dma::DBTransfer,
