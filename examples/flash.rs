@@ -64,5 +64,7 @@ fn main() -> ! {
 
     info!("Successfully erased, written and read back flash data");
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }
