@@ -14,15 +14,19 @@ use stm32h7xx_hal::{flash::Bank, pac, prelude::*};
 #[entry]
 fn main() -> ! {
     utilities::logger::init();
-    info!("stm32h7xx-hal example - erase, write and read FLASH");
-
-    let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
+
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let pwrcfg = example_power!(pwr).freeze();
     
+    info!("");
+    info!("stm32h7xx-hal example - FLASH erase, write and read");
+    info!("");
+    
+    // Constrain the flash peripheral,
+    // giving access to read/write/erase operations
     let mut flash = dp.FLASH.constrain();
 
     // Skipping sector 0, erase all other sectors of user bank 1
@@ -52,7 +56,7 @@ fn main() -> ! {
         assert_eq!(read[i], buff[i]);
     }
 
-    // Write data on bank 2 and read it back
+    // Write data on bank 2, sector 0, offset 256 and read it back
     flash.write_sector(Bank::UserBank2, 0, 256, &buff).unwrap();
     let mut read = [0u8; 1024 * 15];
     flash
