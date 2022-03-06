@@ -18,7 +18,10 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = example_power!(pwr).freeze();
+    let _pwrcfg = example_power!(pwr).freeze();
+
+    // The RCC is never setup in this example, so the device is still in Run*
+    // mode
 
     info!("");
     info!("stm32h7xx-hal example - FLASH erase, write and read");
@@ -39,8 +42,8 @@ fn main() -> ! {
     // Fill up write buffer
     let mut buff = [0u8; 1024 * 15];
     let mut count = 0;
-    for i in 0..buff.len() {
-        buff[i] = count;
+    for b in buff.iter_mut() {
+        *b = count;
         count += 1;
         if count >= 100 {
             count = 0;
