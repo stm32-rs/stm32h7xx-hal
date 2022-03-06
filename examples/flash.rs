@@ -1,7 +1,6 @@
 //! Example of Flash erasing, writing and reading with the stm32h743zi (rm0433)
 //! Assumes this example runs at sector 0 of bank 1 (0x0800_0000)
 
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -20,11 +19,11 @@ fn main() -> ! {
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
     let pwrcfg = example_power!(pwr).freeze();
-    
+
     info!("");
     info!("stm32h7xx-hal example - FLASH erase, write and read");
     info!("");
-    
+
     // Constrain the flash peripheral,
     // giving access to read/write/erase operations
     let mut flash = dp.FLASH.constrain();
