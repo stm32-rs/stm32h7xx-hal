@@ -17,9 +17,17 @@
 
 use crate::stm32::{flash, FLASH};
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 use crate::stm32::flash::BANK;
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 use core;
 
 /// Extension trait to constrain the FLASH peripheral
@@ -31,7 +39,11 @@ pub trait FlashExt {
 impl FlashExt for FLASH {
     fn constrain(self) -> Flash {
         Flash {
-            #[cfg(any(feature = "rm0433"))]
+            #[cfg(all(
+                any(feature = "rm0433"),
+                not(feature = "stm32h750"),
+                not(feature = "stm32h750v")
+            ))]
             regs: self,
             acr: ACR { _0: () },
         }
@@ -48,7 +60,11 @@ pub struct Flash {
     /// Opaque ACR register
     pub acr: ACR,
     /// Flash peripheral
-    #[cfg(any(feature = "rm0433"))]
+    #[cfg(all(
+        any(feature = "rm0433"),
+        not(feature = "stm32h750"),
+        not(feature = "stm32h750v")
+    ))]
     regs: FLASH,
 }
 
@@ -65,23 +81,47 @@ impl ACR {
     }
 }
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// BANK1 start address
 const BANK1_ADDR_START: usize = 0x0800_0000;
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// BANK1 end address
 const BANK1_ADDR_END: usize = 0x080F_FFFF;
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// BANK2 start address
 const BANK2_ADDR_START: usize = 0x0810_0000;
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// BANK2 end address
 const BANK2_ADDR_END: usize = 0x081F_FFFF;
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// Sector size of 128kb
 const SECTOR_SIZE: usize = 0x2_0000;
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Bank {
     /// User Bank 1
@@ -90,7 +130,11 @@ pub enum Bank {
     UserBank2,
 }
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 impl Bank {
     /// The start address of the bank
     fn start_address(&self) -> usize {
@@ -133,7 +177,11 @@ impl Bank {
     }
 }
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 #[derive(Copy, Clone, Debug)]
 /// Possible error states for flash operations.
 pub enum Error {
@@ -145,7 +193,11 @@ pub enum Error {
     OutOfBounds,
 }
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 impl Flash {
     /// Get underlying bank registers
     fn bank_registers(&self, bank: Bank) -> &BANK {
@@ -415,7 +467,11 @@ impl Flash {
     }
 }
 
-#[cfg(any(feature = "rm0433"))]
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 /// Handle illegal status flags
 /// TODO: Clear error flags
 fn handle_illegal(regs: &BANK) -> Result<(), Error> {
