@@ -609,14 +609,12 @@ pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
         // LPITRCIM as read-only, so svd2rust doens't generate bindings to
         // modify them. Instead, as a workaround, we manually manipulate the
         // bits
-        unsafe {
-            eth_mac
-                .mmc_tx_interrupt_mask
-                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
-            eth_mac
-                .mmc_rx_interrupt_mask
-                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
-        }
+        eth_mac
+            .mmc_tx_interrupt_mask
+            .modify(|r, w| w.bits(r.bits() | (1 << 27)));
+        eth_mac
+            .mmc_rx_interrupt_mask
+            .modify(|r, w| w.bits(r.bits() | (1 << 27)));
 
         eth_mtl.mtlrx_qomr.modify(|_, w| {
             w
@@ -879,6 +877,11 @@ impl<const TD: usize, const RD: usize> EthernetDMA<'_, TD, RD> {
     }
 }
 
+/// Clears the Ethernet interrupt flag
+///
+/// # Safety
+///
+/// This method implements a single register write to DMACSR
 pub unsafe fn interrupt_handler() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
@@ -888,6 +891,15 @@ pub unsafe fn interrupt_handler() {
     let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
 
+/// Enables the Ethernet Interrupt. The following interrupts are enabled:
+///
+/// * Normal Interrupt `NIE`
+/// * Receive Interrupt `RIE`
+/// * Transmit Interript `TIE`
+///
+/// # Safety
+///
+/// This method implements a single RMW to DMACIER
 pub unsafe fn enable_interrupt() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
