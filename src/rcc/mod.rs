@@ -974,9 +974,14 @@ impl Rcc {
         });
         while syscfg.cccsr.read().ready().bit_is_clear() {}
 
+        // This section prints the final register configuration for the main RCC registers:
+        // - System Clock and PLL Source MUX
+        // - PLL configuration
+        // - System Prescalers
+        // Does not include peripheral/MCO/RTC clock MUXes
         #[cfg(feature = "log")]
         {
-            debug!("--- RCC register settings (selection)");
+            debug!("--- RCC register settins");
 
             let cfgr = rcc.cfgr.read();
             debug!(
@@ -987,67 +992,70 @@ impl Rcc {
             let d1cfgr = rcc.d1cfgr.read();
             debug!(
                 "D1CFGR register ->   D1CPRE: {:?}  HPRE: {:?}  D1PPRE: {:?}",
-                d1cfgr.d1cpre().bits(),
-                d1cfgr.hpre().bits(),
-                d1cfgr.d1ppre().bits(),
+                d1cfgr.d1cpre().variant().unwrap(),
+                d1cfgr.hpre().variant().unwrap(),
+                d1cfgr.d1ppre().variant().unwrap(),
             );
 
             let d2cfgr = rcc.d2cfgr.read();
             debug!(
                 "D2CFGR register ->   D2PPRE1: {:?}  D2PPRE1: {:?}",
-                d2cfgr.d2ppre1().bits(),
-                d2cfgr.d2ppre2().bits(),
+                d2cfgr.d2ppre1().variant().unwrap(),
+                d2cfgr.d2ppre2().variant().unwrap(),
             );
 
             let d3cfgr = rcc.d3cfgr.read();
-            debug!("D3CFGR register ->   D3PPRE: {:?}", d3cfgr.d3ppre().bits(),);
+            debug!(
+                "D3CFGR register ->   D3PPRE: {:?}",
+                d3cfgr.d3ppre().variant().unwrap(),
+            );
 
             let pllckselr = rcc.pllckselr.read();
             debug!(
-            "PLLCKSELR register ->   PLLSRC: {:?}  DIVM1: {:?}  DIVM2: {:?}  DIVM3: {:?}",
-            pllckselr.pllsrc().variant(),
-            pllckselr.divm1().bits(),
-            pllckselr.divm2().bits(),
-            pllckselr.divm3().bits(),
-        );
+                "PLLCKSELR register ->   PLLSRC: {:?}  DIVM1: {:?}  DIVM2: {:?}  DIVM3: {:?}",
+                pllckselr.pllsrc().variant(),
+                pllckselr.divm1().bits(),
+                pllckselr.divm2().bits(),
+                pllckselr.divm3().bits(),
+            );
 
             let pllcfgr = rcc.pllcfgr.read();
             debug!(
-            "PLLCKSELR register (PLL1) ->   PLL1FRACEN: {:?}  PLL1VCOSEL: {:?}  PLL1RGE: {:?}  DIVP1EN: {:?}  DIVQ1EN: {:?}  DIVR1EN: {:?}",
-            pllcfgr.pll1fracen().variant(),
-            pllcfgr.pll1vcosel().variant(),
-            pllcfgr.pll1rge().variant(),
-            pllcfgr.divp1en().variant(),
-            pllcfgr.divq1en().variant(),
-            pllcfgr.divr1en().variant(),
-        );
+                "PLLCKSELR register (PLL1) ->   PLL1FRACEN: {:?}  PLL1VCOSEL: {:?}  PLL1RGE: {:?}  DIVP1EN: {:?}  DIVQ1EN: {:?}  DIVR1EN: {:?}",
+                pllcfgr.pll1fracen().variant(),
+                pllcfgr.pll1vcosel().variant(),
+                pllcfgr.pll1rge().variant(),
+                pllcfgr.divp1en().variant(),
+                pllcfgr.divq1en().variant(),
+                pllcfgr.divr1en().variant(),
+            );
             debug!(
-            "PLLCKSELR register (PLL2) ->   PLL2FRACEN: {:?}  PLL2VCOSEL: {:?}  PLL2RGE: {:?}  DIVP2EN: {:?}  DIVQ2EN: {:?}  DIVR2EN: {:?}",
-            pllcfgr.pll2fracen().variant(),
-            pllcfgr.pll2vcosel().variant(),
-            pllcfgr.pll2rge().variant(),
-            pllcfgr.divp2en().variant(),
-            pllcfgr.divq2en().variant(),
-            pllcfgr.divr2en().variant(),
-        );
+                "PLLCKSELR register (PLL2) ->   PLL2FRACEN: {:?}  PLL2VCOSEL: {:?}  PLL2RGE: {:?}  DIVP2EN: {:?}  DIVQ2EN: {:?}  DIVR2EN: {:?}",
+                pllcfgr.pll2fracen().variant(),
+                pllcfgr.pll2vcosel().variant(),
+                pllcfgr.pll2rge().variant(),
+                pllcfgr.divp2en().variant(),
+                pllcfgr.divq2en().variant(),
+                pllcfgr.divr2en().variant(),
+            );
             debug!(
-            "PLLCKSELR register (PLL3) ->   PLL3FRACEN: {:?}  PLL3VCOSEL: {:?}  PLL3RGE: {:?}  DIVP3EN: {:?}  DIVQ3EN: {:?}  DIVR3EN: {:?}",
-            pllcfgr.pll3fracen().variant(),
-            pllcfgr.pll3vcosel().variant(),
-            pllcfgr.pll3rge().variant(),
-            pllcfgr.divp3en().variant(),
-            pllcfgr.divq3en().variant(),
-            pllcfgr.divr3en().variant(),
-        );
+                "PLLCKSELR register (PLL3) ->   PLL3FRACEN: {:?}  PLL3VCOSEL: {:?}  PLL3RGE: {:?}  DIVP3EN: {:?}  DIVQ3EN: {:?}  DIVR3EN: {:?}",
+                pllcfgr.pll3fracen().variant(),
+                pllcfgr.pll3vcosel().variant(),
+                pllcfgr.pll3rge().variant(),
+                pllcfgr.divp3en().variant(),
+                pllcfgr.divq3en().variant(),
+                pllcfgr.divr3en().variant(),
+            );
 
             let pll1divr = rcc.pll1divr.read();
             debug!(
-            "PLL1DIVR register ->   DIVN1: {:?}  DIVP1: {:?}  DIVQ1: {:?}  DIVR1: {:?}",
-            pll1divr.divn1().bits(),
-            pll1divr.divp1().bits(),
-            pll1divr.divq1().bits(),
-            pll1divr.divr1().bits(),
-        );
+                "PLL1DIVR register ->   DIVN1: {:?}  DIVP1: {:?}  DIVQ1: {:?}  DIVR1: {:?}",
+                pll1divr.divn1().bits() + 1,
+                pll1divr.divp1().bits() + 1,
+                pll1divr.divq1().bits() + 1,
+                pll1divr.divr1().bits() + 1,
+            );
 
             let pll1fracr = rcc.pll1fracr.read();
             debug!(
@@ -1057,12 +1065,12 @@ impl Rcc {
 
             let pll2divr = rcc.pll2divr.read();
             debug!(
-            "PLL2DIVR register ->   DIVN2: {:?}  DIVP2: {:?}  DIVQ2: {:?}  DIVR2: {:?}",
-            pll2divr.divn2().bits(),
-            pll2divr.divp2().bits(),
-            pll2divr.divq2().bits(),
-            pll2divr.divr2().bits(),
-        );
+                "PLL2DIVR register ->   DIVN2: {:?}  DIVP2: {:?}  DIVQ2: {:?}  DIVR2: {:?}",
+                pll2divr.divn2().bits() + 1,
+                pll2divr.divp2().bits() + 1,
+                pll2divr.divq2().bits() + 1,
+                pll2divr.divr2().bits() + 1,
+            );
 
             let pll2fracr = rcc.pll2fracr.read();
             debug!(
@@ -1072,12 +1080,12 @@ impl Rcc {
 
             let pll3divr = rcc.pll3divr.read();
             debug!(
-            "PLL3DIVR register ->   DIVN3: {:?}  DIVP3: {:?}  DIVQ3: {:?}  DIVR3: {:?}",
-            pll3divr.divn3().bits(),
-            pll3divr.divp3().bits(),
-            pll3divr.divq3().bits(),
-            pll3divr.divr3().bits(),
-        );
+                "PLL3DIVR register ->   DIVN3: {:?}  DIVP3: {:?}  DIVQ3: {:?}  DIVR3: {:?}",
+                pll3divr.divn3().bits() + 1,
+                pll3divr.divp3().bits() + 1,
+                pll3divr.divq3().bits() + 1,
+                pll3divr.divr3().bits() + 1,
+            );
 
             let pll3fracr = rcc.pll3fracr.read();
             debug!(
