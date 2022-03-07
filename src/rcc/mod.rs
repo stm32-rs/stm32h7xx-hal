@@ -981,7 +981,7 @@ impl Rcc {
         // Does not include peripheral/MCO/RTC clock MUXes
         #[cfg(feature = "log")]
         {
-            debug!("--- RCC register settins");
+            debug!("--- RCC register settings");
 
             let cfgr = rcc.cfgr.read();
             debug!(
