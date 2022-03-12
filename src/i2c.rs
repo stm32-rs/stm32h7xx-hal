@@ -8,13 +8,7 @@
 use core::cmp;
 use core::marker::PhantomData;
 
-use crate::gpio::gpioa::PA8;
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
-use crate::gpio::gpioc::PC9;
-use crate::gpio::gpiod::{PD12, PD13};
-use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
-use crate::gpio::gpioh::{PH11, PH12, PH4, PH5, PH7, PH8};
-use crate::gpio::{Alternate, OpenDrain};
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
@@ -692,54 +686,54 @@ macro_rules! pins {
 pins! {
     I2C1:
         SCL: [
-            PB6<Alternate<4, OpenDrain>>,
-            PB8<Alternate<4, OpenDrain>>
+            gpio::PB6<Alternate<4, OpenDrain>>,
+            gpio::PB8<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<4, OpenDrain>>,
-            PB9<Alternate<4, OpenDrain>>
+            gpio::PB7<Alternate<4, OpenDrain>>,
+            gpio::PB9<Alternate<4, OpenDrain>>
         ]
 
     I2C2:
         SCL: [
-            PB10<Alternate<4, OpenDrain>>,
-            PF1<Alternate<4, OpenDrain>>,
-            PH4<Alternate<4, OpenDrain>>
+            gpio::PB10<Alternate<4, OpenDrain>>,
+            gpio::PF1<Alternate<4, OpenDrain>>,
+            gpio::PH4<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB11<Alternate<4, OpenDrain>>,
-            PF0<Alternate<4, OpenDrain>>,
-            PH5<Alternate<4, OpenDrain>>
+            gpio::PB11<Alternate<4, OpenDrain>>,
+            gpio::PF0<Alternate<4, OpenDrain>>,
+            gpio::PH5<Alternate<4, OpenDrain>>
         ]
 
     I2C3:
         SCL: [
-            PA8<Alternate<4, OpenDrain>>,
-            PH7<Alternate<4, OpenDrain>>
+            gpio::PA8<Alternate<4, OpenDrain>>,
+            gpio::PH7<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PC9<Alternate<4, OpenDrain>>,
-            PH8<Alternate<4, OpenDrain>>
+            gpio::PC9<Alternate<4, OpenDrain>>,
+            gpio::PH8<Alternate<4, OpenDrain>>
         ]
 
     I2C4:
         SCL: [
-            PD12<Alternate<4, OpenDrain>>,
-            PF14<Alternate<4, OpenDrain>>,
-            PH11<Alternate<4, OpenDrain>>,
-            PB6<Alternate<6, OpenDrain>>,
-            PB8<Alternate<6, OpenDrain>>
+            gpio::PD12<Alternate<4, OpenDrain>>,
+            gpio::PF14<Alternate<4, OpenDrain>>,
+            gpio::PH11<Alternate<4, OpenDrain>>,
+            gpio::PB6<Alternate<6, OpenDrain>>,
+            gpio::PB8<Alternate<6, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<6, OpenDrain>>,
-            PB9<Alternate<6, OpenDrain>>,
-            PD13<Alternate<4, OpenDrain>>,
-            PF15<Alternate<4, OpenDrain>>,
-            PH12<Alternate<4, OpenDrain>>
+            gpio::PB7<Alternate<6, OpenDrain>>,
+            gpio::PB9<Alternate<6, OpenDrain>>,
+            gpio::PD13<Alternate<4, OpenDrain>>,
+            gpio::PF15<Alternate<4, OpenDrain>>,
+            gpio::PH12<Alternate<4, OpenDrain>>
         ]
 }
 

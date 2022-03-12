@@ -28,12 +28,7 @@ use crate::time::Hertz;
 
 use crate::Never;
 
-use crate::gpio::gpiob::PB2;
-use crate::gpio::gpioc::{PC1, PC5};
-use crate::gpio::gpiod::PD6;
-use crate::gpio::gpioe::{PE2, PE4, PE5, PE6};
-use crate::gpio::gpiof::PF10;
-use crate::gpio::Alternate;
+use crate::gpio::{self, Alternate};
 
 /// Trait for a valid combination of SAI PDM pins
 pub trait PulseDensityPins<SAI> {
@@ -110,24 +105,24 @@ macro_rules! pins {
 pins! {
     SAI1:
         D1: [
-            PB2<Alternate<2>>,
-            PC1<Alternate<2>>,
-            PD6<Alternate<2>>,
-            PE6<Alternate<2>>
+            gpio::PB2<Alternate<2>>,
+            gpio::PC1<Alternate<2>>,
+            gpio::PD6<Alternate<2>>,
+            gpio::PE6<Alternate<2>>
         ]
         D2: [
-            PE4<Alternate<2>>
+            gpio::PE4<Alternate<2>>
         ]
         D3: [
-            PC5<Alternate<2>>,
-            PF10<Alternate<2>>
+            gpio::PC5<Alternate<2>>,
+            gpio::PF10<Alternate<2>>
         ]
         D4: []
         CK1: [
-            PE2<Alternate<2>>
+            gpio::PE2<Alternate<2>>
         ]
         CK2: [
-            PE5<Alternate<2>>
+            gpio::PE5<Alternate<2>>
         ]
         CK3: []
         CK4: []
@@ -136,24 +131,24 @@ pins! {
 pins! {
     SAI4:
         D1: [
-            PB2<Alternate<10>>,
-            PC1<Alternate<10>>,
-            PD6<Alternate<10>>,
-            PE6<Alternate<9>>
+            gpio::PB2<Alternate<10>>,
+            gpio::PC1<Alternate<10>>,
+            gpio::PD6<Alternate<10>>,
+            gpio::PE6<Alternate<9>>
         ]
         D2: [
-            PE4<Alternate<10>>
+            gpio::PE4<Alternate<10>>
         ]
         D3: [
-            PC5<Alternate<10>>,
-            PF10<Alternate<10>>
+            gpio::PC5<Alternate<10>>,
+            gpio::PF10<Alternate<10>>
         ]
         D4: []
         CK1: [
-            PE2<Alternate<10>>
+            gpio::PE2<Alternate<10>>
         ]
         CK2: [
-            PE5<Alternate<10>>
+            gpio::PE5<Alternate<10>>
         ]
         CK3: []
         CK4: []

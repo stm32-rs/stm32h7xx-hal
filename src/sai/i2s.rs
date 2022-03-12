@@ -27,34 +27,7 @@ type CH = stm32::sai1::CH;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 type CH = stm32::sai4::CH;
 
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioa::{PA0, PA1, PA12, PA2};
-use crate::gpio::gpiob::PB2;
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioc::PC0;
-use crate::gpio::gpioc::PC1;
-#[cfg(not(feature = "rm0455"))]
-use crate::gpio::gpiod::PD6;
-#[cfg(not(any(feature = "rm0455", feature = "rm0468")))]
-use crate::gpio::gpiod::{
-    PD0, PD1, PD10, PD11, PD12, PD13, PD14, PD15, PD4, PD8, PD9,
-};
-#[cfg(feature = "rm0455")]
-use crate::gpio::gpiod::{PD11, PD12, PD13, PD6};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioe::{PE0, PE11, PE12, PE13, PE14};
-use crate::gpio::gpioe::{PE2, PE3, PE4, PE5, PE6};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpiof::PF11;
-use crate::gpio::gpiof::{PF6, PF7, PF8, PF9};
-use crate::gpio::gpiog::PG7;
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpiog::{PG10, PG9};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioh::{PH2, PH3};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::{PI4, PI5, PI6, PI7};
-use crate::gpio::Alternate;
+use crate::gpio::{self, Alternate};
 
 use crate::traits::i2s::FullDuplex;
 // use embedded_hal::i2s::FullDuplex;
@@ -828,135 +801,135 @@ macro_rules! pins {
 pins! {
     SAI1:
         MCLK_A: [
-            PE2<Alternate<6>>,
-            PG7<Alternate<6>>
+            gpio::PE2<Alternate<6>>,
+            gpio::PG7<Alternate<6>>
         ]
         SCK_A: [
-            PE5<Alternate<6>>
+            gpio::PE5<Alternate<6>>
         ]
         FS_A: [
-            PE4<Alternate<6>>
+            gpio::PE4<Alternate<6>>
         ]
         SD_A: [
-            PB2<Alternate<6>>,
-            PC1<Alternate<6>>,
-            PD6<Alternate<6>>,
-            PE6<Alternate<6>>
+            gpio::PB2<Alternate<6>>,
+            gpio::PC1<Alternate<6>>,
+            gpio::PD6<Alternate<6>>,
+            gpio::PE6<Alternate<6>>
         ]
         MCLK_B: [
-            PF7<Alternate<6>>
+            gpio::PF7<Alternate<6>>
         ]
         SCK_B: [
-            PF8<Alternate<6>>
+            gpio::PF8<Alternate<6>>
         ]
         FS_B: [
-            PF9<Alternate<6>>
+            gpio::PF9<Alternate<6>>
         ]
         SD_B: [
-            PE3<Alternate<6>>,
-            PF6<Alternate<6>>
+            gpio::PE3<Alternate<6>>,
+            gpio::PF6<Alternate<6>>
         ]
 }
 #[cfg(any(feature = "rm0433", feature = "rm0399", feature = "rm0455"))]
 pins! {
     SAI2:
         MCLK_A: [
-            PE0<Alternate<10>>,
-            PI4<Alternate<10>>
+            gpio::PE0<Alternate<10>>,
+            gpio::PI4<Alternate<10>>
         ]
         SCK_A: [
-            PD13<Alternate<10>>,
-            PI5<Alternate<10>>
+            gpio::PD13<Alternate<10>>,
+            gpio::PI5<Alternate<10>>
         ]
         FS_A: [
-            PD12<Alternate<10>>,
-            PI7<Alternate<10>>
+            gpio::PD12<Alternate<10>>,
+            gpio::PI7<Alternate<10>>
         ]
         SD_A: [
-            PD11<Alternate<10>>,
-            PI6<Alternate<10>>
+            gpio::PD11<Alternate<10>>,
+            gpio::PI6<Alternate<10>>
         ]
         MCLK_B: [
-            PA1<Alternate<10>>,
-            PE6<Alternate<10>>,
-            PE14<Alternate<10>>,
-            PH3<Alternate<10>>
+            gpio::PA1<Alternate<10>>,
+            gpio::PE6<Alternate<10>>,
+            gpio::PE14<Alternate<10>>,
+            gpio::PH3<Alternate<10>>
         ]
         SCK_B: [
-            PA2<Alternate<8>>,
-            PE12<Alternate<10>>,
-            PH2<Alternate<10>>
+            gpio::PA2<Alternate<8>>,
+            gpio::PE12<Alternate<10>>,
+            gpio::PH2<Alternate<10>>
         ]
         FS_B: [
-            PA12<Alternate<8>>,
-            PC0<Alternate<8>>,
-            PE13<Alternate<10>>,
-            PG9<Alternate<10>>
+            gpio::PA12<Alternate<8>>,
+            gpio::PC0<Alternate<8>>,
+            gpio::PE13<Alternate<10>>,
+            gpio::PG9<Alternate<10>>
         ]
         SD_B: [
-            PA0<Alternate<10>>,
-            PE11<Alternate<10>>,
-            PF11<Alternate<10>>,
-            PG10<Alternate<10>>
+            gpio::PA0<Alternate<10>>,
+            gpio::PE11<Alternate<10>>,
+            gpio::PF11<Alternate<10>>,
+            gpio::PG10<Alternate<10>>
         ]
 }
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pins! {
     SAI3:
         MCLK_A: [
-            PD15<Alternate<6>>
+            gpio::PD15<Alternate<6>>
         ]
         SCK_A: [
-            PD0<Alternate<6>>
+            gpio::PD0<Alternate<6>>
         ]
         FS_A: [
-            PD4<Alternate<6>>
+            gpio::PD4<Alternate<6>>
         ]
         SD_A: [
-            PD1<Alternate<6>>
+            gpio::PD1<Alternate<6>>
         ]
         MCLK_B: [
-            PD14<Alternate<6>>
+            gpio::PD14<Alternate<6>>
         ]
         SCK_B: [
-            PD8<Alternate<6>>
+            gpio::PD8<Alternate<6>>
         ]
         FS_B: [
-            PD10<Alternate<6>>
+            gpio::PD10<Alternate<6>>
         ]
         SD_B: [
-            PD9<Alternate<6>>
+            gpio::PD9<Alternate<6>>
         ]
 }
 #[cfg(any(feature = "rm0433", feature = "rm0399", feature = "rm0468"))]
 pins! {
     SAI4:
         MCLK_A: [
-            PE2<Alternate<8>>
+            gpio::PE2<Alternate<8>>
         ]
         SCK_A: [
-            PE5<Alternate<8>>
+            gpio::PE5<Alternate<8>>
         ]
         FS_A: [
-            PE4<Alternate<8>>
+            gpio::PE4<Alternate<8>>
         ]
         SD_A: [
-            PB2<Alternate<8>>,
-            PC1<Alternate<8>>,
-            PD6<Alternate<8>>,
-            PE6<Alternate<8>>
+            gpio::PB2<Alternate<8>>,
+            gpio::PC1<Alternate<8>>,
+            gpio::PD6<Alternate<8>>,
+            gpio::PE6<Alternate<8>>
         ]
         MCLK_B: [
-            PF7<Alternate<8>>
+            gpio::PF7<Alternate<8>>
         ]
         SCK_B: [
-            PF8<Alternate<8>>
+            gpio::PF8<Alternate<8>>
         ]
         FS_B: [
-            PF9<Alternate<8>>
+            gpio::PF9<Alternate<8>>
         ]
         SD_B: [
-            PE3<Alternate<8>>,
-            PF6<Alternate<8>>
+            gpio::PE3<Alternate<8>>,
+            gpio::PF6<Alternate<8>>
         ]
 }

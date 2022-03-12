@@ -70,14 +70,9 @@ use sdio_host::{
     SCR,
 };
 
-use crate::gpio::gpioa::PA0;
-use crate::gpio::gpiob::{PB14, PB15, PB3, PB4, PB8, PB9};
-use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC6, PC7, PC8, PC9};
-use crate::gpio::gpiod::{PD2, PD6, PD7};
-use crate::gpio::gpiog::PG11;
 use crate::time::Hertz;
 
-use crate::gpio::Alternate;
+use crate::gpio::{self, Alternate};
 use crate::rcc::rec::{ResetEnable, SdmmcClkSelGetter};
 use crate::rcc::{rec, CoreClocks};
 use crate::stm32::{SDMMC1, SDMMC2};
@@ -179,31 +174,31 @@ macro_rules! pins {
 
 pins! {
     SDMMC1:
-        CLK: [PC12<Alternate<12>>]
-        CMD: [PD2<Alternate<12>>]
-        D0: [PC8<Alternate<12>>]
-        D1: [PC9<Alternate<12>>]
-        D2: [PC10<Alternate<12>>]
-        D3: [PC11<Alternate<12>>]
-        D4: [PB8<Alternate<12>>]
-        D5: [PB9<Alternate<12>>]
-        D6: [PC6<Alternate<12>>]
-        D7: [PC7<Alternate<12>>]
-        CKIN: [PB8<Alternate<7>>]
-        CDIR: [PB9<Alternate<7>>]
-        D0DIR: [PC6<Alternate<8>>]
-        D123DIR: [PC7<Alternate<8>>]
+        CLK: [gpio::PC12<Alternate<12>>]
+        CMD: [gpio::PD2<Alternate<12>>]
+        D0: [gpio::PC8<Alternate<12>>]
+        D1: [gpio::PC9<Alternate<12>>]
+        D2: [gpio::PC10<Alternate<12>>]
+        D3: [gpio::PC11<Alternate<12>>]
+        D4: [gpio::PB8<Alternate<12>>]
+        D5: [gpio::PB9<Alternate<12>>]
+        D6: [gpio::PC6<Alternate<12>>]
+        D7: [gpio::PC7<Alternate<12>>]
+        CKIN: [gpio::PB8<Alternate<7>>]
+        CDIR: [gpio::PB9<Alternate<7>>]
+        D0DIR: [gpio::PC6<Alternate<8>>]
+        D123DIR: [gpio::PC7<Alternate<8>>]
     SDMMC2:
-        CLK: [PC1<Alternate<9>>, PD6<Alternate<11>>]
-        CMD: [PA0<Alternate<9>>, PD7<Alternate<11>>]
-        D0: [PB14<Alternate<9>>]
-        D1: [PB15<Alternate<9>>]
-        D2: [PB3<Alternate<9>>, PG11<Alternate<10>>]
-        D3: [PB4<Alternate<9>>]
-        D4: [PB8<Alternate<10>>]
-        D5: [PB9<Alternate<10>>]
-        D6: [PC6<Alternate<10>>]
-        D7: [PC7<Alternate<10>>]
+        CLK: [gpio::PC1<Alternate<9>>, gpio::PD6<Alternate<11>>]
+        CMD: [gpio::PA0<Alternate<9>>, gpio::PD7<Alternate<11>>]
+        D0: [gpio::PB14<Alternate<9>>]
+        D1: [gpio::PB15<Alternate<9>>]
+        D2: [gpio::PB3<Alternate<9>>, gpio::PG11<Alternate<10>>]
+        D3: [gpio::PB4<Alternate<9>>]
+        D4: [gpio::PB8<Alternate<10>>]
+        D5: [gpio::PB9<Alternate<10>>]
+        D6: [gpio::PC6<Alternate<10>>]
+        D7: [gpio::PC7<Alternate<10>>]
         CKIN: []
         CDIR: []
         D0DIR: []
