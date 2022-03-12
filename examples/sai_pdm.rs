@@ -34,8 +34,8 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
-    let d1 = gpioc.pc1.into_alternate_af2();
-    let ck1 = gpioe.pe2.into_alternate_af2();
+    let d1 = gpioc.pc1.into_alternate();
+    let ck1 = gpioe.pe2.into_alternate();
     let pins = (ck1, d1);
 
     info!("");

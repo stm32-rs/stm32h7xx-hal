@@ -11,7 +11,6 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
     use stm32h7xx_hal::timer::{Event, Timer};
@@ -93,24 +92,24 @@ mod app {
     #[task(binds = TIM1_UP, local = [led1, timer1])]
     fn timer1_tick(ctx: timer1_tick::Context) {
         ctx.local.timer1.clear_irq();
-        ctx.local.led1.toggle().unwrap();
+        ctx.local.led1.toggle();
     }
 
     #[task(binds = TIM2, local = [led2, timer2])]
     fn timer2_tick(ctx: timer2_tick::Context) {
         ctx.local.timer2.clear_irq();
-        ctx.local.led2.toggle().unwrap();
+        ctx.local.led2.toggle();
     }
 
     #[task(binds = TIM8_BRK_TIM12, local = [led3, timer3])]
     fn timer3_tick(ctx: timer3_tick::Context) {
         ctx.local.timer3.clear_irq();
-        ctx.local.led3.toggle().unwrap();
+        ctx.local.led3.toggle();
     }
 
     #[task(binds = TIM17, local = [led4, timer4])]
     fn timer4_tick(ctx: timer4_tick::Context) {
         ctx.local.timer4.clear_irq();
-        ctx.local.led4.toggle().unwrap();
+        ctx.local.led4.toggle();
     }
 }

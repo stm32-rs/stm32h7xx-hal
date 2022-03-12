@@ -60,10 +60,10 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let sck = gpioa.pa12.into_alternate_af5();
-    let miso = gpioc.pc2.into_alternate_af5();
-    let mosi = gpioc.pc3.into_alternate_af5();
-    let _nss = gpioa.pa11.into_alternate_af5(); // SS/CS not used in this example
+    let sck = gpioa.pa12.into_alternate();
+    let miso = gpioc.pc2.into_alternate();
+    let mosi = gpioc.pc3.into_alternate();
+    let _nss = gpioa.pa11.into_alternate::<5>(); // SS/CS not used in this example
 
     info!("");
     info!("stm32h7xx-hal example - SPI DMA");

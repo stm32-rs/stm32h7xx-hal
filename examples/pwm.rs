@@ -32,9 +32,9 @@ fn main() -> ! {
 
     // Select PWM output pins
     let pins = (
-        gpioa.pa8.into_alternate_af1(),
-        gpioa.pa9.into_alternate_af1(),
-        gpioa.pa10.into_alternate_af1(),
+        gpioa.pa8.into_alternate(),
+        gpioa.pa9.into_alternate(),
+        gpioa.pa10.into_alternate(),
     );
 
     info!("");
@@ -67,7 +67,7 @@ fn main() -> ! {
     asm::bkpt();
 
     let mut pwm = dp.TIM12.pwm(
-        gpiob.pb14.into_alternate_af2(),
+        gpiob.pb14.into_alternate(),
         10.khz(),
         ccdr.peripheral.TIM12,
         &ccdr.clocks,

@@ -14,7 +14,6 @@ use core::mem::transmute;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::{
     pac, prelude::*, xspi::Qspi, xspi::QspiMode, xspi::QspiWord,
 };
@@ -52,13 +51,13 @@ fn main() -> ! {
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
     // Even though it is not directly used, CS pin must be acquired and configured
-    let _qspi_cs = gpiog.pg6.into_alternate_af10().set_speed(Speed::VeryHigh);
+    let _qspi_cs = gpiog.pg6.into_alternate::<10>().set_speed(Speed::VeryHigh);
 
-    let sck = gpiof.pf10.into_alternate_af9().set_speed(Speed::VeryHigh);
-    let io0 = gpiof.pf8.into_alternate_af10().set_speed(Speed::VeryHigh);
-    let io1 = gpiof.pf9.into_alternate_af10().set_speed(Speed::VeryHigh);
-    let io2 = gpiof.pf7.into_alternate_af9().set_speed(Speed::VeryHigh);
-    let io3 = gpiof.pf6.into_alternate_af9().set_speed(Speed::VeryHigh);
+    let sck = gpiof.pf10.into_alternate().set_speed(Speed::VeryHigh);
+    let io0 = gpiof.pf8.into_alternate().set_speed(Speed::VeryHigh);
+    let io1 = gpiof.pf9.into_alternate().set_speed(Speed::VeryHigh);
+    let io2 = gpiof.pf7.into_alternate().set_speed(Speed::VeryHigh);
+    let io3 = gpiof.pf6.into_alternate().set_speed(Speed::VeryHigh);
 
     let mut led = gpioc.pc7.into_push_pull_output();
 
@@ -85,9 +84,9 @@ fn main() -> ! {
 
     // Based on the original value, enable or disable LED on the board
     if original % 2 == 0 {
-        led.set_low().unwrap();
+        led.set_low();
     } else {
-        led.set_high().unwrap();
+        led.set_high();
     }
 
     loop {

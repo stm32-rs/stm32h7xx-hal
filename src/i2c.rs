@@ -14,7 +14,7 @@ use crate::gpio::gpioc::PC9;
 use crate::gpio::gpiod::{PD12, PD13};
 use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
 use crate::gpio::gpioh::{PH11, PH12, PH4, PH5, PH7, PH8};
-use crate::gpio::{Alternate, AF4, AF6};
+use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
@@ -70,30 +70,19 @@ pub enum Error {
 }
 
 /// A trait to represent the SCL Pin of an I2C Port
-pub trait PinScl<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait PinScl<I2C> {}
 
 /// A trait to represent the SDL Pin of an I2C Port
-pub trait PinSda<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait PinSda<I2C> {}
 
 /// A trait to represent the collection of pins required for an I2C port
-pub trait Pins<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait Pins<I2C> {}
 
 impl<I2C, SCL, SDA> Pins<I2C> for (SCL, SDA)
 where
     SCL: PinScl<I2C>,
     SDA: PinSda<I2C>,
 {
-    fn set_open_drain(self) -> Self {
-        let (scl, sda) = self;
-
-        (scl.set_open_drain(), sda.set_open_drain())
-    }
 }
 
 #[derive(Debug)]
@@ -547,15 +536,13 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c<PINS, F>(self, pins: PINS, frequency: F,
+                fn i2c<PINS, F>(self, _pins: PINS, frequency: F,
                                 prec: rec::$Rec,
                                 clocks: &CoreClocks) -> I2c<$I2CX>
                 where
                     PINS: Pins<$I2CX>,
                     F: Into<Hertz>
                 {
-                    let _ = pins.set_open_drain();
-
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }
 
@@ -693,18 +680,10 @@ macro_rules! pins {
     ($($I2CX:ty: SCL: [$($SCL:ty),*] SDA: [$($SDA:ty),*])+) => {
         $(
             $(
-                impl PinScl<$I2CX> for $SCL {
-                    fn set_open_drain(self) -> Self {
-                        self.set_open_drain()
-                    }
-                }
+                impl PinScl<$I2CX> for $SCL { }
             )*
             $(
-                impl PinSda<$I2CX> for $SDA {
-                    fn set_open_drain(self) -> Self {
-                        self.set_open_drain()
-                    }
-                }
+                impl PinSda<$I2CX> for $SDA { }
             )*
         )+
     }
@@ -713,54 +692,54 @@ macro_rules! pins {
 pins! {
     I2C1:
         SCL: [
-            PB6<Alternate<AF4>>,
-            PB8<Alternate<AF4>>
+            PB6<Alternate<4, OpenDrain>>,
+            PB8<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<AF4>>,
-            PB9<Alternate<AF4>>
+            PB7<Alternate<4, OpenDrain>>,
+            PB9<Alternate<4, OpenDrain>>
         ]
 
     I2C2:
         SCL: [
-            PB10<Alternate<AF4>>,
-            PF1<Alternate<AF4>>,
-            PH4<Alternate<AF4>>
+            PB10<Alternate<4, OpenDrain>>,
+            PF1<Alternate<4, OpenDrain>>,
+            PH4<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB11<Alternate<AF4>>,
-            PF0<Alternate<AF4>>,
-            PH5<Alternate<AF4>>
+            PB11<Alternate<4, OpenDrain>>,
+            PF0<Alternate<4, OpenDrain>>,
+            PH5<Alternate<4, OpenDrain>>
         ]
 
     I2C3:
         SCL: [
-            PA8<Alternate<AF4>>,
-            PH7<Alternate<AF4>>
+            PA8<Alternate<4, OpenDrain>>,
+            PH7<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PC9<Alternate<AF4>>,
-            PH8<Alternate<AF4>>
+            PC9<Alternate<4, OpenDrain>>,
+            PH8<Alternate<4, OpenDrain>>
         ]
 
     I2C4:
         SCL: [
-            PD12<Alternate<AF4>>,
-            PF14<Alternate<AF4>>,
-            PH11<Alternate<AF4>>,
-            PB6<Alternate<AF6>>,
-            PB8<Alternate<AF6>>
+            PD12<Alternate<4, OpenDrain>>,
+            PF14<Alternate<4, OpenDrain>>,
+            PH11<Alternate<4, OpenDrain>>,
+            PB6<Alternate<6, OpenDrain>>,
+            PB8<Alternate<6, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<AF6>>,
-            PB9<Alternate<AF6>>,
-            PD13<Alternate<AF4>>,
-            PF15<Alternate<AF4>>,
-            PH12<Alternate<AF4>>
+            PB7<Alternate<6, OpenDrain>>,
+            PB9<Alternate<6, OpenDrain>>,
+            PD13<Alternate<4, OpenDrain>>,
+            PF15<Alternate<4, OpenDrain>>,
+            PH12<Alternate<4, OpenDrain>>
         ]
 }
 

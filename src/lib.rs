@@ -206,3 +206,16 @@ pub mod usb_hs;
 pub mod watchdog;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 pub mod xspi;
+
+#[cfg(feature = "device-selected")]
+mod sealed {
+    pub trait Sealed {}
+}
+#[cfg(feature = "device-selected")]
+pub(crate) use sealed::Sealed;
+
+fn stripped_type_name<T>() -> &'static str {
+    let s = core::any::type_name::<T>();
+    let p = s.split("::");
+    p.last().unwrap()
+}

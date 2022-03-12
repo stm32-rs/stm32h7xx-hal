@@ -3,7 +3,6 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -41,10 +40,10 @@ fn main() -> ! {
 
     loop {
         loop {
-            led.set_high().unwrap();
+            led.set_high();
             delay.delay_ms(500_u16);
 
-            led.set_low().unwrap();
+            led.set_low();
             delay.delay_ms(500_u16);
         }
     }

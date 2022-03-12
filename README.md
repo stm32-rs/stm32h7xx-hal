@@ -111,7 +111,7 @@ programming interfaces are only available on the high density connectors.
 Minimum supported Rust version
 ------------------------------
 
-The Minimum Supported Rust Version (MSRV) at the moment is **1.57.0**. Older
+The Minimum Supported Rust Version (MSRV) at the moment is **1.59.0**. Older
 versions **may** compile, especially when some features are not used
 in your application.
 

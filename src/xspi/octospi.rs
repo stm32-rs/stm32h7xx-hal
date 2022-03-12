@@ -17,7 +17,7 @@ use crate::{
         },
         gpiog::{PG0, PG1, PG10, PG11, PG12, PG14, PG15, PG6, PG7, PG9},
         gpioh::{PH2, PH3},
-        Alternate, AF0, AF10, AF11, AF12, AF3, AF4, AF6, AF9,
+        Alternate,
     },
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
@@ -274,122 +274,122 @@ macro_rules! pins {
 pins! {
     OCTOSPI1:
         CLK: [
-            PA3<Alternate<AF12>>,
-            PB2<Alternate<AF9>>,
-            PF10<Alternate<AF9>>
+            PA3<Alternate<12>>,
+            PB2<Alternate<9>>,
+            PF10<Alternate<9>>
         ]
         NCLK: [
-            PB12<Alternate<AF3>>,
-            PF11<Alternate<AF9>>
+            PB12<Alternate<3>>,
+            PF11<Alternate<9>>
         ]
         DQS: [
-            PA1<Alternate<AF12>>,
-            PB2<Alternate<AF10>>,
-            PC5<Alternate<AF10>>
+            PA1<Alternate<12>>,
+            PB2<Alternate<10>>,
+            PC5<Alternate<10>>
         ]
         NCS: [
-            PB6<Alternate<AF10>>,
-            PB10<Alternate<AF9>>,
-            PC11<Alternate<AF9>>,
-            PE11<Alternate<AF11>>,
-            PG6<Alternate<AF10>>
+            PB6<Alternate<10>>,
+            PB10<Alternate<9>>,
+            PC11<Alternate<9>>,
+            PE11<Alternate<11>>,
+            PG6<Alternate<10>>
         ]
         IO0: [
-            PA2<Alternate<AF6>>,
-            PB1<Alternate<AF4>>,
-            PB12<Alternate<AF12>>,
-            PC3<Alternate<AF9>>,
-            PC3<Alternate<AF0>>,
-            PC9<Alternate<AF9>>,
-            PD11<Alternate<AF9>>,
-            PF8<Alternate<AF10>>
+            PA2<Alternate<6>>,
+            PB1<Alternate<4>>,
+            PB12<Alternate<12>>,
+            PC3<Alternate<9>>,
+            PC3<Alternate<0>>,
+            PC9<Alternate<9>>,
+            PD11<Alternate<9>>,
+            PF8<Alternate<10>>
         ]
         IO1: [
-            PB0<Alternate<AF4>>,
-            PC10<Alternate<AF9>>,
-            PD12<Alternate<AF9>>,
-            PF9<Alternate<AF10>>
+            PB0<Alternate<4>>,
+            PC10<Alternate<9>>,
+            PD12<Alternate<9>>,
+            PF9<Alternate<10>>
         ]
         IO2: [
-            PA3<Alternate<AF6>>,
-            PA7<Alternate<AF10>>,
-            PB13<Alternate<AF4>>,
-            PC2<Alternate<AF9>>,
-            PC2<Alternate<AF0>>,
-            PE2<Alternate<AF9>>,
-            PF7<Alternate<AF10>>
+            PA3<Alternate<6>>,
+            PA7<Alternate<10>>,
+            PB13<Alternate<4>>,
+            PC2<Alternate<9>>,
+            PC2<Alternate<0>>,
+            PE2<Alternate<9>>,
+            PF7<Alternate<10>>
         ]
         IO3: [
-            PA1<Alternate<AF9>>,
-            PA6<Alternate<AF6>>,
-            PD13<Alternate<AF9>>,
-            PF6<Alternate<AF10>>
+            PA1<Alternate<9>>,
+            PA6<Alternate<6>>,
+            PD13<Alternate<9>>,
+            PF6<Alternate<10>>
         ]
         IO4: [
-            PC1<Alternate<AF10>>,
-            PD4<Alternate<AF10>>,
-            PE7<Alternate<AF10>>,
-            PH2<Alternate<AF9>>
+            PC1<Alternate<10>>,
+            PD4<Alternate<10>>,
+            PE7<Alternate<10>>,
+            PH2<Alternate<9>>
         ]
         IO5: [
-            PC2<Alternate<AF4>>,
-            PC2<Alternate<AF0>>,
-            PD5<Alternate<AF10>>,
-            PE8<Alternate<AF10>>,
-            PH3<Alternate<AF9>>
+            PC2<Alternate<4>>,
+            PC2<Alternate<0>>,
+            PD5<Alternate<10>>,
+            PE8<Alternate<10>>,
+            PH3<Alternate<9>>
         ]
         IO6: [
-            PC3<Alternate<AF4>>,
-            PC3<Alternate<AF0>>,
-            PD6<Alternate<AF10>>,
-            PE9<Alternate<AF10>>,
-            PG9<Alternate<AF9>>
+            PC3<Alternate<4>>,
+            PC3<Alternate<0>>,
+            PD6<Alternate<10>>,
+            PE9<Alternate<10>>,
+            PG9<Alternate<9>>
         ]
         IO7: [
-            PD7<Alternate<AF10>>,
-            PE10<Alternate<AF10>>,
-            PG14<Alternate<AF9>>
+            PD7<Alternate<10>>,
+            PE10<Alternate<10>>,
+            PG14<Alternate<9>>
         ]
 }
 pins! {
     OCTOSPI2:
         CLK: [
-            PF4<Alternate<AF9>>
+            PF4<Alternate<9>>
         ]
         NCLK: [
-            PF5<Alternate<AF9>>
+            PF5<Alternate<9>>
         ]
         DQS: [
-            PF12<Alternate<AF9>>,
-            PG7<Alternate<AF9>>,
-            PG15<Alternate<AF9>>
+            PF12<Alternate<9>>,
+            PG7<Alternate<9>>,
+            PG15<Alternate<9>>
         ]
         NCS: [
-            PG12<Alternate<AF3>>
+            PG12<Alternate<3>>
         ]
         IO0: [
-            PF0<Alternate<AF9>>
+            PF0<Alternate<9>>
         ]
         IO1: [
-            PF1<Alternate<AF9>>
+            PF1<Alternate<9>>
         ]
         IO2: [
-            PF2<Alternate<AF9>>
+            PF2<Alternate<9>>
         ]
         IO3: [
-            PF3<Alternate<AF9>>
+            PF3<Alternate<9>>
         ]
         IO4: [
-            PG0<Alternate<AF9>>
+            PG0<Alternate<9>>
         ]
         IO5: [
-            PG1<Alternate<AF9>>
+            PG1<Alternate<9>>
         ]
         IO6: [
-            PG10<Alternate<AF3>>
+            PG10<Alternate<3>>
         ]
         IO7: [
-            PG11<Alternate<AF9>>
+            PG11<Alternate<9>>
         ]
 }
 

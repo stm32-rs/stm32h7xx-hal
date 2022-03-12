@@ -45,13 +45,13 @@ fn main() -> ! {
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
-    let _qspi_cs = gpiog.pg6.into_alternate_af10();
+    let _qspi_cs = gpiog.pg6.into_alternate::<10>();
 
-    let sck = gpiof.pf10.into_alternate_af9();
-    let io0 = gpiof.pf8.into_alternate_af10();
-    let io1 = gpiod.pd12.into_alternate_af9();
-    let io2 = gpioe.pe2.into_alternate_af9();
-    let io3 = gpiod.pd13.into_alternate_af9();
+    let sck = gpiof.pf10.into_alternate();
+    let io0 = gpiof.pf8.into_alternate();
+    let io1 = gpiod.pd12.into_alternate();
+    let io2 = gpioe.pe2.into_alternate();
+    let io3 = gpiod.pd13.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - QSPI with MDMA");

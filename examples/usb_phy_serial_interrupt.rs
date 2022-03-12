@@ -6,7 +6,6 @@ use {
     core::cell::RefCell,
     cortex_m::interrupt::{free as interrupt_free, Mutex},
     stm32h7xx_hal::{
-        hal::digital::v2::OutputPin,
         interrupt, pac,
         prelude::*,
         rcc::rec::UsbClkSel,
@@ -104,7 +103,7 @@ unsafe fn main() -> ! {
     // This is the case on the Arduino Portenta H7.
     let mut oscen = gpioh.ph1.into_push_pull_output();
     delay.delay_ms(10u32);
-    oscen.set_high().unwrap();
+    oscen.set_high();
     // Wait for osc to be stable
     delay.delay_ms(100u32);
 
@@ -113,9 +112,9 @@ unsafe fn main() -> ! {
 
     // Reset USB Phy
     let mut usb_phy_rst = gpioj.pj4.into_push_pull_output();
-    usb_phy_rst.set_low().unwrap();
+    usb_phy_rst.set_low();
     delay.delay_ms(10u8);
-    usb_phy_rst.set_high().unwrap();
+    usb_phy_rst.set_high();
     delay.delay_ms(10u8);
 
     // Enable USB OTG_HS interrupt
@@ -125,18 +124,18 @@ unsafe fn main() -> ! {
         dp.OTG1_HS_GLOBAL,
         dp.OTG1_HS_DEVICE,
         dp.OTG1_HS_PWRCLK,
-        gpioa.pa5.into_alternate_af10(),
-        gpioi.pi11.into_alternate_af10(),
-        gpioh.ph4.into_alternate_af10(),
-        gpioc.pc0.into_alternate_af10(),
-        gpioa.pa3.into_alternate_af10(),
-        gpiob.pb0.into_alternate_af10(),
-        gpiob.pb1.into_alternate_af10(),
-        gpiob.pb10.into_alternate_af10(),
-        gpiob.pb11.into_alternate_af10(),
-        gpiob.pb12.into_alternate_af10(),
-        gpiob.pb13.into_alternate_af10(),
-        gpiob.pb5.into_alternate_af10(),
+        gpioa.pa5.into_alternate(),
+        gpioi.pi11.into_alternate(),
+        gpioh.ph4.into_alternate(),
+        gpioc.pc0.into_alternate(),
+        gpioa.pa3.into_alternate(),
+        gpiob.pb0.into_alternate(),
+        gpiob.pb1.into_alternate(),
+        gpiob.pb10.into_alternate(),
+        gpiob.pb11.into_alternate(),
+        gpiob.pb12.into_alternate(),
+        gpiob.pb13.into_alternate(),
+        gpiob.pb5.into_alternate(),
         ccdr.peripheral.USB1OTG,
         &ccdr.clocks,
     );

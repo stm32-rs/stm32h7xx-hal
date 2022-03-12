@@ -20,7 +20,6 @@ mod app {
     use cortex_m::asm::delay as delay_cycles;
     use cortex_m::asm::nop;
 
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
     use stm32h7xx_hal::sai::{
@@ -62,19 +61,19 @@ mod app {
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
         let sai1_pins = (
-            gpioe.pe2.into_alternate_af6(),       // MCLK_A
-            gpioe.pe5.into_alternate_af6(),       // SCK_A
-            gpioe.pe4.into_alternate_af6(),       // FS_A
-            gpioe.pe6.into_alternate_af6(),       // SD_A
-            Some(gpioe.pe3.into_alternate_af6()), // SD_B
+            gpioe.pe2.into_alternate(),       // MCLK_A
+            gpioe.pe5.into_alternate(),       // SCK_A
+            gpioe.pe4.into_alternate(),       // FS_A
+            gpioe.pe6.into_alternate(),       // SD_A
+            Some(gpioe.pe3.into_alternate()), // SD_B
         );
 
         // Reset the codec chip
         // Hold it low for ~1ms
         let mut codec = gpiob.pb11.into_push_pull_output();
-        codec.set_low().unwrap();
+        codec.set_low();
         delay_cycles(400_000);
-        codec.set_high().unwrap();
+        codec.set_high();
 
         // Use PLL3_P for the SAI1 clock
         let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);

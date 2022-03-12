@@ -79,7 +79,7 @@ use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
 use crate::gpio::gpioj::{PJ10, PJ11};
 #[cfg(not(feature = "stm32h7b0"))]
 use crate::gpio::gpiok::{PK0, PK1};
-use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
+use crate::gpio::Alternate;
 use crate::hal;
 use crate::hal::spi::FullDuplex;
 pub use crate::hal::spi::{
@@ -343,156 +343,156 @@ pins! {
     SPI1:
         SCK: [
             NoSck,
-            PA5<Alternate<AF5>>,
-            PB3<Alternate<AF5>>,
-            PG11<Alternate<AF5>>
+            PA5<Alternate<5>>,
+            PB3<Alternate<5>>,
+            PG11<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PA6<Alternate<AF5>>,
-            PB4<Alternate<AF5>>,
-            PG9<Alternate<AF5>>
+            PA6<Alternate<5>>,
+            PB4<Alternate<5>>,
+            PG9<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PA7<Alternate<AF5>>,
-            PB5<Alternate<AF5>>,
-            PD7<Alternate<AF5>>
+            PA7<Alternate<5>>,
+            PB5<Alternate<5>>,
+            PD7<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF5>>,
-            PA15<Alternate<AF5>>,
-            PG10<Alternate<AF5>>
+            PA4<Alternate<5>>,
+            PA15<Alternate<5>>,
+            PG10<Alternate<5>>
         ]
     SPI2:
         SCK: [
             NoSck,
-            PA9<Alternate<AF5>>,
-            PA12<Alternate<AF5>>,
-            PB10<Alternate<AF5>>,
-            PB13<Alternate<AF5>>,
-            PD3<Alternate<AF5>>,
+            PA9<Alternate<5>>,
+            PA12<Alternate<5>>,
+            PB10<Alternate<5>>,
+            PB13<Alternate<5>>,
+            PD3<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI1<Alternate<AF5>>
+            PI1<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PB14<Alternate<AF5>>,
-            PC2<Alternate<AF5>>,
+            PB14<Alternate<5>>,
+            PC2<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI2<Alternate<AF5>>
+            PI2<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PB15<Alternate<AF5>>,
-            PC1<Alternate<AF5>>,
-            PC3<Alternate<AF5>>,
+            PB15<Alternate<5>>,
+            PC1<Alternate<5>>,
+            PC3<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI3<Alternate<AF5>>
+            PI3<Alternate<5>>
         ]
         HCS: [
-            PA11<Alternate<AF5>>,
-            PB4<Alternate<AF7>>,
-            PB9<Alternate<AF5>>,
-            PB12<Alternate<AF5>>,
+            PA11<Alternate<5>>,
+            PB4<Alternate<7>>,
+            PB9<Alternate<5>>,
+            PB12<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI0<Alternate<AF5>>
+            PI0<Alternate<5>>
         ]
     SPI3:
         SCK: [
             NoSck,
-            PB3<Alternate<AF6>>,
-            PC10<Alternate<AF6>>
+            PB3<Alternate<6>>,
+            PC10<Alternate<6>>
         ]
         MISO: [
             NoMiso,
-            PB4<Alternate<AF6>>,
-            PC11<Alternate<AF6>>
+            PB4<Alternate<6>>,
+            PC11<Alternate<6>>
         ]
         MOSI: [
             NoMosi,
-            PB2<Alternate<AF7>>,
-            PB5<Alternate<AF7>>,
-            PC12<Alternate<AF6>>,
-            PD6<Alternate<AF5>>
+            PB2<Alternate<7>>,
+            PB5<Alternate<7>>,
+            PC12<Alternate<6>>,
+            PD6<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF6>>,
-            PA15<Alternate<AF6>>
+            PA4<Alternate<6>>,
+            PA15<Alternate<6>>
         ]
     SPI4:
         SCK: [
             NoSck,
-            PE2<Alternate<AF5>>,
-            PE12<Alternate<AF5>>
+            PE2<Alternate<5>>,
+            PE12<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PE5<Alternate<AF5>>,
-            PE13<Alternate<AF5>>
+            PE5<Alternate<5>>,
+            PE13<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PE6<Alternate<AF5>>,
-            PE14<Alternate<AF5>>
+            PE6<Alternate<5>>,
+            PE14<Alternate<5>>
         ]
         HCS: [
-            PE4<Alternate<AF5>>,
-            PE11<Alternate<AF5>>
+            PE4<Alternate<5>>,
+            PE11<Alternate<5>>
         ]
     SPI5:
         SCK: [
             NoSck,
-            PF7<Alternate<AF5>>,
-            PH6<Alternate<AF5>>,
+            PF7<Alternate<5>>,
+            PH6<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK0<Alternate<AF5>>
+            PK0<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PF8<Alternate<AF5>>,
-            PH7<Alternate<AF5>>,
+            PF8<Alternate<5>>,
+            PH7<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ11<Alternate<AF5>>
+            PJ11<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PF9<Alternate<AF5>>,
-            PF11<Alternate<AF5>>,
+            PF9<Alternate<5>>,
+            PF11<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ10<Alternate<AF5>>
+            PJ10<Alternate<5>>
         ]
         HCS: [
-            PF6<Alternate<AF5>>,
-            PH5<Alternate<AF5>>,
+            PF6<Alternate<5>>,
+            PH5<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK1<Alternate<AF5>>
+            PK1<Alternate<5>>
         ]
     SPI6:
         SCK: [
             NoSck,
-            PA5<Alternate<AF8>>,
-            PB3<Alternate<AF8>>,
+            PA5<Alternate<8>>,
+            PB3<Alternate<8>>,
             #[cfg(feature = "rm0455")]
-            PC12<Alternate<AF5>>,
-            PG13<Alternate<AF5>>
+            PC12<Alternate<5>>,
+            PG13<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PA6<Alternate<AF8>>,
-            PB4<Alternate<AF8>>,
-            PG12<Alternate<AF5>>
+            PA6<Alternate<8>>,
+            PB4<Alternate<8>>,
+            PG12<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PA7<Alternate<AF8>>,
-            PB5<Alternate<AF8>>,
-            PG14<Alternate<AF5>>
+            PA7<Alternate<8>>,
+            PB5<Alternate<8>>,
+            PG14<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF8>>,
-            PA15<Alternate<AF7>>,
-            PG8<Alternate<AF5>>
+            PA4<Alternate<8>>,
+            PA15<Alternate<7>>,
+            PG8<Alternate<5>>
         ]
 }
 

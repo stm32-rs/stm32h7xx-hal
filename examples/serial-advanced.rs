@@ -29,9 +29,9 @@ fn main() -> ! {
     // GPIOC in the RCC register.
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let tx = gpioc.pc10.into_alternate_af7();
-    let rx = gpioc.pc11.into_alternate_af7();
-    let clk = gpioc.pc12.into_alternate_af7();
+    let tx = gpioc.pc10.into_alternate();
+    let rx = gpioc.pc11.into_alternate();
+    let clk = gpioc.pc12.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - USART Advanced");

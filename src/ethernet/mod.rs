@@ -225,7 +225,7 @@ use crate::gpio::gpiog::{PG11, PG12, PG13, PG14, PG8};
 use crate::gpio::gpioh::{PH2, PH3, PH6, PH7};
 #[cfg(not(feature = "rm0468"))]
 use crate::gpio::gpioi::PI10;
-use crate::gpio::{Alternate, AF11};
+use crate::gpio::Alternate;
 
 macro_rules! impl_set_speed {
     ($TRAIT:ty, [$($PIN:ty),*]) => {
@@ -239,23 +239,23 @@ macro_rules! impl_set_speed {
     };
 }
 
-impl_set_speed!(RefClk, [PA1<Alternate<AF11>>]);
-impl_set_speed!(TxClk, [PC3<Alternate<AF11>>]);
-impl_set_speed!(Mdio, [PA2<Alternate<AF11>>]);
-impl_set_speed!(Mdc, [PC1<Alternate<AF11>>]);
-impl_set_speed!(Col, [PA3<Alternate<AF11>>, PH3<Alternate<AF11>>]);
-impl_set_speed!(Crs, [PA0<Alternate<AF11>>, PH2<Alternate<AF11>>]);
-impl_set_speed!(CrsDv, [PA7<Alternate<AF11>>]);
-impl_set_speed!(PpsOut, [PB5<Alternate<AF11>>, PG8<Alternate<AF11>>]);
-impl_set_speed!(RxEr, [PB10<Alternate<AF11>>]);
+impl_set_speed!(RefClk, [PA1<Alternate<11>>]);
+impl_set_speed!(TxClk, [PC3<Alternate<11>>]);
+impl_set_speed!(Mdio, [PA2<Alternate<11>>]);
+impl_set_speed!(Mdc, [PC1<Alternate<11>>]);
+impl_set_speed!(Col, [PA3<Alternate<11>>, PH3<Alternate<11>>]);
+impl_set_speed!(Crs, [PA0<Alternate<11>>, PH2<Alternate<11>>]);
+impl_set_speed!(CrsDv, [PA7<Alternate<11>>]);
+impl_set_speed!(PpsOut, [PB5<Alternate<11>>, PG8<Alternate<11>>]);
+impl_set_speed!(RxEr, [PB10<Alternate<11>>]);
 #[cfg(not(feature = "rm0468"))]
-impl_set_speed!(RxEr, [PI10<Alternate<AF11>>]);
-impl_set_speed!(TxEn, [PB11<Alternate<AF11>>, PG11<Alternate<AF11>>]);
-impl_set_speed!(Rxd0, [PC4<Alternate<AF11>>]);
-impl_set_speed!(Rxd1, [PC5<Alternate<AF11>>]);
-impl_set_speed!(Rxd2, [PB0<Alternate<AF11>>, PH6<Alternate<AF11>>]);
-impl_set_speed!(Rxd3, [PB1<Alternate<AF11>>, PH7<Alternate<AF11>>]);
-impl_set_speed!(Txd0, [PB12<Alternate<AF11>>, PG13<Alternate<AF11>>]);
-impl_set_speed!(Txd1, [PB13<Alternate<AF11>>, PG12<Alternate<AF11>>, PG14<Alternate<AF11>>]);
-impl_set_speed!(Txd2, [PC2<Alternate<AF11>>]);
-impl_set_speed!(Txd3, [PB8<Alternate<AF11>>, PE2<Alternate<AF11>>]);
+impl_set_speed!(RxEr, [PI10<Alternate<11>>]);
+impl_set_speed!(TxEn, [PB11<Alternate<11>>, PG11<Alternate<11>>]);
+impl_set_speed!(Rxd0, [PC4<Alternate<11>>]);
+impl_set_speed!(Rxd1, [PC5<Alternate<11>>]);
+impl_set_speed!(Rxd2, [PB0<Alternate<11>>, PH6<Alternate<11>>]);
+impl_set_speed!(Rxd3, [PB1<Alternate<11>>, PH7<Alternate<11>>]);
+impl_set_speed!(Txd0, [PB12<Alternate<11>>, PG13<Alternate<11>>]);
+impl_set_speed!(Txd1, [PB13<Alternate<11>>, PG12<Alternate<11>>, PG14<Alternate<11>>]);
+impl_set_speed!(Txd2, [PC2<Alternate<11>>]);
+impl_set_speed!(Txd3, [PB8<Alternate<11>>, PE2<Alternate<11>>]);

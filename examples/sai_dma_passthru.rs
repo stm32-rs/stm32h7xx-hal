@@ -12,7 +12,6 @@ use cortex_m_rt::entry;
 
 use hal::device;
 use hal::dma;
-use hal::hal::digital::v2::OutputPin;
 use hal::rcc::rec::Sai1ClkSel;
 use hal::sai::{self, I2sUsers, SaiChannel, SaiI2sExt};
 use hal::stm32;
@@ -94,11 +93,11 @@ fn main() -> ! {
 
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
     let sai1_pins = (
-        gpioe.pe2.into_alternate_af6(),       // MCLK_A
-        gpioe.pe5.into_alternate_af6(),       // SCK_A
-        gpioe.pe4.into_alternate_af6(),       // FS_A
-        gpioe.pe6.into_alternate_af6(),       // SD_A
-        Some(gpioe.pe3.into_alternate_af6()), // SD_B
+        gpioe.pe2.into_alternate(),       // MCLK_A
+        gpioe.pe5.into_alternate(),       // SCK_A
+        gpioe.pe4.into_alternate(),       // FS_A
+        gpioe.pe6.into_alternate(),       // SD_A
+        Some(gpioe.pe3.into_alternate()), // SD_B
     );
 
     // - configure dma1 -------------------------------------------------------
@@ -162,9 +161,9 @@ fn main() -> ! {
 
     // - reset ak4556 codec -----------------------------------------------
 
-    ak4556_reset.set_low().unwrap();
+    ak4556_reset.set_low();
     asm::delay(480_000); // ~ 1ms (datasheet specifies minimum 150ns)
-    ak4556_reset.set_high().unwrap();
+    ak4556_reset.set_high();
 
     // - start audio ------------------------------------------------------
 

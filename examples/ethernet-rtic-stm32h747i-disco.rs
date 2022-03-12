@@ -106,7 +106,6 @@ impl<'a> Net<'a> {
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::{ethernet, ethernet::PHY, gpio, prelude::*};
 
     use super::*;
@@ -152,17 +151,17 @@ mod app {
         let gpiog = ctx.device.GPIOG.split(ccdr.peripheral.GPIOG);
         let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
         let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
-        link_led.set_high().ok();
+        link_led.set_high();
 
-        let rmii_ref_clk = gpioa.pa1.into_alternate_af11();
-        let rmii_mdio = gpioa.pa2.into_alternate_af11();
-        let rmii_mdc = gpioc.pc1.into_alternate_af11();
-        let rmii_crs_dv = gpioa.pa7.into_alternate_af11();
-        let rmii_rxd0 = gpioc.pc4.into_alternate_af11();
-        let rmii_rxd1 = gpioc.pc5.into_alternate_af11();
-        let rmii_tx_en = gpiog.pg11.into_alternate_af11();
-        let rmii_txd0 = gpiog.pg13.into_alternate_af11();
-        let rmii_txd1 = gpiog.pg12.into_alternate_af11();
+        let rmii_ref_clk = gpioa.pa1.into_alternate();
+        let rmii_mdio = gpioa.pa2.into_alternate();
+        let rmii_mdc = gpioc.pc1.into_alternate();
+        let rmii_crs_dv = gpioa.pa7.into_alternate();
+        let rmii_rxd0 = gpioc.pc4.into_alternate();
+        let rmii_rxd1 = gpioc.pc5.into_alternate();
+        let rmii_tx_en = gpiog.pg11.into_alternate();
+        let rmii_txd0 = gpiog.pg13.into_alternate();
+        let rmii_txd1 = gpiog.pg12.into_alternate();
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
@@ -228,7 +227,6 @@ mod app {
                 true => ctx.local.link_led.set_low(),
                 _ => ctx.local.link_led.set_high(),
             }
-            .ok();
         }
     }
 
