@@ -105,7 +105,10 @@ fn main() -> ! {
     //let mut can = can.into_normal();
 
     info!("Create Message Data");
-    let mut buffer = [0xAAAAAAAA, 0xFFFFFFFF, 0x0, 0x0, 0x0, 0x0];
+    let mut buffer = [
+        0xAA, 0xAA, 0xAA, 0xAA, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    ];
     info!("Create Message Header");
     let header = TxFrameHeader {
         len: 2 * 4,
@@ -117,32 +120,17 @@ fn main() -> ! {
     info!("Initial Header: {:#X?}", &header);
 
     info!("Transmit initial message");
-    block!(can.transmit(header, &mut |b| {
-        let len = b.len();
-        b[..len].clone_from_slice(&buffer[..len]);
-    },))
-    .unwrap();
+    block!(can.transmit(header, &buffer)).unwrap();
 
     loop {
-        if let Ok(rxheader) = block!(can.receive0(&mut |h, b| {
-            info!("Received Header: {:#X?}", &h);
-            info!("received data: {:X?}", &b);
+        if let Ok(rxheader) = block!(can.receive0(&mut buffer)) {
+            info!("Received Header: {:#X?}", rxheader);
+            info!("received data: {:X?}", &buffer);
 
-            for (i, d) in b.iter().enumerate() {
-                buffer[i] = *d;
-            }
-            h
-        })) {
             delay.delay_ms(1_u16);
-            block!(can.transmit(
-                rxheader.unwrap().to_tx_header(None),
-                &mut |b| {
-                    let len = b.len();
-                    b[..len].clone_from_slice(&buffer[..len]);
-                    info!("Transmit: {:X?}", b);
-                }
-            ))
-            .unwrap();
+            block!(can.transmit(rxheader.unwrap().to_tx_header(None), &buffer))
+                .unwrap();
+            info!("Transmit: {:X?}", buffer);
         }
     }
 }
