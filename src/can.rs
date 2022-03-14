@@ -98,18 +98,33 @@ macro_rules! message_ram_layout {
         word_adr += 2 * EXTENDED_FILTER_MAX as u16;
         // Rx FIFO 0
         $can.rxf0c.modify(|_, w| unsafe {
-            w.f0sa().bits(word_adr).f0s().bits(RX_FIFO_MAX)
+            w.f0sa()
+                .bits(word_adr)
+                .f0s()
+                .bits(RX_FIFO_MAX)
+                .f0wm()
+                .bits(RX_FIFO_MAX)
         });
         word_adr += 18 * RX_FIFO_MAX as u16;
         // Rx FIFO 1
         $can.rxf1c.modify(|_, w| unsafe {
-            w.f1sa().bits(word_adr).f1s().bits(RX_FIFO_MAX)
+            w.f1sa()
+                .bits(word_adr)
+                .f1s()
+                .bits(RX_FIFO_MAX)
+                .f1wm()
+                .bits(RX_FIFO_MAX)
         });
         word_adr += 18 * RX_FIFO_MAX as u16;
         // Rx buffer - see below
         // Tx event FIFO
         $can.txefc.modify(|_, w| unsafe {
-            w.efsa().bits(word_adr).efs().bits(TX_EVENT_MAX)
+            w.efsa()
+                .bits(word_adr)
+                .efs()
+                .bits(TX_EVENT_MAX)
+                .efwm()
+                .bits(TX_EVENT_MAX)
         });
         word_adr += 2 * TX_EVENT_MAX as u16;
         // Tx buffers
