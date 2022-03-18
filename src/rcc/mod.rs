@@ -155,6 +155,8 @@ use crate::time::Hertz;
 use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::rcc::d1cfgr::HPRE_A as HPRE;
+#[cfg(feature = "log")]
+use log::debug;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdccipr::CKPERSEL_A as CKPERSEL;
@@ -971,6 +973,126 @@ impl Rcc {
             w.en().set_bit().cs().clear_bit().hslv().clear_bit()
         });
         while syscfg.cccsr.read().ready().bit_is_clear() {}
+
+        // This section prints the final register configuration for the main RCC registers:
+        // - System Clock and PLL Source MUX
+        // - PLL configuration
+        // - System Prescalers
+        // Does not include peripheral/MCO/RTC clock MUXes
+        #[cfg(feature = "log")]
+        {
+            debug!("--- RCC register settings");
+
+            let cfgr = rcc.cfgr.read();
+            debug!(
+                "CFGR register: SWS (System Clock Mux)={:?}",
+                cfgr.sws().variant().unwrap()
+            );
+
+            let d1cfgr = rcc.d1cfgr.read();
+            debug!(
+                "D1CFGR register: D1CPRE={:?} HPRE={:?} D1PPRE={:?}",
+                d1cfgr.d1cpre().variant().unwrap(),
+                d1cfgr.hpre().variant().unwrap(),
+                d1cfgr.d1ppre().variant().unwrap(),
+            );
+
+            let d2cfgr = rcc.d2cfgr.read();
+            debug!(
+                "D2CFGR register: D2PPRE1={:?} D2PPRE1={:?}",
+                d2cfgr.d2ppre1().variant().unwrap(),
+                d2cfgr.d2ppre2().variant().unwrap(),
+            );
+
+            let d3cfgr = rcc.d3cfgr.read();
+            debug!(
+                "D3CFGR register: D3PPRE={:?}",
+                d3cfgr.d3ppre().variant().unwrap(),
+            );
+
+            let pllckselr = rcc.pllckselr.read();
+            debug!(
+                "PLLCKSELR register: PLLSRC={:?} DIVM1={:#x} DIVM2={:#x} DIVM3={:#x}",
+                pllckselr.pllsrc().variant(),
+                pllckselr.divm1().bits(),
+                pllckselr.divm2().bits(),
+                pllckselr.divm3().bits(),
+            );
+
+            let pllcfgr = rcc.pllcfgr.read();
+            debug!(
+                "PLLCKSELR register (PLL1): PLL1FRACEN={:?} PLL1VCOSEL={:?} PLL1RGE={:?} DIVP1EN={:?} DIVQ1EN={:?} DIVR1EN={:?}",
+                pllcfgr.pll1fracen().variant(),
+                pllcfgr.pll1vcosel().variant(),
+                pllcfgr.pll1rge().variant(),
+                pllcfgr.divp1en().variant(),
+                pllcfgr.divq1en().variant(),
+                pllcfgr.divr1en().variant(),
+            );
+            debug!(
+                "PLLCKSELR register (PLL2): PLL2FRACEN={:?} PLL2VCOSEL={:?} PLL2RGE={:?} DIVP2EN={:?} DIVQ2EN={:?} DIVR2EN={:?}",
+                pllcfgr.pll2fracen().variant(),
+                pllcfgr.pll2vcosel().variant(),
+                pllcfgr.pll2rge().variant(),
+                pllcfgr.divp2en().variant(),
+                pllcfgr.divq2en().variant(),
+                pllcfgr.divr2en().variant(),
+            );
+            debug!(
+                "PLLCKSELR register (PLL3): PLL3FRACEN={:?} PLL3VCOSEL={:?} PLL3RGE={:?} DIVP3EN={:?} DIVQ3EN={:?} DIVR3EN={:?}",
+                pllcfgr.pll3fracen().variant(),
+                pllcfgr.pll3vcosel().variant(),
+                pllcfgr.pll3rge().variant(),
+                pllcfgr.divp3en().variant(),
+                pllcfgr.divq3en().variant(),
+                pllcfgr.divr3en().variant(),
+            );
+
+            let pll1divr = rcc.pll1divr.read();
+            debug!(
+                "PLL1DIVR register: DIVN1={:#x} DIVP1={:#x} DIVQ1={:#x} DIVR1={:#x}",
+                pll1divr.divn1().bits(),
+                pll1divr.divp1().bits(),
+                pll1divr.divq1().bits(),
+                pll1divr.divr1().bits(),
+            );
+
+            let pll1fracr = rcc.pll1fracr.read();
+            debug!(
+                "PLL1FRACR register: FRACN1={:#x}",
+                pll1fracr.fracn1().bits(),
+            );
+
+            let pll2divr = rcc.pll2divr.read();
+            debug!(
+                "PLL2DIVR register: DIVN2={:#x} DIVP2={:#x} DIVQ2={:#x} DIVR2={:#x}",
+                pll2divr.divn2().bits(),
+                pll2divr.divp2().bits(),
+                pll2divr.divq2().bits(),
+                pll2divr.divr2().bits(),
+            );
+
+            let pll2fracr = rcc.pll2fracr.read();
+            debug!(
+                "PLL2FRACR register: FRACN2={:#x}",
+                pll2fracr.fracn2().bits(),
+            );
+
+            let pll3divr = rcc.pll3divr.read();
+            debug!(
+                "PLL3DIVR register: DIVN3={:#x} DIVP3={:#x} DIVQ3={:#x} DIVR3={:#x}",
+                pll3divr.divn3().bits(),
+                pll3divr.divp3().bits(),
+                pll3divr.divq3().bits(),
+                pll3divr.divr3().bits(),
+            );
+
+            let pll3fracr = rcc.pll3fracr.read();
+            debug!(
+                "PLL3FRACR register: FRACN3={:#x}",
+                pll3fracr.fracn3().bits(),
+            );
+        }
 
         // Return frozen clock configuration
         Ccdr {
