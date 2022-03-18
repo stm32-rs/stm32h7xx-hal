@@ -114,6 +114,10 @@ pub enum Error {
     TransactionAlreadyStarted,
     /// A buffer is too big to be processed
     BufferTooBig { max_size: usize },
+    /// Duplex operation failed. This occours when a word was sent, but no
+    /// corresponding word was received. May be caused by hardware issues where
+    /// the SPI master fails to receive its own clock on the CLK pin
+    DuplexFailed,
 }
 
 /// Enabled SPI peripheral (type state)
@@ -496,6 +500,26 @@ pins! {
         ]
 }
 
+macro_rules! check_status_error {
+    ($spi:expr; $(  {$flag:ident, $variant:ident, $blk:block}  ),*) => {{
+        let sr = $spi.sr.read();
+
+        return Err(if sr.ovr().is_overrun() {
+            nb::Error::Other(Error::Overrun)
+        } else if sr.modf().is_fault() {
+            nb::Error::Other(Error::ModeFault)
+        } else if sr.crce().is_error() {
+            nb::Error::Other(Error::Crc)
+        }
+            $(
+                else if sr.$flag().$variant() { $blk }
+            )*
+        else {
+            nb::Error::WouldBlock
+        })
+    }}
+}
+
 /// Interrupt events
 #[derive(Copy, Clone, PartialEq)]
 pub enum Event {
@@ -704,15 +728,14 @@ macro_rules! spi {
 
                         let spi_freq = freq.into().0;
 	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
-                        let mbr = match spi_ker_ck / spi_freq {
-                            0 => unreachable!(),
+                        let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
                             1..=2 => MBR::DIV2,
-                            3..=5 => MBR::DIV4,
-                            6..=11 => MBR::DIV8,
-                            12..=23 => MBR::DIV16,
-                            24..=47 => MBR::DIV32,
-                            48..=95 => MBR::DIV64,
-                            96..=191 => MBR::DIV128,
+                            3..=4 => MBR::DIV4,
+                            5..=8 => MBR::DIV8,
+                            9..=16 => MBR::DIV16,
+                            17..=32 => MBR::DIV32,
+                            33..=64 => MBR::DIV64,
+                            65..=128 => MBR::DIV128,
                             _ => MBR::DIV256,
                         };
                         spi.cfg1.modify(|_, w| {
@@ -1053,58 +1076,113 @@ macro_rules! spi {
                     type Error = Error;
 
                     fn read(&mut self) -> nb::Result<$TY, Error> {
-                        let sr = self.spi.sr.read();
-
-                        Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.rxp().is_not_empty() {
-                            // NOTE(read_volatile) read only 1 byte (the
-                            // svd2rust API only allows reading a
-                            // half-word)
-                            return Ok(unsafe {
-                                ptr::read_volatile(
-                                    &self.spi.rxdr as *const _ as *const $TY,
-                                )
-                            });
-                        } else {
-                            nb::Error::WouldBlock
+                        check_status_error!(self.spi;
+                        {    // } else if sr.rxp().is_not_empty() {
+                            rxp, is_not_empty,
+                            {
+                                // NOTE(read_volatile) read only 1 word
+                                return Ok(unsafe {
+                                    ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    )
+                                });
+                            }
                         })
                     }
 
-                    fn send(&mut self, byte: $TY) -> nb::Result<(), Error> {
-                        let sr = self.spi.sr.read();
+                    fn send(&mut self, word: $TY) -> nb::Result<(), Error> {
+                        check_status_error!(self.spi;
+                        {    // } else if sr.txp().is_not_full() {
+                            txp, is_not_full,
+                            {
+                                // NOTE(write_volatile) see note above
+                                unsafe {
+                                    ptr::write_volatile(
+                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        word,
+                                    )
+                                }
+                                // write CSTART to start a transaction in
+                                // master mode
+                                self.spi.cr1.modify(|_, w| w.cstart().started());
 
-                        Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.txp().is_not_full() {
-                            // NOTE(write_volatile) see note above
-                            unsafe {
-                                ptr::write_volatile(
-                                    &self.spi.txdr as *const _ as *mut $TY,
-                                    byte,
-                                )
+                                return Ok(());
                             }
-                            // write CSTART to start a transaction in
-                            // master mode
-                            self.spi.cr1.modify(|_, w| w.cstart().started());
-
-                            return Ok(());
-                        } else {
-                            nb::Error::WouldBlock
                         })
                     }
                 }
 
                 impl Spi<$SPIX, Enabled, $TY>
                 {
+                    /// Internal implementation for exchanging a word
+                    ///
+                    /// * Assumes the transaction has started (CSTART handled externally)
+                    /// * Assumes at least one word has already been written to the Tx FIFO
+                    #[inline(always)]
+                    fn exchange_duplex_internal(&mut self, word: $TY) -> nb::Result<$TY, Error> {
+                        check_status_error!(self.spi;
+                        {    // else if sr.dxp().is_available() {
+                            dxp, is_available,
+                            {
+                                // NOTE(write_volatile/read_volatile) write/read only 1 word
+                                unsafe {
+                                    ptr::write_volatile(
+                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        word,
+                                    );
+                                    return Ok(ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    ));
+                                }
+                            }
+                        }, { // else if sr.txc().is_completed() {
+                            txc, is_completed,
+                            {
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
+                            }
+                        })
+                    }
+                    /// Internal implementation for reading a word
+                    ///
+                    /// * Assumes the transaction has started (CSTART handled externally)
+                    /// * Assumes at least one word has already been written to the Tx FIFO
+                    #[inline(always)]
+                    fn read_duplex_internal(&mut self) -> nb::Result<$TY, Error> {
+                        check_status_error!(self.spi;
+                        {    // else if sr.rxp().is_not_empty()
+                            rxp, is_not_empty,
+                            {
+                                // NOTE(read_volatile) read only 1 word
+                                return Ok(unsafe {
+                                    ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    )
+                                });
+                            }
+                        }, { // else if sr.txc().is_completed()
+                            txc, is_completed,
+                            {
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
+                            }
+                        })
+                    }
+
                     /// Internal implementation for blocking::spi::Transfer and
                     /// blocking::spi::Write
                     fn transfer_internal<'w>(&mut self,
@@ -1154,24 +1232,26 @@ macro_rules! spi {
 
                             // Continue filling write FIFO and emptying read FIFO
                             for word in write {
-                                nb::block!(self.send(*word))?;
-                                *read.next().unwrap() = nb::block!(self.read())?;
+                                *read.next().unwrap() = nb::block!(
+                                    self.exchange_duplex_internal(*word)
+                                )?;
                             }
 
                             // Finish emptying the read FIFO
                             for word in read {
-                                *word = nb::block!(self.read())?;
+                                *word = nb::block!(self.read_duplex_internal())?;
                             }
                         } else {
                             // Continue filling write FIFO and emptying read FIFO
                             for word in write {
-                                nb::block!(self.send(*word))?;
-                                let _ = nb::block!(self.read())?;
+                                let _ = nb::block!(
+                                    self.exchange_duplex_internal(*word)
+                                )?;
                             }
 
                             // Dummy read from the read FIFO
                             for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-                                let _ = nb::block!(self.read())?;
+                                let _ = nb::block!(self.read_duplex_internal())?;
                             }
                         }
 
@@ -1188,7 +1268,7 @@ macro_rules! spi {
                     type Error = Error;
 
                     fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-                        // SAFETY: transfer_internal always writes out bytes
+                        // SAFETY: transfer_internal always writes out words
                         // before modifying them
                         let write = unsafe {
                             core::slice::from_raw_parts(words.as_ptr(), words.len())

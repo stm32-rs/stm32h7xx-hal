@@ -14,6 +14,9 @@
 * serial: Add support for swapping Tx/Rx pins [#324][324]
 * serial: Add `join()` to combine `Tx`+`Rx` back into `Serial` [#324][324]
 
+* spi: add DuplexFailed error
+* spi: Fix arithmetic error in spi divider calculation
+
 ## [v0.11.0] 2021-12-18
 
 * **Breaking**: Simplified API for reading device signature
