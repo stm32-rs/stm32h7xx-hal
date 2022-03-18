@@ -240,6 +240,3 @@ required-features = ["crc", "rt"]
 [[example]]
 name = "flash"
 required-features = ["rt", "stm32h743v"]
-
-[patch.crates-io]
-fdcan = { git = "https://github.com/stm32-rs/fdcan" }
