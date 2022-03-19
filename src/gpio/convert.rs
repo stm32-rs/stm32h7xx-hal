@@ -372,10 +372,10 @@ impl<const P: char, const N: u8, const A: u8>
 macro_rules! af {
     ($($into_alternate_af:ident: $A:literal;)+) => {
         $(
-            #[doc="Configures the pin to operate in alterante function "]
+            #[doc="Configures the pin to operate in alternate function "]
             #[doc=stringify!($A)]
             #[doc=" mode"]
-            #[deprecated(since = "0.12.0")]
+            #[deprecated(since = "0.12.0", note = "Use the .into_alternate() method instead")]
             pub fn $into_alternate_af(self) -> Pin<P, N, Alternate<$A, PushPull>> {
                 self.into_alternate::<$A>()
             }
