@@ -30,7 +30,6 @@ use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use crate::stm32::{UART4, UART5, UART7, UART8};
 use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::time::Hertz;
-use crate::Never;
 
 /// Serial error
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -898,16 +897,16 @@ macro_rules! usart {
             }
 
             impl serial::Write<u8> for Serial<$USARTX> {
-                type Error = Never;
+                type Error = core::convert::Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Never> {
+                fn flush(&mut self) -> nb::Result<(), Self::Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.flush()
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
+                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
@@ -926,9 +925,9 @@ macro_rules! usart {
                 // framing errors (which only occur in SmartCard
                 // mode); neither of these apply to our hardware
                 // configuration
-                type Error = Never;
+                type Error = core::convert::Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Never> {
+                fn flush(&mut self) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -939,7 +938,7 @@ macro_rules! usart {
                     }
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Never> {
+                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 

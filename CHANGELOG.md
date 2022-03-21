@@ -4,6 +4,8 @@
 
 * **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
   inherent impls for `embedded-hal` like methods by-default, default modes [#334]
+* Replace crate::Never with core::convert::Infallible
+
 * pwr: Add backup domain voltage regulator control [#303][303]
 * MSRV increased to 1.59
 * flash: added flash implementation
