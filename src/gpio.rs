@@ -145,8 +145,8 @@ pub trait ExtiPin {
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $gpio_doc:expr,
      $Rec:ident, $PXx:ident, $extigpionr:expr, [
-        $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $exticri:ident),)+
-    ]) => {
+         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $exticri:ident),)+
+     ]) => {
         #[doc=$gpio_doc]
         pub mod $gpiox {
             use core::marker::PhantomData;
@@ -161,7 +161,7 @@ macro_rules! gpio {
                 Alternate, Floating, GpioExt, Input, OpenDrain,
                 Output, Speed, PullDown, PullUp, PushPull, AF0, AF1,
                 AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11,
-                AF12, AF13, AF14, AF15, Analog, Edge, ExtiPin, };
+                AF12, AF13, AF14, AF15, Analog, Edge, ExtiPin, erased::ErasedPin, };
 
             use crate::Never;
 
@@ -542,7 +542,7 @@ macro_rules! gpio {
                             (*$GPIOX::ptr()).moder.modify(|r, w| {
                                 w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
                             }
-                        )};
+                            )};
 
                         $PXi { _mode: PhantomData }
                     }
@@ -598,7 +598,7 @@ macro_rules! gpio {
                             (*$GPIOX::ptr()).moder.modify(|r, w| {
                                 w.bits((r.bits() & !(0b11 << offset)) | (0b11 << offset))
                             }
-                        )};
+                            )};
 
                         $PXi { _mode: PhantomData }
                     }
@@ -676,6 +676,19 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> $PXi<MODE> {
+                    /// Erases both the pin number and port from the type
+                    ///
+                    /// This is useful when you want to collect the
+                    /// pins into an array where you need all the
+                    /// elements to have the same type
+                    pub fn erase(&self) -> ErasedPin<MODE> {
+                        ErasedPin::new($extigpionr, $i)
+                        // ErasedPin {
+                        //      pin_port: $extigpionr << 4 | $i,
+                        //      _mode: self._mode,
+                        // }
+                    }
+
                     /// Erases the pin number from the type
                     ///
                     /// This is useful when you want to collect the
@@ -768,7 +781,7 @@ macro_rules! gpio {
                 }
 
                 impl IoPin<Self, Self>
-                for $PXi<Output<OpenDrain>>
+                    for $PXi<Output<OpenDrain>>
                 {
                     type Error = Never;
                     fn into_input_pin(self) -> Result<Self, Never> {
@@ -1090,3 +1103,280 @@ gpio!(GPIOK, gpiok, "Port K", Gpiok, PK, 10, [
     PK14: (pk14, 14, Analog, exticr4),
     PK15: (pk15, 15, Analog, exticr4),
 ]);
+
+pub mod erased {
+    use super::{
+        Alternate, Analog, Floating, Input, OpenDrain, Output, PullDown,
+        PullUp, PushPull,
+    };
+    use crate::Never;
+    use core::fmt;
+    use core::marker::PhantomData;
+    use embedded_hal::digital::v2::{
+        toggleable, InputPin, OutputPin, StatefulOutputPin,
+    };
+    pub type EPin<MODE> = ErasedPin<MODE>;
+
+    /// Fully erased pin
+    ///
+    /// `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
+    pub struct ErasedPin<MODE> {
+        // Bits 0-3: Pin, Bits 4-7: Port
+        pin_port: u8,
+        _mode: PhantomData<MODE>,
+    }
+
+    impl<MODE> ErasedPin<MODE> {
+        pub(crate) fn new(port: u8, pin: u8) -> Self {
+            Self {
+                pin_port: port << 4 | pin,
+                _mode: PhantomData,
+            }
+        }
+
+        #[inline(always)]
+        fn pin_id(&self) -> u8 {
+            self.pin_port & 0x0f
+        }
+        #[inline(always)]
+        fn port_id(&self) -> u8 {
+            self.pin_port >> 4
+        }
+
+        #[inline]
+        fn block(&self) -> &crate::pac::gpioa::RegisterBlock {
+            // This function uses pointer arithmetic instead of branching to be more efficient
+
+            // The logic relies on the following assumptions:
+            // - GPIOA register is available on all chips
+            // - all gpio register blocks have the same layout
+            // - consecutive gpio register blocks have the same offset between them, namely 0x0400
+            // - ErasedPin::new was called with a valid port
+
+            // FIXME could be calculated after const_raw_ptr_to_usize_cast stabilization #51910
+            const GPIO_REGISTER_OFFSET: usize = 0x0400;
+
+            let offset = GPIO_REGISTER_OFFSET * self.port_id() as usize;
+            unsafe { &*crate::pac::GPIOA::ptr().add(offset) }
+        }
+
+        /// Configures the pin to operate as a floating
+        /// input pin
+        pub fn into_floating_input(self) -> EPin<Input<Floating>> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                });
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+
+        /// Configures the pin to operate as a pulled down
+        /// input pin
+        pub fn into_pull_down_input(self) -> EPin<Input<PullDown>> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset))
+                });
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+
+        /// Configures the pin to operate as a pulled up
+        /// input pin
+        pub fn into_pull_up_input(self) -> EPin<Input<PullUp>> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                });
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+
+        /// Configures the pin to operate as an open drain
+        /// output pin
+        pub fn into_open_drain_output(self) -> EPin<Output<OpenDrain>> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                });
+                block
+                    .otyper
+                    .modify(|r, w| w.bits(r.bits() | (0b1 << self.pin_id())));
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+
+        /// Configures the pin to operate as an push pull
+        /// output pin
+        pub fn into_push_pull_output(self) -> EPin<Output<PushPull>> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                });
+                block
+                    .otyper
+                    .modify(|r, w| w.bits(r.bits() & !(0b1 << self.pin_id())));
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+
+        /// Configures the pin to operate as an analog
+        /// input pin
+        pub fn into_analog(self) -> EPin<Analog> {
+            let offset = 2 * self.pin_id();
+            let block = self.block();
+
+            unsafe {
+                block.pupdr.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b00 << offset))
+                });
+                block.moder.modify(|r, w| {
+                    w.bits((r.bits() & !(0b11 << offset)) | (0b11 << offset))
+                })
+            };
+
+            EPin {
+                pin_port: self.pin_port,
+                _mode: PhantomData,
+            }
+        }
+    }
+
+    impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
+        type Error = Never;
+
+        #[inline(always)]
+        fn set_high(&mut self) -> Result<(), Never> {
+            // NOTE(unsafe) atomic write to a stateless register
+            unsafe { self.block().bsrr.write(|w| w.bits(1 << self.pin_id())) };
+            Ok(())
+        }
+
+        #[inline(always)]
+        fn set_low(&mut self) -> Result<(), Never> {
+            // NOTE(unsafe) atomic write to a stateless register
+            unsafe {
+                self.block()
+                    .bsrr
+                    .write(|w| w.bits(1 << (self.pin_id() + 16)))
+            };
+            Ok(())
+        }
+    }
+
+    impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
+        #[inline(always)]
+        fn is_set_high(&self) -> Result<bool, Never> {
+            self.is_set_low().map(|x| !x)
+        }
+
+        #[inline(always)]
+        fn is_set_low(&self) -> Result<bool, Never> {
+            Ok(self.block().odr.read().bits() & (1 << self.pin_id()) == 0)
+        }
+    }
+
+    impl<MODE> toggleable::Default for ErasedPin<Output<MODE>> {}
+    impl<MODE> InputPin for ErasedPin<Output<MODE>> {
+        type Error = Never;
+
+        #[inline(always)]
+        fn is_high(&self) -> Result<bool, Never> {
+            self.is_low().map(|x| !x)
+        }
+
+        #[inline(always)]
+        fn is_low(&self) -> Result<bool, Never> {
+            Ok(self.block().idr.read().bits() & (1 << self.pin_id()) == 0)
+        }
+    }
+
+    impl<MODE> InputPin for ErasedPin<Input<MODE>> {
+        type Error = Never;
+
+        #[inline(always)]
+        fn is_high(&self) -> Result<bool, Never> {
+            self.is_low().map(|x| !x)
+        }
+
+        #[inline(always)]
+        fn is_low(&self) -> Result<bool, Never> {
+            Ok(self.block().idr.read().bits() & (1 << self.pin_id()) == 0)
+        }
+    }
+
+    impl<MODE> InputPin for ErasedPin<Alternate<MODE>> {
+        type Error = Never;
+
+        #[inline(always)]
+        fn is_high(&self) -> Result<bool, Never> {
+            self.is_low().map(|x| !x)
+        }
+
+        #[inline(always)]
+        fn is_low(&self) -> Result<bool, Never> {
+            Ok(self.block().idr.read().bits() & (1 << self.pin_id()) == 0)
+        }
+    }
+
+    impl<MODE> fmt::Debug for ErasedPin<MODE> {
+        fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_fmt(format_args!(
+                "P({}{})",
+                char::from(self.port_id() + b'A'),
+                self.pin_id()
+            ))
+        }
+    }
+}
