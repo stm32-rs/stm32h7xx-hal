@@ -35,7 +35,7 @@ fn main() -> ! {
 
     // Enable MCO2 output pin
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
-    let _mco2_pin = gpioc.pc9.into_alternate_af0().set_speed(Speed::High);
+    let _mco2_pin = gpioc.pc9.into_alternate::<0>().set_speed(Speed::High);
 
     info!("");
     info!("stm32h7xx-hal example - Fractional PLL");

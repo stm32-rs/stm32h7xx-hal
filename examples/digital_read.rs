@@ -2,8 +2,6 @@
 #![no_main]
 #![no_std]
 
-use stm32h7xx_hal::hal::digital::v2::InputPin;
-
 use cortex_m_rt::entry;
 use stm32h7xx_hal::{pac, prelude::*};
 
@@ -34,7 +32,7 @@ fn main() -> ! {
     let button1 = gpioc.pc5.into_pull_up_input();
 
     loop {
-        let result = button1.is_high().unwrap();
+        let result = button1.is_high();
         info!("{}", result);
         cortex_m::asm::delay(10000000);
     }

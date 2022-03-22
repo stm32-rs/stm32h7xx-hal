@@ -12,7 +12,6 @@ mod utilities;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -38,7 +37,7 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-    gpiob.pb3.into_alternate_af0();
+    gpiob.pb3.into_alternate::<0>();
 
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
@@ -52,32 +51,32 @@ fn main() -> ! {
     // SDMMC pins
     let clk = gpioc
         .pc12
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(false)
         .set_speed(Speed::VeryHigh);
     let cmd = gpiod
         .pd2
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
     let d0 = gpioc
         .pc8
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
     let d1 = gpioc
         .pc9
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
     let d2 = gpioc
         .pc10
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
     let d3 = gpioc
         .pc11
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
 
@@ -108,7 +107,7 @@ fn main() -> ! {
         info!("Waiting for card...");
 
         delay.delay_ms(1000u32);
-        led.toggle().ok();
+        led.toggle();
     }
 
     // Print card information

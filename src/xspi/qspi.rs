@@ -3,17 +3,7 @@
 //! See the parent module for documentation
 
 use crate::{
-    gpio::{
-        gpioa::PA1,
-        gpiob::PB2,
-        gpioc::{PC10, PC9},
-        gpiod::{PD11, PD12, PD13},
-        gpioe::{PE10, PE2, PE7, PE8, PE9},
-        gpiof::{PF10, PF6, PF7, PF8, PF9},
-        gpiog::{PG14, PG9},
-        gpioh::{PH2, PH3},
-        Alternate, AF10, AF9,
-    },
+    gpio::{self, Alternate},
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
 };
@@ -102,53 +92,53 @@ macro_rules! pins {
 
 pins! {
     SCK: [
-        PB2<Alternate<AF9>>,
-        PF10<Alternate<AF9>>
+        gpio::PB2<Alternate<9>>,
+        gpio::PF10<Alternate<9>>
     ],
     Bank1: [
         IO0: [
-            PC9<Alternate<AF9>>,
-            PD11<Alternate<AF9>>,
-            PF8<Alternate<AF10>>
+            gpio::PC9<Alternate<9>>,
+            gpio::PD11<Alternate<9>>,
+            gpio::PF8<Alternate<10>>
         ]
         IO1: [
-            PC10<Alternate<AF9>>,
-            PD12<Alternate<AF9>>,
-            PF9<Alternate<AF10>>,
+            gpio::PC10<Alternate<9>>,
+            gpio::PD12<Alternate<9>>,
+            gpio::PF9<Alternate<10>>,
             NoIo
         ]
         IO2: [
-            PE2<Alternate<AF9>>,
-            PF7<Alternate<AF9>>,
+            gpio::PE2<Alternate<9>>,
+            gpio::PF7<Alternate<9>>,
             NoIo
         ]
         IO3: [
-            PA1<Alternate<AF9>>,
-            PD13<Alternate<AF9>>,
-            PF6<Alternate<AF9>>,
+            gpio::PA1<Alternate<9>>,
+            gpio::PD13<Alternate<9>>,
+            gpio::PF6<Alternate<9>>,
             NoIo
         ]
     ],
     Bank2: [
         IO0: [
-            PE7<Alternate<AF10>>,
-            PF8<Alternate<AF10>>,
-            PH2<Alternate<AF9>>
+            gpio::PE7<Alternate<10>>,
+            gpio::PF8<Alternate<10>>,
+            gpio::PH2<Alternate<9>>
         ]
         IO1: [
-            PE8<Alternate<AF10>>,
-            PF9<Alternate<AF10>>,
-            PH3<Alternate<AF9>>,
+            gpio::PE8<Alternate<10>>,
+            gpio::PF9<Alternate<10>>,
+            gpio::PH3<Alternate<9>>,
             NoIo
         ]
         IO2: [
-            PE9<Alternate<AF10>>,
-            PG9<Alternate<AF9>>,
+            gpio::PE9<Alternate<10>>,
+            gpio::PG9<Alternate<9>>,
             NoIo
         ]
         IO3: [
-            PE10<Alternate<AF10>>,
-            PG14<Alternate<AF9>>,
+            gpio::PE10<Alternate<10>>,
+            gpio::PG14<Alternate<9>>,
             NoIo
         ]
     ]

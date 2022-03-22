@@ -44,19 +44,13 @@ fn main() -> ! {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     let (pin_dm, pin_dp) = {
         let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-        (
-            gpiob.pb14.into_alternate_af12(),
-            gpiob.pb15.into_alternate_af12(),
-        )
+        (gpiob.pb14.into_alternate(), gpiob.pb15.into_alternate())
     };
 
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     let (pin_dm, pin_dp) = {
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
-        (
-            gpioa.pa11.into_alternate_af10(),
-            gpioa.pa12.into_alternate_af10(),
-        )
+        (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
     };
 
     let usb = USB1::new(

@@ -7,7 +7,6 @@ use cortex_m::interrupt::{free, Mutex};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::{Edge, ExtiPin, Input, Output, PullUp, PushPull};
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::{interrupt, pac, prelude::*};
 
 // LED pin
@@ -92,9 +91,9 @@ fn toggle_led(on_or_off: bool) {
     free(|cs| {
         if let Some(b) = LED.borrow(cs).borrow_mut().as_mut() {
             if on_or_off {
-                b.set_high().unwrap();
+                b.set_high();
             } else {
-                b.set_low().unwrap();
+                b.set_low();
             }
         }
     });

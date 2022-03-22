@@ -3,7 +3,6 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
 use stm32h7xx_hal::{pac, prelude::*};
 
 #[macro_use]
@@ -58,7 +57,7 @@ fn main() -> ! {
                 // acceptable for your application.
                 let period = random % 200_u32;
 
-                led.toggle().unwrap();
+                led.toggle();
                 delay.delay_ms(period);
             }
             Err(err) => info!("RNG error: {:?}", err),

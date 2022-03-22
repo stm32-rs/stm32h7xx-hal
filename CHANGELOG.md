@@ -2,8 +2,10 @@
 
 ## [Unreleased]
 
+* **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
+  inherent impls for `embedded-hal` like methods by-default, default modes [#334]
 * pwr: Add backup domain voltage regulator control [#303][303]
-* MSRV increased to 1.56.1
+* MSRV increased to 1.59
 * flash: added flash implementation
 * timer: Implemented tick_timer method for LP Timers
 * timer: `counter()` method on LP Timers returns u16
@@ -228,3 +230,4 @@
 [297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
 [303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303
 [324]: https://github.com/stm32-rs/stm32h7xx-hal/pull/324
+[334]: https://github.com/stm32-rs/stm32h7xx-hal/pull/334

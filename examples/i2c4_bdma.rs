@@ -58,8 +58,8 @@ fn main() -> ! {
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
     // Configure the SCL and the SDA pin for our I2C bus
-    let scl = gpiod.pd12.into_alternate_af4().set_open_drain();
-    let sda = gpiod.pd13.into_alternate_af4().set_open_drain();
+    let scl = gpiod.pd12.into_alternate().set_open_drain();
+    let sda = gpiod.pd13.into_alternate().set_open_drain();
 
     let mut i2c = dp.I2C4.i2c(
         (scl, sda),

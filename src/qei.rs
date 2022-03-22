@@ -2,26 +2,7 @@
 use crate::hal::{self, Direction};
 use crate::rcc::{rec, ResetEnable};
 
-use crate::gpio::gpioa::{PA0, PA1, PA15, PA5, PA6, PA7, PA8, PA9};
-use crate::gpio::gpiob::{PB0, PB13, PB14, PB3, PB4, PB5, PB6, PB7};
-use crate::gpio::gpioc::{PC6, PC7};
-use crate::gpio::gpiod::{PD12, PD13};
-use crate::gpio::gpioe::{PE10, PE11, PE8, PE9};
-use crate::gpio::gpioh::{PH10, PH11, PH13, PH14};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::{PI5, PI6};
-#[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
-use crate::gpio::gpioj::PJ6;
-#[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpioj::{PJ10, PJ11, PJ7, PJ8, PJ9};
-#[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpiok::{PK0, PK1};
-
-use crate::gpio::Alternate;
-
-use crate::gpio::AF1;
-use crate::gpio::AF2;
-use crate::gpio::AF3;
+use crate::gpio::{self, Alternate};
 
 use crate::stm32::{TIM1, TIM8};
 
@@ -58,99 +39,99 @@ macro_rules! pins {
 pins! {
     TIM1:
         CH1: [
-            PA7<Alternate<AF1>>,
-            PA8<Alternate<AF1>>,
-            PB13<Alternate<AF1>>,
-            PE8<Alternate<AF1>>,
-            PE9<Alternate<AF1>>,
+            gpio::PA7<Alternate<1>>,
+            gpio::PA8<Alternate<1>>,
+            gpio::PB13<Alternate<1>>,
+            gpio::PE8<Alternate<1>>,
+            gpio::PE9<Alternate<1>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK0<Alternate<AF1>>,
+            gpio::PK0<Alternate<1>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK1<Alternate<AF1>>
+            gpio::PK1<Alternate<1>>
         ]
         CH2: [
-            PA9<Alternate<AF1>>,
-            PB0<Alternate<AF1>>,
-            PB14<Alternate<AF1>>,
-            PE10<Alternate<AF1>>,
-            PE11<Alternate<AF1>>,
+            gpio::PA9<Alternate<1>>,
+            gpio::PB0<Alternate<1>>,
+            gpio::PB14<Alternate<1>>,
+            gpio::PE10<Alternate<1>>,
+            gpio::PE11<Alternate<1>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ10<Alternate<AF1>>,
+            gpio::PJ10<Alternate<1>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ11<Alternate<AF1>>
+            gpio::PJ11<Alternate<1>>
         ]
 
     TIM2:
         CH1: [
-            PA0<Alternate<AF1>>,
-            PA5<Alternate<AF1>>,
-            PA15<Alternate<AF1>>
+            gpio::PA0<Alternate<1>>,
+            gpio::PA5<Alternate<1>>,
+            gpio::PA15<Alternate<1>>
         ]
         CH2: [
-            PA1<Alternate<AF1>>,
-            PB3<Alternate<AF1>>
+            gpio::PA1<Alternate<1>>,
+            gpio::PB3<Alternate<1>>
         ]
 
     TIM3:
         CH1: [
-            PA6<Alternate<AF2>>,
-            PB4<Alternate<AF2>>,
-            PC6<Alternate<AF2>>
+            gpio::PA6<Alternate<2>>,
+            gpio::PB4<Alternate<2>>,
+            gpio::PC6<Alternate<2>>
         ]
         CH2: [
-            PA7<Alternate<AF2>>,
-            PB5<Alternate<AF2>>,
-            PC7<Alternate<AF2>>
+            gpio::PA7<Alternate<2>>,
+            gpio::PB5<Alternate<2>>,
+            gpio::PC7<Alternate<2>>
         ]
 
     TIM4:
         CH1: [
-            PB6<Alternate<AF2>>,
-            PD12<Alternate<AF2>>
+            gpio::PB6<Alternate<2>>,
+            gpio::PD12<Alternate<2>>
         ]
         CH2: [
-            PB7<Alternate<AF2>>,
-            PD13<Alternate<AF2>>
+            gpio::PB7<Alternate<2>>,
+            gpio::PD13<Alternate<2>>
         ]
 
     TIM5:
         CH1: [
-            PA0<Alternate<AF2>>,
-            PH10<Alternate<AF2>>
+            gpio::PA0<Alternate<2>>,
+            gpio::PH10<Alternate<2>>
         ]
         CH2: [
-            PA1<Alternate<AF2>>,
-            PH11<Alternate<AF2>>
+            gpio::PA1<Alternate<2>>,
+            gpio::PH11<Alternate<2>>
         ]
 
     TIM8:
         CH1: [
-            PA5<Alternate<AF3>>,
-            PA7<Alternate<AF3>>,
-            PC6<Alternate<AF3>>,
-            PH13<Alternate<AF3>>,
+            gpio::PA5<Alternate<3>>,
+            gpio::PA7<Alternate<3>>,
+            gpio::PC6<Alternate<3>>,
+            gpio::PH13<Alternate<3>>,
             #[cfg(not(feature = "rm0468"))]
-            PI5<Alternate<AF3>>,
+            gpio::PI5<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ8<Alternate<AF3>>,
+            gpio::PJ8<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ9<Alternate<AF3>>
+            gpio::PJ9<Alternate<3>>
         ]
         CH2: [
-            PB0<Alternate<AF3>>,
-            PB14<Alternate<AF3>>,
-            PC7<Alternate<AF3>>,
-            PH14<Alternate<AF3>>,
+            gpio::PB0<Alternate<3>>,
+            gpio::PB14<Alternate<3>>,
+            gpio::PC7<Alternate<3>>,
+            gpio::PH14<Alternate<3>>,
             #[cfg(not(feature = "rm0468"))]
-            PI6<Alternate<AF3>>,
+            gpio::PI6<Alternate<3>>,
             #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
-            PJ6<Alternate<AF3>>,
+            gpio::PJ6<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ7<Alternate<AF3>>,
+            gpio::PJ7<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ10<Alternate<AF3>>,
+            gpio::PJ10<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ11<Alternate<AF3>>
+            gpio::PJ11<Alternate<3>>
         ]
 
 }

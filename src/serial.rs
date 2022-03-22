@@ -16,23 +16,7 @@ use nb::block;
 
 use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A};
 
-use crate::gpio::gpioa::{
-    PA0, PA1, PA10, PA11, PA12, PA15, PA2, PA3, PA4, PA8, PA9,
-};
-use crate::gpio::gpiob::{
-    PB10, PB11, PB12, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB7, PB8, PB9,
-};
-use crate::gpio::gpioc::{PC10, PC11, PC12, PC6, PC7, PC8};
-use crate::gpio::gpiod::{PD0, PD1, PD10, PD2, PD5, PD6, PD7, PD8, PD9};
-use crate::gpio::gpioe::{PE0, PE1, PE7, PE8};
-use crate::gpio::gpiof::{PF6, PF7};
-use crate::gpio::gpiog::{PG14, PG7, PG9};
-use crate::gpio::gpioh::{PH13, PH14};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::PI9;
-#[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpioj::{PJ8, PJ9};
-use crate::gpio::{Alternate, AF11, AF14, AF4, AF6, AF7, AF8};
+use crate::gpio::{self, Alternate};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 #[cfg(feature = "rm0455")]
@@ -301,134 +285,134 @@ usart_pins! {
     USART1:
         TX: [
             NoTx,
-            PA9<Alternate<AF7>>,
-            PB6<Alternate<AF7>>,
-            PB14<Alternate<AF4>>
+            gpio::PA9<Alternate<7>>,
+            gpio::PB6<Alternate<7>>,
+            gpio::PB14<Alternate<4>>
         ]
         RX: [
             NoRx,
-            PA10<Alternate<AF7>>,
-            PB7<Alternate<AF7>>,
-            PB15<Alternate<AF4>>
+            gpio::PA10<Alternate<7>>,
+            gpio::PB7<Alternate<7>>,
+            gpio::PB15<Alternate<4>>
         ]
         CK: [
             NoCk,
-            PA8<Alternate<AF7>>
+            gpio::PA8<Alternate<7>>
         ]
     USART2:
         TX: [
             NoTx,
-            PA2<Alternate<AF7>>,
-            PD5<Alternate<AF7>>
+            gpio::PA2<Alternate<7>>,
+            gpio::PD5<Alternate<7>>
         ]
         RX: [
             NoRx,
-            PA3<Alternate<AF7>>,
-            PD6<Alternate<AF7>>
+            gpio::PA3<Alternate<7>>,
+            gpio::PD6<Alternate<7>>
         ]
         CK: [
             NoCk,
-            PA4<Alternate<AF7>>,
-            PD7<Alternate<AF7>>
+            gpio::PA4<Alternate<7>>,
+            gpio::PD7<Alternate<7>>
         ]
     USART3:
         TX: [
             NoTx,
-            PB10<Alternate<AF7>>,
-            PC10<Alternate<AF7>>,
-            PD8<Alternate<AF7>>
+            gpio::PB10<Alternate<7>>,
+            gpio::PC10<Alternate<7>>,
+            gpio::PD8<Alternate<7>>
         ]
         RX: [
             NoRx,
-            PB11<Alternate<AF7>>,
-            PC11<Alternate<AF7>>,
-            PD9<Alternate<AF7>>
+            gpio::PB11<Alternate<7>>,
+            gpio::PC11<Alternate<7>>,
+            gpio::PD9<Alternate<7>>
         ]
         CK: [
             NoCk,
-            PB12<Alternate<AF7>>,
-            PC12<Alternate<AF7>>,
-            PD10<Alternate<AF7>>
+            gpio::PB12<Alternate<7>>,
+            gpio::PC12<Alternate<7>>,
+            gpio::PD10<Alternate<7>>
         ]
     USART6:
         TX: [
             NoTx,
-            PC6<Alternate<AF7>>,
-            PG14<Alternate<AF7>>
+            gpio::PC6<Alternate<7>>,
+            gpio::PG14<Alternate<7>>
         ]
         RX: [
             NoRx,
-            PC7<Alternate<AF7>>,
-            PG9<Alternate<AF7>>
+            gpio::PC7<Alternate<7>>,
+            gpio::PG9<Alternate<7>>
         ]
         CK: [
             NoCk,
-            PC8<Alternate<AF7>>,
-            PG7<Alternate<AF7>>
+            gpio::PC8<Alternate<7>>,
+            gpio::PG7<Alternate<7>>
         ]
 }
 uart_pins! {
     UART4:
         TX: [
             NoTx,
-            PA0<Alternate<AF8>>,
-            PA12<Alternate<AF6>>,
-            PB9<Alternate<AF8>>,
-            PC10<Alternate<AF8>>,
-            PD1<Alternate<AF8>>,
-            PH13<Alternate<AF8>>
+            gpio::PA0<Alternate<8>>,
+            gpio::PA12<Alternate<6>>,
+            gpio::PB9<Alternate<8>>,
+            gpio::PC10<Alternate<8>>,
+            gpio::PD1<Alternate<8>>,
+            gpio::PH13<Alternate<8>>
         ]
         RX: [
             NoRx,
-            PA1<Alternate<AF8>>,
-            PA11<Alternate<AF6>>,
-            PB8<Alternate<AF8>>,
-            PC11<Alternate<AF8>>,
-            PD0<Alternate<AF8>>,
-            PH14<Alternate<AF8>>,
+            gpio::PA1<Alternate<8>>,
+            gpio::PA11<Alternate<6>>,
+            gpio::PB8<Alternate<8>>,
+            gpio::PC11<Alternate<8>>,
+            gpio::PD0<Alternate<8>>,
+            gpio::PH14<Alternate<8>>,
             #[cfg(not(feature = "rm0468"))]
-            PI9<Alternate<AF8>>
+            gpio::PI9<Alternate<8>>
         ]
     UART5:
         TX: [
             NoTx,
-            PB6<Alternate<AF14>>,
-            PB13<Alternate<AF14>>,
-            PC12<Alternate<AF8>>
+            gpio::PB6<Alternate<14>>,
+            gpio::PB13<Alternate<14>>,
+            gpio::PC12<Alternate<8>>
         ]
         RX: [
             NoRx,
-            PB5<Alternate<AF14>>,
-            PB12<Alternate<AF14>>,
-            PD2<Alternate<AF8>>
+            gpio::PB5<Alternate<14>>,
+            gpio::PB12<Alternate<14>>,
+            gpio::PD2<Alternate<8>>
         ]
     UART7:
         TX: [
             NoTx,
-            PA15<Alternate<AF11>>,
-            PB4<Alternate<AF11>>,
-            PE8<Alternate<AF7>>,
-            PF7<Alternate<AF7>>
+            gpio::PA15<Alternate<11>>,
+            gpio::PB4<Alternate<11>>,
+            gpio::PE8<Alternate<7>>,
+            gpio::PF7<Alternate<7>>
         ]
         RX: [
             NoRx,
-            PA8<Alternate<AF11>>,
-            PB3<Alternate<AF11>>,
-            PE7<Alternate<AF7>>,
-            PF6<Alternate<AF7>>
+            gpio::PA8<Alternate<11>>,
+            gpio::PB3<Alternate<11>>,
+            gpio::PE7<Alternate<7>>,
+            gpio::PF6<Alternate<7>>
         ]
     UART8:
         TX: [
             NoTx,
-            PE1<Alternate<AF8>>,
+            gpio::PE1<Alternate<8>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ8<Alternate<AF8>>
+            gpio::PJ8<Alternate<8>>
         ]
         RX: [
             NoRx,
-            PE0<Alternate<AF8>>,
+            gpio::PE0<Alternate<8>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ9<Alternate<AF8>>
+            gpio::PJ9<Alternate<8>>
         ]
 }
 

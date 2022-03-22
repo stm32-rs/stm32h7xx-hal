@@ -11,7 +11,6 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioe::PE1;
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::rec::UsbClkSel;
     use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
@@ -59,19 +58,13 @@ mod app {
         #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (pin_dm, pin_dp) = {
             let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
-            (
-                gpiob.pb14.into_alternate_af12(),
-                gpiob.pb15.into_alternate_af12(),
-            )
+            (gpiob.pb14.into_alternate(), gpiob.pb15.into_alternate())
         };
 
         #[cfg(any(feature = "rm0455", feature = "rm0468"))]
         let (pin_dm, pin_dp) = {
             let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
-            (
-                gpioa.pa11.into_alternate_af10(),
-                gpioa.pa12.into_alternate_af10(),
-            )
+            (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
         };
 
         let led = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE).pe1;
@@ -112,11 +105,11 @@ mod app {
     #[task(binds = OTG_HS, local = [usb,led])]
     fn usb_event(mut ctx: usb_event::Context) {
         let (usb_dev, serial) = &mut ctx.local.usb;
-        ctx.local.led.set_high().ok();
+        ctx.local.led.set_high();
 
         loop {
             if !usb_dev.poll(&mut [serial]) {
-                ctx.local.led.set_low().ok();
+                ctx.local.led.set_low();
                 return;
             }
 

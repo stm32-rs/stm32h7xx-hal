@@ -40,11 +40,11 @@ fn main() -> ! {
     // GPIOA in the RCC register.
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
 
-    let sck = gpioa.pa5.into_alternate_af5();
-    let miso = gpioa.pa6.into_alternate_af5();
-    let mosi = gpioa.pa7.into_alternate_af5();
+    let sck = gpioa.pa5.into_alternate();
+    let miso = gpioa.pa6.into_alternate();
+    let mosi = gpioa.pa7.into_alternate();
     // Because we want to use the hardware chip select, we need to provide that too
-    let hcs = gpioa.pa4.into_alternate_af5();
+    let hcs = gpioa.pa4.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - SPI");

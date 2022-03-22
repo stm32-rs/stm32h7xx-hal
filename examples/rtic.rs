@@ -11,7 +11,6 @@ mod app {
     use stm32h7xx_hal::gpio::gpioc::{PC13, PC3};
     use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
     use stm32h7xx_hal::prelude::*;
 
     use super::*;
@@ -58,6 +57,6 @@ mod app {
     #[task(binds = EXTI15_10, local = [button, led])]
     fn button_click(ctx: button_click::Context) {
         ctx.local.button.clear_interrupt_pending_bit();
-        ctx.local.led.toggle().unwrap();
+        ctx.local.led.toggle();
     }
 }

@@ -8,7 +8,6 @@ mod utilities;
 extern crate nb;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -37,7 +36,7 @@ fn main() -> ! {
 
     // Configure PE1 as output.
     let mut led = gpioe.pe1.into_push_pull_output();
-    led.set_low().unwrap();
+    led.set_low();
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
@@ -48,13 +47,13 @@ fn main() -> ! {
     loop {
         for _ in 0..5 {
             // 20ms wait with timer
-            led.toggle().unwrap();
+            led.toggle();
             timer.start(20.ms());
             block!(timer.wait()).ok();
 
             // Delay for 500ms. Timer must operate correctly on next
             // use.
-            led.toggle().unwrap();
+            led.toggle();
             delay.delay_ms(500_u16);
         }
     }

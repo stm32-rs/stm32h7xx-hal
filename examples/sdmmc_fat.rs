@@ -58,12 +58,12 @@ unsafe fn main() -> ! {
 
     let mut sd = dp.SDMMC2.sdmmc(
         (
-            gpiod.pd6.into_alternate_af11(),
-            gpiod.pd7.into_alternate_af11(),
-            gpiob.pb14.into_alternate_af9(),
-            gpiob.pb15.into_alternate_af9(),
-            gpiob.pb3.into_alternate_af9(),
-            gpiob.pb4.into_alternate_af9(),
+            gpiod.pd6.into_alternate(),
+            gpiod.pd7.into_alternate(),
+            gpiob.pb14.into_alternate(),
+            gpiob.pb15.into_alternate(),
+            gpiob.pb3.into_alternate(),
+            gpiob.pb4.into_alternate(),
         ),
         ccdr.peripheral.SDMMC2,
         &ccdr.clocks,

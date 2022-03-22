@@ -24,15 +24,7 @@ use crate::stm32::{ADC1, ADC2};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::{ADC3, ADC3_COMMON};
 
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1};
-use crate::gpio::gpioc::{PC0, PC1, PC2, PC3, PC4, PC5};
-#[cfg(not(feature = "rm0455"))]
-use crate::gpio::gpiof::{PF10, PF3, PF4, PF5, PF6, PF7, PF8, PF9};
-use crate::gpio::gpiof::{PF11, PF12, PF13, PF14};
-#[cfg(not(feature = "rm0455"))]
-use crate::gpio::gpioh::{PH2, PH3, PH4, PH5};
-use crate::gpio::Analog;
+use crate::gpio::{self, Analog};
 use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
@@ -236,66 +228,66 @@ pub struct Temperature;
 //
 // Refer to DS12110 Rev 7 - Chapter 5 (Table 9)
 adc_pins!(ADC1,
-          // 0, 1 are Pxy_C pins
-          PF11<Analog> => 2,
-          PA6<Analog> => 3,
-          PC4<Analog> => 4,
-          PB1<Analog> => 5,
-          PF12<Analog> => 6,
-          PA7<Analog> => 7,
-          PC5<Analog> => 8,
-          PB0<Analog> => 9,
-          PC0<Analog> => 10,
-          PC1<Analog> => 11,
-          PC2<Analog> => 12,
-          PC3<Analog> => 13,
-          PA2<Analog> => 14,
-          PA3<Analog> => 15,
-          PA0<Analog> => 16,
-          PA1<Analog> => 17,
-          PA4<Analog> => 18,
-          PA5<Analog> => 19,
+    // 0, 1 are Pxy_C pins
+    gpio::PF11<Analog> => 2,
+    gpio::PA6<Analog> => 3,
+    gpio::PC4<Analog> => 4,
+    gpio::PB1<Analog> => 5,
+    gpio::PF12<Analog> => 6,
+    gpio::PA7<Analog> => 7,
+    gpio::PC5<Analog> => 8,
+    gpio::PB0<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PC3<Analog> => 13,
+    gpio::PA2<Analog> => 14,
+    gpio::PA3<Analog> => 15,
+    gpio::PA0<Analog> => 16,
+    gpio::PA1<Analog> => 17,
+    gpio::PA4<Analog> => 18,
+    gpio::PA5<Analog> => 19,
 );
 
 adc_pins!(ADC2,
-          // 0, 1 are Pxy_C pins
-          PF13<Analog> => 2,
-          PA6<Analog> => 3,
-          PC4<Analog> => 4,
-          PB1<Analog> => 5,
-          PF14<Analog> => 6,
-          PA7<Analog> => 7,
-          PC5<Analog> => 8,
-          PB0<Analog> => 9,
-          PC0<Analog> => 10,
-          PC1<Analog> => 11,
-          PC2<Analog> => 12,
-          PC3<Analog> => 13,
-          PA2<Analog> => 14,
-          PA3<Analog> => 15,
-          // 16, 17 are dac_outX
-          PA4<Analog> => 18,
-          PA5<Analog> => 19,
+    // 0, 1 are Pxy_C pins
+    gpio::PF13<Analog> => 2,
+    gpio::PA6<Analog> => 3,
+    gpio::PC4<Analog> => 4,
+    gpio::PB1<Analog> => 5,
+    gpio::PF14<Analog> => 6,
+    gpio::PA7<Analog> => 7,
+    gpio::PC5<Analog> => 8,
+    gpio::PB0<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PC3<Analog> => 13,
+    gpio::PA2<Analog> => 14,
+    gpio::PA3<Analog> => 15,
+    // 16, 17 are dac_outX
+    gpio::PA4<Analog> => 18,
+    gpio::PA5<Analog> => 19,
 );
 
 #[cfg(not(feature = "rm0455"))]
 adc_pins!(ADC3,
-          // 0, 1 are Pxy_C pins
-          PF9<Analog> => 2,
-          PF7<Analog> => 3,
-          PF5<Analog> => 4,
-          PF3<Analog> => 5,
-          PF10<Analog> => 6,
-          PF8<Analog> => 7,
-          PF6<Analog> => 8,
-          PF4<Analog> => 9,
-          PC0<Analog> => 10,
-          PC1<Analog> => 11,
-          PC2<Analog> => 12,
-          PH2<Analog> => 13,
-          PH3<Analog> => 14,
-          PH4<Analog> => 15,
-          PH5<Analog> => 16,
+    // 0, 1 are Pxy_C pins
+    gpio::PF9<Analog> => 2,
+    gpio::PF7<Analog> => 3,
+    gpio::PF5<Analog> => 4,
+    gpio::PF3<Analog> => 5,
+    gpio::PF10<Analog> => 6,
+    gpio::PF8<Analog> => 7,
+    gpio::PF6<Analog> => 8,
+    gpio::PF4<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PH2<Analog> => 13,
+    gpio::PH3<Analog> => 14,
+    gpio::PH4<Analog> => 15,
+    gpio::PH5<Analog> => 16,
 );
 #[cfg(not(feature = "rm0455"))]
 adc_internal!(

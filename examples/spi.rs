@@ -33,9 +33,9 @@ fn main() -> ! {
     // GPIOC in the RCC register.
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let sck = gpioc.pc10.into_alternate_af6();
-    let miso = gpioc.pc11.into_alternate_af6();
-    let mosi = gpioc.pc12.into_alternate_af6();
+    let sck = gpioc.pc10.into_alternate();
+    let miso = gpioc.pc11.into_alternate();
+    let mosi = gpioc.pc12.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - SPI");

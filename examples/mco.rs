@@ -32,8 +32,8 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let _mco1_pin = gpioa.pa8.into_alternate_af0();
-    let _mco2_pin = gpioc.pc9.into_alternate_af0().set_speed(Speed::High);
+    let _mco1_pin = gpioa.pa8.into_alternate::<0>();
+    let _mco2_pin = gpioc.pc9.into_alternate::<0>().set_speed(Speed::High);
 
     info!("");
     info!("stm32h7xx-hal example - MCO output");

@@ -20,22 +20,7 @@
 use crate::rcc;
 use crate::stm32;
 
-use crate::gpio::{
-    gpioa::{PA11, PA12, PA3, PA5},
-    gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5},
-    gpioc::{PC0, PC2, PC3},
-    gpioh::PH4,
-    Alternate, Speed, AF10,
-};
-
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::PI11;
-
-#[cfg(any(feature = "rm0433", feature = "rm0399"))]
-use crate::gpio::{
-    gpiob::{PB14, PB15},
-    AF12,
-};
+use crate::gpio::{self, Alternate, Speed};
 
 use crate::time::Hertz;
 
@@ -55,8 +40,8 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: PB14<Alternate<AF12>>,
-        _pin_dp: PB15<Alternate<AF12>>,
+        _pin_dm: gpio::PB14<Alternate<12>>,
+        _pin_dp: gpio::PB15<Alternate<12>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -67,8 +52,8 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: PA11<Alternate<AF10>>,
-        _pin_dp: PA12<Alternate<AF10>>,
+        _pin_dm: gpio::PA11<Alternate<10>>,
+        _pin_dp: gpio::PA12<Alternate<10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -105,8 +90,8 @@ impl USB2 {
         usb_global: stm32::OTG2_HS_GLOBAL,
         usb_device: stm32::OTG2_HS_DEVICE,
         usb_pwrclk: stm32::OTG2_HS_PWRCLK,
-        _pin_dm: PA11<Alternate<AF10>>,
-        _pin_dp: PA12<Alternate<AF10>>,
+        _pin_dm: gpio::PA11<Alternate<10>>,
+        _pin_dp: gpio::PA12<Alternate<10>>,
         prec: rcc::rec::Usb2Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -189,9 +174,9 @@ pub struct USB1_ULPI {
 }
 
 pub enum Usb1UlpiDirPin {
-    PC2(PC2<Alternate<AF10>>),
+    PC2(gpio::PC2<Alternate<10>>),
     #[cfg(not(feature = "rm0468"))]
-    PI11(PI11<Alternate<AF10>>),
+    PI11(gpio::PI11<Alternate<10>>),
 }
 
 impl Usb1UlpiDirPin {
@@ -209,21 +194,21 @@ impl Usb1UlpiDirPin {
 }
 
 #[cfg(not(feature = "rm0468"))]
-impl From<PI11<Alternate<AF10>>> for Usb1UlpiDirPin {
-    fn from(v: PI11<Alternate<AF10>>) -> Self {
+impl From<gpio::PI11<Alternate<10>>> for Usb1UlpiDirPin {
+    fn from(v: gpio::PI11<Alternate<10>>) -> Self {
         Usb1UlpiDirPin::PI11(v)
     }
 }
 
-impl From<PC2<Alternate<AF10>>> for Usb1UlpiDirPin {
-    fn from(v: PC2<Alternate<AF10>>) -> Self {
+impl From<gpio::PC2<Alternate<10>>> for Usb1UlpiDirPin {
+    fn from(v: gpio::PC2<Alternate<10>>) -> Self {
         Usb1UlpiDirPin::PC2(v)
     }
 }
 
 pub enum Usb1UlpiNxtPin {
-    PC3(PC3<Alternate<AF10>>),
-    PH4(PH4<Alternate<AF10>>),
+    PC3(gpio::PC3<Alternate<10>>),
+    PH4(gpio::PH4<Alternate<10>>),
 }
 
 impl Usb1UlpiNxtPin {
@@ -239,14 +224,14 @@ impl Usb1UlpiNxtPin {
     }
 }
 
-impl From<PH4<Alternate<AF10>>> for Usb1UlpiNxtPin {
-    fn from(v: PH4<Alternate<AF10>>) -> Self {
+impl From<gpio::PH4<Alternate<10>>> for Usb1UlpiNxtPin {
+    fn from(v: gpio::PH4<Alternate<10>>) -> Self {
         Usb1UlpiNxtPin::PH4(v)
     }
 }
 
-impl From<PC3<Alternate<AF10>>> for Usb1UlpiNxtPin {
-    fn from(v: PC3<Alternate<AF10>>) -> Self {
+impl From<gpio::PC3<Alternate<10>>> for Usb1UlpiNxtPin {
+    fn from(v: gpio::PC3<Alternate<10>>) -> Self {
         Usb1UlpiNxtPin::PC3(v)
     }
 }
@@ -259,18 +244,18 @@ impl USB1_ULPI {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        ulpi_clk: PA5<Alternate<AF10>>,
+        ulpi_clk: gpio::PA5<Alternate<10>>,
         ulpi_dir: impl Into<Usb1UlpiDirPin>,
         ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
-        ulpi_stp: PC0<Alternate<AF10>>,
-        ulpi_d0: PA3<Alternate<AF10>>,
-        ulpi_d1: PB0<Alternate<AF10>>,
-        ulpi_d2: PB1<Alternate<AF10>>,
-        ulpi_d3: PB10<Alternate<AF10>>,
-        ulpi_d4: PB11<Alternate<AF10>>,
-        ulpi_d5: PB12<Alternate<AF10>>,
-        ulpi_d6: PB13<Alternate<AF10>>,
-        ulpi_d7: PB5<Alternate<AF10>>,
+        ulpi_stp: gpio::PC0<Alternate<10>>,
+        ulpi_d0: gpio::PA3<Alternate<10>>,
+        ulpi_d1: gpio::PB0<Alternate<10>>,
+        ulpi_d2: gpio::PB1<Alternate<10>>,
+        ulpi_d3: gpio::PB10<Alternate<10>>,
+        ulpi_d4: gpio::PB11<Alternate<10>>,
+        ulpi_d5: gpio::PB12<Alternate<10>>,
+        ulpi_d6: gpio::PB13<Alternate<10>>,
+        ulpi_d7: gpio::PB5<Alternate<10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {

@@ -28,7 +28,6 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioc::{PC2, PC3, PC4};
     use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::LowPowerMode;
     use stm32h7xx_hal::stm32::{LPTIM3, TIM1, TIM2};
@@ -121,9 +120,9 @@ mod app {
         let mut led2 = gpioc.pc3.into_push_pull_output();
         let mut led3 = gpioc.pc4.into_push_pull_output();
 
-        led1.set_high().ok();
-        led2.set_high().ok();
-        led3.set_high().ok();
+        led1.set_high();
+        led2.set_high();
+        led3.set_high();
 
         (
             SharedResources {},
@@ -149,18 +148,18 @@ mod app {
     #[task(binds = TIM1_UP, local = [led1, timer1], priority = 2)]
     fn timer1_tick(ctx: timer1_tick::Context) {
         ctx.local.timer1.clear_irq();
-        ctx.local.led1.toggle().unwrap();
+        ctx.local.led1.toggle();
     }
 
     #[task(binds = TIM2, local = [led2, timer2], priority = 2)]
     fn timer2_tick(ctx: timer2_tick::Context) {
         ctx.local.timer2.clear_irq();
-        ctx.local.led2.toggle().unwrap();
+        ctx.local.led2.toggle();
     }
 
     #[task(binds = LPTIM3, local = [led3, timer3], priority = 2)]
     fn timer3_tick(ctx: timer3_tick::Context) {
         ctx.local.timer3.clear_irq();
-        ctx.local.led3.toggle().unwrap();
+        ctx.local.led3.toggle();
     }
 }
