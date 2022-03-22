@@ -89,6 +89,16 @@ impl SystemWindowWatchdog {
             }
         }
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &WWDG {
+        &self.wwdg
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut WWDG {
+        &mut self.wwdg
+    }
 }
 
 impl Watchdog for SystemWindowWatchdog {

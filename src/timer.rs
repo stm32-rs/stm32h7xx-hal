@@ -474,6 +474,16 @@ macro_rules! hal {
 
                     (self.tim, rec::$Rec { _marker: PhantomData })
                 }
+
+                /// Returns a reference to the inner peripheral
+                pub fn inner(&self) -> &$TIMX {
+                    &self.tim
+                }
+
+                /// Returns a mutable reference to the inner peripheral
+                pub fn inner_mut(&mut self) -> &mut $TIMX {
+                    &mut self.tim
+                }
             }
         )+
     }
