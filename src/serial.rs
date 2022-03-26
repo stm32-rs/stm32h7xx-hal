@@ -14,7 +14,7 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
-use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A};
+use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A};
 
 use crate::gpio::{self, Alternate};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
@@ -119,6 +119,8 @@ pub mod config {
         pub clockpolarity: ClockPolarity,
         pub lastbitclockpulse: bool,
         pub swaptxrx: bool,
+        pub invertrx: bool,
+        pub inverttx: bool,
     }
 
     impl Config {
@@ -136,6 +138,8 @@ pub mod config {
                 clockpolarity: ClockPolarity::IdleLow,
                 lastbitclockpulse: false,
                 swaptxrx: false,
+                invertrx: false,
+                inverttx: false,
             }
         }
 
@@ -197,6 +201,18 @@ pub mod config {
         /// If `true`, swap the Tx and Rx pins
         pub fn swaptxrx(mut self, swaptxrx: bool) -> Self {
             self.swaptxrx = swaptxrx;
+            self
+        }
+
+        /// If `true`, RX pin signal levels are inverted
+        pub fn invertrx(mut self, invertrx: bool) -> Self {
+            self.invertrx = invertrx;
+            self
+        }
+
+        /// If `true`, TX pin signal levels are inverted
+        pub fn inverttx(mut self, inverttx: bool) -> Self {
+            self.inverttx = inverttx;
             self
         }
     }
@@ -549,6 +565,18 @@ macro_rules! usart {
                         });
 
                         w.swap().bit(config.swaptxrx);
+
+                        w.rxinv().variant(if config.invertrx {
+                            RXINV_A::INVERTED
+                        } else {
+                            RXINV_A::STANDARD
+                        });
+
+                        w.txinv().variant(if config.inverttx {
+                            TXINV_A::INVERTED
+                        } else {
+                            TXINV_A::STANDARD
+                        });
 
                         // If synchronous mode is not supported, these bits are
                         // reserved and must be kept at reset value
