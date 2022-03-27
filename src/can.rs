@@ -40,7 +40,7 @@ use crate::gpio::gpioa::{PA11, PA12};
 use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
 use crate::gpio::gpiod::{PD0, PD1};
 use crate::gpio::gpioh::{PH13, PH14};
-use crate::gpio::{Alternate, AF9};
+use crate::gpio::Alternate;
 use crate::rcc::{rec, rec::ResetEnable};
 
 /// Storage type for the CAN controller
@@ -173,28 +173,28 @@ macro_rules! pins {
 pins! {
     FDCAN1 => (
         TX: [
-            PA12<Alternate<AF9>>,
-            PB9<Alternate<AF9>>,
-            PD1<Alternate<AF9>>,
-            PH13<Alternate<AF9>>
+            PA12<Alternate<9>>,
+            PB9<Alternate<9>>,
+            PD1<Alternate<9>>,
+            PH13<Alternate<9>>
         ],
         RX: [
-            PA11<Alternate<AF9>>,
-            PB8<Alternate<AF9>>,
-            PD0<Alternate<AF9>>,
-            PH14<Alternate<AF9>>
+            PA11<Alternate<9>>,
+            PB8<Alternate<9>>,
+            PD0<Alternate<9>>,
+            PH14<Alternate<9>>
         ]
     )
 }
 pins! {
     FDCAN2 => (
         TX: [
-            PB6<Alternate<AF9>>,
-            PB13<Alternate<AF9>>
+            PB6<Alternate<9>>,
+            PB13<Alternate<9>>
         ],
         RX: [
-            PB5<Alternate<AF9>>,
-            PB12<Alternate<AF9>>
+            PB5<Alternate<9>>,
+            PB12<Alternate<9>>
         ]
     )
 }

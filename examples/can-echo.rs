@@ -71,8 +71,8 @@ fn main() -> ! {
     let can1 = {
         info!("Init CAN 1");
         let gpioh = dp.GPIOH.split(ccdr.peripheral.GPIOH);
-        let rx = gpioh.ph14.into_alternate_af9().set_speed(Speed::VeryHigh);
-        let tx = gpioh.ph13.into_alternate_af9().set_speed(Speed::VeryHigh);
+        let rx = gpioh.ph14.into_alternate().set_speed(Speed::VeryHigh);
+        let tx = gpioh.ph13.into_alternate().set_speed(Speed::VeryHigh);
 
         info!("-- Create CAN 1 instance");
         dp.FDCAN1.fdcan(tx, rx, fdcan_prec)
@@ -81,8 +81,8 @@ fn main() -> ! {
     // let can2 = {
     //     info!("Init CAN 2");
     //     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-    //     let rx = gpiob.pb5.into_alternate_af9().set_speed(Speed::VeryHigh);
-    //     let tx = gpiob.pb6.into_alternate_af9().set_speed(Speed::VeryHigh);
+    //     let rx = gpiob.pb5.into_alternate().set_speed(Speed::VeryHigh);
+    //     let tx = gpiob.pb6.into_alternate().set_speed(Speed::VeryHigh);
 
     //     info!("-- Create CAN 2 instance");
     //     dp.FDCAN2.fdcan(tx, rx, fdcan_prec)
