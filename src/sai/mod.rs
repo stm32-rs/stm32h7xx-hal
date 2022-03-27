@@ -33,6 +33,9 @@ use crate::time::Hertz;
 
 const CLEAR_ALL_FLAGS_BITS: u32 = 0b0111_0111;
 
+pub mod dma;
+pub use dma::SaiDmaExt;
+
 mod pdm;
 pub use pdm::SaiPdmExt;
 mod i2s;

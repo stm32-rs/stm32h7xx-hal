@@ -24,11 +24,8 @@ use crate::stm32::SAI1;
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::SAI4;
 
-use crate::time::Hertz;
-
-use crate::Never;
-
 use crate::gpio::{self, Alternate};
+use crate::time::Hertz;
 
 /// Trait for a valid combination of SAI PDM pins
 pub trait PulseDensityPins<SAI> {
@@ -198,7 +195,7 @@ macro_rules! hal {
             }
             impl Sai<$SAIX, Pdm> {
                 /// Read a single data word (one 'slot')
-                pub fn read_data(&mut self) -> nb::Result<u32, Never> {
+                pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
                     while self.interface.invalid_countdown > 0 {
                         // Check for words to read
                         if self.rb.cha.sr.read().freq().bit_is_clear() {

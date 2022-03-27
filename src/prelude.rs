@@ -20,6 +20,8 @@ pub use crate::pwr::PwrExt as _stm32h7xx_hal_pwr_PwrExt;
 pub use crate::rcc::RccExt as _stm32h7xx_hal_rcc_RccExt;
 pub use crate::rng::RngCore as _stm32h7xx_hal_rng_RngCore;
 pub use crate::rng::RngExt as _stm32h7xx_hal_rng_RngExt;
+pub use crate::sai::SaiDmaExt as _stm32h7xx_hal_spi_SaiDmaExt;
+pub use crate::sai::SaiI2sExt as _stm32h7xx_hal_spi_SaiI2sExt;
 pub use crate::sai::SaiPdmExt as _stm32h7xx_hal_spi_SaiPdmExt;
 #[cfg(feature = "sdmmc")]
 pub use crate::sdmmc::SdmmcExt as _stm32h7xx_hal_sdmmc_SdmmcExt;
