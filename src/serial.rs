@@ -14,7 +14,9 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
-use stm32::usart1::cr2::{CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A};
+use stm32::usart1::cr2::{
+    CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A,
+};
 
 use crate::gpio::{self, Alternate};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
