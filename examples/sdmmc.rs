@@ -37,14 +37,24 @@ fn main() -> ! {
         .pll1_q_ck(100.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
-    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-    gpiob.pb3.into_alternate::<0>();
-
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
-    let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
 
-    let mut led = gpioi.pi12.into_push_pull_output();
+    // STM32H747I-DISCO development board
+    #[cfg(any(feature = "rm0399"))]
+    let mut led = {
+        let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
+
+        // Card detect pin
+        let _cd = gpioi.pi8.into_pull_up_input();
+
+        gpioi.pi12.into_push_pull_output()
+    };
+    #[cfg(not(feature = "rm0399"))]
+    let mut led = {
+        let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
+        gpioe.pe1.into_push_pull_output()
+    };
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
@@ -80,9 +90,6 @@ fn main() -> ! {
         .into_alternate()
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
-
-    // Card detect pin
-    let _cd = gpioi.pi8.into_pull_up_input();
 
     // Create SDMMC
     let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(

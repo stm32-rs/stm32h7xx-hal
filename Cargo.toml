@@ -180,11 +180,11 @@ required-features = ["xspi", "rm0468"]
 
 [[example]]
 name = "sdmmc"
-required-features = ["sdmmc", "rm0433"]
+required-features = ["sdmmc"]
 
 [[example]]
 name = "sdmmc_fat"
-required-features = ["sdmmc", "sdmmc-fatfs", "stm32h747cm7"]
+required-features = ["sdmmc", "sdmmc-fatfs"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"

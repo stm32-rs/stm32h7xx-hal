@@ -44,7 +44,7 @@ unsafe fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .sys_ck(480.mhz())
+        .sys_ck(200.mhz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .pll1_q_ck(100.mhz())
         .pll2_strategy(rcc::PllConfigStrategy::Iterative)
