@@ -12,6 +12,7 @@ mod utilities;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
+use stm32h7xx_hal::sdmmc::{SdCard, Sdmmc};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -84,7 +85,7 @@ fn main() -> ! {
     let _cd = gpioi.pi8.into_pull_up_input();
 
     // Create SDMMC
-    let mut sdmmc = dp.SDMMC1.sdmmc(
+    let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(
         (clk, cmd, d0, d1, d2, d3),
         ccdr.peripheral.SDMMC1,
         &ccdr.clocks,
@@ -97,7 +98,7 @@ fn main() -> ! {
 
     // Loop until we have a card
     loop {
-        match sdmmc.init_card(bus_frequency) {
+        match sdmmc.init(bus_frequency) {
             Ok(_) => break,
             Err(err) => {
                 info!("Init err: {:?}", err);
@@ -150,7 +151,7 @@ fn main() -> ! {
     let end = pac::DWT::cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
 
-    info!("Read 100 blocks at {} bytes/s", 5120. / duration);
+    info!("Read 10 blocks at {} bytes/s", 5120. / duration);
     info!("");
 
     // Write 10 blocks
