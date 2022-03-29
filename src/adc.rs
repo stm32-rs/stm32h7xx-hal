@@ -787,12 +787,32 @@ macro_rules! adc_hal {
                     self.lshift = lshift;
                 }
 
-                /// Returns the largest possible sample value for the current settings
+                /// Returns the largest possible sample value for the current ADC configuration
+                ///
+                /// Using this value as the denominator when calculating
+                /// transfer functions results in a gain error, and thus should
+                /// be avoided. Use the [slope](#method.slope) method instead.
+                #[deprecated(since = "0.12.0", note = "See the slope() method instead")]
                 pub fn max_sample(&self) -> u32 {
                     ((1 << self.get_resolution().number_of_bits() as u32) - 1) << self.get_lshift().value() as u32
                 }
 
-                                /// Returns the offset calibration value for single ended channel
+                /// Returns the slope for the current ADC configuration. 1 LSB = Vref / slope
+                ///
+                /// This value can be used in calcuations involving the transfer function of
+                /// the ADC. For example, to calculate an estimate for the
+                /// applied voltage of an ADC channel referenced to voltage
+                /// `vref`
+                ///
+                /// ```
+                /// let v = adc.read(&ch).unwrap() as f32 * vref / adc.slope() as f32;
+                /// ```
+                pub fn slope(&self) -> u32 {
+                    1 << (self.get_resolution().number_of_bits() as u32 + self.get_lshift().value() as u32)
+                }
+
+
+                /// Returns the offset calibration value for single ended channel
                 pub fn read_offset_calibration_value(&self) -> AdcCalOffset {
                     AdcCalOffset(self.rb.calfact.read().calfact_s().bits())
                 }

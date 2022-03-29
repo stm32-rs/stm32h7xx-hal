@@ -87,12 +87,12 @@ fn main() -> ! {
         info!(
             "ADC1 reading: {}, voltage for Daisy pin X: {}",
             data1,
-            data1 as f32 * (3.3 / adc1.max_sample() as f32)
+            data1 as f32 * (3.3 / adc1.slope() as f32)
         );
         info!(
             "ADC2 reading: {}, voltage for Daisy pin X: {}",
             data2,
-            data2 as f32 * (3.3 / adc2.max_sample() as f32)
+            data2 as f32 * (3.3 / adc2.slope() as f32)
         );
     }
 }
