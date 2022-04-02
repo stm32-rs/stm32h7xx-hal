@@ -6,6 +6,12 @@
   inherent impls for `embedded-hal` like methods by-default, default modes [#334]
 * Replace crate::Never with core::convert::Infallible
 
+* **Breaking**: Use [fugit](https://docs.rs/fugit/0.3.5/fugit/index.html) crate
+  for duration and rate units.
+   * `.mhz()` -> `.MHz()`, `.khz()` -> `.kHz()`, `.hz()` -> `.Hz()`
+   * Methods that previously accepted durations (`.ms()`, `.us()`) now need
+     explicit conversion with
+     [`.into_rate()`](https://docs.rs/fugit/0.3.5/fugit/struct.Duration.html#method.into_rate)
 * pwr: Add backup domain voltage regulator control [#303][303]
 * MSRV increased to 1.59
 * flash: added flash implementation
