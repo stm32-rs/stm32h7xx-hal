@@ -12,6 +12,7 @@ mod utilities;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
+use stm32h7xx_hal::sdmmc::{SdCard, Sdmmc};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -36,14 +37,24 @@ fn main() -> ! {
         .pll1_q_ck(100.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
-    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-    gpiob.pb3.into_alternate::<0>();
-
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
-    let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
 
-    let mut led = gpioi.pi12.into_push_pull_output();
+    // STM32H747I-DISCO development board
+    #[cfg(any(feature = "rm0399"))]
+    let mut led = {
+        let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
+
+        // Card detect pin
+        let _cd = gpioi.pi8.into_pull_up_input();
+
+        gpioi.pi12.into_push_pull_output()
+    };
+    #[cfg(not(feature = "rm0399"))]
+    let mut led = {
+        let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
+        gpioe.pe1.into_push_pull_output()
+    };
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
@@ -80,11 +91,8 @@ fn main() -> ! {
         .internal_pull_up(true)
         .set_speed(Speed::VeryHigh);
 
-    // Card detect pin
-    let _cd = gpioi.pi8.into_pull_up_input();
-
     // Create SDMMC
-    let mut sdmmc = dp.SDMMC1.sdmmc(
+    let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(
         (clk, cmd, d0, d1, d2, d3),
         ccdr.peripheral.SDMMC1,
         &ccdr.clocks,
@@ -97,7 +105,7 @@ fn main() -> ! {
 
     // Loop until we have a card
     loop {
-        match sdmmc.init_card(bus_frequency) {
+        match sdmmc.init(bus_frequency) {
             Ok(_) => break,
             Err(err) => {
                 info!("Init err: {:?}", err);
@@ -150,7 +158,7 @@ fn main() -> ! {
     let end = pac::DWT::cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
 
-    info!("Read 100 blocks at {} bytes/s", 5120. / duration);
+    info!("Read 10 blocks at {} bytes/s", 5120. / duration);
     info!("");
 
     // Write 10 blocks

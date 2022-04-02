@@ -76,7 +76,7 @@ fn main() -> ! {
         info!(
             "ADC reading: {}, voltage for nucleo: {}",
             data,
-            data as f32 * (3.3 / adc1.max_sample() as f32)
+            data as f32 * (3.3 / adc1.slope() as f32)
         );
     }
 }

@@ -72,7 +72,7 @@ where
     PINS: Pins<DAC>,
 {
     // Enable DAC clocks and reset
-    prec.enable().reset();
+    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
     #[allow(clippy::uninit_assumed_init)]
     unsafe {

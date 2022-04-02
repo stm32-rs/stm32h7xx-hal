@@ -57,6 +57,17 @@
 //! // Can't set group kernel clock (it would also affect I2C3)
 //! // ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
 //! ```
+//!
+//! # REC object
+//!
+//! There is a REC object for each peripheral. For example:
+//!
+//! ```
+//! let rec_object = ccdr.peripheral.FDCAN;
+//! ```
+//!
+//! If REC object is dropped by user code, then the Reset or Enable state of
+//! this peripheral cannot be modified for the lifetime of the program.
 #![deny(missing_docs)]
 
 use core::marker::PhantomData;
@@ -68,10 +79,13 @@ use cortex_m::interrupt;
 /// A trait for Resetting, Enabling and Disabling a single peripheral
 pub trait ResetEnable {
     /// Enable this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn enable(self) -> Self;
     /// Disable this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn disable(self) -> Self;
     /// Reset this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn reset(self) -> Self;
 }
 
@@ -269,6 +283,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
             $( #[ $pmeta ] )*
             impl $p {
                 /// Set Low Power Mode for peripheral
+                #[allow(clippy::return_self_not_must_use)]
                 pub fn low_power(self, lpm: LowPowerMode) -> Self {
                     // unsafe: Owned exclusive access to this bitfield
                     interrupt::free(|_| {
@@ -335,6 +350,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
             impl $p {
                 $(      // Individual kernel clocks
                     #[inline(always)]
+                    #[allow(clippy::return_self_not_must_use)]
                     /// Modify the kernel clock for
                     #[doc=$clk_doc "."]
                     /// See RM0433 Rev 7 Section 8.5.8.

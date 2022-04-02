@@ -286,7 +286,7 @@ macro_rules! i2c {
                 ) -> Self where
                     F: Into<Hertz>,
                 {
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
                     let freq: u32 = frequency.into().0;
 

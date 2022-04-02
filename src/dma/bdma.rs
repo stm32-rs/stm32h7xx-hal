@@ -122,24 +122,28 @@ impl DoubleBufferedConfig for BdmaConfig {
 impl BdmaConfig {
     /// Set the priority.
     #[inline(always)]
+    #[must_use]
     pub fn priority(mut self, priority: config::Priority) -> Self {
         self.priority = priority;
         self
     }
     /// Set the memory_increment.
     #[inline(always)]
+    #[must_use]
     pub fn memory_increment(mut self, memory_increment: bool) -> Self {
         self.memory_increment = memory_increment;
         self
     }
     /// Set the peripheral_increment.
     #[inline(always)]
+    #[must_use]
     pub fn peripheral_increment(mut self, peripheral_increment: bool) -> Self {
         self.peripheral_increment = peripheral_increment;
         self
     }
     /// Set the transfer_complete_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn transfer_complete_interrupt(
         mut self,
         transfer_complete_interrupt: bool,
@@ -149,6 +153,7 @@ impl BdmaConfig {
     }
     /// Set the half_transfer_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn half_transfer_interrupt(
         mut self,
         half_transfer_interrupt: bool,
@@ -158,6 +163,7 @@ impl BdmaConfig {
     }
     /// Set the transfer_error_interrupt.
     #[inline(always)]
+    #[must_use]
     pub fn transfer_error_interrupt(
         mut self,
         transfer_error_interrupt: bool,
@@ -167,6 +173,7 @@ impl BdmaConfig {
     }
     /// Set the double_buffer.
     #[inline(always)]
+    #[must_use]
     pub fn double_buffer(mut self, double_buffer: bool) -> Self {
         self.double_buffer = double_buffer;
         self
@@ -230,7 +237,7 @@ pub struct StreamsTuple<T>(
 impl<I: Instance> StreamsTuple<I> {
     /// Splits the DMA peripheral into streams.
     pub fn new(_regs: I, prec: I::Rec) -> Self {
-        prec.enable().reset();
+        let _ = prec.enable().reset(); // drop
         Self(
             Stream0 { _dma: PhantomData },
             Stream1 { _dma: PhantomData },

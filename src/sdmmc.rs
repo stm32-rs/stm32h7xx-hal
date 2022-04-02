@@ -45,7 +45,7 @@
 //! The next step is to initialise a card. The bus speed is also set.
 //!
 //! ```
-//! if let Err(err) = sdmmc.init_card(10.mhz()) {
+//! if let Err(err) = sdmmc.init(10.mhz()) {
 //!     info!("Init err: {:?}", err);
 //! }
 //! ```
@@ -66,8 +66,11 @@
 use core::fmt;
 
 use sdio_host::{
-    BusWidth, CardCapacity, CardStatus, CurrentState, SDStatus, CID, CSD, OCR,
-    SCR,
+    common_cmd::{self, ResponseLen},
+    emmc::{CardCapacity, CardStatus, CurrentState, CID, CSD, EMMC, OCR, RCA},
+    emmc_cmd,
+    sd::{SDStatus, CIC, SCR, SD},
+    sd_cmd, Cmd,
 };
 
 use crate::time::Hertz;
@@ -89,7 +92,7 @@ pub trait PinD6<SDMMC> {}
 pub trait PinD7<SDMMC> {}
 
 pub trait Pins<SDMMC> {
-    const BUSWIDTH: BusWidth;
+    const BUSWIDTH: Buswidth;
 }
 
 impl<SDMMC, CLK, CMD, D0, D1, D2, D3, D4, D5, D6, D7> Pins<SDMMC>
@@ -106,7 +109,7 @@ where
     D6: PinD6<SDMMC>,
     D7: PinD7<SDMMC>,
 {
-    const BUSWIDTH: BusWidth = BusWidth::Eight;
+    const BUSWIDTH: Buswidth = Buswidth::Eight;
 }
 
 impl<SDMMC, CLK, CMD, D0, D1, D2, D3> Pins<SDMMC> for (CLK, CMD, D0, D1, D2, D3)
@@ -118,7 +121,7 @@ where
     D2: PinD2<SDMMC>,
     D3: PinD3<SDMMC>,
 {
-    const BUSWIDTH: BusWidth = BusWidth::Four;
+    const BUSWIDTH: Buswidth = Buswidth::Four;
 }
 
 impl<SDMMC, CLK, CMD, D0> Pins<SDMMC> for (CLK, CMD, D0)
@@ -127,7 +130,7 @@ where
     CMD: PinCmd<SDMMC>,
     D0: PinD0<SDMMC>,
 {
-    const BUSWIDTH: BusWidth = BusWidth::One;
+    const BUSWIDTH: Buswidth = Buswidth::One;
 }
 
 macro_rules! pins {
@@ -223,6 +226,15 @@ impl Default for Signalling {
     }
 }
 
+/// Possible bus widths
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Buswidth {
+    One = 0,
+    Four = 1,
+    Eight = 2,
+}
+
 /// Errors
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -241,37 +253,39 @@ pub enum Error {
     SignalingSwitchFailed,
 }
 
-/// A SD command
-struct Cmd {
-    cmd: u8,
-    arg: u32,
-    resp: Response,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Default)]
 /// SD Card
-pub struct Card {
+pub struct SdCard {
     /// The type of this card
-    pub card_type: CardCapacity,
-    /// Operation Conditions Register
-    pub ocr: OCR,
+    pub capacity: CardCapacity,
     /// Relative Card Address
-    pub rca: u32,
+    pub rca: RCA<SD>,
+    /// Operation Conditions Register
+    pub ocr: OCR<SD>,
     /// Card ID
-    pub cid: CID,
+    pub cid: CID<SD>,
     /// Card Specific Data
-    pub csd: CSD,
+    pub csd: CSD<SD>,
     /// SD CARD Configuration Register
     pub scr: SCR,
     /// SD Status
     pub status: SDStatus,
 }
-impl Card {
+impl SdCard {
     /// Size in bytes
     pub fn size(&self) -> u64 {
-        // SDHC / SDXC / SDUC
-        u64::from(self.csd.block_count()) * 512
+        self.csd.card_size()
     }
+}
+
+#[derive(Clone, Copy, Default)]
+/// eMMC
+pub struct Emmc {
+    pub capacity: CardCapacity,
+    pub ocr: OCR<EMMC>,
+    pub rca: RCA<EMMC>,
+    pub cid: CID<EMMC>,
+    pub csd: CSD<EMMC>,
 }
 
 macro_rules! err_from_datapath_sm {
@@ -286,52 +300,37 @@ macro_rules! err_from_datapath_sm {
     };
 }
 
+#[derive(Clone, Copy, Debug)]
 /// Indicates transfer direction
 enum Dir {
     CardToHost,
     HostToCard,
 }
 
+#[derive(Clone, Copy, Debug)]
+/// SDMMC Power Control
 enum PowerCtrl {
     Off = 0b00,
     On = 0b11,
 }
 
-#[repr(u32)]
-#[allow(dead_code)]
-#[allow(non_camel_case_types)]
-enum CmdAppOper {
-    VOLTAGE_WINDOW_SD = 0x8010_0000,
-    HIGH_CAPACITY = 0x4000_0000,
-    SDMMC_STD_CAPACITY = 0x0000_0000,
-    SDMMC_CHECK_PATTERN = 0x0000_01AA,
-    SD_SWITCH_1_8V_CAPACITY = 0x0100_0000,
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-enum Response {
-    None = 0,
-    Short = 1,
-    Long = 3,
-}
-
-/// Sdmmc device
-pub struct Sdmmc<SDMMC> {
+/// SDMMC device
+pub struct Sdmmc<SDMMC, P: SdmmcPeripheral> {
     sdmmc: SDMMC,
     /// SDMMC kernel clock
     ker_ck: Hertz,
     /// AHB clock
     hclk: Hertz,
     /// Data bus width
-    bus_width: BusWidth,
+    bus_width: Buswidth,
     /// Current clock to card
     clock: Hertz,
     /// Current signalling scheme to card
     signalling: Signalling,
     /// Card
-    card: Option<Card>,
+    card: Option<P>,
 }
-impl<SDMMC> fmt::Debug for Sdmmc<SDMMC> {
+impl<SDMMC, P: SdmmcPeripheral> fmt::Debug for Sdmmc<SDMMC, P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SDMMC Peripheral")
             .field("Card detected", &self.card.is_some())
@@ -343,7 +342,7 @@ impl<SDMMC> fmt::Debug for Sdmmc<SDMMC> {
 }
 
 /// Extension trait for SDMMC peripherals
-pub trait SdmmcExt<SDMMC>: Sized {
+pub trait SdmmcExt<SDMMC, P: SdmmcPeripheral>: Sized {
     /// The `ResetEnable` singleton for this peripheral
     type Rec: ResetEnable;
 
@@ -354,7 +353,7 @@ pub trait SdmmcExt<SDMMC>: Sized {
         _pins: PINS,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Sdmmc<SDMMC>
+    ) -> Sdmmc<SDMMC, P>
     where
         PINS: Pins<SDMMC>;
 
@@ -363,13 +362,13 @@ pub trait SdmmcExt<SDMMC>: Sized {
     /// width to configure on this interface.
     fn sdmmc_unchecked(
         self,
-        bus_width: BusWidth,
+        bus_width: Buswidth,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Sdmmc<SDMMC>;
+    ) -> Sdmmc<SDMMC, P>;
 }
 
-impl<S> Sdmmc<S> {
+impl<S, P: SdmmcPeripheral> Sdmmc<S, P> {
     /// Calculate clock divisor. Returns a SDMMC_CK less than or equal to
     /// `sdmmc_ck` in Hertz.
     ///
@@ -402,32 +401,32 @@ impl<S> Sdmmc<S> {
 macro_rules! sdmmc {
     ($($SDMMCX:ident: ($sdmmcX:ident, $Rec:ident),)+) => {
         $(
-            impl SdmmcExt<$SDMMCX> for $SDMMCX {
+            impl<P: SdmmcPeripheral> SdmmcExt<$SDMMCX, P> for $SDMMCX {
                 type Rec = rec::$Rec;
 
                 fn sdmmc<PINS>(self, _pins: PINS,
                                prec: rec::$Rec,
-                               clocks: &CoreClocks) -> Sdmmc<$SDMMCX>
+                               clocks: &CoreClocks) -> Sdmmc<$SDMMCX, P>
                 where
                     PINS: Pins<$SDMMCX>,
                 {
                     Sdmmc::$sdmmcX(self, PINS::BUSWIDTH, prec, clocks)
                 }
 
-                fn sdmmc_unchecked(self, bus_width: BusWidth,
+                fn sdmmc_unchecked(self, bus_width: Buswidth,
                                    prec: rec::$Rec,
-                                   clocks: &CoreClocks) -> Sdmmc<$SDMMCX>
+                                   clocks: &CoreClocks) -> Sdmmc<$SDMMCX, P>
                 {
                     Sdmmc::$sdmmcX(self, bus_width, prec, clocks)
                 }
             }
 
-            impl Sdmmc<$SDMMCX> {
+            impl<P: SdmmcPeripheral> Sdmmc<$SDMMCX, P> {
                 /// Sets the CLKDIV field in CLKCR. Updates clock field in self
                 fn clkcr_set_clkdiv(
                     &mut self,
                     freq: u32,
-                    width: BusWidth,
+                    width: Buswidth,
                 ) -> Result<(), Error> {
                     let (clkdiv, new_clock) = Self::clk_div(self.ker_ck, freq)?;
                     // Enforce AHB and SDMMC_CK clock relation. See RM0433 Rev 7
@@ -451,7 +450,7 @@ macro_rules! sdmmc {
                 /// Initialise SDMMC peripheral
                 pub fn $sdmmcX(
                     sdmmc: $SDMMCX,
-                    bus_width: BusWidth,
+                    bus_width: Buswidth,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                 ) -> Self {
@@ -515,137 +514,11 @@ macro_rules! sdmmc {
                     // drop prec: ker_ck can no longer be modified
                 }
 
-                /// Initializes card (if present) and sets the bus at the
-                /// specified frequency.
-                pub fn init_card(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    let freq = freq.into();
-
-                    // Enable power to card
+                fn power_card(&mut self, state : PowerCtrl) {
                     self.sdmmc
                         .power
-                        .modify(|_, w| unsafe { w.pwrctrl().bits(PowerCtrl::On as u8) });
+                        .modify(|_, w| unsafe { w.pwrctrl().bits(state as u8) });
 
-                    self.cmd(Cmd::idle())?;
-
-                    // Check if cards supports CMD8 (with pattern)
-                    self.cmd(Cmd::hs_send_ext_csd(0x1AA))?;
-                    let r1 = self.sdmmc.resp1r.read().bits();
-
-                    let mut card = if r1 == 0x1AA {
-                        // Card echoed back the pattern. Must be at least v2
-                        Card::default()
-                    } else {
-                        return Err(Error::UnsupportedCardVersion);
-                    };
-
-                    let ocr = loop {
-                        // Signal that next command is a app command
-                        self.cmd(Cmd::app_cmd(0))?; // CMD55
-
-                        let arg = CmdAppOper::VOLTAGE_WINDOW_SD as u32
-                            | CmdAppOper::HIGH_CAPACITY as u32
-                            | CmdAppOper::SD_SWITCH_1_8V_CAPACITY as u32;
-
-                        // Initialize card
-                        match self.cmd(Cmd::app_op_cmd(arg)) {
-                            // ACMD41
-                            Ok(_) => (),
-                            Err(Error::Crc) => (),
-                            Err(err) => return Err(err),
-                        }
-                        let ocr: OCR = self.sdmmc.resp1r.read().bits().into();
-                        if !ocr.is_busy() {
-                            // Power up done
-                            break ocr;
-                        }
-                    };
-
-                    if ocr.high_capacity() {
-                        // Card is SDHC or SDXC or SDUC
-                        card.card_type = CardCapacity::SDHC;
-                    } else {
-                        return Err(Error::UnsupportedCardType);
-                    }
-                    card.ocr = ocr;
-
-                    // Get CID
-                    self.cmd(Cmd::all_send_cid())?; // CMD2
-                    let cid = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
-                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
-                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
-                        | self.sdmmc.resp4r.read().bits() as u128;
-                    card.cid = cid.into();
-
-                    // Get RCA
-                    self.cmd(Cmd::send_rel_addr())?;
-                    card.rca = self.sdmmc.resp1r.read().bits() >> 16;
-
-                    // Get CSD
-                    self.cmd(Cmd::send_csd(card.rca << 16))?;
-                    let csd = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
-                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
-                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
-                        | self.sdmmc.resp4r.read().bits() as u128;
-
-                    card.csd = csd.into();
-
-                    self.select_card(Some(&card))?;
-
-                    self.get_scr(&mut card)?;
-
-                    // Set bus width
-                    let (width, acmd_arg) = match self.bus_width {
-                        BusWidth::Eight => unimplemented!(),
-                        BusWidth::Four if card.scr.bus_width_four() => (BusWidth::Four, 2),
-                        _ => (BusWidth::One, 0),
-                    };
-                    self.cmd(Cmd::app_cmd(card.rca << 16))?;
-                    self.cmd(Cmd::cmd6(acmd_arg))?; // ACMD6: Bus Width
-
-                    // CPSMACT and DPSMACT must be 0 to set WIDBUS
-                    while self.sdmmc.star.read().dpsmact().bit_is_set()
-                        || self.sdmmc.star.read().cpsmact().bit_is_set()
-                    {}
-                    self.sdmmc.clkcr.modify(|_, w| unsafe {
-                        w.widbus().bits(match width {
-                            BusWidth::One => 0,
-                            BusWidth::Four => 1,
-                            BusWidth::Eight => 2,
-                            _ => panic!("Unknown bit width must not be specified!")
-                        })
-                    });
-
-                    // Set Clock
-                    if freq.0 <= 25_000_000 {
-                        // Final clock frequency
-                        self.clkcr_set_clkdiv(freq.0, width)?;
-                    } else {
-                        // Switch to max clock for SDR12
-                        self.clkcr_set_clkdiv(25_000_000, width)?;
-                    }
-
-                    // Read status
-                    let _old = self.card.replace(card);
-                    self.read_sd_status()?;
-
-                    if freq.0 > 25_000_000 {
-                        // Switch to SDR25
-                        self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
-
-                        if self.signalling == Signalling::SDR25 {
-                            // Set final clock frequency
-                            self.clkcr_set_clkdiv(freq.0, width)?;
-
-                            if self.read_status()?.state() != CurrentState::Transfer {
-                                return Err(Error::SignalingSwitchFailed);
-                            }
-                        }
-                    }
-
-                    // Read status after signalling change
-                    self.read_sd_status()?;
-
-                    Ok(())
                 }
 
                 /// Get a reference to the initialized card
@@ -654,7 +527,7 @@ macro_rules! sdmmc {
                 ///
                 /// Returns Error::NoCard if [`init_card`](#method.init_card)
                 /// has not previously succeeded
-                pub fn card(&self) -> Result<&Card, Error> {
+                pub fn card(&self) -> Result<&P, Error> {
                     self.card.as_ref().ok_or(Error::NoCard)
                 }
 
@@ -719,11 +592,11 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(Cmd::set_block_length(512))?; // CMD16
+                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
 
                     // Setup read command
                     self.start_datapath_transfer(512, 9, Dir::CardToHost);
-                    self.cmd(Cmd::read_single_block(address))?;
+                    self.cmd(common_cmd::read_single_block(address))?;
 
                     let mut i = 0;
                     let mut status;
@@ -766,11 +639,11 @@ macro_rules! sdmmc {
                     assert!(buffer.len() % 512 == 0,
                             "Buffer length must be a multiple of 512");
                     let n_blocks = buffer.len() / 512;
-                    self.cmd(Cmd::set_block_length(512))?; // CMD16
+                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
 
                     // Setup read command
                     self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::CardToHost);
-                    self.cmd(Cmd::read_multiple_blocks(address))?;
+                    self.cmd(common_cmd::read_multiple_blocks(address))?;
 
                     let mut i = 0;
                     let mut status;
@@ -794,7 +667,7 @@ macro_rules! sdmmc {
                         }
                     }
 
-                    self.cmd(Cmd::stop_transmission())?; // CMD12
+                    self.cmd(common_cmd::stop_transmission())?; // CMD12
 
                     err_from_datapath_sm!(status);
 
@@ -809,11 +682,11 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(Cmd::set_block_length(512))?; // CMD16
+                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
 
                     // Setup write command
                     self.start_datapath_transfer(512, 9, Dir::HostToCard);
-                    self.cmd(Cmd::write_single_block(address))?; // CMD24
+                    self.cmd(common_cmd::write_single_block(address))?; // CMD24
 
                     let mut i = 0;
                     let mut status;
@@ -846,7 +719,7 @@ macro_rules! sdmmc {
 
                     // Try to read card status (ACMD13)
                     while timeout > 0 {
-                        match self.read_sd_status() {
+                        match self.read_status() {
                             Ok(_) => return Ok(()),
                             Err(Error::Timeout) => (), // Try again
                             Err(e) => return Err(e),
@@ -859,13 +732,286 @@ macro_rules! sdmmc {
 
                 /// Query the card status (CMD13, returns R1)
                 ///
-                fn read_status(&self) -> Result<CardStatus, Error> {
+                fn read_status(&self) -> Result<CardStatus<P>, Error> {
                     let card = self.card()?;
 
-                    self.cmd(Cmd::card_status(card.rca << 16))?; // CMD13
-                    let r1 = self.sdmmc.resp1r.read().bits();
+                    self.cmd(common_cmd::card_status(card.get_address(), false))?; // CMD13
 
-                    Ok(r1.into())
+                    let r1 = self.sdmmc.resp1r.read().bits();
+                    Ok(CardStatus::from(r1))
+                }
+
+                /// Check if card is done writing/reading and back in transfer state
+                fn card_ready(&mut self) -> Result<bool, Error> {
+                    Ok(self.read_status()?.state() == CurrentState::Transfer)
+                }
+
+                /// Select the card with `address` and place it into the _Tranfer State_
+                fn select_card(&self, rca: u16) -> Result<(), Error> {
+                    let r = self.cmd(common_cmd::select_card(rca));
+                    match (r, rca) {
+                        (Err(Error::Timeout), 0) => Ok(()),
+                        _ => r,
+                    }
+                }
+
+                fn app_cmd<R: common_cmd::Resp>(&self, acmd: Cmd<R>) -> Result<(), Error> {
+                    let rca = self.card().map(|card| card.get_address()).unwrap_or(0);
+                    self.cmd(common_cmd::app_cmd(rca))?;
+                    self.cmd(acmd)
+                }
+
+                /// Clear "static flags" in interrupt clear register
+                fn clear_static_interrupt_flags(&self) {
+                    self.sdmmc.icr.modify(|_, w| {
+                        w.dcrcfailc()
+                            .set_bit()
+                            .dtimeoutc()
+                            .set_bit()
+                            .txunderrc()
+                            .set_bit()
+                            .rxoverrc()
+                            .set_bit()
+                            .dataendc()
+                            .set_bit()
+                            .dholdc()
+                            .set_bit()
+                            .dbckendc()
+                            .set_bit()
+                            .dabortc()
+                            .set_bit()
+                            .idmatec()
+                            .set_bit()
+                            .idmabtcc()
+                            .set_bit()
+                    });
+                }
+
+                /// Send command to card
+                fn cmd<R: common_cmd::Resp>(&self, cmd: Cmd<R>) -> Result<(), Error> {
+                    // Clear interrupts
+                    self.sdmmc.icr.modify(|_, w| {
+                        w.ccrcfailc() // CRC FAIL
+                            .set_bit()
+                            .ctimeoutc() // TIMEOUT
+                            .set_bit()
+                            .cmdrendc() // CMD R END
+                            .set_bit()
+                            .cmdsentc() // CMD SENT
+                            .set_bit()
+                            .dataendc()
+                            .set_bit()
+                            .dbckendc()
+                            .set_bit()
+                            .dcrcfailc()
+                            .set_bit()
+                            .dtimeoutc()
+                            .set_bit()
+                            .sdioitc() // SDIO IT
+                            .set_bit()
+                            .rxoverrc()
+                            .set_bit()
+                            .txunderrc()
+                            .set_bit()
+                    });
+
+                    // CP state machine must be idle
+                    while self.sdmmc.star.read().cpsmact().bit_is_set() {}
+
+                    // Command arg
+                    self.sdmmc
+                        .argr
+                        .write(|w| unsafe { w.cmdarg().bits(cmd.arg) });
+
+                    // Determine what kind of response the CPSM should wait for
+                    let waitresp = match cmd.response_len() {
+                        ResponseLen::Zero => 0,
+                        ResponseLen::R48 => 1, // short response, expect CMDREND or CCRCFAIL
+                        ResponseLen::R136 => 3, // long response, expect CMDREND or CCRCFAIL
+                    };
+
+                    // Special mode in CP State Machine
+                    // CMD12: Stop Transmission
+                    let cpsm_stop_transmission = (cmd.cmd == 12);
+
+                    // Command index and start CP State Machine
+                    self.sdmmc.cmdr.write(|w| unsafe {
+                        w.waitint()
+                            .clear_bit()
+                            .waitresp() // No / Short / Long
+                            .bits(waitresp)
+                            .cmdstop() // CPSM Stop Transmission
+                            .bit(cpsm_stop_transmission)
+                            .cmdindex()
+                            .bits(cmd.cmd)
+                            .cpsmen()
+                            .set_bit()
+                    });
+
+                    let mut timeout: u32 = 0xFFFF_FFFF;
+
+                    let mut status;
+                    if cmd.response_len() == ResponseLen::Zero {
+                        // Wait for CMDSENT or a timeout
+                        while {
+                            status = self.sdmmc.star.read();
+                            !(status.ctimeout().bit() || status.cmdsent().bit())
+                                && timeout > 0
+                        } {
+                            timeout -= 1;
+                        }
+                    } else {
+                        // Wait for CMDREND or CCRCFAIL or a timeout
+                        while {
+                            status = self.sdmmc.star.read();
+                            !(status.ctimeout().bit()
+                              || status.cmdrend().bit()
+                              || status.ccrcfail().bit())
+                                && timeout > 0
+                        } {
+                            timeout -= 1;
+                        }
+                    }
+
+                    if status.ctimeout().bit_is_set() {
+                        return Err(Error::Timeout);
+                    } else if timeout == 0 {
+                        return Err(Error::SoftwareTimeout);
+                    } else if status.ccrcfail().bit() {
+                        return Err(Error::Crc);
+                    }
+
+                    Ok(())
+                }
+            }
+
+            impl Sdmmc<$SDMMCX, SdCard> {
+                /// Initializes card (if present) and sets the bus at the
+                /// specified frequency.
+                pub fn init(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
+                    let freq = freq.into();
+
+                    // Enable power to card
+                    self.power_card(PowerCtrl::On);
+
+                    // Send card to idle state
+                    self.cmd(common_cmd::idle())?;
+
+                    // Check if cards supports CMD8 (with pattern)
+                    self.cmd(sd_cmd::send_if_cond(1, 0xAA))?;
+                    let cic = CIC::from(self.sdmmc.resp1r.read().bits());
+
+                    let mut card = if cic.pattern() == 0xAA {
+                        // Card echoed back the pattern. Must be at least v2
+                        SdCard::default()
+                    } else {
+                        return Err(Error::UnsupportedCardVersion);
+                    };
+
+                    let ocr = loop {
+                        // Initialize card
+
+                        // Host support: 3.2-3.3V
+                        let voltage_window = 1 << 5;
+
+                        // ACMD41
+                        match self.app_cmd(sd_cmd::sd_send_op_cond(true, false, true, voltage_window)) {
+                            Ok(_) => (),
+                            Err(Error::Crc) => (),
+                            Err(err) => return Err(err),
+                        }
+                        let ocr = OCR::from(self.sdmmc.resp1r.read().bits());
+                        if !ocr.is_busy() {
+                            // Power up done
+                            break ocr;
+                        }
+                    };
+
+                    if ocr.high_capacity() {
+                        // Card is SDHC or SDXC or SDUC
+                        card.capacity = CardCapacity::HighCapacity;
+                    } else {
+                        return Err(Error::UnsupportedCardType);
+                    }
+                    card.ocr = ocr;
+
+                    // Get CID
+                    self.cmd(common_cmd::all_send_cid())?; // CMD2
+                    let cid = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
+                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
+                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
+                        | self.sdmmc.resp4r.read().bits() as u128;
+                    card.cid = cid.into();
+
+                    // Get RCA
+                    self.cmd(sd_cmd::send_relative_address())?;
+                    card.rca = RCA::from(self.sdmmc.resp1r.read().bits());
+
+                    // Get CSD
+                    self.cmd(common_cmd::send_csd(card.rca.address()))?;
+                    let csd = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
+                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
+                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
+                        | self.sdmmc.resp4r.read().bits() as u128;
+                    card.csd = csd.into();
+
+                    // Select and get RCA
+                    self.select_card(card.rca.address())?;
+                    card.scr = self.get_scr(card.rca.address())?;
+
+                    // Replace: self.app_cmd will now select this card
+                    let _ = self.card.replace(card);
+
+                    // Set bus width
+                    let (width, acmd_arg) = match self.bus_width {
+                        Buswidth::Eight => unimplemented!(),
+                        Buswidth::Four if card.scr.bus_width_four() => (Buswidth::Four, 2),
+                        _ => (Buswidth::One, 0),
+                    };
+                    self.app_cmd(sd_cmd::cmd6(acmd_arg))?; // ACMD6: Bus Width
+
+                    // CPSMACT and DPSMACT must be 0 to set WIDBUS
+                    while self.sdmmc.star.read().dpsmact().bit_is_set()
+                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    {}
+                    self.sdmmc.clkcr.modify(|_, w| unsafe {
+                        w.widbus().bits(match width {
+                            Buswidth::One => 0,
+                            Buswidth::Four => 1,
+                            Buswidth::Eight => 2,
+                        })
+                    });
+
+                    // Set Clock
+                    if freq.0 <= 25_000_000 {
+                        // Final clock frequency
+                        self.clkcr_set_clkdiv(freq.0, width)?;
+                    } else {
+                        // Switch to max clock for SDR12
+                        self.clkcr_set_clkdiv(25_000_000, width)?;
+                    }
+
+                    // Read status
+                    self.read_sd_status()?;
+
+                    if freq.0 > 25_000_000 {
+                        // Switch to SDR25
+                        self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
+
+                        if self.signalling == Signalling::SDR25 {
+                            // Set final clock frequency
+                            self.clkcr_set_clkdiv(freq.0, width)?;
+
+                            if !self.card_ready()? {
+                                return Err(Error::SignalingSwitchFailed);
+                            }
+                        }
+                    }
+
+                    // Read status after signalling change
+                    self.read_sd_status()?;
+
+                    Ok(())
                 }
 
                 /// Reads the SD Status (ACMD13)
@@ -873,12 +1019,11 @@ macro_rules! sdmmc {
                 fn read_sd_status(&mut self) -> Result<(), Error> {
                     let card = self.card()?;
 
-                    self.cmd(Cmd::set_block_length(64))?; // CMD16
-                    self.cmd(Cmd::app_cmd(card.rca << 16))?; // APP
+                    self.cmd(common_cmd::set_block_length(64))?; // CMD16
 
                     // Prepare the transfer
                     self.start_datapath_transfer(64, 6, Dir::CardToHost);
-                    self.cmd(Cmd::card_status(0))?; // ACMD13
+                    self.app_cmd(common_cmd::card_status(card.get_address(), false))?; // ACMD13
 
                     let mut status = [0u32; 16];
                     let mut idx = 0;
@@ -913,13 +1058,13 @@ macro_rules! sdmmc {
                 }
 
                 /// Get SD CARD Configuration Register (SCR)
-                fn get_scr(&self, card: &mut Card) -> Result<(), Error> {
+                fn get_scr(&self, rca: u16) -> Result<SCR, Error> {
                     // Read the the 64-bit SCR register
-                    self.cmd(Cmd::set_block_length(8))?; // CMD16
-                    self.cmd(Cmd::app_cmd(card.rca << 16))?;
+                    self.cmd(common_cmd::set_block_length(8))?; // CMD16
+                    self.cmd(common_cmd::app_cmd(rca))?;
 
                     self.start_datapath_transfer(8, 3, Dir::CardToHost);
-                    self.cmd(Cmd::cmd51())?;
+                    self.cmd(sd_cmd::send_scr())?;
 
                     let mut scr = [0; 2];
                     let mut i = 0;
@@ -945,11 +1090,7 @@ macro_rules! sdmmc {
 
                     err_from_datapath_sm!(status);
 
-                    // Bytes from wire are Big Endian
-                    let scr = ((scr[1] as u64) << 32) | scr[0] as u64;
-                    card.scr = SCR(u64::from_be(scr));
-
-                    Ok(())
+                    Ok(SCR::from(scr))
                 }
 
                 /// Switch mode using CMD6.
@@ -976,7 +1117,7 @@ macro_rules! sdmmc {
 
                     // Prepare the transfer
                     self.start_datapath_transfer(64, 6, Dir::CardToHost);
-                    self.cmd(Cmd::cmd6(set_function))?; // CMD6
+                    self.cmd(sd_cmd::cmd6(set_function))?; // CMD6
 
                     let mut status = [0u32; 16];
                     let mut idx = 0;
@@ -1025,148 +1166,16 @@ macro_rules! sdmmc {
                     }
                 }
 
-                /// Select one card and place it into the _Tranfer State_
-                ///
-                /// If `None` is specifed for `card`, all cards are put back into
-                /// _Stand-by State_
-                fn select_card(&self, card: Option<&Card>) -> Result<(), Error> {
-                    // Determine Relative Card Address (RCA) of given card
-                    let rca = card.map(|c| c.rca << 16).unwrap_or(0);
-
-                    let r = self.cmd(Cmd::sel_desel_card(rca));
-                    match (r, rca) {
-                        (Err(Error::Timeout), 0) => Ok(()),
-                        _ => r,
-                    }
-                }
-
-                /// Clear "static flags" in interrupt clear register
-                fn clear_static_interrupt_flags(&self) {
-                    self.sdmmc.icr.modify(|_, w| {
-                        w.dcrcfailc()
-                            .set_bit()
-                            .dtimeoutc()
-                            .set_bit()
-                            .txunderrc()
-                            .set_bit()
-                            .rxoverrc()
-                            .set_bit()
-                            .dataendc()
-                            .set_bit()
-                            .dholdc()
-                            .set_bit()
-                            .dbckendc()
-                            .set_bit()
-                            .dabortc()
-                            .set_bit()
-                            .idmatec()
-                            .set_bit()
-                            .idmabtcc()
-                            .set_bit()
-                    });
-                }
-
-                /// Send command to card
-                fn cmd(&self, cmd: Cmd) -> Result<(), Error> {
-                    // Clear interrupts
-                    self.sdmmc.icr.modify(|_, w| {
-                        w.ccrcfailc() // CRC FAIL
-                            .set_bit()
-                            .ctimeoutc() // TIMEOUT
-                            .set_bit()
-                            .cmdrendc() // CMD R END
-                            .set_bit()
-                            .cmdsentc() // CMD SENT
-                            .set_bit()
-                            .dataendc()
-                            .set_bit()
-                            .dbckendc()
-                            .set_bit()
-                            .dcrcfailc()
-                            .set_bit()
-                            .dtimeoutc()
-                            .set_bit()
-                            .sdioitc() // SDIO IT
-                            .set_bit()
-                            .rxoverrc()
-                            .set_bit()
-                            .txunderrc()
-                            .set_bit()
-                    });
-
-                    // CP state machine must be idle
-                    while self.sdmmc.star.read().cpsmact().bit_is_set() {}
-
-                    // Command arg
-                    self.sdmmc
-                        .argr
-                        .write(|w| unsafe { w.cmdarg().bits(cmd.arg) });
-
-                    // Special mode in CP State Machine
-                    // CMD12: Stop Transmission
-                    let cpsm_stop_transmission = (cmd.cmd == 12);
-
-                    // Command index and start CP State Machine
-                    self.sdmmc.cmdr.write(|w| unsafe {
-                        w.waitint()
-                            .clear_bit()
-                            .waitresp() // No / Short / Long
-                            .bits(cmd.resp as u8)
-                            .cmdstop() // CPSM Stop Transmission
-                            .bit(cpsm_stop_transmission)
-                            .cmdindex()
-                            .bits(cmd.cmd)
-                            .cpsmen()
-                            .set_bit()
-                    });
-
-                    let mut timeout: u32 = 0xFFFF_FFFF;
-
-                    let mut status;
-                    if cmd.resp == Response::None {
-                        // Wait for CMDSENT or a timeout
-                        while {
-                            status = self.sdmmc.star.read();
-                            !(status.ctimeout().bit() || status.cmdsent().bit())
-                                && timeout > 0
-                        } {
-                            timeout -= 1;
-                        }
-                    } else {
-                        // Wait for CMDREND or CCRCFAIL or a timeout
-                        while {
-                            status = self.sdmmc.star.read();
-                            !(status.ctimeout().bit()
-                              || status.cmdrend().bit()
-                              || status.ccrcfail().bit())
-                                && timeout > 0
-                        } {
-                            timeout -= 1;
-                        }
-                    }
-
-                    if status.ctimeout().bit_is_set() {
-                        return Err(Error::Timeout);
-                    } else if timeout == 0 {
-                        return Err(Error::SoftwareTimeout);
-                    } else if status.ccrcfail().bit() {
-                        return Err(Error::Crc);
-                    }
-
-                    Ok(())
-                }
-
                 #[cfg(feature = "sdmmc-fatfs")]
-                pub fn sdmmc_block_device(self) -> SdmmcBlockDevice<Sdmmc<$SDMMCX>> {
+                pub fn sdmmc_block_device(self) -> SdmmcBlockDevice<Sdmmc<$SDMMCX, SdCard>> {
                     SdmmcBlockDevice {
                         sdmmc: core::cell::RefCell::new(self)
                     }
                 }
-
             }
 
             #[cfg(feature = "sdmmc-fatfs")]
-            impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<$SDMMCX>> {
+            impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<$SDMMCX, SdCard>> {
                 type Error = Error;
 
                 fn read(
@@ -1205,6 +1214,107 @@ macro_rules! sdmmc {
                 }
 
             }
+
+            impl Sdmmc<$SDMMCX, Emmc> {
+                /// Initializes eMMC device (if present) and sets the bus at the specified frequency.
+                pub fn init(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
+                    let card_addr: RCA<EMMC> = RCA::from(1u16);
+
+                    // Enable power to card
+                    self.power_card(PowerCtrl::On);
+
+                    // Enable clock - Already?
+
+                    // Send card to idle state
+                    self.cmd(common_cmd::idle())?;
+
+                    let ocr = loop {
+                        // Initialize card
+
+                        // 3.2-3.3V
+                        match self.cmd(emmc_cmd::send_op_cond(0b01000000111111111000000000000000)) {
+                            Ok(_) => (),
+                            Err(Error::Crc) => (),
+                            Err(err) => return Err(err),
+                        };
+                        let ocr = OCR::from(self.sdmmc.resp1r.read().bits());
+                        if !ocr.is_busy() {
+                            break ocr;
+                        }
+                    };
+
+                    // True for SDHC and SDXC False for SDSC
+                    let capacity = if ocr.high_capacity() {
+                        CardCapacity::HighCapacity
+                    } else {
+                        CardCapacity::StandardCapacity
+                    };
+
+                    // Get CID
+                    self.cmd(common_cmd::all_send_cid())?;
+                    let mut cid = [0; 4];
+                    cid[3] = self.sdmmc.resp1r.read().bits();
+                    cid[2] = self.sdmmc.resp2r.read().bits();
+                    cid[1] = self.sdmmc.resp3r.read().bits();
+                    cid[0] = self.sdmmc.resp4r.read().bits();
+                    let cid = CID::from(cid);
+
+                    self.cmd(emmc_cmd::assign_relative_address(card_addr.address()))?;
+
+                    self.cmd(common_cmd::send_csd(card_addr.address()))?;
+
+                    let mut csd = [0; 4];
+                    csd[3] = self.sdmmc.resp1r.read().bits();
+                    csd[2] = self.sdmmc.resp2r.read().bits();
+                    csd[1] = self.sdmmc.resp3r.read().bits();
+                    csd[0] = self.sdmmc.resp4r.read().bits();
+                    let csd = CSD::from(csd);
+
+                    let card = Emmc {
+                        capacity,
+                        ocr,
+                        rca: card_addr,
+                        cid,
+                        csd,
+                    };
+
+                    self.select_card(card.rca.address())?;
+                    self.card.replace(card);
+
+                    // Wait before setting the bus width and frequency to avoid
+                    // timeouts on SDSC cards
+                    while !self.card_ready()? {}
+
+                    self.set_bus(self.bus_width, freq)?;
+                    Ok(())
+                }
+
+                pub fn set_bus(&mut self, width: Buswidth, freq: impl Into<Hertz>) -> Result<(), Error> {
+                    // Use access mode 0b11 to write a value of 0x02 to byte
+                    // 183. Cmd Set is 0 (not used).
+                    self.cmd(emmc_cmd::modify_ext_csd(
+                        emmc_cmd::AccessMode::WriteByte,
+                        183,
+                        width as u8,
+                    ))?;
+
+                    // CMD6 is R1b, so wait for the card to be ready again
+                    // before proceeding.
+                    while !self.card_ready()? {}
+
+                    self.sdmmc.clkcr.modify(|_, w| unsafe {
+                        w.widbus().bits(match width {
+                            Buswidth::One => 0,
+                            Buswidth::Four => 1,
+                            Buswidth::Eight => 2,
+                        })
+                    });
+
+                    self.clkcr_set_clkdiv(freq.into().0, width)?;
+                    Ok(())
+                }
+            }
+
         )+
     };
 }
@@ -1214,91 +1324,27 @@ sdmmc! {
     SDMMC2: (sdmmc2, Sdmmc2),
 }
 
-/// SD card Commands
-impl Cmd {
-    const fn new(cmd: u8, arg: u32, resp: Response) -> Cmd {
-        Cmd { cmd, arg, resp }
+impl SdmmcPeripheral for SdCard {
+    fn get_address(&self) -> u16 {
+        self.rca.address()
     }
+    fn get_capacity(&self) -> CardCapacity {
+        self.capacity
+    }
+}
 
-    /// CMD0: Idle
-    const fn idle() -> Cmd {
-        Cmd::new(0, 0, Response::None)
+impl SdmmcPeripheral for Emmc {
+    fn get_address(&self) -> u16 {
+        self.rca.address()
     }
+    fn get_capacity(&self) -> CardCapacity {
+        self.capacity
+    }
+}
 
-    /// CMD2: Send CID
-    const fn all_send_cid() -> Cmd {
-        Cmd::new(2, 0, Response::Long)
-    }
-
-    /// CMD3: Send Relative Address
-    const fn send_rel_addr() -> Cmd {
-        Cmd::new(3, 0, Response::Short)
-    }
-
-    /// CMD6: Switch Function Command
-    /// ACMD6: Bus Width
-    const fn cmd6(arg: u32) -> Cmd {
-        Cmd::new(6, arg, Response::Short)
-    }
-
-    /// CMD7: Select one card and put it into the _Tranfer State_
-    const fn sel_desel_card(rca: u32) -> Cmd {
-        Cmd::new(7, rca, Response::Short)
-    }
-
-    /// CMD8:
-    const fn hs_send_ext_csd(arg: u32) -> Cmd {
-        Cmd::new(8, arg, Response::Short)
-    }
-
-    /// CMD9:
-    const fn send_csd(rca: u32) -> Cmd {
-        Cmd::new(9, rca, Response::Long)
-    }
-
-    /// CMD12:
-    const fn stop_transmission() -> Cmd {
-        Cmd::new(12, 0, Response::Short)
-    }
-
-    /// CMD13: Ask card to send status register
-    /// ACMD13: SD Status
-    const fn card_status(rca: u32) -> Cmd {
-        Cmd::new(13, rca, Response::Short)
-    }
-
-    /// CMD16:
-    const fn set_block_length(blocklen: u32) -> Cmd {
-        Cmd::new(16, blocklen, Response::Short)
-    }
-
-    /// CMD17: Block Read
-    const fn read_single_block(addr: u32) -> Cmd {
-        Cmd::new(17, addr, Response::Short)
-    }
-
-    /// CMD18: Multiple Block Read
-    const fn read_multiple_blocks(addr: u32) -> Cmd {
-        Cmd::new(18, addr, Response::Short)
-    }
-
-    /// CMD24: Block Write
-    const fn write_single_block(addr: u32) -> Cmd {
-        Cmd::new(24, addr, Response::Short)
-    }
-
-    const fn app_op_cmd(arg: u32) -> Cmd {
-        Cmd::new(41, arg, Response::Short)
-    }
-
-    const fn cmd51() -> Cmd {
-        Cmd::new(51, 0, Response::Short)
-    }
-
-    /// App Command. Indicates that next command will be a app command
-    const fn app_cmd(rca: u32) -> Cmd {
-        Cmd::new(55, rca, Response::Short)
-    }
+pub trait SdmmcPeripheral {
+    fn get_address(&self) -> u16;
+    fn get_capacity(&self) -> CardCapacity;
 }
 
 #[cfg(feature = "sdmmc-fatfs")]

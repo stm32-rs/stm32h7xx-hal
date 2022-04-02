@@ -193,18 +193,21 @@ impl I2SChanConfig {
     }
 
     /// Set synchronization type, defaults to Master
+    #[must_use]
     pub fn set_sync_type(mut self, sync_type: I2SSync) -> Self {
         self.sync_type = sync_type;
         self
     }
 
     /// Set the clock strobing edge
+    #[must_use]
     pub fn set_clock_strobe(mut self, clock_strobe: I2SClockStrobe) -> Self {
         self.clock_strobe = clock_strobe;
         self
     }
 
     /// Set the number of slots, this is an advanced configuration.
+    #[must_use]
     pub fn set_slots(mut self, slots: u8) -> Self {
         assert!(slots <= 16);
         self.slots = slots;
@@ -212,6 +215,7 @@ impl I2SChanConfig {
     }
 
     /// Set the offset of the first data bit
+    #[must_use]
     pub fn set_first_bit_offset(mut self, first_bit_offset: u8) -> Self {
         // 5 bits or less
         assert!(first_bit_offset < 0b10_0000);
@@ -220,12 +224,14 @@ impl I2SChanConfig {
     }
 
     ///  Sets when the frame sync is asserted
+    #[must_use]
     pub fn set_frame_sync_before(mut self, frame_sync_before: bool) -> Self {
         self.frame_sync_before = frame_sync_before;
         self
     }
 
     /// Set frame sync to active high, defaults to active low
+    #[must_use]
     pub fn set_frame_sync_active_high(
         mut self,
         frame_sync_active_high: bool,
@@ -237,24 +243,28 @@ impl I2SChanConfig {
     /// Enable oversampling
     ///
     /// Note: the clock frequency must be doubled when enabled
+    #[must_use]
     pub fn set_oversampling(mut self, oversampling: bool) -> Self {
         self.oversampling = oversampling;
         self
     }
 
     /// Disable master clock generator
+    #[must_use]
     pub fn disable_master_clock(mut self) -> Self {
         self.master_clock_disabled = true;
         self
     }
 
     /// Sets the protocol to MSB or LSB
+    #[must_use]
     pub fn set_protocol(mut self, protocol: I2SProtocol) -> Self {
         self.protocol = protocol;
         self
     }
 
     /// Set the mono mode bit, default is to use stereo
+    #[must_use]
     pub fn set_mono_mode(mut self, mono_mode: bool) -> Self {
         self.mono_mode = mono_mode;
         self
@@ -265,6 +275,7 @@ impl I2SChanConfig {
     /// * true - repeat the last values
     ///
     /// Only meaningful in Tx mode when slots <= 2 and mute is enabled
+    #[must_use]
     pub fn set_mute_repeat(mut self, mute_repeat: bool) -> Self {
         if self.dir == I2SDir::Rx || self.slots > 2 {
             panic!("This only has meaning in I2S::Tx mode when slots <= 2");
@@ -278,6 +289,7 @@ impl I2SChanConfig {
     ///
     /// The value set is compared to the number of consecutive mute frames detected in
     /// reception. When the number of mute frames is equal to this value, the Muted even will be generated
+    #[must_use]
     pub fn set_mute_counter(mut self, mute_counter: u8) -> Self {
         if self.dir == I2SDir::Tx {
             panic!("This only has meaning in I2S::Rx mode");
@@ -289,12 +301,14 @@ impl I2SChanConfig {
     }
 
     /// Set the tristate to release the SD output line (HI-Z) at the end of the last data bit
+    #[must_use]
     pub fn set_tristate(mut self, tristate: bool) -> Self {
         self.tristate = tristate;
         self
     }
 
     /// Set the frame size. If None it will be automatically calculated
+    #[must_use]
     pub fn set_frame_size(mut self, frame_size: Option<u8>) -> Self {
         if let Some(frame_size) = frame_size {
             assert!(frame_size >= 8);
@@ -322,6 +336,7 @@ impl I2sUsers {
         }
     }
 
+    #[must_use]
     pub fn add_slave(mut self, slave: I2SChanConfig) -> Self {
         self.slave.replace(slave);
         self

@@ -4,6 +4,7 @@
 use {
     embedded_sdmmc::{Controller, VolumeIdx},
     log,
+    stm32h7xx_hal::sdmmc::{SdCard, Sdmmc},
     stm32h7xx_hal::{pac, prelude::*, rcc},
 };
 
@@ -43,7 +44,7 @@ unsafe fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .sys_ck(480.mhz())
+        .sys_ck(200.mhz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .pll1_q_ck(100.mhz())
         .pll2_strategy(rcc::PllConfigStrategy::Iterative)
@@ -56,7 +57,7 @@ unsafe fn main() -> ! {
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
-    let mut sd = dp.SDMMC2.sdmmc(
+    let mut sd: Sdmmc<_, SdCard> = dp.SDMMC2.sdmmc(
         (
             gpiod.pd6.into_alternate(),
             gpiod.pd7.into_alternate(),
@@ -74,7 +75,7 @@ unsafe fn main() -> ! {
         // On most development boards this can be increased up to 50MHz. We choose a
         // lower frequency here so that it should work even with flying leads
         // connected to a SD card breakout.
-        match sd.init_card(2.mhz()) {
+        match sd.init(2.mhz()) {
             Ok(_) => break,
             Err(err) => {
                 log::info!("Init err: {:?}", err);

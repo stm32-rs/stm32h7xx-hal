@@ -11,7 +11,7 @@ use stm32h7xx_hal::{pac, prelude::*};
 
 fn enable_fdcan(rec: rec::Fdcan) {
     // Enable and set individual kernel clock to PLL1 Q CK
-    rec.enable().kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
+    let _ = rec.enable().kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
 
     // rec is dropped here, and can never be changed again
 }

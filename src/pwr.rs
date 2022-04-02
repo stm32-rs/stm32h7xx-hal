@@ -173,6 +173,7 @@ macro_rules! supply_configuration_setter {
     ($($config:ident: $name:ident, $doc:expr,)*) => {
         $(
             #[doc=$doc]
+            #[must_use]
             pub fn $name(mut self) -> Self {
                 self.supply_configuration = SupplyConfiguration::$config;
                 self
@@ -355,6 +356,7 @@ impl Pwr {
         feature = "revision_v",
         any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
     ))]
+    #[must_use]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
         self.target_vos = VoltageScale::Scale0;
         self
@@ -382,6 +384,7 @@ impl Pwr {
     ///
     /// The backup domain voltage regulator maintains the contents of backup SRAM
     /// in Standby and VBAT modes.
+    #[must_use]
     pub fn backup_regulator(mut self) -> Self {
         self.backup_regulator = true;
         self

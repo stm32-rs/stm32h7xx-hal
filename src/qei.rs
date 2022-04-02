@@ -160,7 +160,7 @@ macro_rules! tim_hal {
                 pub fn $tim(tim: $TIM, prec: rec::$Rec) -> Self
                 {
                     // enable and reset peripheral to a clean slate
-                    prec.enable().reset();
+                    let _ = prec.enable().reset(); // drop
 
                     // Configure TxC1 and TxC2 as captures
                     tim.ccmr1_output().write(|w| unsafe {
@@ -192,8 +192,8 @@ macro_rules! tim_hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn release(self) -> $TIM {
-                    self.tim
+                pub fn release(self) -> ($TIM, rec::$Rec) {
+                    (self.tim, rec::$Rec { _marker: core::marker::PhantomData })
                 }
             }
 
