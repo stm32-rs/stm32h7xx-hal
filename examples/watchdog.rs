@@ -22,7 +22,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     #[cfg(any(feature = "rm0433", feature = "rm0455"))]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG, &ccdr);
@@ -47,7 +47,7 @@ fn main() -> ! {
 
     // Enable the watchdog with a limit of 100 ms and wait forever
     // -> restart the chip
-    watchdog.start(100.ms());
+    watchdog.start(100.millis());
 
     loop {
         cortex_m::asm::nop()

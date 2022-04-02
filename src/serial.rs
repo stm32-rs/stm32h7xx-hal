@@ -129,9 +129,9 @@ pub mod config {
         ///
         /// * 8 bits, 1 stop bit, no parity (8N1)
         /// * LSB first
-        pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
+        pub fn new(frequency: Hertz) -> Self {
             Config {
-                baudrate: frequency.into(),
+                baudrate: frequency,
                 parity: Parity::ParityNone,
                 stopbits: StopBits::STOP1,
                 bitorder: BitOrder::LsbFirst,
@@ -144,8 +144,8 @@ pub mod config {
             }
         }
 
-        pub fn baudrate(mut self, baudrate: impl Into<Hertz>) -> Self {
-            self.baudrate = baudrate.into();
+        pub fn baudrate(mut self, baudrate: Hertz) -> Self {
+            self.baudrate = baudrate;
             self
         }
 
@@ -224,12 +224,12 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            Self::new(Hertz(19_200)) // 19k2 baud
+            Self::new(Hertz::from_raw(19_200)) // 19k2 baud
         }
     }
 
-    impl<T: Into<Hertz>> From<T> for Config {
-        fn from(frequency: T) -> Config {
+    impl From<Hertz> for Config {
+        fn from(frequency: Hertz) -> Config {
             Self::new(frequency)
         }
     }
@@ -536,11 +536,11 @@ macro_rules! usart {
                     use self::config::*;
 
                     // Prescaler not used for now
-                    let usart_ker_ck_presc = self.ker_ck.0;
+                    let usart_ker_ck_presc = self.ker_ck;
                     self.usart.presc.reset();
 
                     // Calculate baudrate divisor
-                    let usartdiv = usart_ker_ck_presc / config.baudrate.0;
+                    let usartdiv = usart_ker_ck_presc / config.baudrate;
                     assert!(usartdiv <= 65_536);
 
                     // 16 times oversampling, OVER8 = 0

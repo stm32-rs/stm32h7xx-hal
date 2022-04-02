@@ -46,7 +46,7 @@ fn main() -> ! {
 
     info!("Setup RCC...");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Push button configuration
     let mut syscfg = dp.SYSCFG;

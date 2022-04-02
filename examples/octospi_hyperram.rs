@@ -29,10 +29,10 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(320.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(320.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
-    assert_eq!(ccdr.clocks.hclk().0, 160_000_000);
+    assert_eq!(ccdr.clocks.hclk().raw(), 160_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
         OctospiClkSel::RCC_HCLK3
@@ -109,9 +109,9 @@ fn main() -> ! {
     // Initialise a HyperRAM on the OCTOSPI2 peripheral
     let ram_slice = unsafe {
         let hyperram_size = 16 * 1024 * 1024; // 16 MByte
-        let config = HyperbusConfig::new(80.mhz())
+        let config = HyperbusConfig::new(80.MHz())
             .device_size_bytes(24) // 16 Mbyte
-            .refresh_interval(4.us())
+            .refresh_interval(4.micros())
             .read_write_recovery(4) // 50ns
             .access_initial_latency(6);
 

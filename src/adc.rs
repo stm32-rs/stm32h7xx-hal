@@ -353,7 +353,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
 
     // Check against datasheet requirements
     assert!(
-        adc_clock.0 <= ADC_KER_CK_MAX,
+        adc_clock.raw() <= ADC_KER_CK_MAX,
         "adc_ker_ck_input is too fast"
     );
 

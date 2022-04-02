@@ -22,7 +22,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
     // Configure the SCL and the SDA pin for our I2C bus
@@ -31,7 +31,7 @@ fn main() -> ! {
 
     let mut i2c =
         dp.I2C1
-            .i2c((scl, sda), 100.khz(), ccdr.peripheral.I2C1, &ccdr.clocks);
+            .i2c((scl, sda), 100.kHz(), ccdr.peripheral.I2C1, &ccdr.clocks);
 
     // Echo what is received on the I2C at register 0x60
     let mut buf = [0x60];

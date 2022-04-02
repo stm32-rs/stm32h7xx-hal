@@ -40,7 +40,7 @@ mod app {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let mut ccdr = rcc.sys_ck(80.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
+        let mut ccdr = rcc.sys_ck(80.MHz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // 48MHz CLOCK
         let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");

@@ -117,7 +117,7 @@
 //! let ccdr = ...; // Returned by `freeze()`, see examples above
 //!
 //! // Runtime confirmation that hclk really is 200MHz
-//! assert_eq!(ccdr.clocks.hclk().0, 200_000_000);
+//! assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000);
 //!
 //! // Panics if pll1_q_ck is not running
 //! let _ = ccdr.clocks.pll1_q_ck().unwrap();
@@ -273,11 +273,8 @@ macro_rules! pclk_setter {
             /// Set the peripheral clock frequency for APB
             /// peripherals.
             #[must_use]
-            pub fn $name<F>(mut self, freq: F) -> Self
-            where
-                F: Into<Hertz>,
-            {
-                self.config.$pclk = Some(freq.into().0);
+            pub fn $name(mut self, freq: Hertz) -> Self {
+                self.config.$pclk = Some(freq.raw());
                 self
             }
         )+
@@ -291,11 +288,8 @@ macro_rules! pll_setter {
             $(
                 /// Set the target clock frequency for PLL output
                 #[must_use]
-                pub fn $name<F>(mut self, freq: F) -> Self
-                where
-                    F: Into<Hertz>,
-                {
-                    self.config.$pll.$ck = Some(freq.into().0);
+                pub fn $name(mut self, freq: Hertz) -> Self {
+                    self.config.$pll.$ck = Some(freq.raw());
                     self
                 }
             )+
@@ -324,11 +318,8 @@ impl Rcc {
     /// oscillator) as the clock source. Will result in a hang if an
     /// external oscillator is not connected or it fails to start.
     #[must_use]
-    pub fn use_hse<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.config.hse = Some(freq.into().0);
+    pub fn use_hse(mut self, freq: Hertz) -> Self {
+        self.config.hse = Some(freq.raw());
         self
     }
 
@@ -342,31 +333,22 @@ impl Rcc {
 
     /// Set input frequency to the SCGU
     #[must_use]
-    pub fn sys_ck<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.config.sys_ck = Some(freq.into().0);
+    pub fn sys_ck(mut self, freq: Hertz) -> Self {
+        self.config.sys_ck = Some(freq.raw());
         self
     }
 
     /// Set input frequency to the SCGU - ALIAS
     #[must_use]
-    pub fn sysclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.config.sys_ck = Some(freq.into().0);
+    pub fn sysclk(mut self, freq: Hertz) -> Self {
+        self.config.sys_ck = Some(freq.raw());
         self
     }
 
     /// Set peripheral clock frequency
     #[must_use]
-    pub fn per_ck<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.config.per_ck = Some(freq.into().0);
+    pub fn per_ck(mut self, freq: Hertz) -> Self {
+        self.config.per_ck = Some(freq.raw());
         self
     }
 
@@ -375,11 +357,8 @@ impl Rcc {
     /// and the AXI bus clock is called `rcc_aclk`. However they are all the
     /// same frequency.
     #[must_use]
-    pub fn hclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.config.rcc_hclk = Some(freq.into().0);
+    pub fn hclk(mut self, freq: Hertz) -> Self {
+        self.config.rcc_hclk = Some(freq.raw());
         self
     }
 
@@ -619,11 +598,11 @@ impl Rcc {
             };
             self.config.pll1.p_ck = pll1_p_ck;
 
-            (Hertz(sys_ck), true)
+            (Hertz::from_raw(sys_ck), true)
         } else {
             // sys_ck is derived directly from a source clock
             // (HSE/HSI). pll1_p_ck can be as requested
-            (Hertz(sys_ck), false)
+            (Hertz::from_raw(sys_ck), false)
         }
     }
 
@@ -732,7 +711,7 @@ impl Rcc {
         // Set to 1
         let d1cpre_bits = 0;
         let d1cpre_div = 1;
-        let sys_d1cpre_ck = sys_ck.0 / d1cpre_div;
+        let sys_d1cpre_ck = sys_ck.raw() / d1cpre_div;
 
         // Timer prescaler selection
         let timpre = TIMPRE::DEFAULTX2;
@@ -811,7 +790,7 @@ impl Rcc {
             MCO1::HSI => HSI,
             MCO1::LSE => unimplemented!(),
             MCO1::HSE => self.config.hse.unwrap(),
-            MCO1::PLL1_Q => pll1_q_ck.unwrap().0,
+            MCO1::PLL1_Q => pll1_q_ck.unwrap().raw(),
             MCO1::HSI48 => HSI48,
         };
         let (mco_1_pre, mco1_ck) =
@@ -819,10 +798,10 @@ impl Rcc {
 
         let mco2_in = match self.config.mco2.source {
             // We set the required clock earlier, so can unwrap() here.
-            MCO2::SYSCLK => sys_ck.0,
-            MCO2::PLL2_P => pll2_p_ck.unwrap().0,
+            MCO2::SYSCLK => sys_ck.raw(),
+            MCO2::PLL2_P => pll2_p_ck.unwrap().raw(),
             MCO2::HSE => self.config.hse.unwrap(),
-            MCO2::PLL1_P => pll1_p_ck.unwrap().0,
+            MCO2::PLL1_P => pll1_p_ck.unwrap().raw(),
             MCO2::CSI => CSI,
             MCO2::LSI => LSI,
         };
@@ -866,7 +845,7 @@ impl Rcc {
                 });
                 while rcc.cr.read().hserdy().is_not_ready() {}
 
-                Some(Hertz(hse))
+                Some(Hertz::from_raw(hse))
             }
             None => None,
         };
@@ -1106,20 +1085,20 @@ impl Rcc {
         // Return frozen clock configuration
         Ccdr {
             clocks: CoreClocks {
-                hclk: Hertz(rcc_hclk),
-                pclk1: Hertz(rcc_pclk1),
-                pclk2: Hertz(rcc_pclk2),
-                pclk3: Hertz(rcc_pclk3),
-                pclk4: Hertz(rcc_pclk4),
+                hclk: Hertz::from_raw(rcc_hclk),
+                pclk1: Hertz::from_raw(rcc_pclk1),
+                pclk2: Hertz::from_raw(rcc_pclk2),
+                pclk3: Hertz::from_raw(rcc_pclk3),
+                pclk4: Hertz::from_raw(rcc_pclk4),
                 ppre1,
                 ppre2,
                 ppre3,
                 ppre4,
-                csi_ck: Some(Hertz(csi)),
-                hsi_ck: Some(Hertz(hsi)),
-                hsi48_ck: Some(Hertz(hsi48)),
-                lsi_ck: Some(Hertz(lsi)),
-                per_ck: Some(Hertz(per_ck)),
+                csi_ck: Some(Hertz::from_raw(csi)),
+                hsi_ck: Some(Hertz::from_raw(hsi)),
+                hsi48_ck: Some(Hertz::from_raw(hsi48)),
+                lsi_ck: Some(Hertz::from_raw(lsi)),
+                per_ck: Some(Hertz::from_raw(per_ck)),
                 hse_ck,
                 mco1_ck,
                 mco2_ck,
@@ -1132,10 +1111,10 @@ impl Rcc {
                 pll3_p_ck,
                 pll3_q_ck,
                 pll3_r_ck,
-                timx_ker_ck: Hertz(rcc_timx_ker_ck),
-                timy_ker_ck: Hertz(rcc_timy_ker_ck),
+                timx_ker_ck: Hertz::from_raw(rcc_timx_ker_ck),
+                timy_ker_ck: Hertz::from_raw(rcc_timy_ker_ck),
                 sys_ck,
-                c_ck: Hertz(sys_d1cpre_ck),
+                c_ck: Hertz::from_raw(sys_d1cpre_ck),
             },
             peripheral: unsafe {
                 // unsafe: we consume self which was a singleton, hence

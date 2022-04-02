@@ -76,8 +76,10 @@ impl Ltdc {
         core_clocks: &CoreClocks,
     ) -> Self {
         // See Errata ES0445 Rev 1 Section 2.6.1
-        let lcd_clock =
-            core_clocks.pll3_r_ck().expect("PLL3 R clock must run!").0;
+        let lcd_clock = core_clocks
+            .pll3_r_ck()
+            .expect("PLL3 R clock must run!")
+            .raw();
 
         // Enable peripheral
         ltdc_rec.enable().reset();

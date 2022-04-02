@@ -21,7 +21,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals. This also enables the clock for
     // the GPIOs in the RCC register.
@@ -45,7 +45,7 @@ fn main() -> ! {
     // Initialise the QSPI peripheral.
     let mut qspi = dp.QUADSPI.bank1(
         (sck, io0, io1, io2, io3),
-        3.mhz(),
+        3.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.QSPI,
     );

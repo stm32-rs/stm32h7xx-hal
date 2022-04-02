@@ -49,8 +49,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .hclk(50.mhz())
+        .sys_ck(100.MHz())
+        .hclk(50.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Cycle counter

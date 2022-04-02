@@ -715,7 +715,7 @@ pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
     // MAC layer
 
     // Set the MDC clock frequency in the range 1MHz - 2.5MHz
-    let hclk_mhz = clocks.hclk().0 / 1_000_000;
+    let hclk_mhz = clocks.hclk().raw() / 1_000_000;
     let csr_clock_range = match hclk_mhz {
         0..=34 => 2,    // Divide by 16
         35..=59 => 3,   // Divide by 26

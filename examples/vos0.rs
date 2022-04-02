@@ -25,7 +25,7 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(480.mhz())
+        .sys_ck(480.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .freeze(pwrcfg, &dp.SYSCFG);
 
@@ -34,12 +34,12 @@ fn main() -> ! {
     info!("");
 
     // HCLK
-    info!("hclk = {} MHz", ccdr.clocks.hclk().0 as f32 / 1e6);
-    assert_eq!(ccdr.clocks.hclk().0, 240_000_000);
+    info!("hclk = {} MHz", ccdr.clocks.hclk().raw() as f32 / 1e6);
+    assert_eq!(ccdr.clocks.hclk().raw(), 240_000_000);
 
     // SYS_CK
-    info!("sys_ck = {} MHz", ccdr.clocks.sys_ck().0 as f32 / 1e6);
-    assert_eq!(ccdr.clocks.sys_ck().0, 480_000_000);
+    info!("sys_ck = {} MHz", ccdr.clocks.sys_ck().raw() as f32 / 1e6);
+    assert_eq!(ccdr.clocks.sys_ck().raw(), 480_000_000);
 
     loop {
         cortex_m::asm::nop()

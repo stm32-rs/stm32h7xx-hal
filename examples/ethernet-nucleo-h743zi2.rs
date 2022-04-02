@@ -18,7 +18,7 @@ use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(syst: &mut stm32::SYST, clocks: CoreClocks) {
-    let c_ck_mhz = clocks.c_ck().0 / 1_000_000;
+    let c_ck_mhz = clocks.c_ck().to_MHz();
 
     let syst_calib = 0x3E8;
 
@@ -62,9 +62,9 @@ fn main() -> ! {
     // Initialise clocks...
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .hclk(200.mhz())
-        .pll1_r_ck(100.mhz()) // for TRACECK
+        .sys_ck(200.MHz())
+        .hclk(200.MHz())
+        .pll1_r_ck(100.MHz()) // for TRACECK
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Get the delay provider.
@@ -95,10 +95,10 @@ fn main() -> ! {
     let rmii_txd1 = gpiob.pb13.into_alternate();
 
     // Initialise ethernet...
-    assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
-    assert_eq!(ccdr.clocks.pclk1().0, 100_000_000); // PCLK 100MHz
-    assert_eq!(ccdr.clocks.pclk2().0, 100_000_000); // PCLK 100MHz
-    assert_eq!(ccdr.clocks.pclk4().0, 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
+    assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, eth_mac) = unsafe {

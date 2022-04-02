@@ -88,25 +88,22 @@ pub struct I2c<I2C> {
 pub trait I2cExt<I2C>: Sized {
     type Rec: ResetEnable;
 
-    fn i2c<PINS, F>(
+    fn i2c<PINS>(
         self,
         _pins: PINS,
-        frequency: F,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> I2c<I2C>
     where
-        PINS: Pins<I2C>,
-        F: Into<Hertz>;
+        PINS: Pins<I2C>;
 
-    fn i2c_unchecked<F>(
+    fn i2c_unchecked(
         self,
-        frequency: F,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> I2c<I2C>
-    where
-        F: Into<Hertz>;
+    ) -> I2c<I2C>;
 }
 
 // Sequence to flush the TXDR register. This resets the TXIS and TXE
@@ -278,22 +275,20 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                pub fn $i2cX<F> (
+                pub fn $i2cX (
                     i2c: $I2CX,
-                    frequency: F,
+                    frequency: Hertz,
                     prec: rec::$Rec,
                     clocks: &CoreClocks
-                ) -> Self where
-                    F: Into<Hertz>,
-                {
+                ) -> Self {
                     let _ = prec.enable().reset(); // drop, can be recreated by free method
 
-                    let freq: u32 = frequency.into().0;
+                    let freq: u32 = frequency.raw();
 
                     // Maximum f_SCL for Fast-mode Plus (Fm+)
                     assert!(freq <= 1_000_000);
 
-                    let i2c_clk: u32 = clocks.$pclkX().0;
+                    let i2c_clk: u32 = clocks.$pclkX().raw();
 
                     // Clear PE bit in I2C_CR1
                     i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -535,13 +530,12 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c<PINS, F>(self, _pins: PINS, frequency: F,
+                fn i2c<PINS>(self, _pins: PINS, frequency: Hertz,
                                 prec: rec::$Rec,
                                 clocks: &CoreClocks) -> I2c<$I2CX>
                 where
-                    PINS: Pins<$I2CX>,
-                    F: Into<Hertz>
-                {
+                    PINS: Pins<$I2CX> {
+
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }
 
@@ -556,12 +550,9 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c_unchecked<F>(self, frequency: F,
+                fn i2c_unchecked(self, frequency: Hertz,
                                     prec: rec::$Rec,
-                                    clocks: &CoreClocks) -> I2c<$I2CX>
-                where
-                    F: Into<Hertz>
-                {
+                                    clocks: &CoreClocks) -> I2c<$I2CX> {
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }
             }

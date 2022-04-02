@@ -51,8 +51,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(200.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(200.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for

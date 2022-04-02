@@ -161,16 +161,15 @@ impl INTERFACE for Pdm {}
 pub trait SaiPdmExt<SAI>: Sized {
     type Rec: ResetEnable;
 
-    fn pdm<PINS, T>(
+    fn pdm<PINS>(
         self,
         _pins: PINS,
-        clock: T,
+        clock: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Sai<SAI, Pdm>
     where
-        PINS: PulseDensityPins<Self>,
-        T: Into<Hertz>;
+        PINS: PulseDensityPins<Self>;
 }
 
 macro_rules! hal {
@@ -179,18 +178,17 @@ macro_rules! hal {
             impl SaiPdmExt<$SAIX> for $SAIX {
                 type Rec = rec::$Rec;
 
-                fn pdm<PINS, T>(
+                fn pdm<PINS>(
                     self,
                     _pins: PINS,
-                    clock: T,
+                    clock: Hertz,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                 ) -> Sai<Self, Pdm>
                 where
                     PINS: PulseDensityPins<Self>,
-                    T: Into<Hertz>,
                 {
-                    Sai::$pdm_saiX(self, _pins, clock.into(), prec, clocks)
+                    Sai::$pdm_saiX(self, _pins, clock, prec, clocks)
                 }
             }
             impl Sai<$SAIX, Pdm> {
@@ -234,14 +232,14 @@ macro_rules! hal {
                     let nbslot: u8 = 0; // One slot
 
                     // Calculate bit clock SCK_a
-                    let sck_a_hz = 2 * clock.0;
+                    let sck_a_hz = 2 * clock;
 
                     // Calculate master clock MCLK_a
                     let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
 
                     // Calculate divider
                     let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
-                    let kernel_clock_divider: u8 = (ker_ck_a.0 / mclk_a_hz)
+                    let kernel_clock_divider: u8 = (ker_ck_a / mclk_a_hz)
                         .try_into()
                         .expect(concat!(stringify!($SAIX),
                                         ": Kernel clock is out of range for required MCLK"

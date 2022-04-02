@@ -18,7 +18,7 @@ use hal::stm32;
 use hal::{pac, prelude::*};
 use stm32h7xx_hal as hal;
 use stm32h7xx_hal::rcc;
-use stm32h7xx_hal::time::{Hertz, MegaHertz};
+use stm32h7xx_hal::time::Hertz;
 use stm32h7xx_hal::traits::i2s::FullDuplex;
 
 use pac::interrupt;
@@ -33,12 +33,12 @@ mod utilities;
 // 32 samples * 2 audio channels * 2 buffers
 const DMA_BUFFER_LENGTH: usize = 48 * 2 * 2;
 
-const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
+const AUDIO_SAMPLE_HZ: Hertz = Hertz::from_raw(48_000);
 
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256
 // But not less than so targetting 257
-const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
+const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 
 // = static data ==============================================================
 
@@ -46,12 +46,12 @@ const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
 static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
 #[link_section = ".sram3"]
 static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
-pub const CLOCK_RATE_HZ: Hertz = Hertz(400_000_000_u32);
+pub const CLOCK_RATE_HZ: Hertz = Hertz::MHz(400);
 
-const HSE_CLOCK_MHZ: MegaHertz = MegaHertz(16);
+const HSE_CLOCK_MHZ: Hertz = Hertz::MHz(16);
 
 // PCLKx
-const PCLK_HZ: Hertz = Hertz(CLOCK_RATE_HZ.0 / 4);
+const PCLK_HZ: Hertz = Hertz::from_raw(CLOCK_RATE_HZ.raw() / 4);
 // PLL1
 const PLL1_P_HZ: Hertz = CLOCK_RATE_HZ;
 

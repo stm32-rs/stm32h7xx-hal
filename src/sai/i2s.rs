@@ -346,30 +346,28 @@ impl I2sUsers {
 /// Trait to extend SAI peripherals
 pub trait SaiI2sExt<SAI>: Sized {
     type Rec: ResetEnable;
-    fn i2s_ch_a<PINS, T>(
+    fn i2s_ch_a<PINS>(
         self,
         _pins: PINS,
-        audio_freq: T,
+        audio_freq: Hertz,
         data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         users: I2sUsers,
     ) -> Sai<SAI, I2S>
     where
-        PINS: I2SPinsChA<Self>,
-        T: Into<Hertz>;
-    fn i2s_ch_b<PINS, T>(
+        PINS: I2SPinsChA<Self>;
+    fn i2s_ch_b<PINS>(
         self,
         _pins: PINS,
-        audio_freq: T,
+        audio_freq: Hertz,
         data_size: I2SDataSize,
         prec: Self::Rec,
         clocks: &CoreClocks,
         users: I2sUsers,
     ) -> Sai<SAI, I2S>
     where
-        PINS: I2SPinsChB<Self>,
-        T: Into<Hertz>;
+        PINS: I2SPinsChB<Self>;
 }
 
 macro_rules! i2s {
@@ -377,10 +375,10 @@ macro_rules! i2s {
         $(
             impl SaiI2sExt<$SAIX> for $SAIX {
                 type Rec = rec::$Rec;
-                fn i2s_ch_a<PINS, T>(
+                fn i2s_ch_a<PINS>(
                     self,
                     _pins: PINS,
-                    audio_freq: T,
+                    audio_freq: Hertz,
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
@@ -388,22 +386,21 @@ macro_rules! i2s {
                 ) -> Sai<Self, I2S>
                 where
                     PINS: I2SPinsChA<Self>,
-                    T: Into<Hertz>,
                 {
                     Sai::$i2s_saiX_ch_a(
                         self,
                         _pins,
-                        audio_freq.into(),
+                        audio_freq,
                         data_size,
                         prec,
                         clocks,
                         users,
                     )
                 }
-                fn i2s_ch_b<PINS, T>(
+                fn i2s_ch_b<PINS>(
                     self,
                     _pins: PINS,
-                    audio_freq: T,
+                    audio_freq: Hertz,
                     data_size: I2SDataSize,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
@@ -411,12 +408,11 @@ macro_rules! i2s {
                 ) -> Sai<Self, I2S>
                 where
                     PINS: I2SPinsChB<Self>,
-                    T: Into<Hertz>,
                 {
                     Sai::$i2s_saiX_ch_b(
                         self,
                         _pins,
-                        audio_freq.into(),
+                        audio_freq,
                         data_size,
                         prec,
                         clocks,
@@ -451,7 +447,7 @@ macro_rules! i2s {
                         256
                     };
                     let mclk_div =
-                        (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
+                        (ker_ck_a) / (audio_freq * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
                         .expect(concat!(stringify!($SAIX),
@@ -518,7 +514,7 @@ macro_rules! i2s {
                         256
                     };
                     let mclk_div =
-                        (ker_ck_a.0) / (audio_freq.0 * clock_ratio);
+                        (ker_ck_a) / (audio_freq * clock_ratio);
                     let mclk_div: u8 = mclk_div
                         .try_into()
                         .expect(concat!(stringify!($SAIX),

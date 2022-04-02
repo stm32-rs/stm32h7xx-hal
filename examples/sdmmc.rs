@@ -33,8 +33,8 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(100.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(100.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
@@ -101,7 +101,7 @@ fn main() -> ! {
     // On most development boards this can be increased up to 50MHz. We choose a
     // lower frequency here so that it should work even with flying leads
     // connected to a SD card breakout.
-    let bus_frequency = 2.mhz();
+    let bus_frequency = 2.MHz();
 
     // Loop until we have a card
     loop {
@@ -156,7 +156,7 @@ fn main() -> ! {
     }
 
     let end = pac::DWT::cycle_count();
-    let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
 
     info!("Read 10 blocks at {} bytes/s", 5120. / duration);
     info!("");

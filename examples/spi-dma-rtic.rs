@@ -57,9 +57,9 @@ mod app {
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz())
-            .pll1_q_ck(200.mhz())
+            .sys_ck(200.MHz())
+            .hclk(200.MHz())
+            .pll1_q_ck(200.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
@@ -80,7 +80,7 @@ mod app {
             let spi: hal::spi::Spi<_, _, u8> = ctx.device.SPI2.spi(
                 (sck, hal::spi::NoMiso, mosi),
                 config,
-                3.mhz(),
+                3.MHz(),
                 ccdr.peripheral.SPI2,
                 &ccdr.clocks,
             );
