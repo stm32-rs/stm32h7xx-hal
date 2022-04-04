@@ -652,6 +652,44 @@ mod common {
                 Ok(())
             }
 
+            /// Begin a write over the XSPI interface, using an extended
+            /// transaction that may contain instruction, address,
+            /// alternate-bytes and data phases with various sizes. This is
+            /// mostly useful for use with DMA or if you are managing the read
+            /// yourself. If you want to complete a whole transaction, see the
+            /// [`write_extended`](#method.write_extended) method.
+            ///
+            /// # Args
+            /// * `instruction` - The word to be used for the instruction phase.
+            ///                   For RM0433/RM0399 parts, this must be 8 bits or None
+            /// * `address` - The word to be used for the address phase.
+            /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
+            /// * `length` - The length of the write operation in bytes. Use
+            ///            zero to remove the data phase entirely.
+            ///
+            pub fn begin_write_extended(&mut self,
+                                  instruction: XspiWord,
+                                  address: XspiWord,
+                                  alternate_bytes: XspiWord,
+                                  length: usize) -> Result<(), XspiError> {
+                self.is_busy()?;
+
+                // Clear the transfer complete flag.
+                self.rb.fcr.write(|w| w.ctcf().set_bit());
+
+                // Data length
+                if length > 0 {
+                    self.rb
+                        .dlr
+                        .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
+                }
+
+                // Setup extended mode. Typically no dummy cycles in write mode
+                self.setup_extended(instruction, address, alternate_bytes, 0, length > 0, false);
+
+                Ok(())
+            }
+
             /// Write data over the XSPI interface, using an extended
             /// transaction that may contain instruction, address, alternate-bytes
             /// and data phases with various sizes.
@@ -661,7 +699,7 @@ mod common {
             /// * `address` - The word to be used for the address phase.
             /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
             /// * `data` - An array of data to transfer over the XSPI interface. Use
-            ///            and empty slice to remove the data phase entirely.
+            ///            an empty slice to remove the data phase entirely.
             ///
             /// # Panics
             ///
@@ -677,20 +715,7 @@ mod common {
                     "Transactions larger than the XSPI FIFO are currently unsupported"
                 );
 
-                self.is_busy()?;
-
-                // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
-
-                // Data length
-                if !data.is_empty() {
-                    self.rb
-                        .dlr
-                        .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
-                }
-
-                // Setup extended mode. Typically no dummy cycles in write mode
-                self.setup_extended(instruction, address, alternate_bytes, 0, !data.is_empty(), false);
+                self.begin_write_extended(instruction, address, alternate_bytes, data.len())?;
 
                 // Write data to the FIFO in a byte-wise manner.
                 // Transaction starts here
@@ -790,6 +815,56 @@ mod common {
                 Ok(())
             }
 
+            /// Begin a read over the XSPI interface, using an extended transaction
+            /// that may contain instruction, address, alternate-bytes and data
+            /// phases with various sizes. This is mostly useful for use with DMA or if
+            /// you are managing the read yourself. If you want to complete a whole
+            /// transaction, see the [`read_extended`](#method.read_extended) method.
+            ///
+            /// # Args
+            /// * `instruction` - The word to be used for the instruction phase.
+            /// * `address` - The word to be used for the address phase.
+            /// * `alternate_bytes` - The word to be used for the alternate-bytes phase.
+            /// * `dummy_cycles` - 0 to 31 clock cycles between the alternate-bytes
+            ///                    and the data length.
+            /// * `length` - The transfer length, in bytes
+            ///
+            /// # Panics
+            ///
+            /// Panics if `length` is zero. Panics if the number of dummy cycles
+            /// is not 0 - 31 inclusive.
+            pub fn begin_read_extended(&mut self,
+                                       instruction: XspiWord,
+                                       address: XspiWord,
+                                       alternate_bytes: XspiWord,
+                                       dummy_cycles: u8,
+                                       length: usize) -> Result<(), XspiError> {
+                assert!(
+                    length != 0,
+                    "Must have a non-zero number of data cycles (otherwise use a write operation!)"
+                );
+                assert!(
+                    dummy_cycles < 32,
+                    "Hardware only supports 0-31 dummy cycles"
+                );
+
+                self.is_busy()?;
+
+                // Clear the transfer complete flag.
+                self.rb.fcr.write(|w| w.ctcf().set_bit());
+
+                // Write the length that should be read.
+                self.rb
+                    .dlr
+                    .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
+
+                // Setup extended mode. Read operations always have a data phase.
+                // Transaction starts here
+                self.setup_extended(instruction, address, alternate_bytes,
+                                    dummy_cycles, true, true);
+                Ok(())
+            }
+
             /// Read data over the XSPI interface, using an extended transaction
             /// that may contain instruction, address, alternate-bytes and data
             /// phases with various sizes.
@@ -817,29 +892,10 @@ mod common {
                     dest.len() <= 32,
                     "Transactions larger than the XSPI FIFO are currently unsupported"
                 );
-                assert!(
-                    !dest.is_empty(),
-                    "Must have a non-zero number of data cycles (otherwise use a write operation!)"
-                );
-                assert!(
-                    dummy_cycles < 32,
-                    "Hardware only supports 0-31 dummy cycles"
-                );
 
-                self.is_busy()?;
-
-                // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
-
-                // Write the length that should be read.
-                self.rb
-                    .dlr
-                    .write(|w| unsafe { w.dl().bits(dest.len() as u32 - 1) });
-
-                // Setup extended mode. Read operations always have a data phase.
-                // Transaction starts here
-                self.setup_extended(instruction, address, alternate_bytes,
-                                    dummy_cycles, true, true);
+                // Begin the extended read
+                self.begin_read_extended(instruction, address,
+                                         alternate_bytes, dummy_cycles, dest.len())?;
 
                 // Wait for the transaction to complete
                 while self.rb.sr.read().tcf().bit_is_clear() {}
