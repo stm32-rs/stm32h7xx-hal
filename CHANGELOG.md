@@ -32,6 +32,9 @@
 * adc: Remove unnecessary multiple reads of the CR register [#364]
 * adc: Add DMA TargetAddress implementations [#389]
 * adc: Poll LDORDY bit before ADC calibration [#386]
+* Remove pulling from `Input` mode. Use `internal_regiter(Pull)` instead,
+  add universal `into_mode::<MODE>()` pin mode converter,
+  `AFx` is now alias to `Alternate<x>` [#346]
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
 * flash: Use Ordering fence to prevent inconsistency errors when writing to flash sector [#382]
 * iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog` [#376]
@@ -62,6 +65,7 @@
   `Input`. Use `internal_resistor()` method instead, add universal
   `into_mode::<MODE>()` pin mode converter, Rename `set_speed()` method to
   `speed()` `AFx` is now alias to `Alternate<x>` [#347]
+
 * **Breaking**: Use [fugit](https://docs.rs/fugit/0.3.5/fugit/index.html) crate
   for duration and rate units. `.mhz()` -> `.MHz()`, `.khz()` -> `.kHz()`,
   `.hz()` -> `.Hz()`. Methods that previously accepted durations (`.ms()`,
@@ -335,6 +339,7 @@
 [#341]: https://github.com/stm32-rs/stm32h7xx-hal/pull/341
 [#344]: https://github.com/stm32-rs/stm32h7xx-hal/pull/344
 [#345]: https://github.com/stm32-rs/stm32h7xx-hal/pull/345
+[#346]: https://github.com/stm32-rs/stm32h7xx-hal/pull/346
 [#347]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
 [#350]: https://github.com/stm32-rs/stm32h7xx-hal/pull/350
 [#354]: https://github.com/stm32-rs/stm32h7xx-hal/pull/354
