@@ -9,7 +9,7 @@ mod utilities;
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
     use stm32h7xx_hal::gpio::gpioc::{PC13, PC3};
-    use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
+    use stm32h7xx_hal::gpio::{Edge, ExtiPin, Input};
     use stm32h7xx_hal::gpio::{Output, PushPull};
     use stm32h7xx_hal::prelude::*;
 
@@ -19,7 +19,7 @@ mod app {
     struct SharedResources {}
     #[local]
     struct LocalResources {
-        button: PC13<Input<Floating>>,
+        button: PC13<Input>,
         led: PC3<Output<PushPull>>,
     }
 

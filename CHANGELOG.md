@@ -4,6 +4,9 @@
 
 * **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
   inherent impls for `embedded-hal` like methods by-default, default modes [#334]
+  Remove pulling from `Input` mode. Use `internal_regiter(Pull)` instead,
+  add universal `into_mode::<MODE>()` pin mode converter,
+  `AFx` is now alias to `Alternate<x>` [#347]
 * Replace crate::Never with core::convert::Infallible
 
 * **Breaking**: Use [fugit](https://docs.rs/fugit/0.3.5/fugit/index.html) crate
@@ -240,3 +243,4 @@
 [303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303
 [324]: https://github.com/stm32-rs/stm32h7xx-hal/pull/324
 [334]: https://github.com/stm32-rs/stm32h7xx-hal/pull/334
+[346]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347

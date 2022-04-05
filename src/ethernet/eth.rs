@@ -403,7 +403,7 @@ pub fn new<'a, const TD: usize, const RD: usize>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,
-    pins: impl PinsRMII,
+    mut pins: impl PinsRMII,
     ring: &'a mut DesRing<TD, RD>,
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,

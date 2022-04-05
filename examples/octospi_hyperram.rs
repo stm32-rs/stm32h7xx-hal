@@ -49,57 +49,57 @@ fn main() -> ! {
     let _ncs = gpiog
         .pg12
         .into_alternate::<3>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _dqs = gpiof
         .pf12
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _clk = gpiof
         .pf4
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io0 = gpiof
         .pf0
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io1 = gpiof
         .pf1
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io2 = gpiof
         .pf2
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io3 = gpiof
         .pf3
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io4 = gpiog
         .pg0
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io5 = gpiog
         .pg1
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io6 = gpiog
         .pg10
         .into_alternate::<3>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
     let _io7 = gpiog
         .pg11
         .into_alternate::<9>()
-        .set_speed(High)
+        .speed(High)
         .internal_pull_up(true);
 
     info!("");

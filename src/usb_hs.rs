@@ -180,14 +180,14 @@ pub enum Usb1UlpiDirPin {
 }
 
 impl Usb1UlpiDirPin {
-    fn set_speed(self, speed: Speed) -> Usb1UlpiDirPin {
+    fn set_speed(&mut self, speed: Speed) {
         match self {
             Usb1UlpiDirPin::PC2(pin) => {
-                Usb1UlpiDirPin::PC2(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
             #[cfg(not(feature = "rm0468"))]
             Usb1UlpiDirPin::PI11(pin) => {
-                Usb1UlpiDirPin::PI11(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
         }
     }
@@ -212,13 +212,13 @@ pub enum Usb1UlpiNxtPin {
 }
 
 impl Usb1UlpiNxtPin {
-    fn set_speed(self, speed: Speed) -> Usb1UlpiNxtPin {
+    fn set_speed(&mut self, speed: Speed) {
         match self {
             Usb1UlpiNxtPin::PC3(pin) => {
-                Usb1UlpiNxtPin::PC3(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
             Usb1UlpiNxtPin::PH4(pin) => {
-                Usb1UlpiNxtPin::PH4(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
         }
     }
@@ -244,24 +244,26 @@ impl USB1_ULPI {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        ulpi_clk: gpio::PA5<Alternate<10>>,
+        mut ulpi_clk: gpio::PA5<Alternate<10>>,
         ulpi_dir: impl Into<Usb1UlpiDirPin>,
         ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
-        ulpi_stp: gpio::PC0<Alternate<10>>,
-        ulpi_d0: gpio::PA3<Alternate<10>>,
-        ulpi_d1: gpio::PB0<Alternate<10>>,
-        ulpi_d2: gpio::PB1<Alternate<10>>,
-        ulpi_d3: gpio::PB10<Alternate<10>>,
-        ulpi_d4: gpio::PB11<Alternate<10>>,
-        ulpi_d5: gpio::PB12<Alternate<10>>,
-        ulpi_d6: gpio::PB13<Alternate<10>>,
-        ulpi_d7: gpio::PB5<Alternate<10>>,
+        mut ulpi_stp: gpio::PC0<Alternate<10>>,
+        mut ulpi_d0: gpio::PA3<Alternate<10>>,
+        mut ulpi_d1: gpio::PB0<Alternate<10>>,
+        mut ulpi_d2: gpio::PB1<Alternate<10>>,
+        mut ulpi_d3: gpio::PB10<Alternate<10>>,
+        mut ulpi_d4: gpio::PB11<Alternate<10>>,
+        mut ulpi_d5: gpio::PB12<Alternate<10>>,
+        mut ulpi_d6: gpio::PB13<Alternate<10>>,
+        mut ulpi_d7: gpio::PB5<Alternate<10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
         ulpi_clk.set_speed(Speed::VeryHigh);
-        ulpi_dir.into().set_speed(Speed::VeryHigh);
-        ulpi_nxt.into().set_speed(Speed::VeryHigh);
+        let mut ulpi_dir = ulpi_dir.into();
+        ulpi_dir.set_speed(Speed::VeryHigh);
+        let mut ulpi_nxt = ulpi_nxt.into();
+        ulpi_nxt.set_speed(Speed::VeryHigh);
         ulpi_stp.set_speed(Speed::VeryHigh);
         ulpi_d0.set_speed(Speed::VeryHigh);
         ulpi_d1.set_speed(Speed::VeryHigh);
