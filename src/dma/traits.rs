@@ -17,9 +17,6 @@ use sealed::Sealed;
 
 /// Minimal trait for DMA streams
 pub trait Stream: Sealed {
-    /// Number of the stream register
-    const NUMBER: usize;
-
     /// Configuration structure for this stream.
     type Config;
 
