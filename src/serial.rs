@@ -160,7 +160,7 @@ pub mod config {
                 invertrx: false,
                 inverttx: false,
                 rxfifothreshold: FifoThreshold::OneEighth,
-                txfifothreshold: FifoThreshold::OneEighth
+                txfifothreshold: FifoThreshold::OneEighth,
             }
         }
 
@@ -237,12 +237,18 @@ pub mod config {
             self
         }
 
-        pub fn rxfifothreshold(mut self, rxfifothreshold : FifoThreshold) -> Self {
+        pub fn rxfifothreshold(
+            mut self,
+            rxfifothreshold: FifoThreshold,
+        ) -> Self {
             self.rxfifothreshold = rxfifothreshold;
             self
         }
 
-        pub fn txfifothreshold(mut self, txfifothreshold : FifoThreshold) -> Self {
+        pub fn txfifothreshold(
+            mut self,
+            txfifothreshold: FifoThreshold,
+        ) -> Self {
             self.txfifothreshold = txfifothreshold;
             self
         }
