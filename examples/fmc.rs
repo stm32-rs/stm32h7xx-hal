@@ -26,7 +26,7 @@ macro_rules! fmc_pins {
         (
             $(
                 $pin.into_push_pull_output()
-                    .set_speed(Speed::VeryHigh)
+                    .speed(Speed::VeryHigh)
                     .into_alternate::<12>()
                     .internal_pull_up(true)
             ),*

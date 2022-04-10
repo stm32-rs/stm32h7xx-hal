@@ -45,7 +45,7 @@ pub use eth::{DesRing, EthernetDMA, EthernetMAC};
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)
 pub trait PinsRMII {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 
 // Two lanes
@@ -63,18 +63,16 @@ where
     TXD1: Txd1,
 {
     // RMII
-    fn set_speed(self, speed: Speed) -> Self {
-        (
-            self.0.set_speed(speed),
-            self.1.set_speed(speed),
-            self.2.set_speed(speed),
-            self.3.set_speed(speed),
-            self.4.set_speed(speed),
-            self.5.set_speed(speed),
-            self.6.set_speed(speed),
-            self.7.set_speed(speed),
-            self.8.set_speed(speed),
-        )
+    fn set_speed(&mut self, speed: Speed) {
+        self.0.set_speed(speed);
+        self.1.set_speed(speed);
+        self.2.set_speed(speed);
+        self.3.set_speed(speed);
+        self.4.set_speed(speed);
+        self.5.set_speed(speed);
+        self.6.set_speed(speed);
+        self.7.set_speed(speed);
+        self.8.set_speed(speed);
     }
 }
 
@@ -125,96 +123,94 @@ where
     TXD3: Txd3,
 {
     // RMII
-    fn set_speed(self, speed: Speed) -> Self {
-        (
-            self.0.set_speed(speed),
-            self.1.set_speed(speed),
-            self.2.set_speed(speed),
-            self.3.set_speed(speed),
-            self.4.set_speed(speed),
-            self.5.set_speed(speed),
-            self.6.set_speed(speed),
-            self.7.set_speed(speed),
-            self.8.set_speed(speed),
-            self.9.set_speed(speed),
-            self.10.set_speed(speed),
-            self.11.set_speed(speed),
-            self.12.set_speed(speed),
-        )
+    fn set_speed(&mut self, speed: Speed) {
+        self.0.set_speed(speed);
+        self.1.set_speed(speed);
+        self.2.set_speed(speed);
+        self.3.set_speed(speed);
+        self.4.set_speed(speed);
+        self.5.set_speed(speed);
+        self.6.set_speed(speed);
+        self.7.set_speed(speed);
+        self.8.set_speed(speed);
+        self.9.set_speed(speed);
+        self.10.set_speed(speed);
+        self.11.set_speed(speed);
+        self.12.set_speed(speed);
     }
 }
 
 /// Marks a type as a REF_CLK pin
 pub trait RefClk {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TX_CLK pin
 pub trait TxClk {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a MDIO pin
 pub trait Mdio {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a MDC pin
 pub trait Mdc {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a COL pin
 pub trait Col {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a CRS pin
 pub trait Crs {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a CRS_DV pin
 pub trait CrsDv {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a PPS_OUT pin
 pub trait PpsOut {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a RX_ER pin
 pub trait RxEr {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TX_EN pin
 pub trait TxEn {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a RXD0 pin
 pub trait Rxd0 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a RXD1 pin
 pub trait Rxd1 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a RXD2 pin
 pub trait Rxd2 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a RXD3 pin
 pub trait Rxd3 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TXD0 pin
 pub trait Txd0 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TXD1 pin
 pub trait Txd1 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TXD2 pin
 pub trait Txd2 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 /// Marks a type as a TXD3 pin
 pub trait Txd3 {
-    fn set_speed(self, speed: Speed) -> Self;
+    fn set_speed(&mut self, speed: Speed);
 }
 
 use crate::gpio::{self, Alternate};
@@ -223,8 +219,8 @@ macro_rules! impl_set_speed {
     ($TRAIT:ty, [$($PIN:ty),*]) => {
         $(
             impl $TRAIT for $PIN {
-                fn set_speed(self, speed: Speed) -> Self {
-                    self.set_speed(speed)
+                fn set_speed(&mut self, speed: Speed) {
+                    self.set_speed(speed);
                 }
             }
         )*

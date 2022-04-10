@@ -6,7 +6,7 @@ use core::cell::{Cell, RefCell};
 use cortex_m::interrupt::{free, Mutex};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::{Edge, ExtiPin, Input, Output, PullUp, PushPull};
+use stm32h7xx_hal::gpio::{Edge, ExtiPin, Input, Output, PushPull};
 use stm32h7xx_hal::{interrupt, pac, prelude::*};
 
 // LED pin
@@ -25,9 +25,9 @@ use log::info;
 static SEMAPHORE: Mutex<Cell<bool>> = Mutex::new(Cell::new(true));
 
 // Setup the sharing of pins between the main loop and the interrupts
-static BUTTON1_PIN: Mutex<RefCell<Option<PE3<Input<PullUp>>>>> =
+static BUTTON1_PIN: Mutex<RefCell<Option<PE3<Input>>>> =
     Mutex::new(RefCell::new(None));
-static BUTTON2_PIN: Mutex<RefCell<Option<PC5<Input<PullUp>>>>> =
+static BUTTON2_PIN: Mutex<RefCell<Option<PC5<Input>>>> =
     Mutex::new(RefCell::new(None));
 static LED: Mutex<RefCell<Option<PA1<Output<PushPull>>>>> =
     Mutex::new(RefCell::new(None));

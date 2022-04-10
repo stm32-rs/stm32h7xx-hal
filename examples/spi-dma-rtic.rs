@@ -69,11 +69,11 @@ mod app {
             let mosi = gpiob
                 .pb15
                 .into_alternate()
-                .set_speed(hal::gpio::Speed::VeryHigh);
+                .speed(hal::gpio::Speed::VeryHigh);
             let sck = gpiob
                 .pb10
                 .into_alternate()
-                .set_speed(hal::gpio::Speed::VeryHigh);
+                .speed(hal::gpio::Speed::VeryHigh);
             let config = hal::spi::Config::new(hal::spi::MODE_0)
                 .communication_mode(hal::spi::CommunicationMode::Transmitter);
 
@@ -91,7 +91,7 @@ mod app {
         let mut cs = gpiob
             .pb12
             .into_push_pull_output()
-            .set_speed(hal::gpio::Speed::VeryHigh);
+            .speed(hal::gpio::Speed::VeryHigh);
         cs.set_high();
 
         // Initialize our transmit buffer.

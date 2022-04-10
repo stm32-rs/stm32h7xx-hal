@@ -64,32 +64,32 @@ fn main() -> ! {
         .pc12
         .into_alternate()
         .internal_pull_up(false)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let cmd = gpiod
         .pd2
         .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d0 = gpioc
         .pc8
         .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d1 = gpioc
         .pc9
         .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d2 = gpioc
         .pc10
         .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d3 = gpioc
         .pc11
         .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
 
     // Create SDMMC
     let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(
