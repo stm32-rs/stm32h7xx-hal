@@ -58,10 +58,26 @@ pub enum Event {
     Txe,
     /// Idle line state detected
     Idle,
+
+    ///Tx threshlold interrupt enable
+    Txftie,
+
+    ///Rx threshlold interrupt enable
+    Rxftie,
 }
 
 pub mod config {
     use crate::time::Hertz;
+
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum FifoThreshold {
+        OneEighth,
+        OneQuarter,
+        OneHalf,
+        TreeQuarter,
+        SevenEighth,
+        Full,
+    }
 
     /// The parity bits appended to each serial data word
     ///
@@ -122,6 +138,8 @@ pub mod config {
         pub swaptxrx: bool,
         pub invertrx: bool,
         pub inverttx: bool,
+        pub rxfifothreshold: FifoThreshold,
+        pub txfifothreshold: FifoThreshold,
     }
 
     impl Config {
@@ -141,6 +159,8 @@ pub mod config {
                 swaptxrx: false,
                 invertrx: false,
                 inverttx: false,
+                rxfifothreshold: FifoThreshold::OneEighth,
+                txfifothreshold: FifoThreshold::OneEighth
             }
         }
 
@@ -214,6 +234,16 @@ pub mod config {
         /// If `true`, TX pin signal levels are inverted
         pub fn inverttx(mut self, inverttx: bool) -> Self {
             self.inverttx = inverttx;
+            self
+        }
+
+        pub fn rxfifothreshold(mut self, rxfifothreshold : FifoThreshold) -> Self {
+            self.rxfifothreshold = rxfifothreshold;
+            self
+        }
+
+        pub fn txfifothreshold(mut self, txfifothreshold : FifoThreshold) -> Self {
+            self.txfifothreshold = txfifothreshold;
             self
         }
     }
@@ -551,6 +581,37 @@ macro_rules! usart {
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
 
+                    let fifo_threshold_bits = match(config.rxfifothreshold){
+                        FifoThreshold::OneEighth => 0,
+                        FifoThreshold::OneQuarter => 1,
+                        FifoThreshold::OneHalf => 2,
+                        FifoThreshold::TreeQuarter => 3,
+                        FifoThreshold::SevenEighth => 4,
+                        FifoThreshold::Full => 5,
+                    };
+
+                    unsafe {
+                        self.usart.cr3.write(|w| {w.rxftcfg().bits(fifo_threshold_bits)});
+                    }
+
+
+
+                    let fifo_threshold_bits = match(config.txfifothreshold){
+                        FifoThreshold::OneEighth => 0,
+                        FifoThreshold::OneQuarter => 1,
+                        FifoThreshold::OneHalf => 2,
+                        FifoThreshold::TreeQuarter => 3,
+                        FifoThreshold::SevenEighth => 4,
+                        FifoThreshold::Full => 5,
+                    };
+
+
+                    unsafe{
+                        self.usart.cr3.write(|w| {w.txftcfg().bits(fifo_threshold_bits) });
+                    }
+
+
+
                     // Configure serial mode
                     self.usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
@@ -699,6 +760,12 @@ macro_rules! usart {
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().enabled())
                         },
+                        Event::Txftie => {
+                            self.usart.cr3.modify(|_, w| w.txftie().set_bit())
+                        },
+                        Event::Rxftie => {
+                            self.usart.cr3.modify(|_, w| w.rxftie().set_bit())
+                        },
                     }
                 }
 
@@ -713,6 +780,12 @@ macro_rules! usart {
                         },
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().disabled())
+                        },
+                        Event::Txftie => {
+                            self.usart.cr3.modify(|_, w| w.txftie().clear_bit())
+                        },
+                        Event::Rxftie => {
+                            self.usart.cr3.modify(|_, w| w.rxftie().clear_bit())
                         },
                     }
                     let _ = self.usart.cr1.read();
