@@ -4,8 +4,9 @@
 
 * **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
   inherent impls for `embedded-hal` like methods by-default, default modes [#334]
-  Remove pulling from `Input` mode. Use `internal_regiter(Pull)` instead,
+  Remove generic PullUp/PullDown/Floating parameter from `Input`. Use `internal_resistor()` method instead,
   add universal `into_mode::<MODE>()` pin mode converter,
+  Rename `set_speed()` method to `speed()`
   `AFx` is now alias to `Alternate<x>` [#347]
 * Replace crate::Never with core::convert::Infallible
 
