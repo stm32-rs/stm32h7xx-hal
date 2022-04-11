@@ -587,7 +587,8 @@ macro_rules! usart {
                     self.usart.cr2.reset();
                     self.usart.cr3.reset();
 
-                    let fifo_threshold_bits = match(config.rxfifothreshold){
+                    // RXFIFO threshold
+                    let fifo_threshold_bits = match config.rxfifothreshold {
                         FifoThreshold::Eighth => 0,
                         FifoThreshold::Quarter => 1,
                         FifoThreshold::Half => 2,
@@ -595,14 +596,12 @@ macro_rules! usart {
                         FifoThreshold::SevenEighth => 4,
                         FifoThreshold::Full => 5,
                     };
-
                     unsafe {
-                        self.usart.cr3.modify(|_, w| {w.rxftcfg().bits(fifo_threshold_bits)});
+                        self.usart.cr3.modify(|_, w| w.rxftcfg().bits(fifo_threshold_bits));
                     }
 
-
-
-                    let fifo_threshold_bits = match(config.txfifothreshold){
+                    // TXFIFO threashold
+                    let fifo_threshold_bits = match config.txfifothreshold {
                         FifoThreshold::Eighth => 0,
                         FifoThreshold::Quarter => 1,
                         FifoThreshold::Half => 2,
@@ -610,13 +609,9 @@ macro_rules! usart {
                         FifoThreshold::SevenEighth => 4,
                         FifoThreshold::Full => 5,
                     };
-
-
-                    unsafe{
-                        self.usart.cr3.modify(|_, w| {w.txftcfg().bits(fifo_threshold_bits) });
+                    unsafe {
+                        self.usart.cr3.modify(|_, w| w.txftcfg().bits(fifo_threshold_bits));
                     }
-
-
 
                     // Configure serial mode
                     self.usart.cr2.write(|w| {
