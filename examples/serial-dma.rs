@@ -80,7 +80,7 @@ fn main() -> ! {
     let (tx, _rx) = serial.split();
 
     // Initialise the source buffer, without taking any references to
-    // uninitialisated memory
+    // uninitialised memory
     let short_buffer: &'static mut [u8; 10] = {
         let buf: &mut [MaybeUninit<u8>; 10] =
             unsafe { mem::transmute(&mut SHORT_BUFFER) };

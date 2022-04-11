@@ -2,35 +2,51 @@
 
 ## [Unreleased]
 
+## [v0.12.0] 2022-04-16
+
 * **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
-  inherent impls for `embedded-hal` like methods by-default, default modes [#334]
-  Remove generic PullUp/PullDown/Floating parameter from `Input`. Use `internal_resistor()` method instead,
-  add universal `into_mode::<MODE>()` pin mode converter,
-  Rename `set_speed()` method to `speed()`
-  `AFx` is now alias to `Alternate<x>` [#347]
-* Replace crate::Never with core::convert::Infallible
-
+  inherent impls for `embedded-hal` like methods by-default, default modes
+  [#334]
+* **Breaking**: Remove generic PullUp/PullDown/Floating parameter from
+  `Input`. Use `internal_resistor()` method instead, add universal
+  `into_mode::<MODE>()` pin mode converter, Rename `set_speed()` method to
+  `speed()` `AFx` is now alias to `Alternate<x>` [#347]
 * **Breaking**: Use [fugit](https://docs.rs/fugit/0.3.5/fugit/index.html) crate
-  for duration and rate units.
-   * `.mhz()` -> `.MHz()`, `.khz()` -> `.kHz()`, `.hz()` -> `.Hz()`
-   * Methods that previously accepted durations (`.ms()`, `.us()`) now need
-     explicit conversion with
-     [`.into_rate()`](https://docs.rs/fugit/0.3.5/fugit/struct.Duration.html#method.into_rate)
-* pwr: Add backup domain voltage regulator control [#303][303]
+  for duration and rate units. `.mhz()` -> `.MHz()`, `.khz()` -> `.kHz()`,
+  `.hz()` -> `.Hz()`. Methods that previously accepted durations (`.ms()`,
+  `.us()`) now need explicit conversion with
+  [`.into_rate()`](https://docs.rs/fugit/0.3.5/fugit/struct.Duration.html#method.into_rate)
+  [#321]
 * MSRV increased to 1.59
-* flash: added flash implementation
-* timer: Implemented tick_timer method for LP Timers
-* timer: `counter()` method on LP Timers returns u16
+* Replace crate::Never with core::convert::Infallible [#339]
+* Added some [defmt](https://defmt.ferrous-systems.com/) support [#304]
+* Add support for FDCAN peripheral using the
+  [fdcan](https://github.com/stm32-rs/fdcan) crate [#277]
+* Add `inner()` and `inner_mut()` methods to more peripherals [#337]
+* pwr: Add backup domain voltage regulator control [#303]
+* pwr: More support for VOS0, and support for VOS2 and VOS3 [#316] [#327]
+* rcc: Add logging (`debug` level) behind `log` feature gate [#318]
+* systick: Implement
+  [`Countdown`](https://docs.rs/embedded-hal/latest/embedded_hal/timer/trait.CountDown.html)
+  for SysTick [#310]
+* adc: Add `slope` method and depreciate `max_sample` [#344]
+* flash: added flash implementation [#322]
+* timer: Implemented tick_timer method for LP Timers [#172]
+* timer: `counter()` method on LP Timers returns u16 [#172]
 * timer: Fix bug in `counter()` TIM1/8/12/13/14 where return value would also
-  include UIF bit
-* serial: Add support for reconfiguring serial port settings [#324][324]
-    * **Note:** The serial port structs (`Serial`/`Rx`) are no longer zero-sized
-* serial: Add support for swapping Tx/Rx pins [#324][324]
-* serial: Add `join()` to combine `Tx`+`Rx` back into `Serial` [#324][324]
-
-* spi: add DuplexFailed error
-* spi: Fix arithmetic error in spi divider calculation
-* qei: Include REC in the `free()` method
+  include UIF bit [#172]
+* sdmmc: Update sdio-host to the latest version, add eMMC support from sdio-host [#341]
+* serial: Add support for reconfiguring serial port settings [#324]
+* **Note:** The serial port structs (`Serial`/`Rx`) are no longer zero-sized
+* serial: Add support for swapping Tx/Rx pins [#324]
+* serial: Add `join()` to combine `Tx`+`Rx` back into `Serial` [#324]
+* serial: Add `inverttx` and `invertrx` configuration methods [#340]
+* serial: Add serial Rx and Tx fifo capacity and Fifo interrupt event [#350]
+* sai: Fix error in I2S `send` implementation when using both channels [#311]
+* spi: add DuplexFailed error [#328]
+* spi: Fix arithmetic error in spi divider calculation [#328]
+* qspi/octospi: Add `begin_write_extended` and `begin_read_extended` methods [#345]
+* qei: Include REC in the `free()` method [#325]
 
 ## [v0.11.0] 2021-12-18
 
@@ -39,38 +55,38 @@
 * **Breaking**: SAI `sai_[ab]_ker_ck` methods now return `Hertz` rather than
   `Option<Hertz>` and if the clock is stopped they panic with a message.
 * **Breaking**: Rename the `quadspi` flag to `xspi`
-* **Breaking**: serial: manual control over data length removed, now set automatically based on parity [#297][297]
-* Upgrade to cortex-m-rt v0.7.0 [#257][257] [#264][264]
+* **Breaking**: serial: manual control over data length removed, now set automatically based on parity [#297]
+* Upgrade to cortex-m-rt v0.7.0 [#257] [#264]
 * **Breaking**: If you use RTIC v0.5, you need to depend on it with
   `default-features = false, features = ["cortex-m-7"]`. See
   [rtic-rs/cortex-m-rtic#509](https://github.com/rtic-rs/cortex-m-rtic/pull/509)
-* Add support for OCTOSPI on supported parts, also using the `xspi` feature flag [#230][230]
-* Add support for STM32H735 (feature flag `stm32h735` [#235][235]
+* Add support for OCTOSPI on supported parts, also using the `xspi` feature flag [#230]
+* Add support for STM32H735 (feature flag `stm32h735` [#235]
 * Rename the PeripheralREC object for BDMA2 on 7B3, 7B0, 7A3 parts from BDMA to BDMA2
 * Fixed clippy lints:
    * Added safety docs for some DMA functions
    * Implemented additional conversion utilities for `time`
    * **Breaking**: Changed I2S constructors to take less arguments
 * MSRV increased to 1.52.0
-* Add "rt" to the default features [#287][287]
-* adc: Allow parallel execution of multiple ADCs through `start_conversion()` [#250][250]
-* dma: Add support for MDMA [#186][186]
+* Add "rt" to the default features [#287]
+* adc: Allow parallel execution of multiple ADCs through `start_conversion()` [#250]
+* dma: Add support for MDMA [#186]
 * ethernet: `ethernet::DesRing` and `ethernet::EthernetDMA` require generic
   constants to specify how many transmit / receive buffers to include in
-  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>` [#247][247]
-* ethernet: Avoid creating intermediate references to packed fields [#225][225]
-* ethernet: Upgrade smoltcp to v0.8.0 [#292][292]
-* ethernet: Fix MAC address filtering [#249][249]
-* gpio: Implement IoPin [#256][256]
-* gpio: Add InputPin implementation for Alternate Pins [#244][244]
-* i2c: Fix scldec/sdadel and adjust i2c divider calculations [#252][252]
-* pac: Upgrade to stm32-rs v0.14.0 [#240][240]
+  `ethernet::DesRing`. To replicate the previous behaviour, use `DesRing<4, 4>` [#247]
+* ethernet: Avoid creating intermediate references to packed fields [#225]
+* ethernet: Upgrade smoltcp to v0.8.0 [#292]
+* ethernet: Fix MAC address filtering [#249]
+* gpio: Implement IoPin [#256]
+* gpio: Add InputPin implementation for Alternate Pins [#244]
+* i2c: Fix scldec/sdadel and adjust i2c divider calculations [#252]
+* pac: Upgrade to stm32-rs v0.14.0 [#240]
 * quadspi: Add support for flash memory
-* rng: Implement rand_core::RngCore and support all integers in Rng [#284][284]
-* sdmmc: Implement [embedded-sdmmc](https://github.com/rust-embedded-community/embedded-sdmmc-rs) traits [#262][262]
-* spi: use the FIFO in Transfer and Write implementations [#269][269]
-* serial: Improve sync mode support, add additional config options [#261][261] [#267][267]
-* serial: Fix parity configuration option [#242][242]
+* rng: Implement rand_core::RngCore and support all integers in Rng [#284]
+* sdmmc: Implement [embedded-sdmmc](https://github.com/rust-embedded-community/embedded-sdmmc-rs) traits [#262]
+* spi: use the FIFO in Transfer and Write implementations [#269]
+* serial: Improve sync mode support, add additional config options [#261] [#267]
+* serial: Fix parity configuration option [#242]
 
 ## [v0.10.0] 2021-07-21
 
@@ -207,7 +223,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...HEAD
+[v0.12.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.8.0...v0.9.0
@@ -219,29 +236,48 @@
 [v0.4.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.2.1...v0.3.0
 
-[186]: https://github.com/stm32-rs/stm32h7xx-hal/pull/186
-[225]: https://github.com/stm32-rs/stm32h7xx-hal/pull/225
-[230]: https://github.com/stm32-rs/stm32h7xx-hal/pull/230
-[235]: https://github.com/stm32-rs/stm32h7xx-hal/pull/235
-[240]: https://github.com/stm32-rs/stm32h7xx-hal/pull/240
-[242]: https://github.com/stm32-rs/stm32h7xx-hal/pull/242
-[244]: https://github.com/stm32-rs/stm32h7xx-hal/pull/244
-[247]: https://github.com/stm32-rs/stm32h7xx-hal/pull/247
-[249]: https://github.com/stm32-rs/stm32h7xx-hal/pull/249
-[250]: https://github.com/stm32-rs/stm32h7xx-hal/pull/250
-[252]: https://github.com/stm32-rs/stm32h7xx-hal/pull/252
-[256]: https://github.com/stm32-rs/stm32h7xx-hal/pull/256
-[257]: https://github.com/stm32-rs/stm32h7xx-hal/pull/257
-[261]: https://github.com/stm32-rs/stm32h7xx-hal/pull/261
-[262]: https://github.com/stm32-rs/stm32h7xx-hal/pull/262
-[264]: https://github.com/stm32-rs/stm32h7xx-hal/pull/264
-[267]: https://github.com/stm32-rs/stm32h7xx-hal/pull/267
-[269]: https://github.com/stm32-rs/stm32h7xx-hal/pull/269
-[284]: https://github.com/stm32-rs/stm32h7xx-hal/pull/284
-[287]: https://github.com/stm32-rs/stm32h7xx-hal/pull/287
-[292]: https://github.com/stm32-rs/stm32h7xx-hal/pull/292
-[297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
-[303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303
-[324]: https://github.com/stm32-rs/stm32h7xx-hal/pull/324
-[334]: https://github.com/stm32-rs/stm32h7xx-hal/pull/334
-[346]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
+[#172]: https://github.com/stm32-rs/stm32h7xx-hal/pull/172
+[#186]: https://github.com/stm32-rs/stm32h7xx-hal/pull/186
+[#225]: https://github.com/stm32-rs/stm32h7xx-hal/pull/225
+[#230]: https://github.com/stm32-rs/stm32h7xx-hal/pull/230
+[#235]: https://github.com/stm32-rs/stm32h7xx-hal/pull/235
+[#240]: https://github.com/stm32-rs/stm32h7xx-hal/pull/240
+[#242]: https://github.com/stm32-rs/stm32h7xx-hal/pull/242
+[#244]: https://github.com/stm32-rs/stm32h7xx-hal/pull/244
+[#247]: https://github.com/stm32-rs/stm32h7xx-hal/pull/247
+[#249]: https://github.com/stm32-rs/stm32h7xx-hal/pull/249
+[#250]: https://github.com/stm32-rs/stm32h7xx-hal/pull/250
+[#252]: https://github.com/stm32-rs/stm32h7xx-hal/pull/252
+[#256]: https://github.com/stm32-rs/stm32h7xx-hal/pull/256
+[#257]: https://github.com/stm32-rs/stm32h7xx-hal/pull/257
+[#261]: https://github.com/stm32-rs/stm32h7xx-hal/pull/261
+[#262]: https://github.com/stm32-rs/stm32h7xx-hal/pull/262
+[#264]: https://github.com/stm32-rs/stm32h7xx-hal/pull/264
+[#267]: https://github.com/stm32-rs/stm32h7xx-hal/pull/267
+[#269]: https://github.com/stm32-rs/stm32h7xx-hal/pull/269
+[#277]: https://github.com/stm32-rs/stm32h7xx-hal/pull/277
+[#284]: https://github.com/stm32-rs/stm32h7xx-hal/pull/284
+[#287]: https://github.com/stm32-rs/stm32h7xx-hal/pull/287
+[#292]: https://github.com/stm32-rs/stm32h7xx-hal/pull/292
+[#297]: https://github.com/stm32-rs/stm32h7xx-hal/pull/297
+[#303]: https://github.com/stm32-rs/stm32h7xx-hal/pull/303
+[#304]: https://github.com/stm32-rs/stm32h7xx-hal/pull/304
+[#310]: https://github.com/stm32-rs/stm32h7xx-hal/pull/310
+[#311]: https://github.com/stm32-rs/stm32h7xx-hal/pull/311
+[#316]: https://github.com/stm32-rs/stm32h7xx-hal/pull/316
+[#318]: https://github.com/stm32-rs/stm32h7xx-hal/pull/318
+[#321]: https://github.com/stm32-rs/stm32h7xx-hal/pull/321
+[#322]: https://github.com/stm32-rs/stm32h7xx-hal/pull/322
+[#324]: https://github.com/stm32-rs/stm32h7xx-hal/pull/324
+[#325]: https://github.com/stm32-rs/stm32h7xx-hal/pull/325
+[#327]: https://github.com/stm32-rs/stm32h7xx-hal/pull/327
+[#328]: https://github.com/stm32-rs/stm32h7xx-hal/pull/328
+[#334]: https://github.com/stm32-rs/stm32h7xx-hal/pull/334
+[#337]: https://github.com/stm32-rs/stm32h7xx-hal/pull/337
+[#339]: https://github.com/stm32-rs/stm32h7xx-hal/pull/339
+[#340]: https://github.com/stm32-rs/stm32h7xx-hal/pull/340
+[#341]: https://github.com/stm32-rs/stm32h7xx-hal/pull/341
+[#344]: https://github.com/stm32-rs/stm32h7xx-hal/pull/344
+[#345]: https://github.com/stm32-rs/stm32h7xx-hal/pull/345
+[#347]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
+[#350]: https://github.com/stm32-rs/stm32h7xx-hal/pull/350

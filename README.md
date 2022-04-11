@@ -69,9 +69,9 @@ To use stm32h7xx-hal as a dependency in a standalone project the
 target device feature must be specified in the `Cargo.toml` file:
 ```toml
 [dependencies]
-cortex-m = "0.7.1"
-cortex-m-rt = "0.6.12"
-stm32h7xx-hal = {version = "0.11.0", features = ["stm32h743v","rt"]}
+cortex-m = "0.7.4"
+cortex-m-rt = "0.7.1"
+stm32h7xx-hal = {version = "0.12.0", features = ["stm32h743v","rt"]}
 ```
 
 If you are unfamiliar with embedded development using Rust, there are

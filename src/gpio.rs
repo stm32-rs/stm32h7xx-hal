@@ -4,7 +4,7 @@
 //! `gpioa`, `gpiob`... modules. To get access to the pins, you first need to convert them into a
 //! HAL designed struct from the `pac` struct using the [split](trait.GpioExt.html#tymethod.split) function.
 //! ```rust
-//! // Acquire the GPIOC peripheral
+//! // Acquire the GPIOA peripheral
 //! // NOTE: `dp` is the device peripherals from the `PAC` crate
 //! let mut gpioa = dp.GPIOA.split();
 //! ```
