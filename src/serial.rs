@@ -71,10 +71,10 @@ pub mod config {
 
     #[derive(Copy, Clone, PartialEq)]
     pub enum FifoThreshold {
-        OneEighth,
-        OneQuarter,
-        OneHalf,
-        TreeQuarter,
+        Eighth,
+        Quarter,
+        Half,
+        ThreeQuarter,
         SevenEighth,
         Full,
     }
@@ -159,8 +159,8 @@ pub mod config {
                 swaptxrx: false,
                 invertrx: false,
                 inverttx: false,
-                rxfifothreshold: FifoThreshold::OneEighth,
-                txfifothreshold: FifoThreshold::OneEighth,
+                rxfifothreshold: FifoThreshold::Eighth,
+                txfifothreshold: FifoThreshold::Eighth,
             }
         }
 
@@ -588,32 +588,32 @@ macro_rules! usart {
                     self.usart.cr3.reset();
 
                     let fifo_threshold_bits = match(config.rxfifothreshold){
-                        FifoThreshold::OneEighth => 0,
-                        FifoThreshold::OneQuarter => 1,
-                        FifoThreshold::OneHalf => 2,
-                        FifoThreshold::TreeQuarter => 3,
+                        FifoThreshold::Eighth => 0,
+                        FifoThreshold::Quarter => 1,
+                        FifoThreshold::Half => 2,
+                        FifoThreshold::ThreeQuarter => 3,
                         FifoThreshold::SevenEighth => 4,
                         FifoThreshold::Full => 5,
                     };
 
                     unsafe {
-                        self.usart.cr3.write(|w| {w.rxftcfg().bits(fifo_threshold_bits)});
+                        self.usart.cr3.modify(|_, w| {w.rxftcfg().bits(fifo_threshold_bits)});
                     }
 
 
 
                     let fifo_threshold_bits = match(config.txfifothreshold){
-                        FifoThreshold::OneEighth => 0,
-                        FifoThreshold::OneQuarter => 1,
-                        FifoThreshold::OneHalf => 2,
-                        FifoThreshold::TreeQuarter => 3,
+                        FifoThreshold::Eighth => 0,
+                        FifoThreshold::Quarter => 1,
+                        FifoThreshold::Half => 2,
+                        FifoThreshold::ThreeQuarter => 3,
                         FifoThreshold::SevenEighth => 4,
                         FifoThreshold::Full => 5,
                     };
 
 
                     unsafe{
-                        self.usart.cr3.write(|w| {w.txftcfg().bits(fifo_threshold_bits) });
+                        self.usart.cr3.modify(|_, w| {w.txftcfg().bits(fifo_threshold_bits) });
                     }
 
 
