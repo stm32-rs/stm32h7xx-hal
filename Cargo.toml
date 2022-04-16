@@ -22,7 +22,7 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "defmt", "log", "fugit/defmt"]
+features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "can", "defmt", "log", "fugit/defmt"]
 targets = ["thumbv7em-none-eabihf"]
 
 [dependencies]
