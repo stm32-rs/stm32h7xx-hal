@@ -65,7 +65,7 @@ use core::marker::PhantomData;
 use crate::rcc::ResetEnable;
 
 mod convert;
-use convert::PinMode;
+pub use convert::PinMode;
 mod partially_erased;
 pub use partially_erased::{PEPin, PartiallyErasedPin};
 mod erased;
