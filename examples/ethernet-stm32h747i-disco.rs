@@ -1,5 +1,7 @@
 //! Demo for STM32H747I-DISCO eval board
 //!
+//! STM32H747I-DISCO: RMII TXD1 is on PG12
+//!
 //! The ethernet ring buffers are placed in SRAM3, where they can be
 //! accessed by both the core and the Ethernet DMA.
 //!

@@ -1,3 +1,12 @@
+//! Ethernet demo for NUCLEO-H743ZI2 development board
+//!
+//! NUCLEO-H743ZI2: RMII TXD1 is on PB13
+//! NUCLEO-H745I-Q: RMII TXD1 is on PB13
+//!
+//! The ethernet ring buffers are placed in SRAM3, where they can be
+//! accessed by both the core and the Ethernet DMA.
+//!
+//! This demo doesn't use smoltcp - see the stm32h747i-disco-rtic demo
 #![deny(warnings)]
 #![no_main]
 #![no_std]
