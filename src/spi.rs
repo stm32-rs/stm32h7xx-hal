@@ -14,7 +14,7 @@
 //! let dp = ...;                   // Device peripherals
 //! let (sck, miso, mosi) = ...;    // GPIO pins
 //!
-//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! The GPIO pins should be supplied as a
@@ -28,7 +28,7 @@
 //! filler types instead:
 //!
 //! ```
-//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Word Sizes
@@ -40,7 +40,7 @@
 //!
 //! For example, an explict type annotation:
 //! ```
-//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Clocks

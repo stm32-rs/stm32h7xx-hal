@@ -10,7 +10,7 @@
 //! let pins = (ck1, d1);
 //!
 //! // Configure SAI for PDM mode
-//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.khz(), ccdr.peripheral.SAI1, &ccdr.clocks);
+//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.kHz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 //!
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```

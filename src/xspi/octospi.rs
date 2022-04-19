@@ -22,7 +22,7 @@ use super::{Config, Octospi, SamplingEdge};
 /// for your memory device.
 ///
 /// ```
-/// let config = HyperbusConfig::new(50.mhz())
+/// let config = HyperbusConfig::new(50.MHz())
 ///     .device_size_bytes(24) // 16 Mbyte
 ///     .refresh_interval(4.us())
 ///     .read_write_recovery(4);

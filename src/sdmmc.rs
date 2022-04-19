@@ -26,7 +26,7 @@
 //!
 //! ```
 //! let ccdr = rcc
-//!     .pll1_q_ck(100.mhz())
+//!     .pll1_q_ck(100.MHz())
 //!     .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
@@ -45,7 +45,7 @@
 //! The next step is to initialise a card. The bus speed is also set.
 //!
 //! ```
-//! if let Err(err) = sdmmc.init(10.mhz()) {
+//! if let Err(err) = sdmmc.init(10.MHz()) {
 //!     info!("Init err: {:?}", err);
 //! }
 //! ```

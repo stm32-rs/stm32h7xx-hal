@@ -23,7 +23,7 @@
 //! let dp = ...;
 //! let (sck, io0, io1, io2, io3) = ...;
 //!
-//! let mut qspi = dp.QUADSPI.bank1((sck, io0, io1, io2, io3), 3.mhz(), &ccdr.clocks,
+//! let mut qspi = dp.QUADSPI.bank1((sck, io0, io1, io2, io3), 3.MHz(), &ccdr.clocks,
 //!                                 ccdr.peripheral.QSPI);
 //!
 //! // Configure QSPI to operate in 4-bit mode.
@@ -42,7 +42,7 @@
 //! let dp = ...;
 //! let _ = ...;
 //!
-//! let mut octospi = dp.OCTOSPI1.octospi_unchecked(12.mhz(), &ccdr.clocks,
+//! let mut octospi = dp.OCTOSPI1.octospi_unchecked(12.MHz(), &ccdr.clocks,
 //!                                 ccdr.peripheral.OCTOSPI1);
 //!
 //! // Configure OCTOSPI to operate in 8-bit mode.
@@ -61,7 +61,7 @@
 //!
 //! ```
 //! use stm32h7xx_hal::xspi;
-//! let config = xspi::Config::new(12.mhz()).fifo_threshold(16);
+//! let config = xspi::Config::new(12.MHz()).fifo_threshold(16);
 //! ```
 //!
 //! # Hyperbus
@@ -70,7 +70,7 @@
 //! peripheral.
 //!
 //! ```
-//! let config = HyperbusConfig::new(80.mhz())
+//! let config = HyperbusConfig::new(80.MHz())
 //!     .device_size_bytes(24) // 16 Mbyte
 //!     .refresh_interval(4.us())
 //!     .read_write_recovery(4) // 50ns
