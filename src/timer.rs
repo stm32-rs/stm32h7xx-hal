@@ -315,8 +315,11 @@ macro_rules! hal {
                 /// Sets the timer period from a time duration
                 ///
                 /// ```
+                /// use stm32h7xx_hal::time::MilliSeconds;
+                ///
                 /// // Set timeout to 100ms
-                /// timer.set_timeout(100.ms());
+                /// let timeout = MilliSeconds::from_ticks(100).into_rate();
+                /// timer.set_timeout(timeout);
                 /// ```
                 ///
                 /// Alternatively, the duration can be set using the
