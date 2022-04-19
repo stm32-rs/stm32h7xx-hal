@@ -424,7 +424,7 @@ impl<'a, const P: char, const N: u8, ORIG: PinMode> Drop
 
 /// Marker trait for valid pin modes (type state).
 ///
-/// It can not be implemented by outside types.
+/// This trait is sealed and cannot be implemented by outside types
 pub trait PinMode: crate::Sealed {
     // These constants are used to implement the pin configuration code.
     // They are not part of public API.
