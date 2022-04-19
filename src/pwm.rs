@@ -31,10 +31,10 @@
 //!   let device: pac::Peripherals = ..;
 //!
 //!   // Put the timer in PWM mode using the specified pins
-//!   // with a frequency of 100 hz.
+//!   // with a frequency of 100 Hz.
 //!   let (c0, c1, c2, c3) = device.TIM1.pwm(
 //!       pins,
-//!       100.hz(),
+//!       100.Hz(),
 //!       prec,
 //!       &clocks
 //!   );
@@ -68,7 +68,7 @@
 //!   let device: pac::Peripherals = ..;
 //!
 //!   // Put the timer in PWM mode using the specified pins
-//!   // with a frequency of 100 hz, 2us deadtime between complementary edges,
+//!   // with a frequency of 100 Hz, 2us deadtime between complementary edges,
 //!   // center-aligned PWM, and an active-low fault input
 //!   let (mut control, (c1, c2, c3, c4)) = device.TIM1
 //!       .pwm_advanced(
@@ -76,7 +76,7 @@
 //!           prec,
 //!           &clocks
 //!       )
-//!       .frequency(100.hz())
+//!       .frequency(100.Hz())
 //!       .center_aligned()
 //!       .with_break_pin(gpioe.pe15.into_alternate_af1(), Polarity::ActiveLow)
 //!       .finalize();

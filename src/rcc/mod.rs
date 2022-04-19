@@ -60,8 +60,8 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .sys_ck(96.mhz())
-//!         .pclk1(48.mhz())
+//!         .sys_ck(96.MHz())
+//!         .pclk1(48.MHz())
 //!         .freeze(pwrcfg, &dp.SYSCFG);
 //! ```
 //!
@@ -75,7 +75,7 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .sys_ck(200.mhz()) // Implies pll1_p_ck
+//!         .sys_ck(200.MHz()) // Implies pll1_p_ck
 //!         // For non-integer values, round up. `freeze` will never
 //!         // configure a clock faster than that specified.
 //!         .pll1_q_ck(33_333_334.hz())
@@ -93,15 +93,15 @@
 //!
 //!     let rcc = dp.RCC.constrain();
 //!     let ccdr = rcc
-//!         .use_hse(25.mhz()) // XTAL X1
-//!         .sys_ck(400.mhz())
-//!         .pll1_r_ck(100.mhz()) // for TRACECK
-//!         .pll1_q_ck(200.mhz())
-//!         .hclk(200.mhz())
+//!         .use_hse(25.MHz()) // XTAL X1
+//!         .sys_ck(400.MHz())
+//!         .pll1_r_ck(100.MHz()) // for TRACECK
+//!         .pll1_q_ck(200.MHz())
+//!         .hclk(200.MHz())
 //!         .pll3_strategy(PllConfigStrategy::Iterative)
-//!         .pll3_p_ck(240.mhz()) // for LTDC
-//!         .pll3_q_ck(48.mhz()) // for LTDC
-//!         .pll3_r_ck(26_666_667.hz()) // Pixel clock for LTDC
+//!         .pll3_p_ck(240.MHz()) // for LTDC
+//!         .pll3_q_ck(48.MHz()) // for LTDC
+//!         .pll3_r_ck(26_666_667.Hz()) // Pixel clock for LTDC
 //!         .freeze(pwrcfg, &dp.SYSCFG);
 //!```
 //!

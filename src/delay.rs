@@ -25,7 +25,7 @@
 //! ```no_run
 //! let timer2 = device
 //!     .TIM2
-//!     .timer(100.ms(), device.peripheral.TIM2, &mut device.clocks);
+//!     .timer(1.kHz(), device.peripheral.TIM2, &mut device.clocks);
 //! let mut delay = DelayFromCountDownTimer::new(timer2);
 //!
 //! delay.delay_ms(500);

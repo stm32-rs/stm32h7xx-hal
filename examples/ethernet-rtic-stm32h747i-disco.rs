@@ -1,6 +1,13 @@
 //! Demo for STM32H747I-DISCO eval board using the Real Time for the Masses
 //! (RTIC) framework.
 //!
+//! STM32H747I-DISCO: RMII TXD1 is on PG12
+//!
+//! If you are using the following boards, you will need to change the TXD1 pin
+//! assignment below!
+//! NUCLEO-H743ZI2: RMII TXD1 is on PB13
+//! NUCLEO-H745I-Q: RMII TXD1 is on PB13
+//!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
 //!
 //! We use the SysTick timer to create a 1ms timebase for use with smoltcp.
@@ -161,7 +168,7 @@ mod app {
         let rmii_rxd1 = gpioc.pc5.into_alternate();
         let rmii_tx_en = gpiog.pg11.into_alternate();
         let rmii_txd0 = gpiog.pg13.into_alternate();
-        let rmii_txd1 = gpiog.pg12.into_alternate();
+        let rmii_txd1 = gpiog.pg12.into_alternate(); // STM32H747I-DISCO
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
