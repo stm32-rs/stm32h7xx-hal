@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [v0.12.1] 2022-04-19
+
+* Expose `PinMode` trait [#354]
+
 ## [v0.12.0] 2022-04-16
 
 * **Breaking**: Use const-generics for `GPIO`, add `DynamicPin`, `ErasedPin`,
@@ -223,7 +227,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...HEAD
+[v0.12.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...v0.12.1
 [v0.12.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.9.0...v0.10.0
@@ -281,3 +286,4 @@
 [#345]: https://github.com/stm32-rs/stm32h7xx-hal/pull/345
 [#347]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
 [#350]: https://github.com/stm32-rs/stm32h7xx-hal/pull/350
+[#354]: https://github.com/stm32-rs/stm32h7xx-hal/pull/354
