@@ -151,6 +151,10 @@ impl Bank {
         }
     }
     /// The address of a given sector of a bank
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sector is out of range for this bank
     pub fn sector_address(&self, sector: usize) -> usize {
         if sector > self.num_sectors() {
             panic!("Sector outside of bank range");
