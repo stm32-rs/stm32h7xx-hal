@@ -717,14 +717,11 @@ macro_rules! sdmmc {
 
                     let mut timeout: u32 = 0xFFFF_FFFF;
 
-                    // Try to read card status (ACMD13)
+                    // Try to read card status (CMD13)
                     while timeout > 0 {
-                        match self.read_status() {
-                            Ok(_) => return Ok(()),
-                            Err(Error::Timeout) => (), // Try again
-                            Err(e) => return Err(e),
+                        if self.card_ready()? {
+                            return Ok(());
                         }
-
                         timeout -= 1;
                     }
                     Err(Error::SoftwareTimeout)

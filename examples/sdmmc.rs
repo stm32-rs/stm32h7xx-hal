@@ -161,8 +161,23 @@ fn main() -> ! {
     info!("Read 10 blocks at {} bytes/s", 5120. / duration);
     info!("");
 
-    // Write 10 blocks
     let write_buffer = [0x34; 512];
+    let start = pac::DWT::cycle_count();
+
+    for i in 0..10 {
+        if let Err(err) = sdmmc.write_block(i, &write_buffer) {
+            info!("Failed to write block {}: {:?}", i, err);
+        }
+    }
+
+    let end = pac::DWT::cycle_count();
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+
+    info!("Wrote 10 blocks at {} bytes/s", 5120. / duration);
+    info!("");
+
+    info!("Verification test...");
+    // Write 10 blocks
     for i in 0..10 {
         if let Err(err) = sdmmc.write_block(i, &write_buffer) {
             info!("Failed to write block {}: {:?}", i, err);
@@ -178,6 +193,8 @@ fn main() -> ! {
     for byte in buffer.iter() {
         assert_eq!(*byte, 0x34);
     }
+    info!("Verified 10 blocks");
+    info!("");
 
     info!("Done!");
 
