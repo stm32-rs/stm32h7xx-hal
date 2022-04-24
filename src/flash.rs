@@ -137,21 +137,25 @@ pub enum Bank {
 ))]
 impl Bank {
     /// The start address of the bank
-    fn start_address(&self) -> usize {
+    pub fn start_address(&self) -> usize {
         match *self {
             Bank::UserBank1 => BANK1_ADDR_START,
             Bank::UserBank2 => BANK2_ADDR_START,
         }
     }
     /// The end address of the bank
-    fn end_address(&self) -> usize {
+    pub fn end_address(&self) -> usize {
         match *self {
             Bank::UserBank1 => BANK1_ADDR_END,
             Bank::UserBank2 => BANK2_ADDR_END,
         }
     }
     /// The address of a given sector of a bank
-    fn sector_address(&self, sector: usize) -> usize {
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sector is out of range for this bank
+    pub fn sector_address(&self, sector: usize) -> usize {
         if sector > self.num_sectors() {
             panic!("Sector outside of bank range");
         }
