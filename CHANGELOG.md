@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [v0.12.2] 2022-05-06
+
+* gpio: Fix `with_<mode>` methods [#359]
+* sdmmc: Fix back-to-back writes [#361]
+* flash: Expose `start_address`, `end_address` and `sector_address` methods [#357]
+
 ## [v0.12.1] 2022-04-19
 
 * Expose `PinMode` trait [#354]
@@ -227,7 +233,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...HEAD
+[v0.12.2]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...v0.12.2
 [v0.12.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...v0.12.1
 [v0.12.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.10.0...v0.11.0
@@ -287,3 +294,6 @@
 [#347]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
 [#350]: https://github.com/stm32-rs/stm32h7xx-hal/pull/350
 [#354]: https://github.com/stm32-rs/stm32h7xx-hal/pull/354
+[#357]: https://github.com/stm32-rs/stm32h7xx-hal/pull/357
+[#359]: https://github.com/stm32-rs/stm32h7xx-hal/pull/359
+[#361]: https://github.com/stm32-rs/stm32h7xx-hal/pull/361
