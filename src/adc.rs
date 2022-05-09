@@ -536,13 +536,14 @@ macro_rules! adc_hal {
                 }
 
                 fn check_calibration_conditions(&self) {
-                    if self.rb.cr.read().aden().bit_is_set() {
+                    let cr = self.rb.cr.read();
+                    if cr.aden().bit_is_set() {
                         panic!("Cannot start calibration when the ADC is enabled");
                     }
-                    if self.rb.cr.read().deeppwd().bit_is_set() {
+                    if cr.deeppwd().bit_is_set() {
                         panic!("Cannot start calibration when the ADC is in deeppowerdown-mode");
                     }
-                    if self.rb.cr.read().advregen().bit_is_clear() {
+                    if cr.advregen().bit_is_clear() {
                         panic!("Cannot start calibration when the ADC voltage regulator is disabled");
                     }
                 }
@@ -611,28 +612,35 @@ macro_rules! adc_hal {
                 }
 
                 fn set_chan_smp(&mut self, chan: u8) {
-                    match chan {
-                        0 => self.rb.smpr1.modify(|_, w| w.smp0().bits(self.get_sample_time().into())),
-                        1 => self.rb.smpr1.modify(|_, w| w.smp1().bits(self.get_sample_time().into())),
-                        2 => self.rb.smpr1.modify(|_, w| w.smp2().bits(self.get_sample_time().into())),
-                        3 => self.rb.smpr1.modify(|_, w| w.smp3().bits(self.get_sample_time().into())),
-                        4 => self.rb.smpr1.modify(|_, w| w.smp4().bits(self.get_sample_time().into())),
-                        5 => self.rb.smpr1.modify(|_, w| w.smp5().bits(self.get_sample_time().into())),
-                        6 => self.rb.smpr1.modify(|_, w| w.smp6().bits(self.get_sample_time().into())),
-                        7 => self.rb.smpr1.modify(|_, w| w.smp7().bits(self.get_sample_time().into())),
-                        8 => self.rb.smpr1.modify(|_, w| w.smp8().bits(self.get_sample_time().into())),
-                        9 => self.rb.smpr1.modify(|_, w| w.smp9().bits(self.get_sample_time().into())),
-                        10 => self.rb.smpr2.modify(|_, w| w.smp10().bits(self.get_sample_time().into())),
-                        11 => self.rb.smpr2.modify(|_, w| w.smp11().bits(self.get_sample_time().into())),
-                        12 => self.rb.smpr2.modify(|_, w| w.smp12().bits(self.get_sample_time().into())),
-                        13 => self.rb.smpr2.modify(|_, w| w.smp13().bits(self.get_sample_time().into())),
-                        14 => self.rb.smpr2.modify(|_, w| w.smp14().bits(self.get_sample_time().into())),
-                        15 => self.rb.smpr2.modify(|_, w| w.smp15().bits(self.get_sample_time().into())),
-                        16 => self.rb.smpr2.modify(|_, w| w.smp16().bits(self.get_sample_time().into())),
-                        17 => self.rb.smpr2.modify(|_, w| w.smp17().bits(self.get_sample_time().into())),
-                        18 => self.rb.smpr2.modify(|_, w| w.smp18().bits(self.get_sample_time().into())),
-                        19 => self.rb.smpr2.modify(|_, w| w.smp19().bits(self.get_sample_time().into())),
-                        _ => unreachable!(),
+                    let t = self.get_sample_time().into();
+                    if chan <= 9 {
+                        self.rb.smpr1.modify(|_, w| match chan {
+                            0 => w.smp0().bits(t),
+                            1 => w.smp1().bits(t),
+                            2 => w.smp2().bits(t),
+                            3 => w.smp3().bits(t),
+                            4 => w.smp4().bits(t),
+                            5 => w.smp5().bits(t),
+                            6 => w.smp6().bits(t),
+                            7 => w.smp7().bits(t),
+                            8 => w.smp8().bits(t),
+                            9 => w.smp9().bits(t),
+                            _ => unreachable!(),
+                        })
+                    } else {
+                        self.rb.smpr2.modify(|_, w| match chan {
+                            10 => w.smp10().bits(t),
+                            11 => w.smp11().bits(t),
+                            12 => w.smp12().bits(t),
+                            13 => w.smp13().bits(t),
+                            14 => w.smp14().bits(t),
+                            15 => w.smp15().bits(t),
+                            16 => w.smp16().bits(t),
+                            17 => w.smp17().bits(t),
+                            18 => w.smp18().bits(t),
+                            19 => w.smp19().bits(t),
+                            _ => unreachable!(),
+                        })
                     }
                 }
 
@@ -691,29 +699,31 @@ macro_rules! adc_hal {
                 }
 
                 fn check_conversion_conditions(&self) {
+                    let cr = self.rb.cr.read();
                     // Ensure that no conversions are ongoing
-                    if self.rb.cr.read().adstart().bit_is_set() {
+                    if cr.adstart().bit_is_set() {
                         panic!("Cannot start conversion because a regular conversion is ongoing");
                     }
-                    if self.rb.cr.read().jadstart().bit_is_set() {
+                    if cr.jadstart().bit_is_set() {
                         panic!("Cannot start conversion because an injected conversion is ongoing");
                     }
                     // Ensure that the ADC is enabled
-                    if self.rb.cr.read().aden().bit_is_clear() {
+                    if cr.aden().bit_is_clear() {
                         panic!("Cannot start conversion because ADC is currently disabled");
                     }
-                    if self.rb.cr.read().addis().bit_is_set() {
+                    if cr.addis().bit_is_set() {
                         panic!("Cannot start conversion because there is a pending request to disable the ADC");
                     }
                 }
 
                 /// Disable ADC
                 pub fn disable(mut self) -> Adc<$ADC, Disabled> {
+                    let cr = self.rb.cr.read();
                     // Refer to RM0433 Rev 6 - Chapter 24.4.9
-                    if self.rb.cr.read().adstart().bit_is_set() {
+                    if cr.adstart().bit_is_set() {
                         self.stop_regular_conversion();
                     }
-                    if self.rb.cr.read().jadstart().bit_is_set() {
+                    if cr.jadstart().bit_is_set() {
                         self.stop_injected_conversion();
                     }
 
@@ -859,14 +869,15 @@ macro_rules! adc_hal {
                 }
 
                 fn check_linear_read_conditions(&self) {
+                    let cr = self.rb.cr.read();
                     // Ensure the ADC is enabled and is not in deeppowerdown-mode
-                    if self.rb.cr.read().deeppwd().bit_is_set() {
+                    if cr.deeppwd().bit_is_set() {
                         panic!("Cannot read linear calibration value when the ADC is in deeppowerdown-mode");
                     }
-                    if self.rb.cr.read().advregen().bit_is_clear() {
+                    if cr.advregen().bit_is_clear() {
                         panic!("Cannot read linear calibration value when the voltage regulator is disabled");
                     }
-                    if self.rb.cr.read().aden().bit_is_clear() {
+                    if cr.aden().bit_is_clear() {
                         panic!("Cannot read linear calibration value when the ADC is disabled");
                     }
                 }
