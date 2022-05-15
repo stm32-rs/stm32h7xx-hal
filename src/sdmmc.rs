@@ -1332,11 +1332,13 @@ macro_rules! sdmmc {
                 }
 
                 pub fn set_bus(&mut self, width: Buswidth, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    // Use access mode 0b11 to write a value of 0x02 to byte
-                    // 183. Cmd Set is 0 (not used).
+                    const EXTENDED_CSD_HS_TIMING: u8=185;
+                    const EXTENDED_CSD_BUS_WIDTH: u8=183;
+
+                    // CMD6: SWITCH command
                     self.cmd(emmc_cmd::modify_ext_csd(
                         emmc_cmd::AccessMode::WriteByte,
-                        183,
+                        EXTENDED_CSD_BUS_WIDTH,
                         width as u8,
                     ))?;
 
@@ -1344,6 +1346,12 @@ macro_rules! sdmmc {
                     // before proceeding.
                     while !self.card_ready()? {}
 
+                    // CPSMACT and DPSMACT must be 0 to set WIDBUS
+                    while self.sdmmc.star.read().dpsmact().bit_is_set()
+                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    {}
+
+                    // Set WIDBUS
                     self.sdmmc.clkcr.modify(|_, w| unsafe {
                         w.widbus().bits(match width {
                             Buswidth::One => 0,
