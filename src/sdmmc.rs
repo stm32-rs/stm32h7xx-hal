@@ -738,12 +738,14 @@ macro_rules! sdmmc {
                     Ok(CardStatus::from(r1))
                 }
 
-                /// Check if card is done writing/reading and back in transfer state
+                /// CMD13: Check if card is done writing/reading and back in transfer state
                 fn card_ready(&mut self) -> Result<bool, Error> {
                     Ok(self.read_status()?.state() == CurrentState::Transfer)
                 }
 
-                /// Select the card with `address` and place it into the _Tranfer State_
+                /// CMD7: Select the card with `address` and place it into the _Tranfer State_
+                ///
+                /// When called with rca = 0, deselects the card (and ignores)
                 fn select_card(&self, rca: u16) -> Result<(), Error> {
                     let r = self.cmd(common_cmd::select_card(rca));
                     match (r, rca) {
@@ -1222,7 +1224,7 @@ macro_rules! sdmmc {
 
                     // Enable clock - Already?
 
-                    // Send card to idle state
+                    // CMD0: Send card to idle state
                     self.cmd(common_cmd::idle())?;
 
                     let ocr = loop {
@@ -1247,7 +1249,7 @@ macro_rules! sdmmc {
                         CardCapacity::StandardCapacity
                     };
 
-                    // Get CID
+                    // CMD2: Get CID
                     self.cmd(common_cmd::all_send_cid())?;
                     let mut cid = [0; 4];
                     cid[3] = self.sdmmc.resp1r.read().bits();
@@ -1256,8 +1258,10 @@ macro_rules! sdmmc {
                     cid[0] = self.sdmmc.resp4r.read().bits();
                     let cid = CID::from(cid);
 
+                    // CMD3: Assign address
                     self.cmd(emmc_cmd::assign_relative_address(card_addr.address()))?;
 
+                    // CMD9: Send CSD
                     self.cmd(common_cmd::send_csd(card_addr.address()))?;
 
                     let mut csd = [0; 4];
@@ -1275,6 +1279,7 @@ macro_rules! sdmmc {
                         csd,
                     };
 
+                    // CMD7: Place card in the transfer state
                     self.select_card(card.rca.address())?;
                     self.card.replace(card);
 
@@ -1306,8 +1311,9 @@ macro_rules! sdmmc {
                             Buswidth::Eight => 2,
                         })
                     });
-
+                    // Set CLKDIV
                     self.clkcr_set_clkdiv(freq.into().raw(), width)?;
+
                     Ok(())
                 }
             }
