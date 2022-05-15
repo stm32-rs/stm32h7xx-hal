@@ -67,7 +67,10 @@ use core::fmt;
 
 use sdio_host::{
     common_cmd::{self, ResponseLen},
-    emmc::{CardCapacity, CardStatus, CurrentState, CID, CSD, EMMC, OCR, RCA},
+    emmc::{
+        CardCapacity, CardStatus, CurrentState, ExtCSD, CID, CSD, EMMC, OCR,
+        RCA,
+    },
     emmc_cmd,
     sd::{SDStatus, CIC, SCR, SD},
     sd_cmd, Cmd,
@@ -281,11 +284,11 @@ impl SdCard {
 #[derive(Clone, Copy, Default)]
 /// eMMC
 pub struct Emmc {
-    pub capacity: CardCapacity,
     pub ocr: OCR<EMMC>,
     pub rca: RCA<EMMC>,
     pub cid: CID<EMMC>,
     pub csd: CSD<EMMC>,
+    pub ext_csd: ExtCSD,
 }
 
 macro_rules! err_from_datapath_sm {
@@ -1218,7 +1221,46 @@ macro_rules! sdmmc {
             }
 
             impl Sdmmc<$SDMMCX, Emmc> {
-                /// Initializes eMMC device (if present) and sets the bus at the specified frequency.
+                /// Reads the Extended CSD register CMD8
+                ///
+                pub fn read_extended_csd(&mut self) -> Result<ExtCSD, Error> {
+                    // start transfer
+                    self.start_datapath_transfer(512, 9, Dir::CardToHost);
+                    self.cmd(emmc_cmd::send_ext_csd())?; // CMD8
+
+                    let mut buffer = [0u32; 128];
+                    let mut idx = 0;
+                    let mut sta_reg;
+                    while {
+                        sta_reg = self.sdmmc.star.read();
+                        !(sta_reg.rxoverr().bit()
+                          || sta_reg.dcrcfail().bit()
+                          || sta_reg.dtimeout().bit()
+                          || sta_reg.dbckend().bit())
+                    } {
+                        if sta_reg.rxfifohf().bit() {
+                            for _ in 0..8 {
+                                buffer[idx] = u32::from_be(
+                                    self.sdmmc.fifor.read().bits());
+
+                                idx += 1;
+                            }
+                        }
+
+                        if idx == buffer.len() {
+                            break;
+                        }
+                    }
+
+                    err_from_datapath_sm!(sta_reg);
+
+                    // wait for card to be ready again
+                    while !self.card_ready()? {}
+
+                    Ok(ExtCSD::from(buffer))
+                }
+
+                /// Initializes eMMC device (if present) and sets the bus at the specified frequency
                 pub fn init(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
                     let card_addr: RCA<EMMC> = RCA::from(1u16);
 
@@ -1245,13 +1287,6 @@ macro_rules! sdmmc {
                         }
                     };
 
-                    // True for SDHC and SDXC False for SDSC
-                    let capacity = if ocr.high_capacity() {
-                        CardCapacity::HighCapacity
-                    } else {
-                        CardCapacity::StandardCapacity
-                    };
-
                     // CMD2: Get CID
                     self.cmd(common_cmd::all_send_cid())?;
                     let mut cid = [0; 4];
@@ -1275,21 +1310,22 @@ macro_rules! sdmmc {
                     csd[0] = self.sdmmc.resp4r.read().bits();
                     let csd = CSD::from(csd);
 
+                    // CMD7: Place card in the transfer state
+                    self.select_card(self.card_rca)?;
+
+                    while !self.card_ready()? {}
+
+                    // Get extended CSD
+                    let ext_csd = self.read_extended_csd()?;
+
                     let card = Emmc {
-                        capacity,
                         ocr,
                         rca: card_addr,
                         cid,
                         csd,
+                        ext_csd,
                     };
-
-                    // CMD7: Place card in the transfer state
-                    self.select_card(card.rca.address())?;
                     self.card.replace(card);
-
-                    // Wait before setting the bus width and frequency to avoid
-                    // timeouts on SDSC cards
-                    while !self.card_ready()? {}
 
                     self.set_bus(self.bus_width, freq)?;
                     Ok(())
@@ -1345,7 +1381,7 @@ impl SdmmcPeripheral for Emmc {
         self.rca.address()
     }
     fn get_capacity(&self) -> CardCapacity {
-        self.capacity
+        CardCapacity::HighCapacity
     }
 }
 
