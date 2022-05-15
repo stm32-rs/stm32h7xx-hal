@@ -327,6 +327,10 @@ pub struct Sdmmc<SDMMC, P: SdmmcPeripheral> {
     clock: Hertz,
     /// Current signalling scheme to card
     signalling: Signalling,
+    /// Address (RCA) currently assigned to card. For eMMC cards this is
+    /// assigned by us (the host), for SD cards it is only ever retrieved from
+    /// the card response
+    card_rca: u16,
     /// Card
     card: Option<P>,
 }
@@ -506,9 +510,10 @@ macro_rules! sdmmc {
                         ker_ck,
                         hclk,
                         bus_width,
-                        card: None,
                         clock,
                         signalling: Default::default(),
+                        card_rca: 0,
+                        card: None,
                     }
 
                     // drop prec: ker_ck can no longer be modified
@@ -730,9 +735,8 @@ macro_rules! sdmmc {
                 /// Query the card status (CMD13, returns R1)
                 ///
                 fn read_status(&self) -> Result<CardStatus<P>, Error> {
-                    let card = self.card()?;
-
-                    self.cmd(common_cmd::card_status(card.get_address(), false))?; // CMD13
+                    // CMD13
+                    self.cmd(common_cmd::card_status(self.card_rca, false))?;
 
                     let r1 = self.sdmmc.resp1r.read().bits();
                     Ok(CardStatus::from(r1))
@@ -755,8 +759,7 @@ macro_rules! sdmmc {
                 }
 
                 fn app_cmd<R: common_cmd::Resp>(&self, acmd: Cmd<R>) -> Result<(), Error> {
-                    let rca = self.card().map(|card| card.get_address()).unwrap_or(0);
-                    self.cmd(common_cmd::app_cmd(rca))?;
+                    self.cmd(common_cmd::app_cmd(self.card_rca))?;
                     self.cmd(acmd)
                 }
 
@@ -958,8 +961,10 @@ macro_rules! sdmmc {
                     self.select_card(card.rca.address())?;
                     card.scr = self.get_scr(card.rca.address())?;
 
-                    // Replace: self.app_cmd will now select this card
+                    // Replace
                     let _ = self.card.replace(card);
+                    // self.app_cmd will now select this card
+                    self.card_rca = card.rca.address();
 
                     // Set bus width
                     let (width, acmd_arg) = match self.bus_width {
@@ -1016,13 +1021,11 @@ macro_rules! sdmmc {
                 /// Reads the SD Status (ACMD13)
                 ///
                 fn read_sd_status(&mut self) -> Result<(), Error> {
-                    let card = self.card()?;
-
                     self.cmd(common_cmd::set_block_length(64))?; // CMD16
 
                     // Prepare the transfer
                     self.start_datapath_transfer(64, 6, Dir::CardToHost);
-                    self.app_cmd(common_cmd::card_status(card.get_address(), false))?; // ACMD13
+                    self.app_cmd(common_cmd::card_status(self.card_rca, false))?; // ACMD13
 
                     let mut status = [0u32; 16];
                     let mut idx = 0;
@@ -1260,9 +1263,10 @@ macro_rules! sdmmc {
 
                     // CMD3: Assign address
                     self.cmd(emmc_cmd::assign_relative_address(card_addr.address()))?;
+                    self.card_rca = card_addr.address();
 
                     // CMD9: Send CSD
-                    self.cmd(common_cmd::send_csd(card_addr.address()))?;
+                    self.cmd(common_cmd::send_csd(self.card_rca))?;
 
                     let mut csd = [0; 4];
                     csd[3] = self.sdmmc.resp1r.read().bits();
