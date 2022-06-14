@@ -461,9 +461,6 @@ impl Flash {
             // to go low before checking if it's set and then clearing it.
             // Anything aside from this exact progression results in errors.
             while regs.sr.read().eop().bit_is_clear() {}
-            if regs.sr.read().eop().bit_is_set() {
-                regs.sr.modify(|_, w| w.eop().set_bit()); // Clear
-            }
         }
 
         // 7. Cleanup by clearing the PG bit
