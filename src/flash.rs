@@ -457,9 +457,10 @@ impl Flash {
 
             // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming
             // operation has succeed), and clear it by software.
-            if regs.sr.read().eop().bit_is_set() {
-                regs.sr.modify(|_, w| w.eop().set_bit()); // Clear
-            }
+            // The reference does not mention this, but it seems that this must wait for the EOP flag
+            // to go low before checking if it's set and then clearing it.
+            // Anything aside from this exact progression results in errors.
+            while regs.sr.read().eop().bit_is_clear() {}
         }
 
         // 7. Cleanup by clearing the PG bit
