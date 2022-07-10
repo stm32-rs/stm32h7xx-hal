@@ -34,13 +34,13 @@ use crate::traits::i2s::FullDuplex;
 
 const NUM_SLOTS: u8 = 16;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum I2SMode {
     Master = 0b00,
     Slave = 0b10,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum I2SDir {
     Tx = 0b00,
     Rx = 0b01,
@@ -62,7 +62,7 @@ enum I2SSlotSize {
     BITS_32 = 0b10,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum I2SProtocol {
     MSB,
     LSB,

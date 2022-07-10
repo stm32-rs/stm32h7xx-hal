@@ -232,7 +232,7 @@ pub enum Polarity {
 }
 
 /// Configuration enum to keep track of which break input corresponds with which FaultPins
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum BreakInput {
     BreakIn,
     BreakIn2,

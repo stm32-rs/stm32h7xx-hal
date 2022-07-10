@@ -18,7 +18,7 @@ use cast::u16;
 /// I2C Events
 ///
 /// Each event is a possible interrupt source, if enabled
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// (TXIE)
     Transmit,
@@ -37,7 +37,7 @@ pub enum Event {
 /// I2C Stop Configuration
 ///
 /// Peripheral options for generating the STOP condition
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// Software end mode: Must write register to generate STOP condition
     Software,

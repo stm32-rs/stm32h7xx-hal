@@ -121,7 +121,7 @@ pub struct Pwr {
 ///
 /// Represents the voltage range feeding the CPU core. The maximum core
 /// clock frequency depends on this value.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum VoltageScale {
     /// VOS 0 range VCORE 1.26V - 1.40V
     Scale0,

@@ -509,7 +509,7 @@ macro_rules! check_status_error {
 }
 
 /// Interrupt events
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// New data has been received
     Rxp,

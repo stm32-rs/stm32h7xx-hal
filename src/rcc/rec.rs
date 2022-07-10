@@ -92,7 +92,7 @@ pub trait ResetEnable {
 /// The clock gating state of a peripheral in low-power mode
 ///
 /// See RM0433 rev 7. Section 8.5.11
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LowPowerMode {
     /// Kernel and bus interface clocks are not provided in low-power modes.
     Off,

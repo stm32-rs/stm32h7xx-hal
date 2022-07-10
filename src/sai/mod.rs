@@ -155,7 +155,7 @@ pub trait INTERFACE {}
 /// SAI Events
 ///
 /// Each event is a possible interrupt source, if enabled
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// Overdue/Underrun error detection
     Overdue,
@@ -172,7 +172,7 @@ pub enum Event {
 }
 
 /// SAI Channels
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum SaiChannel {
     ChannelA,
     ChannelB,

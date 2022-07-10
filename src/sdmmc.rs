@@ -227,7 +227,7 @@ impl Default for Signalling {
 }
 
 /// Possible bus widths
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Buswidth {
     One = 0,

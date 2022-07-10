@@ -6,7 +6,7 @@
 use crate::stm32::EXTI;
 
 /// EXTI trigger event
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Event {
     GPIO0 = 0,
     GPIO1 = 1,

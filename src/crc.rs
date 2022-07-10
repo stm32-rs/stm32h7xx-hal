@@ -170,7 +170,7 @@ mod macros {
 ///
 /// A polynomial being even means that the least significant bit is `0`
 /// in the polynomial's normal representation.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Polynomial(Poly);
 
@@ -262,7 +262,7 @@ impl Default for Polynomial {
 }
 
 /// Errors generated when trying to create invalid polynomials.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PolynomialError {
     /// Tried to create an even polynomial.
@@ -285,7 +285,7 @@ impl fmt::Display for PolynomialError {
 }
 
 /// Internal representation of a polynomial.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum Poly {
     /// 7-bit polynomial
@@ -303,7 +303,7 @@ enum Poly {
 /// ST refers to this as both 'reversal' and 'inversion'. If a CRC calls for
 /// 'reflection' it most likely wants [`BitReversal::Byte`] and output reversal
 /// enabled.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[repr(u8)]
 pub enum BitReversal {
@@ -316,7 +316,7 @@ pub enum BitReversal {
 }
 
 /// CRC unit configuration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Config {
     poly: Polynomial,

@@ -79,7 +79,7 @@ pub struct Adc<ADC, ED> {
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
 //
 // Refer to RM0433 Rev 6 - Chapter 24.4.13
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
 pub enum AdcSampleTime {
@@ -126,7 +126,7 @@ impl From<AdcSampleTime> for u8 {
 /// ADC LSHIFT\[3:0\] of the converted value
 ///
 /// Only values in range of 0..=15 are allowed.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcLshift(u8);
 
@@ -148,7 +148,7 @@ impl AdcLshift {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalOffset(u16);
 
@@ -158,7 +158,7 @@ impl AdcCalOffset {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalLinear([u32; 6]);
 

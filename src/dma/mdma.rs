@@ -162,7 +162,7 @@ pub enum MdmaTransferRequest {
 }
 
 /// MDMA Source/Destination sizes
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaSize {
     /// Byte (8-bit)
@@ -208,7 +208,7 @@ impl MdmaSize {
 }
 
 /// MDMA increment mode
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaIncrement {
     Fixed,
@@ -278,7 +278,7 @@ impl defmt::Format for MdmaBurstSize {
 }
 
 /// MDMA Packing/Alignment mode
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaPackingAlignment {
     /// Source data is packed/unpacked into the destination data size

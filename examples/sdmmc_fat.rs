@@ -3,7 +3,6 @@
 
 use {
     embedded_sdmmc::{Controller, VolumeIdx},
-    log,
     stm32h7xx_hal::sdmmc::{SdCard, Sdmmc},
     stm32h7xx_hal::{pac, prelude::*, rcc},
 };

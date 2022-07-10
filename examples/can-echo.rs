@@ -8,7 +8,6 @@ use crate::hal::{
     prelude::*,
     rcc,
     rcc::rec,
-    time::U32Ext,
 };
 use fdcan::{
     config::NominalBitTiming,

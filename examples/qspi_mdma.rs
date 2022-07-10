@@ -80,9 +80,9 @@ fn main() -> ! {
     for i in 0..20 {
         let j = i * 4;
         let i = i as u8;
-        source_buffer[j + 0] |= ((i << 4) & 0x10) | ((i >> 1) & 1);
+        source_buffer[j] |= ((i << 4) & 0x10) | ((i >> 1) & 1);
         source_buffer[j + 1] |= ((i << 2) & 0x10) | ((i >> 3) & 1);
-        source_buffer[j + 2] |= ((i >> 0) & 0x10) | ((i >> 5) & 1);
+        source_buffer[j + 2] |= (i & 0x10) | ((i >> 5) & 1);
         source_buffer[j + 3] |= ((i >> 2) & 0x10) | ((i >> 7) & 1);
     }
 

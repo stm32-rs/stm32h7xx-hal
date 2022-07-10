@@ -10,7 +10,6 @@
 #![no_main]
 #![no_std]
 
-use cortex_m;
 use cortex_m_rt as rt;
 use rt::{entry, exception};
 
@@ -101,7 +100,7 @@ fn main() -> ! {
                 rmii_txd1,
             ),
             &mut DES_RING,
-            mac_addr.clone(),
+            mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,
         )

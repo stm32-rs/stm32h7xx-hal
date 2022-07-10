@@ -122,7 +122,7 @@ const SECTOR_SIZE: usize = 0x2_0000;
     not(feature = "stm32h750"),
     not(feature = "stm32h750v")
 ))]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Bank {
     /// User Bank 1
     UserBank1,

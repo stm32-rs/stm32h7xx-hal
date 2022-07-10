@@ -22,7 +22,7 @@ pub enum Event {
     LseCss,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum DstState {
     /// Standard Time
     Standard = 0,
@@ -32,7 +32,7 @@ pub enum DstState {
     Dst = 1,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RtcClock {
     /// LSE (Low-Speed External)
     ///
@@ -61,7 +61,7 @@ pub enum RtcClock {
     Hse { divider: u8 },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// An error preventing the RTC from initializing
 pub enum InitError {
@@ -70,7 +70,7 @@ pub enum InitError {
     ConfigMismatch,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DstError {
     ClockNotInitialized,

@@ -34,7 +34,7 @@ use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::time::Hertz;
 
 /// Serial error
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
@@ -49,7 +49,7 @@ pub enum Error {
 }
 
 /// Interrupt event
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Event {
     /// New data has been received
@@ -69,7 +69,7 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum FifoThreshold {
         Eighth,
         Quarter,
@@ -85,13 +85,13 @@ pub mod config {
     /// hardware on receive. For example, `read()` would return [`Error::Parity`](super::Error::Parity).
     ///
     /// Note that parity bits are included in the serial word length, so if parity is used word length will be set to 9.
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum Parity {
         ParityNone,
         ParityEven,
         ParityOdd,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum StopBits {
         #[doc = "1 stop bit"]
         STOP1,
@@ -102,17 +102,17 @@ pub mod config {
         #[doc = "1.5 stop bits"]
         STOP1P5,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum BitOrder {
         LsbFirst,
         MsbFirst,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum ClockPhase {
         First,
         Second,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum ClockPolarity {
         IdleHigh,
         IdleLow,

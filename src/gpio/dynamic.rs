@@ -24,7 +24,7 @@ pub enum Dynamic {
 }
 
 /// Error for [DynamicPin]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PinModeError {
     /// For operations unsupported in current mode
     IncorrectMode,

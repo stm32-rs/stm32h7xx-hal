@@ -81,8 +81,7 @@ impl<'a> Net<'a> {
         ethernet_addr: HardwareAddress,
     ) -> Self {
         // Set IP address
-        store.ip_addrs =
-            [IpCidr::new(IpAddress::v4(192, 168, 1, 99).into(), 0)];
+        store.ip_addrs = [IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0)];
 
         let neighbor_cache =
             NeighborCache::new(&mut store.neighbor_cache_storage[..]);
@@ -96,7 +95,7 @@ impl<'a> Net<'a> {
                 .routes(routes)
                 .finalize();
 
-        return Net { iface };
+        Net { iface }
     }
 
     /// Polls on the ethernet interface. You should refer to the smoltcp
@@ -194,7 +193,7 @@ mod app {
                     rmii_txd1,
                 ),
                 &mut DES_RING,
-                mac_addr.clone(),
+                mac_addr,
                 ccdr.peripheral.ETH1MAC,
                 &ccdr.clocks,
             )
