@@ -2,7 +2,6 @@
 //!
 //! See the parent module for documentation
 
-#[allow(unused)] // TODO remove
 use core::fmt;
 
 use crate::{
@@ -258,7 +257,6 @@ macro_rules! pins {
     };
 }
 
-#[cfg(any(feature = "rm0468"))] // TODO
 pins! {
     OCTOSPI1:
         CLK: [
@@ -692,7 +690,6 @@ macro_rules! octospi_impl {
     };
 }
 
-#[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
 octospi_impl! {
     octospi1_unchecked,
     octospi1_hyperbus_unchecked,

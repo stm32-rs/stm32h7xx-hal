@@ -925,7 +925,7 @@ mod common {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     xspi_impl! { stm32::QUADSPI, rec::Qspi, qspisel }
 
-    #[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI1, rec::Octospi1, octospisel }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI2, rec::Octospi2, octospisel }
