@@ -196,20 +196,20 @@ macro_rules! hal {
                 pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
                     while self.interface.invalid_countdown > 0 {
                         // Check for words to read
-                        if self.rb.cha.sr.read().freq().bit_is_clear() {
+                        if self.rb.cha().sr.read().freq().bit_is_clear() {
                             return Err(nb::Error::WouldBlock);
                         }
 
-                        let _ = self.rb.cha.dr.read(); // Flush
+                        let _ = self.rb.cha().dr.read(); // Flush
                         self.interface.invalid_countdown -= 1;
                     }
 
                     // Check for words to read
-                    if self.rb.cha.sr.read().freq().bit_is_clear() {
+                    if self.rb.cha().sr.read().freq().bit_is_clear() {
                         return Err(nb::Error::WouldBlock);
                     }
 
-                    Ok(self.rb.cha.dr.read().bits() & 0xFFFF)
+                    Ok(self.rb.cha().dr.read().bits() & 0xFFFF)
                 }
 
                 /// Initialise SAI in PDM mode
@@ -260,7 +260,7 @@ macro_rules! hal {
                     s.sai_rcc_init(prec);
 
                     // Configure block 1
-                    let audio_ch_a = &s.rb.cha;
+                    let audio_ch_a = &s.rb.cha();
 
                     unsafe {
                         audio_ch_a.cr1.modify(|_, w| {

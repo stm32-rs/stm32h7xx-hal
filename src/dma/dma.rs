@@ -923,40 +923,40 @@ peripheral_target_address!(
         rxdr,
         txdr,
         [u8, u16, u32],
-        DMAReq::SPI1_RX_DMA,
-        DMAReq::SPI1_TX_DMA
+        DMAReq::Spi1RxDma,
+        DMAReq::Spi1TxDma
     ),
     (
         SPI: pac::SPI2,
         rxdr,
         txdr,
         [u8, u16, u32],
-        DMAReq::SPI2_RX_DMA,
-        DMAReq::SPI2_TX_DMA
+        DMAReq::Spi2RxDma,
+        DMAReq::Spi2TxDma
     ),
     (
         SPI: pac::SPI3,
         rxdr,
         txdr,
         [u8, u16, u32],
-        DMAReq::SPI3_RX_DMA,
-        DMAReq::SPI3_TX_DMA
+        DMAReq::Spi3RxDma,
+        DMAReq::Spi3TxDma
     ),
     (
         SPI: pac::SPI4,
         rxdr,
         txdr,
         [u8, u16, u32],
-        DMAReq::SPI4_RX_DMA,
-        DMAReq::SPI4_TX_DMA
+        DMAReq::Spi4RxDma,
+        DMAReq::Spi4TxDma
     ),
     (
         SPI: pac::SPI5,
         rxdr,
         txdr,
         [u8, u16, u32],
-        DMAReq::SPI5_RX_DMA,
-        DMAReq::SPI5_TX_DMA
+        DMAReq::Spi5RxDma,
+        DMAReq::Spi5TxDma
     )
 );
 
@@ -965,171 +965,171 @@ peripheral_target_address!(
         SERIAL: pac::USART1,
         rdr,
         tdr,
-        DMAReq::USART1_RX_DMA,
-        DMAReq::USART1_TX_DMA
+        DMAReq::Usart1RxDma,
+        DMAReq::Usart1TxDma
     ),
     (
         SERIAL: pac::USART2,
         rdr,
         tdr,
-        DMAReq::USART2_RX_DMA,
-        DMAReq::USART2_TX_DMA
+        DMAReq::Usart2RxDma,
+        DMAReq::Usart2TxDma
     ),
     (
         SERIAL: pac::USART3,
         rdr,
         tdr,
-        DMAReq::USART3_RX_DMA,
-        DMAReq::USART3_TX_DMA
+        DMAReq::Usart3RxDma,
+        DMAReq::Usart3TxDma
     ),
     (
         SERIAL: pac::USART6,
         rdr,
         tdr,
-        DMAReq::USART6_RX_DMA,
-        DMAReq::USART6_TX_DMA
+        DMAReq::Usart6RxDma,
+        DMAReq::Usart6TxDma
     ),
     (
         SERIAL: pac::UART4,
         rdr,
         tdr,
-        DMAReq::UART4_RX_DMA,
-        DMAReq::UART4_TX_DMA
+        DMAReq::Uart4RxDma,
+        DMAReq::Uart4TxDma
     ),
     (
         SERIAL: pac::UART5,
         rdr,
         tdr,
-        DMAReq::UART5_RX_DMA,
-        DMAReq::UART5_TX_DMA
+        DMAReq::Uart5RxDma,
+        DMAReq::Uart5TxDma
     ),
     (
         SERIAL: pac::UART7,
         rdr,
         tdr,
-        DMAReq::UART7_RX_DMA,
-        DMAReq::UART7_TX_DMA
+        DMAReq::Uart7RxDma,
+        DMAReq::Uart7TxDma
     ),
     (
         SERIAL: pac::UART8,
         rdr,
         tdr,
-        DMAReq::UART8_RX_DMA,
-        DMAReq::UART8_TX_DMA
+        DMAReq::Uart8RxDma,
+        DMAReq::Uart8TxDma
     ),
 );
 
 peripheral_target_address!(
-    (HAL: I2c<pac::I2C1>, rxdr, u8, P2M, DMAReq::I2C1_RX_DMA),
-    (HAL: I2c<pac::I2C1>, txdr, u8, M2P, DMAReq::I2C1_TX_DMA),
-    (HAL: I2c<pac::I2C2>, rxdr, u8, P2M, DMAReq::I2C2_RX_DMA),
-    (HAL: I2c<pac::I2C2>, txdr, u8, M2P, DMAReq::I2C2_TX_DMA),
-    (HAL: I2c<pac::I2C3>, rxdr, u8, P2M, DMAReq::I2C3_RX_DMA),
-    (HAL: I2c<pac::I2C3>, txdr, u8, M2P, DMAReq::I2C3_TX_DMA),
+    (HAL: I2c<pac::I2C1>, rxdr, u8, P2M, DMAReq::I2c1RxDma),
+    (HAL: I2c<pac::I2C1>, txdr, u8, M2P, DMAReq::I2c1TxDma),
+    (HAL: I2c<pac::I2C2>, rxdr, u8, P2M, DMAReq::I2c2RxDma),
+    (HAL: I2c<pac::I2C2>, txdr, u8, M2P, DMAReq::I2c2TxDma),
+    (HAL: I2c<pac::I2C3>, rxdr, u8, P2M, DMAReq::I2c3RxDma),
+    (HAL: I2c<pac::I2C3>, txdr, u8, M2P, DMAReq::I2c3TxDma),
 );
 
 peripheral_target_address!(
     // implementation on PAC types, fixed output Channel A and input Channel B
-    (pac::SAI1, cha.dr, u32, M2P, DMAReq::SAI1A_DMA),
-    (pac::SAI1, chb.dr, u32, P2M, DMAReq::SAI1B_DMA),
+    (pac::SAI1, cha.dr, u32, M2P, DMAReq::Sai1aDma),
+    (pac::SAI1, chb.dr, u32, P2M, DMAReq::Sai1bDma),
     // implementation on compound types (either Channel A or Channel B)
     (
         sai::dma::ChannelA<pac::SAI1>,
         cha.dr,
         u32,
         P2M,
-        DMAReq::SAI1A_DMA
+        DMAReq::Sai1aDma
     ),
     (
         sai::dma::ChannelA<pac::SAI1>,
         cha.dr,
         u32,
         M2P,
-        DMAReq::SAI1A_DMA
+        DMAReq::Sai1aDma
     ),
     (
         sai::dma::ChannelB<pac::SAI1>,
         chb.dr,
         u32,
         P2M,
-        DMAReq::SAI1B_DMA
+        DMAReq::Sai1bDma
     ),
     (
         sai::dma::ChannelB<pac::SAI1>,
         chb.dr,
         u32,
         M2P,
-        DMAReq::SAI1B_DMA
+        DMAReq::Sai1bDma
     ),
 );
 #[cfg(not(feature = "rm0468"))]
 peripheral_target_address!(
     // implementation on PAC types, fixed output Channel A and input Channel B
-    (pac::SAI2, cha.dr, u32, M2P, DMAReq::SAI2A_DMA),
-    (pac::SAI2, chb.dr, u32, P2M, DMAReq::SAI2B_DMA),
+    (pac::SAI2, cha.dr, u32, M2P, DMAReq::Sai2aDma),
+    (pac::SAI2, chb.dr, u32, P2M, DMAReq::Sai2bDma),
     // implementation on compound types (either Channel A or Channel B)
     (
         sai::dma::ChannelA<pac::SAI2>,
         cha.dr,
         u32,
         P2M,
-        DMAReq::SAI2A_DMA
+        DMAReq::Sai2aDma
     ),
     (
         sai::dma::ChannelA<pac::SAI2>,
         cha.dr,
         u32,
         M2P,
-        DMAReq::SAI2A_DMA
+        DMAReq::Sai2aDma
     ),
     (
         sai::dma::ChannelB<pac::SAI2>,
         chb.dr,
         u32,
         P2M,
-        DMAReq::SAI2B_DMA
+        DMAReq::Sai2bDma
     ),
     (
         sai::dma::ChannelB<pac::SAI2>,
         chb.dr,
         u32,
         M2P,
-        DMAReq::SAI2B_DMA
+        DMAReq::Sai2bDma
     ),
 
 );
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 peripheral_target_address!(
     // implementation on PAC types, fixed output Channel A and input Channel B
-    (pac::SAI3, cha.dr, u32, M2P, DMAReq::SAI3_A_DMA),
-    (pac::SAI3, chb.dr, u32, P2M, DMAReq::SAI3_B_DMA),
+    (pac::SAI3, cha.dr, u32, M2P, DMAReq::Sai3ADma),
+    (pac::SAI3, chb.dr, u32, P2M, DMAReq::Sai3BDma),
     // implementation on compound types (either Channel A or Channel B)
     (
         sai::dma::ChannelA<pac::SAI3>,
         cha.dr,
         u32,
         P2M,
-        DMAReq::SAI3_A_DMA
+        DMAReq::Sai3ADma
     ),
     (
         sai::dma::ChannelA<pac::SAI3>,
         cha.dr,
         u32,
         M2P,
-        DMAReq::SAI3_A_DMA
+        DMAReq::Sai3ADma
     ),
     (
         sai::dma::ChannelB<pac::SAI3>,
         chb.dr,
         u32,
         P2M,
-        DMAReq::SAI3_B_DMA
+        DMAReq::Sai3BDma
     ),
     (
         sai::dma::ChannelB<pac::SAI3>,
         chb.dr,
         u32,
         M2P,
-        DMAReq::SAI3_B_DMA
+        DMAReq::Sai3BDma
     ),
 );

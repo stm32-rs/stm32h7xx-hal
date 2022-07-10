@@ -227,10 +227,10 @@ impl Polynomial {
     /// Return POLYSIZE register value.
     const fn polysize(self) -> u8 {
         (match self.0 {
-            Poly::B7(_) => crc::cr::POLYSIZE_A::POLYSIZE7,
-            Poly::B8(_) => crc::cr::POLYSIZE_A::POLYSIZE8,
-            Poly::B16(_) => crc::cr::POLYSIZE_A::POLYSIZE16,
-            Poly::B32(_) => crc::cr::POLYSIZE_A::POLYSIZE32,
+            Poly::B7(_) => crc::cr::POLYSIZE_A::Polysize7,
+            Poly::B8(_) => crc::cr::POLYSIZE_A::Polysize8,
+            Poly::B16(_) => crc::cr::POLYSIZE_A::Polysize16,
+            Poly::B32(_) => crc::cr::POLYSIZE_A::Polysize32,
         }) as u8
     }
 
@@ -308,11 +308,11 @@ enum Poly {
 #[repr(u8)]
 pub enum BitReversal {
     /// Each input byte has its bits reversed. `0x1A2B3C4D` becomes `0x58D43CB2`.
-    Byte = crc::cr::REV_IN_A::BYTE as u8,
+    Byte = crc::cr::REV_IN_A::Byte as u8,
     /// Bits reversed by half-word. `0x1A2B3C4D` becomes `0xD458B23C`.
-    HalfWord = crc::cr::REV_IN_A::HALFWORD as u8,
+    HalfWord = crc::cr::REV_IN_A::HalfWord as u8,
     /// Bits reversed by word. `0x1A2B3C4D` becomes `0xB23CD458`.
-    Word = crc::cr::REV_IN_A::WORD as u8,
+    Word = crc::cr::REV_IN_A::Word as u8,
 }
 
 /// CRC unit configuration.
@@ -369,7 +369,7 @@ impl Config {
     fn get_reverse_input(&self) -> u8 {
         self.reverse_input
             .map(|rev| rev as u8)
-            .unwrap_or(crc::cr::REV_IN_A::NORMAL as u8)
+            .unwrap_or(crc::cr::REV_IN_A::Normal as u8)
     }
 
     /// Set whether to reverse the bits of the output.

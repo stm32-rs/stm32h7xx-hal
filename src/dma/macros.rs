@@ -33,7 +33,7 @@ macro_rules! peripheral_target_instance {
         unsafe impl TargetAddress<$dir> for $peripheral {
             #[inline(always)]
             fn address(&self) -> usize {
-                &self.$channel.$register as *const _ as usize
+                &self.$channel().$register as *const _ as usize
             }
 
             type MemSize = $size;

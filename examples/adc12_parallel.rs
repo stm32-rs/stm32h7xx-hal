@@ -46,7 +46,7 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
-    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::PER);
+    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
 
     info!("");
     info!("stm32h7xx-hal example - ADC");
@@ -63,10 +63,10 @@ fn main() -> ! {
         &ccdr.clocks,
     );
     let mut adc1 = adc1.enable();
-    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_resolution(adc::Resolution::SixteenBit);
     adc1.set_sample_time(adc::AdcSampleTime::T_387);
     let mut adc2 = adc2.enable();
-    adc2.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc2.set_resolution(adc::Resolution::SixteenBit);
     adc2.set_sample_time(adc::AdcSampleTime::T_387);
 
     // Setup GPIOA

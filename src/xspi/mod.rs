@@ -453,18 +453,19 @@ mod common {
                 let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
 
                 match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => clocks.hclk(),
-                    ccipr::[< $ccip:upper _A >]::PLL1_Q => {
+                    ccipr::[< $ccip:upper _A >]::RccHclk3 => clocks.hclk(),
+                    ccipr::[< $ccip:upper _A >]::Pll1Q => {
                         clocks.pll1_q_ck().expect(
                             concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::PLL2_R => {
+                    ccipr::[< $ccip:upper _A >]::Pll2R
+                        => {
                         clocks.pll2_r_ck().expect(
                             concat!(stringify!($peripheral), ": PLL2_R must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::PER => {
+                    ccipr::[< $ccip:upper _A >]::Per => {
                         clocks.per_ck().expect(
                             concat!(stringify!($peripheral), ": PER clock must be enabled")
                         )

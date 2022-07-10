@@ -465,13 +465,8 @@ impl Pwr {
             unsafe {
                 &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
             };
-            #[cfg(any(feature = "smps"))]
             unsafe {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit())
-            };
-            #[cfg(not(any(feature = "smps")))]
-            unsafe {
-                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;

@@ -459,12 +459,12 @@ macro_rules! sdmmc {
 
                     let hclk = clocks.hclk();
                     let ker_ck = match prec.get_kernel_clk_mux() {
-                        rec::SdmmcClkSel::PLL1_Q => {
+                        rec::SdmmcClkSel::Pll1Q => {
                             clocks.pll1_q_ck().expect(
                                 concat!(stringify!($SDMMCX), ": PLL1_Q must be enabled")
                             )
                         }
-                        rec::SdmmcClkSel::PLL2_R => {
+                        rec::SdmmcClkSel::Pll2R => {
                             clocks.pll2_r_ck().expect(
                                 concat!(stringify!($SDMMCX), ": PLL2_R must be enabled")
                             )

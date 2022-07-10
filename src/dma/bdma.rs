@@ -746,22 +746,22 @@ type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;
 
 peripheral_target_address!(
-    (pac::LPUART1, rdr, u8, P2M, DMAReq::LPUART1_RX_DMA),
-    (pac::LPUART1, tdr, u8, M2P, DMAReq::LPUART1_TX_DMA),
+    (pac::LPUART1, rdr, u8, P2M, DMAReq::Lpuart1RxDma),
+    (pac::LPUART1, tdr, u8, M2P, DMAReq::Lpuart1TxDma),
     (
         SPI: pac::SPI6,
         rxdr,
         txdr,
         [u8, u16],
-        DMAReq::SPI6_RX_DMA,
-        DMAReq::SPI6_TX_DMA
+        DMAReq::Spi6RxDma,
+        DMAReq::Spi6TxDma
     ),
-    (HAL: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2C4_RX_DMA),
-    (HAL: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2C4_TX_DMA),
+    (HAL: I2c<pac::I2C4>, rxdr, u8, P2M, DMAReq::I2c4RxDma),
+    (HAL: I2c<pac::I2C4>, txdr, u8, M2P, DMAReq::I2c4TxDma),
 );
 
 #[cfg(not(feature = "rm0455"))]
 peripheral_target_address!(
-    (pac::SAI4, cha.dr, u32, M2P, DMAReq::SAI4_A_DMA),
-    (pac::SAI4, chb.dr, u32, P2M, DMAReq::SAI4_B_DMA),
+    (pac::SAI4, cha.dr, u32, M2P, DMAReq::Sai4ADma),
+    (pac::SAI4, chb.dr, u32, P2M, DMAReq::Sai4BDma),
 );

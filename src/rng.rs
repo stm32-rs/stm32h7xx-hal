@@ -32,14 +32,14 @@ pub trait KerClk {
 impl KerClk for RNG {
     fn kernel_clk_unwrap(prec: rec::Rng, clocks: &CoreClocks) -> Hertz {
         match prec.get_kernel_clk_mux() {
-            RngClkSel::HSI48 => {
+            RngClkSel::Hsi48 => {
                 clocks.hsi48_ck().expect("RNG: HSI48 must be enabled")
             }
-            RngClkSel::PLL1_Q => {
+            RngClkSel::Pll1Q => {
                 clocks.pll1_q_ck().expect("RNG: PLL1_Q must be enabled")
             }
-            RngClkSel::LSE => unimplemented!(),
-            RngClkSel::LSI => {
+            RngClkSel::Lse => unimplemented!(),
+            RngClkSel::Lsi => {
                 clocks.lsi_ck().expect("RNG: LSI must be enabled")
             }
         }
