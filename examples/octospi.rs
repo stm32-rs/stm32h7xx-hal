@@ -94,5 +94,7 @@ fn main() -> ! {
 
     info!("Read with instruction 0x9F60 : {:x?}", read);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

@@ -364,6 +364,7 @@ macro_rules! hal {
                 fn set_timeout_ticks(&mut self, ticks: u32) {
                     let (psc, arr) = calculate_timeout_ticks_register_values(ticks);
                     self.tim.psc.write(|w| w.psc().bits(psc));
+                    #[allow(unused_unsafe)] // method is safe for some timers
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
@@ -379,6 +380,7 @@ macro_rules! hal {
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
                     let counter_max = u32(<$cntType>::MAX);
+                    #[allow(unused_unsafe)] // method is safe for some timers
                     self.tim.arr.write(|w| unsafe { w.bits(counter_max) });
                 }
 
