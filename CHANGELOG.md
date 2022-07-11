@@ -4,6 +4,9 @@
 
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
 * iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog`
+* pac: Upgrade to stm32-rs v0.15.1 [#370]
+* octospi: add support for octospi1 on rm0455 parts [#370]
+* serial: add support for uart9 and usart10 [#370]
 
 ## [v0.12.2] 2022-05-06
 
@@ -301,3 +304,4 @@
 [#359]: https://github.com/stm32-rs/stm32h7xx-hal/pull/359
 [#361]: https://github.com/stm32-rs/stm32h7xx-hal/pull/361
 [#371]: https://github.com/stm32-rs/stm32h7xx-hal/pull/371
+[#370]: https://github.com/stm32-rs/stm32h7xx-hal/pull/370
