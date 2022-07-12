@@ -447,9 +447,7 @@ impl Flash {
         self.unlock(bank)?;
 
         // 3. Enable double-word parallelism.
-        unsafe {
-            regs.cr.modify(|_, w| w.psize().bits(0b11))
-        }
+        unsafe { regs.cr.modify(|_, w| w.psize().bits(0b11)) }
 
         // 4. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
         regs.cr.modify(|_, w| w.pg().set_bit());
@@ -481,7 +479,7 @@ impl Flash {
                     addr = addr.add(1);
                 }
             }
-            
+
             // 7. Wait until the write buffer is complete (WBNE1/WBNE2) and all operations have finished (QW1/QW2).
             while {
                 let sr = regs.sr.read();
@@ -508,16 +506,22 @@ impl Flash {
 ))]
 /// Clear all flash error flags that we check.
 fn clear_error_flags(regs: &BANK) {
-    regs.sr.modify(|_, w|
-        w
-            .pgserr().set_bit()
-            .wrperr().set_bit()
-            .dbeccerr().set_bit()
-            .strberr().set_bit()
-            .operr().set_bit()
-            .rdperr().set_bit()
-            .rdserr().set_bit()
-    )
+    regs.sr.modify(|_, w| {
+        w.pgserr()
+            .set_bit()
+            .wrperr()
+            .set_bit()
+            .dbeccerr()
+            .set_bit()
+            .strberr()
+            .set_bit()
+            .operr()
+            .set_bit()
+            .rdperr()
+            .set_bit()
+            .rdserr()
+            .set_bit()
+    })
 }
 
 #[cfg(all(
