@@ -481,7 +481,7 @@ impl Flash {
                     addr = addr.add(1);
                 }
             }
-
+            
             // 7. Wait until the write buffer is complete (WBNE1/WBNE2) and all operations have finished (QW1/QW2).
             while {
                 let sr = regs.sr.read();
