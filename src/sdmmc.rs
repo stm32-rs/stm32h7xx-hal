@@ -250,7 +250,7 @@ pub enum Error {
     RxOverFlow,
     NoCard,
     BadClock,
-    SignalingSwitchFailed,
+    SignallingSwitchFailed,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -1000,7 +1000,7 @@ macro_rules! sdmmc {
                             self.clkcr_set_clkdiv(freq.raw(), width)?;
 
                             if !self.card_ready()? {
-                                return Err(Error::SignalingSwitchFailed);
+                                return Err(Error::SignallingSwitchFailed);
                             }
                         }
                     }

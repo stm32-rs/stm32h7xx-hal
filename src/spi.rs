@@ -924,7 +924,7 @@ macro_rules! spi {
                     type Word = $TY;
                     type Spi = $SPIX;
 
-                    /// Returns a mutable reference to the inner peripheral
+                    /// Returns a reference to the inner peripheral
                     fn inner(&self) -> &Self::Spi {
                         &self.spi
                     }
