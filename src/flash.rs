@@ -186,11 +186,29 @@ impl Bank {
     not(feature = "stm32h750"),
     not(feature = "stm32h750v")
 ))]
+bitflags::bitflags! {
+    /// Specific error flags that may result from flash operations.
+    pub struct BankError: u8 {
+        const PROGRAMMING_SEQUENCE = 1 << 0;
+        const WRITE_PROTECTION = 1 << 1;
+        const ECC_DOUBLE_DETECTION = 1 << 2;
+        const STROBE = 1 << 3;
+        const WRITE_ERASE = 1 << 4;
+        const READ_PROTECTION = 1 << 5;
+        const SECURE = 1 << 6;
+    }
+}
+
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
 #[derive(Copy, Clone, Debug)]
 /// Possible error states for flash operations.
 pub enum Error {
     /// Error detected (by command execution, or because no command could be executed)
-    Illegal,
+    Illegal(BankError),
     /// (Legal) command failed
     Unlock,
     /// Operation out of bounds
@@ -317,9 +335,9 @@ impl Flash {
         // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
-        // 1. Check and clear (optional) all the error flags due to previous programming/erase
+        // 1. Clear all the error flags due to previous programming/erase
         // operation. Refer to Section 4.7: FLASH error management for details.
-        handle_illegal(regs)?;
+        clear_error_flags(regs);
 
         // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         self.unlock(bank)?;
@@ -339,6 +357,9 @@ impl Flash {
 
         self.lock(bank);
 
+        // 6. Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        handle_illegal(self.bank_registers(bank))?;
+
         Ok(())
     }
 
@@ -357,8 +378,8 @@ impl Flash {
         // Check that no Flash main memory operation is ongoing by checking the BSY bit
         while regs.sr.read().bsy().bit_is_set() {}
 
-        // 1. Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
-        handle_illegal(regs)?;
+        // 1. Clear all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        clear_error_flags(regs);
 
         // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
@@ -375,6 +396,9 @@ impl Flash {
         while regs.sr.read().bsy().bit_is_set() {}
 
         self.lock(bank);
+
+        // 6. Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        handle_illegal(self.bank_registers(bank))?;
 
         Ok(())
     }
@@ -416,26 +440,28 @@ impl Flash {
         // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
-        // Check and clear (optional) all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
-        handle_illegal(regs)?;
+        // 1. Clear all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        clear_error_flags(regs);
 
-        // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
+        // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
 
-        // 2. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
-        regs.cr.modify(|_, w| w.pg().set_bit().fw().set_bit());
+        // 3. Enable double-word parallelism.
+        unsafe { regs.cr.modify(|_, w| w.psize().bits(0b11)) }
 
-        // 3. Check the protection of the targeted memory area.
+        // 4. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
+        regs.cr.modify(|_, w| w.pg().set_bit());
+
+        // 5. Check the protection of the targeted memory area.
         // SKIP: In standard mode the entire UserBank1 and UserBank2 should have no write protections
 
-        // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned address.
         let mut addr = bank.sector_address(sector) as *mut u32;
 
         // Offset it by the start position
         addr = unsafe { addr.add(start / 4) };
 
-        // Iterate on chunks of 32bit
-        for chunk in data.chunks_exact(4) {
+        // 6. Write a double-word corresponding to 32-byte data starting at a 32-byte aligned address.
+        for chunk in data.chunks_exact(32) {
             if addr as usize > bank.end_address() {
                 // Unable to write outside of the bank end address
                 // Cleanup and return out
@@ -444,32 +470,57 @@ impl Flash {
                 return Err(Error::OutOfBounds);
             }
 
-            unsafe {
-                let word = u32::from_le_bytes(chunk.try_into().unwrap());
-                core::ptr::write_volatile(addr, word);
-                addr = addr.add(1);
+            // Iterate on chunks of 32 bits.
+            for word in chunk.chunks_exact(4) {
+                unsafe {
+                    let word = u32::from_le_bytes(word.try_into().unwrap());
+                    core::ptr::write_volatile(addr, word);
+                    addr = addr.add(1);
+                }
             }
 
-            // 5. Check that QW1 (respectively QW2) has been raised and wait until it is reset to 0.
-            while regs.sr.read().qw().bit_is_set() {}
-            // Additionally wait for the busy flag to clear
-            while regs.sr.read().bsy().bit_is_set() {}
-
-            // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming
-            // operation has succeed), and clear it by software.
-            // The reference does not mention this, but it seems that this must wait for the EOP flag
-            // to go low before checking if it's set and then clearing it.
-            // Anything aside from this exact progression results in errors.
-            while regs.sr.read().eop().bit_is_clear() {}
+            // 7. Wait until the write buffer is complete (WBNE1/WBNE2) and all operations have finished (QW1/QW2).
+            while {
+                let sr = regs.sr.read();
+                sr.wbne().bit_is_set() | sr.qw().bit_is_set()
+            } {}
         }
 
-        // 7. Cleanup by clearing the PG bit
+        // 8. Cleanup by clearing the PG bit
         regs.cr.modify(|_, w| w.pg().clear_bit());
 
         self.lock(bank);
 
+        // 9. Check all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        handle_illegal(self.bank_registers(bank))?;
+
         Ok(())
     }
+}
+
+#[cfg(all(
+    any(feature = "rm0433"),
+    not(feature = "stm32h750"),
+    not(feature = "stm32h750v")
+))]
+/// Clear all flash error flags that we check.
+fn clear_error_flags(regs: &BANK) {
+    regs.sr.modify(|_, w| {
+        w.pgserr()
+            .set_bit()
+            .wrperr()
+            .set_bit()
+            .dbeccerr()
+            .set_bit()
+            .strberr()
+            .set_bit()
+            .operr()
+            .set_bit()
+            .rdperr()
+            .set_bit()
+            .rdserr()
+            .set_bit()
+    })
 }
 
 #[cfg(all(
@@ -481,15 +532,30 @@ impl Flash {
 /// TODO: Clear error flags
 fn handle_illegal(regs: &BANK) -> Result<(), Error> {
     let sr = regs.sr.read();
-    if sr.pgserr().bit_is_set()
-        || sr.wrperr().bit_is_set()
-        || sr.dbeccerr().bit_is_set()
-        || sr.strberr().bit_is_set()
-        || sr.operr().bit_is_set()
-        || sr.rdperr().bit_is_set()
-        || sr.rdserr().bit_is_set()
-    {
-        return Err(Error::Illegal);
+    let mut bank_err = BankError::empty();
+    if sr.pgserr().bit_is_set() {
+        bank_err |= BankError::PROGRAMMING_SEQUENCE;
+    }
+    if sr.wrperr().bit_is_set() {
+        bank_err |= BankError::WRITE_PROTECTION;
+    }
+    if sr.dbeccerr().bit_is_set() {
+        bank_err |= BankError::ECC_DOUBLE_DETECTION;
+    }
+    if sr.strberr().bit_is_set() {
+        bank_err |= BankError::STROBE;
+    }
+    if sr.operr().bit_is_set() {
+        bank_err |= BankError::WRITE_ERASE;
+    }
+    if sr.rdperr().bit_is_set() {
+        bank_err |= BankError::READ_PROTECTION;
+    }
+    if sr.rdserr().bit_is_set() {
+        bank_err |= BankError::SECURE;
+    }
+    if !bank_err.is_empty() {
+        return Err(Error::Illegal(bank_err));
     }
     Ok(())
 }

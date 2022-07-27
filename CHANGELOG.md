@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
+
 ## [v0.12.2] 2022-05-06
 
 * gpio: Fix `with_<mode>` methods [#359]
@@ -297,3 +299,4 @@
 [#357]: https://github.com/stm32-rs/stm32h7xx-hal/pull/357
 [#359]: https://github.com/stm32-rs/stm32h7xx-hal/pull/359
 [#361]: https://github.com/stm32-rs/stm32h7xx-hal/pull/361
+[#371]: https://github.com/stm32-rs/stm32h7xx-hal/pull/371
