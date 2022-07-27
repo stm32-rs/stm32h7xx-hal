@@ -461,7 +461,6 @@ impl Flash {
         addr = unsafe { addr.add(start / 4) };
 
         // 6. Write a double-word corresponding to 32-byte data starting at a 32-byte aligned address.
-        // TODO: Use `.array_chunks` when it's stable.
         for chunk in data.chunks_exact(32) {
             if addr as usize > bank.end_address() {
                 // Unable to write outside of the bank end address
