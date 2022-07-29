@@ -3,19 +3,19 @@
 use crate::{prelude::*, time::MilliSeconds};
 
 #[cfg(any(feature = "rm0433", feature = "rm0455"))]
-use crate::stm32::IWDG;
-#[cfg(any(feature = "rm0433", feature = "rm0455"))]
 use crate::stm32::iwdg::pr::PR_A;
+#[cfg(any(feature = "rm0433", feature = "rm0455"))]
+use crate::stm32::IWDG;
 
-#[cfg(all(feature = "rm0399", feature = "cm7"))]
-use crate::stm32::IWDG1 as IWDG;
 #[cfg(all(feature = "rm0399", feature = "cm7"))]
 use crate::stm32::iwdg1::pr::PR_A;
+#[cfg(all(feature = "rm0399", feature = "cm7"))]
+use crate::stm32::IWDG1 as IWDG;
 
 #[cfg(all(feature = "rm0399", feature = "cm4"))]
-use crate::stm32::IWDG2 as IWDG;
-#[cfg(all(feature = "rm0399", feature = "cm4"))]
 use crate::stm32::iwdg2::pr::PR_A;
+#[cfg(all(feature = "rm0399", feature = "cm4"))]
+use crate::stm32::IWDG2 as IWDG;
 
 /// The implementation of the hardware IWDG
 pub struct IndependentWatchdog {
