@@ -169,7 +169,10 @@ pub mod fmc;
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
-#[cfg(feature = "device-selected")]
+#[cfg(all(
+    feature = "device-selected",
+    not(any(feature = "rm0455", feature = "rm0468"))
+))]
 pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "ltdc"))]
 pub mod ltdc;
