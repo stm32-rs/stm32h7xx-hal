@@ -241,3 +241,7 @@ required-features = ["crc", "rt"]
 [[example]]
 name = "flash"
 required-features = ["rt", "stm32h743v"]
+
+[[example]]
+name = "independent_watchdog"
+required-features = ["rt", "rm0433"]
