@@ -202,7 +202,9 @@ pub mod timer;
 #[cfg(all(feature = "device-selected", feature = "usb_hs"))]
 pub mod usb_hs;
 #[cfg(feature = "device-selected")]
-pub mod watchdog;
+pub mod system_watchdog;
+#[cfg(feature = "device-selected")]
+pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 pub mod xspi;
 
