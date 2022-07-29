@@ -1,10 +1,7 @@
 //! Implementation of [IndependentWatchdog]
 
 use crate::{
-    device::iwdg::pr::PR_A,
-    stm32::IWDG,
-    time::MilliSeconds,
-    prelude::*,
+    device::iwdg::pr::PR_A, prelude::*, stm32::IWDG, time::MilliSeconds,
 };
 
 /// The implementation of the hardware IWDG
@@ -94,10 +91,12 @@ impl IndependentWatchdog {
             .write(|w| w.win().bits(Self::MAX_COUNTER_VALUE as u16));
 
         // Calculate the counter values
-        let reload_value =
-            max_window_time.to_millis() * (Self::CLOCK_SPEED / 1000) / Self::get_prescaler_divider(prescaler);
-        let window_value =
-            min_window_time.to_millis() * (Self::CLOCK_SPEED / 1000) / Self::get_prescaler_divider(prescaler);
+        let reload_value = max_window_time.to_millis()
+            * (Self::CLOCK_SPEED / 1000)
+            / Self::get_prescaler_divider(prescaler);
+        let window_value = min_window_time.to_millis()
+            * (Self::CLOCK_SPEED / 1000)
+            / Self::get_prescaler_divider(prescaler);
 
         // Set the reload value
         while self.iwdg.sr.read().rvu().bit_is_set() {
