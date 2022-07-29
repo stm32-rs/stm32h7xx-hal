@@ -169,6 +169,8 @@ pub mod fmc;
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
+#[cfg(feature = "device-selected")]
+pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "ltdc"))]
 pub mod ltdc;
 #[cfg(feature = "device-selected")]
@@ -196,15 +198,13 @@ pub mod signature;
 #[cfg(feature = "device-selected")]
 pub mod spi;
 #[cfg(feature = "device-selected")]
+pub mod system_watchdog;
+#[cfg(feature = "device-selected")]
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
 #[cfg(all(feature = "device-selected", feature = "usb_hs"))]
 pub mod usb_hs;
-#[cfg(feature = "device-selected")]
-pub mod system_watchdog;
-#[cfg(feature = "device-selected")]
-pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 pub mod xspi;
 
