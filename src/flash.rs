@@ -421,7 +421,7 @@ impl Flash {
         if sector > bank.num_sectors() {
             panic!("Sector out of bounds")
         }
-        if data.len() % 256 != 0 || start % 256 != 0 {
+        if data.len() % 32 != 0 || start % 32 != 0 {
             panic!(
                 "data length and start offset must be a multiple of a 32 byte (256b) 'flash word'"
             );
