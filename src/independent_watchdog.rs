@@ -7,9 +7,9 @@ use crate::stm32::iwdg::pr::PR_A;
 #[cfg(any(feature = "rm0433", feature = "rm0455"))]
 use crate::stm32::IWDG;
 
-#[cfg(all(feature = "rm0399", feature = "cm7"))]
+#[cfg(any(all(feature = "rm0399", feature = "cm7"), feature = "rm0468"))]
 use crate::stm32::iwdg1::pr::PR_A;
-#[cfg(all(feature = "rm0399", feature = "cm7"))]
+#[cfg(any(all(feature = "rm0399", feature = "cm7"), feature = "rm0468"))]
 use crate::stm32::IWDG1 as IWDG;
 
 #[cfg(all(feature = "rm0399", feature = "cm4"))]

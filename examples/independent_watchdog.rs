@@ -31,13 +31,13 @@ fn main() -> ! {
 
     // Dual core parts
     #[cfg(all(feature = "rm0399", feature = "cm7"))]
-    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
+    let mut watchdog = IndependentWatchdog::new(dp.IWDG1);
     #[cfg(all(feature = "rm0399", feature = "cm4"))]
-    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG2, &ccdr);
+    let mut watchdog = IndependentWatchdog::new(dp.IWDG2);
 
     // RM0468
     #[cfg(all(feature = "rm0468"))]
-    let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
+    let mut watchdog = IndependentWatchdog::new(dp.IWDG1);
 
     info!("");
     info!("stm32h7xx-hal example - Watchdog");
