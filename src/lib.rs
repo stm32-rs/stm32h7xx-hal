@@ -47,7 +47,8 @@
 //! * [Direct Memory Access (DMA)](crate::dma)
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
 //! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
-//! * [System Window Watchdog](crate::watchdog)
+//! * [System Window Watchdog](crate::system_watchdog)
+//! * [Independent Watchdog](crate::independent_watchdog)
 //!
 //! Cargo Features
 //!
@@ -169,6 +170,8 @@ pub mod fmc;
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
+#[cfg(feature = "device-selected")]
+pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "ltdc"))]
 pub mod ltdc;
 #[cfg(feature = "device-selected")]
@@ -196,13 +199,13 @@ pub mod signature;
 #[cfg(feature = "device-selected")]
 pub mod spi;
 #[cfg(feature = "device-selected")]
+pub mod system_watchdog;
+#[cfg(feature = "device-selected")]
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
 #[cfg(all(feature = "device-selected", feature = "usb_hs"))]
 pub mod usb_hs;
-#[cfg(feature = "device-selected")]
-pub mod watchdog;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 pub mod xspi;
 

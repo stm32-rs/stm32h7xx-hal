@@ -3,7 +3,7 @@
 
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::{pac, prelude::*, watchdog::SystemWindowWatchdog};
+use stm32h7xx_hal::{pac, prelude::*, system_watchdog::SystemWindowWatchdog};
 
 use cortex_m_rt::entry;
 

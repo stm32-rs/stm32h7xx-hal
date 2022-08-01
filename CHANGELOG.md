@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
+* iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog`
 
 ## [v0.12.2] 2022-05-06
 
