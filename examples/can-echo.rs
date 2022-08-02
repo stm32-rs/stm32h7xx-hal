@@ -8,7 +8,6 @@ use crate::hal::{
     prelude::*,
     rcc,
     rcc::rec,
-    time::U32Ext,
 };
 use fdcan::{
     config::NominalBitTiming,
@@ -64,7 +63,7 @@ fn main() -> ! {
     let fdcan_prec = ccdr
         .peripheral
         .FDCAN
-        .kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
+        .kernel_clk_mux(rec::FdcanClkSel::Pll1Q);
 
     let mut delay = cp.SYST.delay(ccdr.clocks);
 

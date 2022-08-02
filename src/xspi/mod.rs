@@ -145,7 +145,7 @@ mod common {
     use core::{marker::PhantomData, ptr};
 
     /// Represents operation modes of the XSPI interface.
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiMode {
         /// Only a single IO line (IO0) is used for transmit and a separate line
@@ -175,7 +175,7 @@ mod common {
         }
     }
     /// Indicates an error with the XSPI peripheral.
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiError {
         Busy,
@@ -187,7 +187,7 @@ mod common {
     }
 
     /// Instruction, Address or Alternate Byte word used by the XSPI interface
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum XspiWord {
         None,
@@ -227,7 +227,7 @@ mod common {
     }
 
     /// Sampling mode for the XSPI interface
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum SamplingEdge {
         Falling,
@@ -235,7 +235,7 @@ mod common {
     }
 
     /// Interrupt events
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Event {
         /// FIFO Threashold
@@ -247,7 +247,7 @@ mod common {
     }
 
     /// Indicates a specific QUADSPI bank to use
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub enum Bank {
@@ -453,18 +453,19 @@ mod common {
                 let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
 
                 match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RCC_HCLK3 => clocks.hclk(),
-                    ccipr::[< $ccip:upper _A >]::PLL1_Q => {
+                    ccipr::[< $ccip:upper _A >]::RccHclk3 => clocks.hclk(),
+                    ccipr::[< $ccip:upper _A >]::Pll1Q => {
                         clocks.pll1_q_ck().expect(
                             concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::PLL2_R => {
+                    ccipr::[< $ccip:upper _A >]::Pll2R
+                        => {
                         clocks.pll2_r_ck().expect(
                             concat!(stringify!($peripheral), ": PLL2_R must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::PER => {
+                    ccipr::[< $ccip:upper _A >]::Per => {
                         clocks.per_ck().expect(
                             concat!(stringify!($peripheral), ": PER clock must be enabled")
                         )
@@ -924,7 +925,7 @@ mod common {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     xspi_impl! { stm32::QUADSPI, rec::Qspi, qspisel }
 
-    #[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI1, rec::Octospi1, octospisel }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI2, rec::Octospi2, octospisel }

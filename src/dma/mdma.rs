@@ -162,7 +162,7 @@ pub enum MdmaTransferRequest {
 }
 
 /// MDMA Source/Destination sizes
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaSize {
     /// Byte (8-bit)
@@ -208,7 +208,7 @@ impl MdmaSize {
 }
 
 /// MDMA increment mode
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaIncrement {
     Fixed,
@@ -278,7 +278,7 @@ impl defmt::Format for MdmaBurstSize {
 }
 
 /// MDMA Packing/Alignment mode
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaPackingAlignment {
     /// Source data is packed/unpacked into the destination data size
@@ -1274,9 +1274,7 @@ mdma_stream!(
     (Stream15, ch15, 15),
 );
 
-#[cfg(not(feature = "rm0455"))] // TODO remove
 type P2M = PeripheralToMemory;
-#[cfg(not(feature = "rm0455"))] // TODO remove
 type M2P = MemoryToPeripheral;
 
 // Access the QSPI data register as a u32 for bus access efficiency. The MDMA
@@ -1292,14 +1290,14 @@ peripheral_target_address!(
     (INNER: crate::xspi::Qspi<pac::QUADSPI>, dr, u32, M2P),
 );
 
-#[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
 peripheral_target_address!(
     (pac::OCTOSPI1, dr, u32, P2M),
     (pac::OCTOSPI1, dr, u32, M2P),
     (pac::OCTOSPI2, dr, u32, P2M),
     (pac::OCTOSPI2, dr, u32, M2P),
 );
-#[cfg(all(feature = "xspi", any(feature = "rm0468")))] // TODO feature = "rm0455"
+#[cfg(all(feature = "xspi", any(feature = "rm0455", feature = "rm0468")))]
 peripheral_target_address!(
     (INNER: crate::xspi::Octospi<pac::OCTOSPI1>, dr, u32, P2M),
     (INNER: crate::xspi::Octospi<pac::OCTOSPI1>, dr, u32, M2P),

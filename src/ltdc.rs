@@ -209,7 +209,7 @@ impl Ltdc {
         let window_y0 = 0;
         let window_y1 = config.active_height;
 
-        let layer1 = LtdcLayer1 {
+        LtdcLayer1 {
             layer: LAYER1 {
                 _marker: PhantomData,
             },
@@ -218,9 +218,7 @@ impl Ltdc {
             window_x1,
             window_y0,
             window_y1,
-        };
-
-        layer1
+        }
     }
 }
 

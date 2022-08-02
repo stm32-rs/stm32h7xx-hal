@@ -56,7 +56,7 @@ unsafe fn main() -> ! {
 
     // 48MHz CLOCK
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
-    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
+    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::Hsi48);
 
     // If your hardware uses the internal USB voltage regulator in ON mode, you
     // should uncomment this block.

@@ -43,7 +43,7 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
-    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::PER);
+    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
 
     info!("");
     info!("stm32h7xx-hal example - ADC");
@@ -59,7 +59,7 @@ fn main() -> ! {
         &ccdr.clocks,
     )
     .enable();
-    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_resolution(adc::Resolution::SixteenBit);
 
     // We can't use ADC2 here because ccdr.peripheral.ADC12 has been
     // consumed. See examples/adc12.rs

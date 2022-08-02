@@ -14,7 +14,7 @@ pub struct MCO1Config {
 impl Default for MCO1Config {
     fn default() -> MCO1Config {
         Self {
-            source: MCO1::HSI,
+            source: MCO1::Hsi,
             frequency: None,
         }
     }
@@ -28,7 +28,7 @@ pub struct MCO2Config {
 impl Default for MCO2Config {
     fn default() -> MCO2Config {
         Self {
-            source: MCO2::SYSCLK,
+            source: MCO2::Sysclk,
             frequency: None,
         }
     }
@@ -81,7 +81,7 @@ impl Rcc {
         // LSE unimplemented
 
         // HSE must be explicitly stated
-        if self.config.mco1.source == MCO1::HSE {
+        if self.config.mco1.source == MCO1::Hse {
             assert!(
                 self.config.hse.is_some(),
                 "HSE is required for MCO1. Explicitly state its frequency with `use_hse`"
@@ -89,7 +89,7 @@ impl Rcc {
         }
 
         // Set pll1_q_ck based on requirement
-        if self.config.mco1.source == MCO1::PLL1_Q
+        if self.config.mco1.source == MCO1::Pll1Q
             && self.config.pll1.q_ck.is_none()
         {
             self.config.pll1.q_ck = self.config.mco1.frequency;
@@ -107,21 +107,21 @@ impl Rcc {
     /// rest of the `config`
     pub(super) fn mco2_setup(&mut self) {
         // Set sysclk based on requirement
-        if self.config.mco2.source == MCO2::SYSCLK
+        if self.config.mco2.source == MCO2::Sysclk
             && self.config.sys_ck.is_none()
         {
             self.config.sys_ck = self.config.mco2.frequency;
         }
 
         // Set pll2_p_ck based on requirement
-        if self.config.mco2.source == MCO2::PLL2_P
+        if self.config.mco2.source == MCO2::Pll2P
             && self.config.pll2.p_ck.is_none()
         {
             self.config.pll2.p_ck = self.config.mco2.frequency;
         }
 
         // HSE must be explicitly stated
-        if self.config.mco2.source == MCO2::HSE {
+        if self.config.mco2.source == MCO2::Hse {
             assert!(
                 self.config.hse.is_some(),
                 "HSE is required for MCO2. Explicitly state its frequency with `use_hse`"
@@ -129,7 +129,7 @@ impl Rcc {
         }
 
         // Set pll1_p_ck based on requirement
-        if self.config.mco2.source == MCO2::PLL1_P
+        if self.config.mco2.source == MCO2::Pll1P
             && self.config.pll1.p_ck.is_none()
         {
             self.config.pll1.p_ck = self.config.mco2.frequency;
@@ -163,11 +163,11 @@ macro_rules! mco1_setters {
     }
 }
 mco1_setters! {
-    mco1_from_hsi: HSI "the HSI",
-    //mco1_from_lse: LSE "the LSE",    UNIMPLEMENTED
-    mco1_from_hse: HSE "the HSE",
-    mco1_from_pll1_q_ck: PLL1_Q "pll1_q_ck",
-    mco1_from_hsi48: HSI48 "HSI48"
+    mco1_from_hsi: Hsi "the HSI",
+    //mco1_from_lse: Lse "the LSE",    UNIMPLEMENTED
+    mco1_from_hse: Hse "the HSE",
+    mco1_from_pll1_q_ck: Pll1Q "pll1_q_ck",
+    mco1_from_hsi48: Hsi48 "HSI48"
 }
 
 macro_rules! mco2_setters {
@@ -192,10 +192,10 @@ macro_rules! mco2_setters {
     }
 }
 mco2_setters! {
-    mco2_from_sys_ck: SYSCLK "sys_ck",
-    mco2_from_pll2_p_ck: PLL2_P "pll2_p_ck",
-    mco2_from_hse: HSE "the HSE",
-    mco2_from_pll1_p_ck: PLL1_P "pll1_p_ck",
-    mco2_from_csi: CSI "CSI"
-    //mco2_from_lsi: LSI "the LSI",    UNIMPLEMENTED
+    mco2_from_sys_ck: Sysclk "sys_ck",
+    mco2_from_pll2_p_ck: Pll2P "pll2_p_ck",
+    mco2_from_hse: Hse "the HSE",
+    mco2_from_pll1_p_ck: Pll1P "pll1_p_ck",
+    mco2_from_csi: Csi "CSI"
+    //mco2_from_lsi: Lsi "the LSI",    UNIMPLEMENTED
 }

@@ -11,7 +11,7 @@ use stm32h7xx_hal::{pac, prelude::*};
 
 fn enable_fdcan(rec: rec::Fdcan) {
     // Enable and set individual kernel clock to PLL1 Q CK
-    let _ = rec.enable().kernel_clk_mux(rec::FdcanClkSel::PLL1_Q);
+    let _ = rec.enable().kernel_clk_mux(rec::FdcanClkSel::Pll1Q);
 
     // rec is dropped here, and can never be changed again
 }
@@ -35,7 +35,7 @@ fn main() -> ! {
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Set group kernel clock to PLL3 P CK. Needs mutable ccdr
-    ccdr.peripheral.kernel_spi123_clk_mux(Spi123ClkSel::PLL3_P);
+    ccdr.peripheral.kernel_spi123_clk_mux(Spi123ClkSel::Pll3P);
 
     // (now ccdr can be immutable)
 
@@ -47,7 +47,7 @@ fn main() -> ! {
     // Compile error: value borrowed here after partial move
     //
     // Can't change group clocks - ccdr.peripheral has been partially used
-    //ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
+    //ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HsiKer);
 
     loop {
         cortex_m::asm::nop()

@@ -70,12 +70,12 @@ impl GetClk for LPTIM1 {
         let ccip2r = &unsafe { &*stm32::RCC::ptr() }.cdccip2r;
 
         match ccip2r.read().lptim1sel().variant() {
-            Some(ccip2r::LPTIM1SEL_A::RCC_PCLK1) => Some(clocks.pclk1()),
-            Some(ccip2r::LPTIM1SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-            Some(ccip2r::LPTIM1SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-            Some(ccip2r::LPTIM1SEL_A::LSE) => unimplemented!(),
-            Some(ccip2r::LPTIM1SEL_A::LSI) => unimplemented!(),
-            Some(ccip2r::LPTIM1SEL_A::PER) => clocks.per_ck(),
+            Some(ccip2r::LPTIM1SEL_A::RccPclk1) => Some(clocks.pclk1()),
+            Some(ccip2r::LPTIM1SEL_A::Pll2P) => clocks.pll2_p_ck(),
+            Some(ccip2r::LPTIM1SEL_A::Pll3R) => clocks.pll3_r_ck(),
+            Some(ccip2r::LPTIM1SEL_A::Lse) => unimplemented!(),
+            Some(ccip2r::LPTIM1SEL_A::Lsi) => unimplemented!(),
+            Some(ccip2r::LPTIM1SEL_A::Per) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -91,12 +91,12 @@ impl GetClk for LPTIM2 {
         let srdccipr = &unsafe { &*stm32::RCC::ptr() }.srdccipr;
 
         match srdccipr.read().lptim2sel().variant() {
-            Some(srdccipr::LPTIM2SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-            Some(srdccipr::LPTIM2SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-            Some(srdccipr::LPTIM2SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-            Some(srdccipr::LPTIM2SEL_A::LSE) => unimplemented!(),
-            Some(srdccipr::LPTIM2SEL_A::LSI) => unimplemented!(),
-            Some(srdccipr::LPTIM2SEL_A::PER) => clocks.per_ck(),
+            Some(srdccipr::LPTIM2SEL_A::RccPclk4) => Some(clocks.pclk4()),
+            Some(srdccipr::LPTIM2SEL_A::Pll2P) => clocks.pll2_p_ck(),
+            Some(srdccipr::LPTIM2SEL_A::Pll3R) => clocks.pll3_r_ck(),
+            Some(srdccipr::LPTIM2SEL_A::Lse) => unimplemented!(),
+            Some(srdccipr::LPTIM2SEL_A::Lsi) => unimplemented!(),
+            Some(srdccipr::LPTIM2SEL_A::Per) => clocks.per_ck(),
             _ => unreachable!(),
         }
     }
@@ -134,12 +134,12 @@ macro_rules! impl_clk_lptim345 {
                     let d3ccipr = &unsafe { &*stm32::RCC::ptr() }.d3ccipr;
 
                     match d3ccipr.read().lptim345sel().variant() {
-                        Some(srdccipr::LPTIM345SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Some(srdccipr::LPTIM345SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Some(srdccipr::LPTIM345SEL_A::PLL3_R) => clocks.pll3_r_ck(),
-                        Some(srdccipr::LPTIM345SEL_A::LSE) => unimplemented!(),
-                        Some(srdccipr::LPTIM345SEL_A::LSI) => unimplemented!(),
-                        Some(srdccipr::LPTIM345SEL_A::PER) => clocks.per_ck(),
+                        Some(srdccipr::LPTIM345SEL_A::RccPclk4) => Some(clocks.pclk4()),
+                        Some(srdccipr::LPTIM345SEL_A::Pll2P) => clocks.pll2_p_ck(),
+                        Some(srdccipr::LPTIM345SEL_A::Pll3R) => clocks.pll3_r_ck(),
+                        Some(srdccipr::LPTIM345SEL_A::Lse) => unimplemented!(),
+                        Some(srdccipr::LPTIM345SEL_A::Lsi) => unimplemented!(),
+                        Some(srdccipr::LPTIM345SEL_A::Per) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -364,6 +364,7 @@ macro_rules! hal {
                 fn set_timeout_ticks(&mut self, ticks: u32) {
                     let (psc, arr) = calculate_timeout_ticks_register_values(ticks);
                     self.tim.psc.write(|w| w.psc().bits(psc));
+                    #[allow(unused_unsafe)] // method is safe for some timers
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
@@ -379,6 +380,7 @@ macro_rules! hal {
                     self.tim.psc.write(|w| w.psc().bits(psc));
 
                     let counter_max = u32(<$cntType>::MAX);
+                    #[allow(unused_unsafe)] // method is safe for some timers
                     self.tim.arr.write(|w| unsafe { w.bits(counter_max) });
                 }
 
@@ -727,14 +729,14 @@ macro_rules! lptim_hal {
 
                     // Calculate prescaler
                     let (prescale, prescale_div) = match ticks / (1 << 16) {
-                        0 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
-                        1 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
-                        2..=3 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
-                        4..=7 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
-                        8..=15 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
-                        16..=31 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
-                        32..=63 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
-                        _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
+                        0 => ($timXpac::cfgr::PRESC_A::Div1, 1),
+                        1 => ($timXpac::cfgr::PRESC_A::Div2, 2),
+                        2..=3 => ($timXpac::cfgr::PRESC_A::Div4, 4),
+                        4..=7 => ($timXpac::cfgr::PRESC_A::Div8, 8),
+                        8..=15 => ($timXpac::cfgr::PRESC_A::Div16, 16),
+                        16..=31 => ($timXpac::cfgr::PRESC_A::Div32, 32),
+                        32..=63 => ($timXpac::cfgr::PRESC_A::Div64, 64),
+                        _ => ($timXpac::cfgr::PRESC_A::Div128, 128),
                     };
 
                     // Calcuate reload
@@ -768,14 +770,14 @@ macro_rules! lptim_hal {
                             "LPTIM input clock is too slow to achieve this frequency");
 
                     let (prescale, _prescale_div) = match ticks {
-                        0..=1 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
-                        2 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
-                        3..=4 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
-                        5..=8 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
-                        9..=16 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
-                        17..=32 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
-                        33..=64 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
-                        _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
+                        0..=1 => ($timXpac::cfgr::PRESC_A::Div1, 1),
+                        2 => ($timXpac::cfgr::PRESC_A::Div2, 2),
+                        3..=4 => ($timXpac::cfgr::PRESC_A::Div4, 4),
+                        5..=8 => ($timXpac::cfgr::PRESC_A::Div8, 8),
+                        9..=16 => ($timXpac::cfgr::PRESC_A::Div16, 16),
+                        17..=32 => ($timXpac::cfgr::PRESC_A::Div32, 32),
+                        33..=64 => ($timXpac::cfgr::PRESC_A::Div64, 64),
+                        _ => ($timXpac::cfgr::PRESC_A::Div128, 128),
                     };
 
                     // Write CFGR: LPTIM must be disabled

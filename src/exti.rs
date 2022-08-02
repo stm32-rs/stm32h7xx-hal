@@ -6,7 +6,7 @@
 use crate::stm32::EXTI;
 
 /// EXTI trigger event
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Event {
     GPIO0 = 0,
     GPIO1 = 1,
@@ -92,6 +92,14 @@ pub enum Event {
     HDMI_CEC = 85,
     ETHERNET = 86,
     HSECSS = 87,
+    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
+    TEMP = 88,
+    #[cfg(feature = "rm0468")]
+    UART9 = 89,
+    #[cfg(feature = "rm0468")]
+    USART10 = 90,
+    #[cfg(feature = "rm0468")]
+    I2C5 = 91,
 }
 
 /// Return an EXTI register for the current CPU

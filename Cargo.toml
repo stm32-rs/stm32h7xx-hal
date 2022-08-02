@@ -31,7 +31,7 @@ embedded-hal = { version = "0.2.6", features = ["unproven"] }
 embedded-dma = "0.2.0"
 cortex-m = "^0.7.4"
 defmt = { version = ">=0.2.0,<0.4", optional = true }
-stm32h7 = { version = "^0.14.0", default-features = false }
+stm32h7 = { version = "^0.15.1", default-features = false }
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.3.0", default-features = false }
 nb = "1.0.0"
@@ -64,7 +64,7 @@ optional = true
 
 [dev-dependencies]
 cortex-m-rt = ">=0.6.15,<0.8"
-cortex-m-rtic = { version = "1.0.0" }
+cortex-m-rtic = "1.1"
 log = "0.4.11"
 panic-halt = "0.2.0"
 panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }
@@ -72,9 +72,9 @@ cfg-if = "1.0.0"
 rtt-target = { version = "0.3.1", features = ["cortex-m"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 cortex-m-log = { version = "~0.7.0", features = ["itm", "semihosting", "log-integration"] }
+cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "~0.4.1" }
-panic-semihosting = { version = "0.5.3" }
-cortex-m-semihosting = { version = "0.3.5" }
+panic-semihosting = "0.6"
 usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 

@@ -509,7 +509,7 @@ macro_rules! check_status_error {
 }
 
 /// Interrupt events
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// New data has been received
     Rxp,
@@ -714,14 +714,14 @@ macro_rules! spi {
                         let spi_freq = freq.raw();
 	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).raw();
                         let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
-                            1..=2 => MBR::DIV2,
-                            3..=4 => MBR::DIV4,
-                            5..=8 => MBR::DIV8,
-                            9..=16 => MBR::DIV16,
-                            17..=32 => MBR::DIV32,
-                            33..=64 => MBR::DIV64,
-                            65..=128 => MBR::DIV128,
-                            _ => MBR::DIV256,
+                            1..=2 => MBR::Div2,
+                            3..=4 => MBR::Div4,
+                            5..=8 => MBR::Div8,
+                            9..=16 => MBR::Div16,
+                            17..=32 => MBR::Div32,
+                            33..=64 => MBR::Div64,
+                            65..=128 => MBR::Div128,
+                            _ => MBR::Div256,
                         };
                         spi.cfg1.modify(|_, w| {
                             w.mbr()
@@ -759,14 +759,14 @@ macro_rules! spi {
                         // The calculated cycle delay may not be more than 4 bits wide for the
                         // configuration register.
                         let communication_mode = match config.communication_mode {
-                            CommunicationMode::Transmitter => COMM::TRANSMITTER,
-                            CommunicationMode::Receiver => COMM::RECEIVER,
-                            CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
+                            CommunicationMode::Transmitter => COMM::Transmitter,
+                            CommunicationMode::Receiver => COMM::Receiver,
+                            CommunicationMode::FullDuplex => COMM::FullDuplex,
                         };
 
                         let cs_polarity = match config.hardware_cs.polarity() {
-                            Polarity::IdleHigh => SSIOP::ACTIVELOW,
-                            Polarity::IdleLow => SSIOP::ACTIVEHIGH,
+                            Polarity::IdleHigh => SSIOP::ActiveLow,
+                            Polarity::IdleLow => SSIOP::ActiveHigh,
                         };
 
                         // mstr: master configuration
@@ -924,7 +924,7 @@ macro_rules! spi {
                     type Word = $TY;
                     type Spi = $SPIX;
 
-                    /// Returns a mutable reference to the inner peripheral
+                    /// Returns a reference to the inner peripheral
                     fn inner(&self) -> &Self::Spi {
                         &self.spi
                     }
@@ -1286,12 +1286,12 @@ macro_rules! spi123sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi123sel().variant() {
-                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
-                        Some(ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Some(ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll1Q) => clocks.pll1_q_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll2P) => clocks.pll2_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll3P) => clocks.pll3_p_ck(),
                         // Need a method of specifying pin clock
-                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Some(ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
+                        Some(ccip1r::SPI123SEL_A::I2sCkin) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::Per) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1308,18 +1308,18 @@ macro_rules! spi123sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi123sel().variant() {
-                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => {
+                        Some(ccip1r::SPI123SEL_A::Pll1Q) => {
                             clocks.pll1_q_ck().expect("SPI123: PLL1_Q must be enabled")
                         }
-                        Some(ccip1r::SPI123SEL_A::PLL2_P) => {
+                        Some(ccip1r::SPI123SEL_A::Pll2P) => {
                             clocks.pll2_p_ck().expect("SPI123: PLL2_P must be enabled")
                         }
-                        Some(ccip1r::SPI123SEL_A::PLL3_P) => {
+                        Some(ccip1r::SPI123SEL_A::Pll3P) => {
                             clocks.pll3_p_ck().expect("SPI123: PLL3_P must be enabled")
                         }
                         // Need a method of specifying pin clock
-                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Some(ccip1r::SPI123SEL_A::PER) => {
+                        Some(ccip1r::SPI123SEL_A::I2sCkin) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::Per) => {
                             clocks.per_ck().expect("SPI123: PER clock must be enabled")
                         }
                         _ => unreachable!(),
@@ -1342,12 +1342,12 @@ macro_rules! spi45sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi45sel().variant() {
-                        Some(ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
-                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Some(ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Some(ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Some(ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
+                        Some(ccip1r::SPI45SEL_A::Apb) => Some(clocks.pclk2()),
+                        Some(ccip1r::SPI45SEL_A::Pll2Q) => clocks.pll2_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::Pll3Q) => clocks.pll3_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::HsiKer) => clocks.hsi_ck(),
+                        Some(ccip1r::SPI45SEL_A::CsiKer) => clocks.csi_ck(),
+                        Some(ccip1r::SPI45SEL_A::Hse) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1364,20 +1364,20 @@ macro_rules! spi45sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi45sel().variant() {
-                        Some(ccip1r::SPI45SEL_A::APB) => clocks.pclk2(),
-                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => {
+                        Some(ccip1r::SPI45SEL_A::Apb) => clocks.pclk2(),
+                        Some(ccip1r::SPI45SEL_A::Pll2Q) => {
                             clocks.pll2_q_ck().expect("SPI45: PLL2_Q must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => {
+                        Some(ccip1r::SPI45SEL_A::Pll3Q) => {
                             clocks.pll3_q_ck().expect("SPI45: PLL3_Q must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::HSI_KER) => {
+                        Some(ccip1r::SPI45SEL_A::HsiKer) => {
                             clocks.hsi_ck().expect("SPI45: HSI clock must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::CSI_KER) => {
+                        Some(ccip1r::SPI45SEL_A::CsiKer) => {
                             clocks.csi_ck().expect("SPI45: CSI clock must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::HSE) => {
+                        Some(ccip1r::SPI45SEL_A::Hse) => {
                             clocks.hse_ck().expect("SPI45: HSE clock must be enabled")
                         }
                         _ => unreachable!(),
@@ -1400,12 +1400,12 @@ macro_rules! spi6sel {
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
                     match srdccipr.spi6sel().variant() {
-                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Some(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Some(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Some(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                        Some(srdccipr::SPI6SEL_A::RccPclk4) => Some(clocks.pclk4()),
+                        Some(srdccipr::SPI6SEL_A::Pll2Q) => clocks.pll2_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::Pll3Q) => clocks.pll3_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::HsiKer) => clocks.hsi_ck(),
+                        Some(srdccipr::SPI6SEL_A::CsiKer) => clocks.csi_ck(),
+                        Some(srdccipr::SPI6SEL_A::Hse) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1418,20 +1418,20 @@ macro_rules! spi6sel {
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
                     match srdccipr.spi6sel().variant() {
-                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => clocks.pclk4(),
-                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => {
+                        Some(srdccipr::SPI6SEL_A::RccPclk4) => clocks.pclk4(),
+                        Some(srdccipr::SPI6SEL_A::Pll2Q) => {
                             clocks.pll2_q_ck().expect("SPI6: PLL2_Q must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => {
+                        Some(srdccipr::SPI6SEL_A::Pll3Q) => {
                             clocks.pll3_q_ck().expect("SPI6: PLL3_Q must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::HSI_KER) => {
+                        Some(srdccipr::SPI6SEL_A::HsiKer) => {
                             clocks.hsi_ck().expect("SPI6: HSI clock must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::CSI_KER) => {
+                        Some(srdccipr::SPI6SEL_A::CsiKer) => {
                             clocks.csi_ck().expect("SPI6: CSI clock must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::HSE) => {
+                        Some(srdccipr::SPI6SEL_A::Hse) => {
                             clocks.hse_ck().expect("SPI6: HSE clock must be enabled")
                         }
                         _ => unreachable!(),

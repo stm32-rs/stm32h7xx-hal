@@ -34,13 +34,13 @@ use crate::traits::i2s::FullDuplex;
 
 const NUM_SLOTS: u8 = 16;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum I2SMode {
     Master = 0b00,
     Slave = 0b10,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum I2SDir {
     Tx = 0b00,
     Rx = 0b01,
@@ -62,7 +62,7 @@ enum I2SSlotSize {
     BITS_32 = 0b10,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum I2SProtocol {
     MSB,
     LSB,
@@ -469,7 +469,7 @@ macro_rules! i2s {
                     per_sai.sai_rcc_init(prec);
 
                     i2s_config_channel(
-                        &per_sai.rb.cha,
+                        &per_sai.rb.cha(),
                         I2SMode::Master,
                         &per_sai.interface.master,
                         mclk_div,
@@ -478,7 +478,7 @@ macro_rules! i2s {
 
                     if let Some(slave) = &per_sai.interface.slave {
                         i2s_config_channel(
-                            &per_sai.rb.chb,
+                            &per_sai.rb.chb(),
                             I2SMode::Slave,
                             slave,
                             0,
@@ -537,7 +537,7 @@ macro_rules! i2s {
                     per_sai.sai_rcc_init(prec);
 
                     i2s_config_channel(
-                        &per_sai.rb.chb,
+                        &per_sai.rb.chb(),
                         I2SMode::Master,
                         &per_sai.interface.master,
                         mclk_div,
@@ -546,7 +546,7 @@ macro_rules! i2s {
 
                     if let Some(slave) = &per_sai.interface.slave {
                         i2s_config_channel(
-                            &per_sai.rb.cha,
+                            &per_sai.rb.cha(),
                             I2SMode::Slave,
                             slave,
                             0,
@@ -742,7 +742,7 @@ fn disable_ch(audio_ch: &CH) {
 
 fn read(audio_ch: &CH) -> nb::Result<(u32, u32), I2SError> {
     match audio_ch.sr.read().flvl().variant() {
-        Some(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::Empty) => Err(nb::Error::WouldBlock),
         _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
     }
 }
@@ -755,8 +755,8 @@ fn send(
     // The FIFO is 8 words long. A write consists of 2 words, in stereo mode.
     // Therefore you need to wait for 3/4s to ensure 2 words are available for writing.
     match audio_ch.sr.read().flvl().variant() {
-        Some(sr::FLVL_A::FULL) => Err(nb::Error::WouldBlock),
-        Some(sr::FLVL_A::QUARTER4) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::Full) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVL_A::Quarter4) => Err(nb::Error::WouldBlock),
         _ => {
             unsafe {
                 audio_ch.dr.write(|w| w.bits(left_word));

@@ -121,7 +121,7 @@ pub struct Pwr {
 ///
 /// Represents the voltage range feeding the CPU core. The maximum core
 /// clock frequency depends on this value.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum VoltageScale {
     /// VOS 0 range VCORE 1.26V - 1.40V
     Scale0,
@@ -465,13 +465,8 @@ impl Pwr {
             unsafe {
                 &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
             };
-            #[cfg(any(feature = "smps"))]
             unsafe {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit())
-            };
-            #[cfg(not(any(feature = "smps")))]
-            unsafe {
-                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;

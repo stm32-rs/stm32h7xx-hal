@@ -92,7 +92,7 @@ pub trait ResetEnable {
 /// The clock gating state of a peripheral in low-power mode
 ///
 /// See RM0433 rev 7. Section 8.5.11
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LowPowerMode {
     /// Kernel and bus interface clocks are not provided in low-power modes.
     Off,
@@ -686,12 +686,16 @@ peripheral_reset_and_enable_control! {
         Spi5 [group clk: Spi45],
 
         Usart1 [group clk: Usart16910(Variant) cdccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
     #[cfg(feature = "rm0468")]
     APB2, "" => [
         Usart1 [group clk: Usart16910(Variant) d2ccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
 
 
@@ -723,7 +727,7 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(feature = "rm0455")]
     APB4, "" => [
-        Dac2,// TODO (Auto), DAC2AMEN missing from D3AMR upstream
+        (Auto) Dac2,
 
         (Auto) Lptim2 [kernel clk: Lptim2(Variant) srdccip "LPTIM2"],
         (Auto) Lptim3,// TODO [group clk: Lptim3(Variant) srdccip "LPTIM3"],

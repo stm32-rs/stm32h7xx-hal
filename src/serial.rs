@@ -30,11 +30,13 @@ use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
 
 use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use crate::stm32::{UART4, UART5, UART7, UART8};
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+use crate::stm32::{UART9, USART10};
 use crate::stm32::{USART1, USART2, USART3, USART6};
 use crate::time::Hertz;
 
 /// Serial error
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
@@ -49,7 +51,7 @@ pub enum Error {
 }
 
 /// Interrupt event
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Event {
     /// New data has been received
@@ -69,7 +71,7 @@ pub enum Event {
 pub mod config {
     use crate::time::Hertz;
 
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum FifoThreshold {
         Eighth,
         Quarter,
@@ -85,34 +87,34 @@ pub mod config {
     /// hardware on receive. For example, `read()` would return [`Error::Parity`](super::Error::Parity).
     ///
     /// Note that parity bits are included in the serial word length, so if parity is used word length will be set to 9.
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum Parity {
         ParityNone,
         ParityEven,
         ParityOdd,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum StopBits {
         #[doc = "1 stop bit"]
-        STOP1,
+        Stop1,
         #[doc = "0.5 stop bits"]
-        STOP0P5,
+        Stop0p5,
         #[doc = "2 stop bits"]
-        STOP2,
+        Stop2,
         #[doc = "1.5 stop bits"]
-        STOP1P5,
+        Stop1p5,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum BitOrder {
         LsbFirst,
         MsbFirst,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum ClockPhase {
         First,
         Second,
     }
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub enum ClockPolarity {
         IdleHigh,
         IdleLow,
@@ -151,7 +153,7 @@ pub mod config {
             Config {
                 baudrate: frequency,
                 parity: Parity::ParityNone,
-                stopbits: StopBits::STOP1,
+                stopbits: StopBits::Stop1,
                 bitorder: BitOrder::LsbFirst,
                 clockphase: ClockPhase::First,
                 clockpolarity: ClockPolarity::IdleLow,
@@ -404,6 +406,25 @@ usart_pins! {
             gpio::PG7<Alternate<7>>
         ]
 }
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+usart_pins! {
+        USART10:
+        TX: [
+            NoTx,
+            gpio::PE3<Alternate<11>>,
+            gpio::PG12<Alternate<4>>
+        ]
+        RX: [
+            NoRx,
+            gpio::PE2<Alternate<4>>,
+            gpio::PG11<Alternate<4>>
+        ]
+        CK: [
+            NoCk,
+            gpio::PE15<Alternate<11>>,
+            gpio::PG15<Alternate<11>>
+        ]
+}
 uart_pins! {
     UART4:
         TX: [
@@ -466,6 +487,20 @@ uart_pins! {
             gpio::PE0<Alternate<8>>,
             #[cfg(not(feature = "stm32h7b0"))]
             gpio::PJ9<Alternate<8>>
+        ]
+}
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+uart_pins! {
+    UART9:
+        TX: [
+            NoTx,
+            gpio::PD15<Alternate<11>>,
+            gpio::PG1<Alternate<11>>
+        ]
+        RX: [
+            NoRx,
+            gpio::PD14<Alternate<11>>,
+            gpio::PG0<Alternate<11>>
         ]
 }
 
@@ -616,54 +651,54 @@ macro_rules! usart {
                     // Configure serial mode
                     self.usart.cr2.write(|w| {
                         w.stop().variant(match config.stopbits {
-                            StopBits::STOP0P5 => STOP::STOP0P5,
-                            StopBits::STOP1 => STOP::STOP1,
-                            StopBits::STOP1P5 => STOP::STOP1P5,
-                            StopBits::STOP2 => STOP::STOP2,
+                            StopBits::Stop0p5 => STOP::Stop0p5,
+                            StopBits::Stop1 => STOP::Stop1,
+                            StopBits::Stop1p5 => STOP::Stop1p5,
+                            StopBits::Stop2 => STOP::Stop2,
                         });
 
                         w.msbfirst().variant(match config.bitorder {
-                            BitOrder::LsbFirst => MSBFIRST_A::LSB,
-                            BitOrder::MsbFirst => MSBFIRST_A::MSB,
+                            BitOrder::LsbFirst => MSBFIRST_A::Lsb,
+                            BitOrder::MsbFirst => MSBFIRST_A::Msb,
                         });
 
                         w.swap().bit(config.swaptxrx);
 
                         w.rxinv().variant(if config.invertrx {
-                            RXINV_A::INVERTED
+                            RXINV_A::Inverted
                         } else {
-                            RXINV_A::STANDARD
+                            RXINV_A::Standard
                         });
 
                         w.txinv().variant(if config.inverttx {
-                            TXINV_A::INVERTED
+                            TXINV_A::Inverted
                         } else {
-                            TXINV_A::STANDARD
+                            TXINV_A::Standard
                         });
 
                         // If synchronous mode is not supported, these bits are
                         // reserved and must be kept at reset value
                         $(
                             w.lbcl().variant(if config.lastbitclockpulse {
-                                LBCL_A::OUTPUT
+                                LBCL_A::Output
                             } else {
-                                LBCL_A::NOTOUTPUT
+                                LBCL_A::NotOutput
                             });
 
                             w.clken().variant(if $synchronous {
-                                CLKEN_A::ENABLED
+                                CLKEN_A::Enabled
                             } else {
-                                CLKEN_A::DISABLED
+                                CLKEN_A::Disabled
                             });
 
                             w.cpol().variant(match config.clockpolarity {
-                                ClockPolarity::IdleHigh =>CPOL_A::HIGH,
-                                ClockPolarity::IdleLow =>CPOL_A::LOW
+                                ClockPolarity::IdleHigh =>CPOL_A::High,
+                                ClockPolarity::IdleLow =>CPOL_A::Low
                             });
 
                             w.cpha().variant(match config.clockphase {
-                                ClockPhase::First => CPHA_A::FIRST,
-                                ClockPhase::Second => CPHA_A::SECOND
+                                ClockPhase::First => CPHA_A::First,
+                                ClockPhase::Second => CPHA_A::Second
                             });
                         )?
 
@@ -687,16 +722,16 @@ macro_rules! usart {
                             .clear_bit()
                             .m0()
                             .variant(match config.parity {
-                                Parity::ParityNone => M0::BIT8,
-                                _ => M0::BIT9,
+                                Parity::ParityNone => M0::Bit8,
+                                _ => M0::Bit9,
                             }).pce()
                             .variant(match config.parity {
-                                Parity::ParityNone => PCE::DISABLED,
-                                _ => PCE::ENABLED,
+                                Parity::ParityNone => PCE::Disabled,
+                                _ => PCE::Enabled,
                             }).ps()
                             .variant(match config.parity {
-                                Parity::ParityOdd => PS::ODD,
-                                _ => PS::EVEN,
+                                Parity::ParityOdd => PS::Odd,
+                                _ => PS::Even,
                             })
                     });
                 }
@@ -1111,11 +1146,11 @@ macro_rules! usart_sel {
 
                     match ccip.$sel().variant() {
                         Some($SEL::$PCLK) => Some(clocks.$pclk()),
-                        Some($SEL::PLL2_Q) => clocks.pll2_q_ck(),
-                        Some($SEL::PLL3_Q) => clocks.pll3_q_ck(),
-                        Some($SEL::HSI_KER) => clocks.hsi_ck(),
-                        Some($SEL::CSI_KER) => clocks.csi_ck(),
-                        Some($SEL::LSE) => unimplemented!(),
+                        Some($SEL::Pll2Q) => clocks.pll2_q_ck(),
+                        Some($SEL::Pll3Q) => clocks.pll3_q_ck(),
+                        Some($SEL::HsiKer) => clocks.hsi_ck(),
+                        Some($SEL::CsiKer) => clocks.csi_ck(),
+                        Some($SEL::Lse) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
@@ -1131,27 +1166,27 @@ macro_rules! usart_sel {
 
                     match ccip.$sel().variant() {
                         Some($SEL::$PCLK) => clocks.$pclk(),
-                        Some($SEL::PLL2_Q) => {
+                        Some($SEL::Pll2Q) => {
                             clocks.pll2_q_ck().expect(
                                 concat!(stringify!($USARTX), ": PLL2_Q must be enabled")
                             )
                         }
-                        Some($SEL::PLL3_Q) => {
+                        Some($SEL::Pll3Q) => {
                             clocks.pll3_q_ck().expect(
                                 concat!(stringify!($USARTX), ": PLL3_Q must be enabled")
                             )
                         }
-                        Some($SEL::HSI_KER) => {
+                        Some($SEL::HsiKer) => {
                             clocks.hsi_ck().expect(
                                 concat!(stringify!($USARTX), ": HSI clock must be enabled")
                             )
                         }
-                        Some($SEL::CSI_KER) => {
+                        Some($SEL::CsiKer) => {
                             clocks.csi_ck().expect(
                                 concat!(stringify!($USARTX), ": CSI clock must be enabled")
                             )
                         }
-                        Some($SEL::LSE) => unimplemented!(),
+                        Some($SEL::Lse) => unimplemented!(),
                         _ => unreachable!(),
                     }
                 }
@@ -1171,32 +1206,43 @@ usart! {
     UART7: (uart7, Uart7, pclk1),
     UART8: (uart8, Uart8, pclk1),
 }
+#[cfg(any(feature = "rm0455", feature = "rm0468"))]
+usart! {
+    UART9: (uart9, Uart9, pclk2),
+    USART10: (usart10, Usart10, pclk2, synchronous),
+}
 
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 usart_sel! {
-    d2ccip2r, USART16SEL_A, usart16sel, RCC_PCLK2, pclk2;
+    d2ccip2r, USART16SEL_A, usart16sel, RccPclk2, pclk2;
 
     USART1: "USART1",
     USART6: "USART6",
 }
 #[cfg(feature = "rm0455")]
 usart_sel! {
-    cdccip2r, USART16910SEL_A, usart16910sel, RCC_PCLK2, pclk2;
+    cdccip2r, USART16910SEL_A, usart16910sel, RccPclk2, pclk2;
 
     USART1: "USART1",
     USART6: "USART6",
+    USART10: "USART10",
+
+    UART9: "UART9",
 }
 #[cfg(feature = "rm0468")]
 usart_sel! {
-    d2ccip2r, USART16910SEL_A, usart16910sel, RCC_PCLK2, pclk2;
+    d2ccip2r, USART16910SEL_A, usart16910sel, RccPclk2, pclk2;
 
     USART1: "USART1",
     USART6: "USART6",
+    USART10: "USART10",
+
+    UART9: "UART9",
 }
 
 #[cfg(not(feature = "rm0455"))]
 usart_sel! {
-    d2ccip2r, USART234578SEL_A, usart234578sel, RCC_PCLK1, pclk1;
+    d2ccip2r, USART234578SEL_A, usart234578sel, RccPclk1, pclk1;
 
     USART2: "USART2",
     USART3: "USART3",
@@ -1208,7 +1254,7 @@ usart_sel! {
 }
 #[cfg(feature = "rm0455")]
 usart_sel! {
-    cdccip2r, USART234578SEL_A, usart234578sel, RCC_PCLK1, pclk1;
+    cdccip2r, USART234578SEL_A, usart234578sel, RccPclk1, pclk1;
 
     USART2: "USART2",
     USART3: "USART3",

@@ -10,8 +10,6 @@
 #[macro_use]
 mod utilities;
 
-use core::mem::transmute;
-
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::{
@@ -118,7 +116,7 @@ fn write_u32(qspi: &mut Qspi<pac::QUADSPI>, address: u32, value: u32) {
     .unwrap();
     wait_for_write_completition(qspi);
 
-    let bytes: [u8; 4] = unsafe { transmute(value.to_be()) };
+    let bytes: [u8; 4] = value.to_be_bytes();
     enable_write_operation(qspi);
     qspi.write_extended(
         QspiWord::U8(WRITE_CMD),

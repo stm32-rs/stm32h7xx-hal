@@ -74,23 +74,23 @@ macro_rules! impl_sai_ker_ck {
                 /// Current kernel clock - A
                 fn sai_a_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz {
                     match prec.$get_mux_A() {
-                        Some(rec::$AccessA::PLL1_Q) => {
+                        Some(rec::$AccessA::Pll1Q) => {
                             clocks.pll1_q_ck().expect(
                                 concat!(stringify!($SAIX), " A: PLL1_Q must be enabled")
                             )
                         }
-                        Some(rec::$AccessA::PLL2_P) => {
+                        Some(rec::$AccessA::Pll2P) => {
                             clocks.pll2_p_ck().expect(
                                 concat!(stringify!($SAIX), " A: PLL2_P must be enabled")
                             )
                         }
-                        Some(rec::$AccessA::PLL3_P) => {
+                        Some(rec::$AccessA::Pll3P) => {
                             clocks.pll3_p_ck().expect(
                                 concat!(stringify!($SAIX), " A: PLL3_P must be enabled")
                             )
                         }
-                        Some(rec::$AccessA::I2S_CKIN) => unimplemented!(),
-                        Some(rec::$AccessA::PER) => {
+                        Some(rec::$AccessA::I2sCkin) => unimplemented!(),
+                        Some(rec::$AccessA::Per) => {
                             clocks.per_ck().expect(
                                 concat!(stringify!($SAIX), " A: PER clock must be enabled")
                             )
@@ -101,23 +101,23 @@ macro_rules! impl_sai_ker_ck {
                 /// Current kernel clock - B
                 fn sai_b_ker_ck(prec: &Self::Rec, clocks: &CoreClocks) -> Hertz {
                     match prec.$get_mux_B() {
-                        Some(rec::$AccessB::PLL1_Q) => {
+                        Some(rec::$AccessB::Pll1Q) => {
                             clocks.pll1_q_ck().expect(
                                 concat!(stringify!($SAIX), " B: PLL1_Q must be enabled")
                             )
                         }
-                        Some(rec::$AccessB::PLL2_P) => {
+                        Some(rec::$AccessB::Pll2P) => {
                             clocks.pll2_p_ck().expect(
                                 concat!(stringify!($SAIX), " B: PLL2_P must be enabled")
                             )
                         }
-                        Some(rec::$AccessB::PLL3_P) => {
+                        Some(rec::$AccessB::Pll3P) => {
                             clocks.pll3_p_ck().expect(
                                 concat!(stringify!($SAIX), " B: PLL3_P must be enabled")
                             )
                         }
-                        Some(rec::$AccessB::I2S_CKIN) => unimplemented!(),
-                        Some(rec::$AccessB::PER) => {
+                        Some(rec::$AccessB::I2sCkin) => unimplemented!(),
+                        Some(rec::$AccessB::Per) => {
                             clocks.per_ck().expect(
                                 concat!(stringify!($SAIX), " B: PER clock must be enabled")
                             )
@@ -155,7 +155,7 @@ pub trait INTERFACE {}
 /// SAI Events
 ///
 /// Each event is a possible interrupt source, if enabled
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// Overdue/Underrun error detection
     Overdue,
@@ -172,7 +172,7 @@ pub enum Event {
 }
 
 /// SAI Channels
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum SaiChannel {
     ChannelA,
     ChannelB,
@@ -202,8 +202,8 @@ macro_rules! sai_hal {
                     where F: FnOnce(&CH) -> T,
                 {
                     match self.master_channel {
-                        SaiChannel::ChannelA => func(&self.rb.cha),
-                        SaiChannel::ChannelB => func(&self.rb.chb),
+                        SaiChannel::ChannelA => func(self.rb.cha()),
+                        SaiChannel::ChannelB => func(self.rb.chb()),
                     }
                 }
 
@@ -212,8 +212,8 @@ macro_rules! sai_hal {
                     where F: FnOnce(&CH) -> T,
                 {
                     match self.slave_channel {
-                        Some(SaiChannel::ChannelA) => Some(func(&self.rb.cha)),
-                        Some(SaiChannel::ChannelB) => Some(func(&self.rb.chb)),
+                        Some(SaiChannel::ChannelA) => Some(func(self.rb.cha())),
+                        Some(SaiChannel::ChannelB) => Some(func(self.rb.chb())),
                         None => None
                     }
                 }
@@ -221,8 +221,8 @@ macro_rules! sai_hal {
                 /// Start listening for `event` on a given `channel`
                 pub fn listen(&mut self, channel: SaiChannel, event: Event) {
                     let ch = match channel {
-                        SaiChannel::ChannelA => &self.rb.cha,
-                        SaiChannel::ChannelB => &self.rb.chb,
+                        SaiChannel::ChannelA => self.rb.cha(),
+                        SaiChannel::ChannelB => self.rb.chb(),
                     };
                     match event {
                         Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().set_bit()),
@@ -237,8 +237,8 @@ macro_rules! sai_hal {
                 /// Stop listening for `event` on a given `channel`
                 pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
                     let ch = match channel {
-                        SaiChannel::ChannelA => &self.rb.cha,
-                        SaiChannel::ChannelB => &self.rb.chb,
+                        SaiChannel::ChannelA => self.rb.cha(),
+                        SaiChannel::ChannelB => self.rb.chb(),
                     };
                     match event {
                         Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().clear_bit()),
@@ -257,8 +257,8 @@ macro_rules! sai_hal {
                 /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
                 pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
                     let ch = match channel {
-                        SaiChannel::ChannelA => &self.rb.cha,
-                        SaiChannel::ChannelB => &self.rb.chb,
+                        SaiChannel::ChannelA => self.rb.cha(),
+                        SaiChannel::ChannelB => self.rb.chb(),
                     };
                     match event {
                         Event::Overdue              => ch.clrfr.write(|w| w.covrudr().set_bit()),
@@ -275,8 +275,8 @@ macro_rules! sai_hal {
                 /// Clears all interrupts on the `channel`
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
                     let ch = match channel {
-                        SaiChannel::ChannelA => &self.rb.cha,
-                        SaiChannel::ChannelB => &self.rb.chb,
+                        SaiChannel::ChannelA => self.rb.cha(),
+                        SaiChannel::ChannelB => self.rb.chb(),
                     };
                     unsafe {
                         ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
@@ -289,8 +289,8 @@ macro_rules! sai_hal {
                 /// Meaningful only in Tx mode
                 pub fn mute(&mut self, channel: SaiChannel) {
                     match channel {
-                        SaiChannel::ChannelA => &self.rb.cha.cr2.modify(|_, w| w.mute().enabled()),
-                        SaiChannel::ChannelB => &self.rb.cha.cr2.modify(|_, w| w.mute().enabled()),
+                        SaiChannel::ChannelA => self.rb.cha().cr2.modify(|_, w| w.mute().enabled()),
+                        SaiChannel::ChannelB => self.rb.cha().cr2.modify(|_, w| w.mute().enabled()),
                     };
                 }
 
@@ -298,8 +298,8 @@ macro_rules! sai_hal {
                 /// Meaningful only in Tx mode
                 pub fn unmute(&mut self, channel: SaiChannel) {
                     match channel {
-                        SaiChannel::ChannelA => &self.rb.cha.cr2.modify(|_, w| w.mute().disabled()),
-                        SaiChannel::ChannelB => &self.rb.chb.cr2.modify(|_, w| w.mute().disabled()),
+                        SaiChannel::ChannelA => self.rb.cha().cr2.modify(|_, w| w.mute().disabled()),
+                        SaiChannel::ChannelB => self.rb.chb().cr2.modify(|_, w| w.mute().disabled()),
                     };
                 }
 
@@ -325,8 +325,8 @@ macro_rules! sai_hal {
                 /// Enable DMA for the SAI peripheral.
                 pub fn enable_dma(&mut self, channel: SaiChannel) {
                     match channel {
-                        SaiChannel::ChannelA => self.rb.cha.cr1.modify(|_, w| w.dmaen().enabled()),
-                        SaiChannel::ChannelB => self.rb.chb.cr1.modify(|_, w| w.dmaen().enabled()),
+                        SaiChannel::ChannelA => self.rb.cha().cr1.modify(|_, w| w.dmaen().enabled()),
+                        SaiChannel::ChannelB => self.rb.chb().cr1.modify(|_, w| w.dmaen().enabled()),
                     };
                 }
 

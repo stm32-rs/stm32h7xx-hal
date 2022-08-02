@@ -34,7 +34,7 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.hclk().raw(), 48_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
-        OctospiClkSel::RCC_HCLK3
+        OctospiClkSel::RccHclk3
     );
 
     // Acquire the GPIO peripherals. This also enables the clock for
@@ -94,5 +94,7 @@ fn main() -> ! {
 
     info!("Read with instruction 0x9F60 : {:x?}", read);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

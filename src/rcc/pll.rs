@@ -8,7 +8,7 @@ const FRACN_DIVISOR: f32 = 8192.0; // 2 ** 13
 const FRACN_MAX: f32 = FRACN_DIVISOR - 1.0;
 
 /// Strategies for configuring a Phase Locked Loop (PLL)
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum PllConfigStrategy {
     /// VCOL, highest PFD frequency, highest VCO frequency
     Normal,

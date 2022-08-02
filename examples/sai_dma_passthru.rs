@@ -84,7 +84,7 @@ fn main() -> ! {
     core.SCB.enable_icache();
 
     // enable sai1 peripheral and set clock to pll3
-    let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
+    let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::Pll3P);
 
     // - configure pins ---------------------------------------------------
 
@@ -181,7 +181,7 @@ fn main() -> ! {
 
         // wait until sai1's fifo starts to receive data
         info!("sai1 fifo waiting to receive data");
-        while sai1_rb.cha.sr.read().flvl().is_empty() {}
+        while sai1_rb.cha().sr.read().flvl().is_empty() {}
         info!("audio started");
 
         sai1.enable();

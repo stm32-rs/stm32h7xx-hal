@@ -227,7 +227,7 @@ impl Default for Signalling {
 }
 
 /// Possible bus widths
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Buswidth {
     One = 0,
@@ -250,7 +250,7 @@ pub enum Error {
     RxOverFlow,
     NoCard,
     BadClock,
-    SignalingSwitchFailed,
+    SignallingSwitchFailed,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -459,12 +459,12 @@ macro_rules! sdmmc {
 
                     let hclk = clocks.hclk();
                     let ker_ck = match prec.get_kernel_clk_mux() {
-                        rec::SdmmcClkSel::PLL1_Q => {
+                        rec::SdmmcClkSel::Pll1Q => {
                             clocks.pll1_q_ck().expect(
                                 concat!(stringify!($SDMMCX), ": PLL1_Q must be enabled")
                             )
                         }
-                        rec::SdmmcClkSel::PLL2_R => {
+                        rec::SdmmcClkSel::Pll2R => {
                             clocks.pll2_r_ck().expect(
                                 concat!(stringify!($SDMMCX), ": PLL2_R must be enabled")
                             )
@@ -1000,7 +1000,7 @@ macro_rules! sdmmc {
                             self.clkcr_set_clkdiv(freq.raw(), width)?;
 
                             if !self.card_ready()? {
-                                return Err(Error::SignalingSwitchFailed);
+                                return Err(Error::SignallingSwitchFailed);
                             }
                         }
                     }

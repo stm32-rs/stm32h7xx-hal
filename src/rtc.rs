@@ -22,7 +22,7 @@ pub enum Event {
     LseCss,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum DstState {
     /// Standard Time
     Standard = 0,
@@ -32,7 +32,7 @@ pub enum DstState {
     Dst = 1,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RtcClock {
     /// LSE (Low-Speed External)
     ///
@@ -61,7 +61,7 @@ pub enum RtcClock {
     Hse { divider: u8 },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// An error preventing the RTC from initializing
 pub enum InitError {
@@ -70,7 +70,7 @@ pub enum InitError {
     ConfigMismatch,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DstError {
     ClockNotInitialized,
@@ -117,11 +117,11 @@ impl Rtc {
 
         let clock_source_matches =
             match (clock_source, prec.get_kernel_clk_mux()) {
-                (RtcClock::Lsi, backup::RtcClkSel::LSI) => true,
-                (RtcClock::Hse { divider }, backup::RtcClkSel::HSE) => {
+                (RtcClock::Lsi, backup::RtcClkSel::Lsi) => true,
+                (RtcClock::Hse { divider }, backup::RtcClkSel::Hse) => {
                     rcc.cfgr.read().rtcpre().bits() == divider
                 }
-                (RtcClock::Lse { bypass, css, .. }, backup::RtcClkSel::LSE) => {
+                (RtcClock::Lse { bypass, css, .. }, backup::RtcClkSel::Lse) => {
                     bdcr.lseon().is_on()
                         && bypass == bdcr.lsebyp().is_bypassed()
                         && css == bdcr.lsecsson().is_security_on()
@@ -182,9 +182,9 @@ impl Rtc {
 
         // Select RTC kernel clock
         prec.kernel_clk_mux(match clock_source {
-            RtcClock::Hse { .. } => backup::RtcClkSel::HSE,
-            RtcClock::Lsi => backup::RtcClkSel::LSI,
-            RtcClock::Lse { .. } => backup::RtcClkSel::LSE,
+            RtcClock::Hse { .. } => backup::RtcClkSel::Hse,
+            RtcClock::Lsi => backup::RtcClkSel::Lsi,
+            RtcClock::Lse { .. } => backup::RtcClkSel::Lse,
         });
 
         // Now we can enable CSS, if required
@@ -367,7 +367,7 @@ impl Rtc {
         self.calendar_initialized()?;
         let data = self.reg.dr.read();
         let year = 2000 + i32(data.yt().bits()) * 10 + i32(data.yu().bits());
-        let month = data.mt().bits() as u8 * 10 + data.mu().bits();
+        let month = data.mt().bit_is_set() as u8 * 10 + data.mu().bits();
         let day = data.dt().bits() * 10 + data.du().bits();
         NaiveDate::from_ymd_opt(year, u32(month), u32(day))
     }
@@ -419,7 +419,7 @@ impl Rtc {
             if ss == ss_after {
                 let year =
                     2000 + i32(dr.yt().bits()) * 10 + i32(dr.yu().bits());
-                let month = dr.mt().bits() as u8 * 10 + dr.mu().bits();
+                let month = dr.mt().bit_is_set() as u8 * 10 + dr.mu().bits();
                 let day = dr.dt().bits() * 10 + dr.du().bits();
 
                 let date = NaiveDate::from_ymd_opt(year, u32(month), u32(day))?;
@@ -616,7 +616,7 @@ impl Rtc {
         let year = 2000 + i32(data.yt().bits()) * 10 + i32(data.yu().bits());
 
         let data = self.reg.tsdr.read();
-        let month = data.mt().bits() as u8 * 10 + data.mu().bits();
+        let month = data.mt().bit_is_set() as u8 * 10 + data.mu().bits();
         let day = data.dt().bits() * 10 + data.du().bits();
         let date = NaiveDate::from_ymd_opt(year, u32(month), u32(day))?;
 
@@ -783,7 +783,7 @@ impl Rtc {
             .modify(|_, w| w.lsecsson().security_off().lseon().off());
 
         // We're allowed to change this once after the LSE fails
-        self.prec.kernel_clk_mux(backup::RtcClkSel::LSI);
+        self.prec.kernel_clk_mux(backup::RtcClkSel::Lsi);
     }
 
     /// Returns a reference to the inner peripheral

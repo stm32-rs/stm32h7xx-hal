@@ -27,35 +27,35 @@ impl IndependentWatchdog {
     const MAX_COUNTER_VALUE: u32 = 0x00000FFF;
     const MAX_MILLIS_FOR_PRESCALER: [(PR_A, u32); 8] = [
         (
-            PR_A::DIVIDEBY4,
+            PR_A::DivideBy4,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 4),
         ),
         (
-            PR_A::DIVIDEBY8,
+            PR_A::DivideBy8,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 8),
         ),
         (
-            PR_A::DIVIDEBY16,
+            PR_A::DivideBy16,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 16),
         ),
         (
-            PR_A::DIVIDEBY32,
+            PR_A::DivideBy32,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 32),
         ),
         (
-            PR_A::DIVIDEBY64,
+            PR_A::DivideBy64,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 64),
         ),
         (
-            PR_A::DIVIDEBY128,
+            PR_A::DivideBy128,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 128),
         ),
         (
-            PR_A::DIVIDEBY256,
+            PR_A::DivideBy256,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 256),
         ),
         (
-            PR_A::DIVIDEBY256BIS,
+            PR_A::DivideBy256bis,
             (Self::MAX_COUNTER_VALUE * 1000) / (Self::CLOCK_SPEED / 256),
         ),
     ];
@@ -144,14 +144,14 @@ impl IndependentWatchdog {
 
     fn get_prescaler_divider(prescaler: &PR_A) -> u32 {
         match prescaler {
-            PR_A::DIVIDEBY4 => 4,
-            PR_A::DIVIDEBY8 => 8,
-            PR_A::DIVIDEBY16 => 16,
-            PR_A::DIVIDEBY32 => 32,
-            PR_A::DIVIDEBY64 => 64,
-            PR_A::DIVIDEBY128 => 128,
-            PR_A::DIVIDEBY256 => 256,
-            PR_A::DIVIDEBY256BIS => 256,
+            PR_A::DivideBy4 => 4,
+            PR_A::DivideBy8 => 8,
+            PR_A::DivideBy16 => 16,
+            PR_A::DivideBy32 => 32,
+            PR_A::DivideBy64 => 64,
+            PR_A::DivideBy128 => 128,
+            PR_A::DivideBy256 => 256,
+            PR_A::DivideBy256bis => 256,
         }
     }
 }

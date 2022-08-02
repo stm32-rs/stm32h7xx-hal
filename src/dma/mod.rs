@@ -118,7 +118,7 @@ pub mod mdma;
 pub mod traits;
 
 /// Errors.
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DMAError {
     /// DMA not ready to change buffers.
@@ -130,7 +130,7 @@ pub enum DMAError {
 }
 
 /// Possible DMA's directions.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DmaDirection {
     /// Memory to Memory transfer.
@@ -243,7 +243,7 @@ impl From<u8> for FifoLevel {
 }
 
 /// Which DMA buffer is in use.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum CurrentBuffer {
     /// The first buffer (m0ar).

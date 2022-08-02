@@ -91,16 +91,16 @@ impl FmcExt for stm32::FMC {
 
         // Calculate kernel clock
         let fmc_ker_ck = match clk_sel {
-            rec::FmcClkSel::RCC_HCLK3 => {
+            rec::FmcClkSel::RccHclk3 => {
                 Some(clocks.hclk()).expect("FMC: HCLK must be enabled")
             }
-            rec::FmcClkSel::PLL1_Q => {
+            rec::FmcClkSel::Pll1Q => {
                 clocks.pll1_q_ck().expect("FMC: PLL1_Q must be enabled")
             }
-            rec::FmcClkSel::PLL2_R => {
+            rec::FmcClkSel::Pll2R => {
                 clocks.pll2_r_ck().expect("FMC: PLL2_R must be enabled")
             }
-            rec::FmcClkSel::PER => {
+            rec::FmcClkSel::Per => {
                 clocks.per_ck().expect("FMC: PER clock must be enabled")
             }
         };

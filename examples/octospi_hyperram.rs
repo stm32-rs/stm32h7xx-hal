@@ -35,7 +35,7 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.hclk().raw(), 160_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
-        OctospiClkSel::RCC_HCLK3
+        OctospiClkSel::RccHclk3
     );
 
     // Acquire the GPIO peripherals. This also enables the clock for

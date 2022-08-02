@@ -62,7 +62,7 @@ fn main() -> ! {
     );
 
     // Set resolution
-    adc.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc.set_resolution(adc::Resolution::SixteenBit);
 
     // Setup Temperature Sensor on the disabled ADC
     let mut channel = adc::Temperature::new();

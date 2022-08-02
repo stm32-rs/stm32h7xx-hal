@@ -232,7 +232,7 @@ pub enum Polarity {
 }
 
 /// Configuration enum to keep track of which break input corresponds with which FaultPins
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum BreakInput {
     BreakIn,
     BreakIn2,
@@ -1379,7 +1379,7 @@ macro_rules! tim_pin_hal {
                 fn get_duty(&self) -> Self::Duty {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.$ccrx.read().ccr().bits()
+                    tim.$ccrx().read().ccr().bits()
                 }
 
                 fn get_max_duty(&self) -> Self::Duty {
@@ -1402,7 +1402,7 @@ macro_rules! tim_pin_hal {
                 fn set_duty(&mut self, duty: Self::Duty) {
                     let tim = unsafe { &*$TIMX::ptr() };
 
-                    tim.$ccrx.write(|w| w.ccr().bits(duty));
+                    tim.$ccrx().write(|w| w.ccr().bits(duty));
                 }
             }
 
@@ -1636,14 +1636,14 @@ macro_rules! lptim_hal {
 
                 // Calculate prescaler
                 let (prescale, prescale_div) = match reload / (1 << 16) {
-                    0 => ($timXpac::cfgr::PRESC_A::DIV1, 1),
-                    1 => ($timXpac::cfgr::PRESC_A::DIV2, 2),
-                    2..=3 => ($timXpac::cfgr::PRESC_A::DIV4, 4),
-                    4..=7 => ($timXpac::cfgr::PRESC_A::DIV8, 8),
-                    8..=15 => ($timXpac::cfgr::PRESC_A::DIV16, 16),
-                    16..=31 => ($timXpac::cfgr::PRESC_A::DIV32, 32),
-                    32..=63 => ($timXpac::cfgr::PRESC_A::DIV64, 64),
-                    _ => ($timXpac::cfgr::PRESC_A::DIV128, 128),
+                    0 => ($timXpac::cfgr::PRESC_A::Div1, 1),
+                    1 => ($timXpac::cfgr::PRESC_A::Div2, 2),
+                    2..=3 => ($timXpac::cfgr::PRESC_A::Div4, 4),
+                    4..=7 => ($timXpac::cfgr::PRESC_A::Div8, 8),
+                    8..=15 => ($timXpac::cfgr::PRESC_A::Div16, 16),
+                    16..=31 => ($timXpac::cfgr::PRESC_A::Div32, 32),
+                    32..=63 => ($timXpac::cfgr::PRESC_A::Div64, 64),
+                    _ => ($timXpac::cfgr::PRESC_A::Div128, 128),
                 };
 
                 // Calcuate reload

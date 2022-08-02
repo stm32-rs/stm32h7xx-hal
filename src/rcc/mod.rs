@@ -427,11 +427,11 @@ macro_rules! ppre_calculate {
             $(
                 let $rcc_tim_ker_clk = match ($bits, &$timpre)
                 {
-                    (0b101, TIMPRE::DEFAULTX2) => $hclk / 2,
-                    (0b110, TIMPRE::DEFAULTX4) => $hclk / 2,
-                    (0b110, TIMPRE::DEFAULTX2) => $hclk / 4,
-                    (0b111, TIMPRE::DEFAULTX4) => $hclk / 4,
-                    (0b111, TIMPRE::DEFAULTX2) => $hclk / 8,
+                    (0b101, TIMPRE::DefaultX2) => $hclk / 2,
+                    (0b110, TIMPRE::DefaultX4) => $hclk / 2,
+                    (0b110, TIMPRE::DefaultX2) => $hclk / 4,
+                    (0b111, TIMPRE::DefaultX4) => $hclk / 4,
+                    (0b111, TIMPRE::DefaultX2) => $hclk / 8,
                     _ => $hclk,
                 };
             )*
@@ -702,9 +702,9 @@ impl Rcc {
         // per_ck from HSI by default
         let (per_ck, ckpersel) =
             match (self.config.per_ck == self.config.hse, self.config.per_ck) {
-                (true, Some(hse)) => (hse, CKPERSEL::HSE), // HSE
-                (_, Some(CSI)) => (csi, CKPERSEL::CSI),    // CSI
-                _ => (hsi, CKPERSEL::HSI),                 // HSI
+                (true, Some(hse)) => (hse, CKPERSEL::Hse), // HSE
+                (_, Some(CSI)) => (csi, CKPERSEL::Csi),    // CSI
+                _ => (hsi, CKPERSEL::Hsi),                 // HSI
             };
 
         // D1 Core Prescaler
@@ -714,7 +714,7 @@ impl Rcc {
         let sys_d1cpre_ck = sys_ck.raw() / d1cpre_div;
 
         // Timer prescaler selection
-        let timpre = TIMPRE::DEFAULTX2;
+        let timpre = TIMPRE::DefaultX2;
 
         // Refer to part datasheet "General operating conditions"
         // table for (rev V). We do not assert checks for earlier
@@ -758,15 +758,15 @@ impl Rcc {
         let (hpre_bits, hpre_div) =
             match (sys_d1cpre_ck + rcc_hclk - 1) / rcc_hclk {
                 0 => unreachable!(),
-                1 => (HPRE::DIV1, 1),
-                2 => (HPRE::DIV2, 2),
-                3..=5 => (HPRE::DIV4, 4),
-                6..=11 => (HPRE::DIV8, 8),
-                12..=39 => (HPRE::DIV16, 16),
-                40..=95 => (HPRE::DIV64, 64),
-                96..=191 => (HPRE::DIV128, 128),
-                192..=383 => (HPRE::DIV256, 256),
-                _ => (HPRE::DIV512, 512),
+                1 => (HPRE::Div1, 1),
+                2 => (HPRE::Div2, 2),
+                3..=5 => (HPRE::Div4, 4),
+                6..=11 => (HPRE::Div8, 8),
+                12..=39 => (HPRE::Div16, 16),
+                40..=95 => (HPRE::Div64, 64),
+                96..=191 => (HPRE::Div128, 128),
+                192..=383 => (HPRE::Div256, 256),
+                _ => (HPRE::Div512, 512),
             };
 
         // Calculate real AXI and AHB clock
@@ -787,23 +787,23 @@ impl Rcc {
         // Calculate MCO dividers and real MCO frequencies
         let mco1_in = match self.config.mco1.source {
             // We set the required clock earlier, so can unwrap() here.
-            MCO1::HSI => HSI,
-            MCO1::LSE => unimplemented!(),
-            MCO1::HSE => self.config.hse.unwrap(),
-            MCO1::PLL1_Q => pll1_q_ck.unwrap().raw(),
-            MCO1::HSI48 => HSI48,
+            MCO1::Hsi => HSI,
+            MCO1::Lse => unimplemented!(),
+            MCO1::Hse => self.config.hse.unwrap(),
+            MCO1::Pll1Q => pll1_q_ck.unwrap().raw(),
+            MCO1::Hsi48 => HSI48,
         };
         let (mco_1_pre, mco1_ck) =
             self.config.mco1.calculate_prescaler(mco1_in);
 
         let mco2_in = match self.config.mco2.source {
             // We set the required clock earlier, so can unwrap() here.
-            MCO2::SYSCLK => sys_ck.raw(),
-            MCO2::PLL2_P => pll2_p_ck.unwrap().raw(),
-            MCO2::HSE => self.config.hse.unwrap(),
-            MCO2::PLL1_P => pll1_p_ck.unwrap().raw(),
-            MCO2::CSI => CSI,
-            MCO2::LSI => LSI,
+            MCO2::Sysclk => sys_ck.raw(),
+            MCO2::Pll2P => pll2_p_ck.unwrap().raw(),
+            MCO2::Hse => self.config.hse.unwrap(),
+            MCO2::Pll1P => pll1_p_ck.unwrap().raw(),
+            MCO2::Csi => CSI,
+            MCO2::Lsi => LSI,
         };
         let (mco_2_pre, mco2_ck) =
             self.config.mco2.calculate_prescaler(mco2_in);
@@ -852,9 +852,9 @@ impl Rcc {
 
         // PLL
         let pllsrc = if self.config.hse.is_some() {
-            PLLSRC::HSE
+            PLLSRC::Hse
         } else {
-            PLLSRC::HSI
+            PLLSRC::Hsi
         };
         rcc.pllckselr.modify(|_, w| w.pllsrc().variant(pllsrc));
 
@@ -944,9 +944,9 @@ impl Rcc {
 
         // Select system clock source
         let swbits = match (sys_use_pll1_p, self.config.hse.is_some()) {
-            (true, _) => SW::PLL1 as u8,
-            (false, true) => SW::HSE as u8,
-            _ => SW::HSI as u8,
+            (true, _) => SW::Pll1 as u8,
+            (false, true) => SW::Hse as u8,
+            _ => SW::Hsi as u8,
         };
         rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(swbits) });
         while rcc.cfgr.read().sws().bits() != swbits {}

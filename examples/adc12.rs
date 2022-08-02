@@ -50,10 +50,10 @@ fn main() -> ! {
     );
 
     let mut adc1 = adc1.enable();
-    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_resolution(adc::Resolution::SixteenBit);
 
     let mut adc2 = adc2.enable();
-    adc2.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc2.set_resolution(adc::Resolution::SixteenBit);
 
     // Setup GPIOC
     // NOTE: PC2 and PC3 are only pinned out on TFBGA packages!!

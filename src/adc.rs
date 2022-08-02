@@ -47,10 +47,10 @@ trait NumberOfBits {
 impl NumberOfBits for Resolution {
     fn number_of_bits(&self) -> u32 {
         match *self {
-            Resolution::EIGHTBIT => 8,
-            Resolution::TENBIT => 10,
-            Resolution::TWELVEBIT => 12,
-            Resolution::FOURTEENBIT => 14,
+            Resolution::EightBit => 8,
+            Resolution::TenBit => 10,
+            Resolution::TwelveBit => 12,
+            Resolution::FourteenBit => 14,
             _ => 16,
         }
     }
@@ -79,7 +79,7 @@ pub struct Adc<ADC, ED> {
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
 //
 // Refer to RM0433 Rev 6 - Chapter 24.4.13
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
 pub enum AdcSampleTime {
@@ -126,7 +126,7 @@ impl From<AdcSampleTime> for u8 {
 /// ADC LSHIFT\[3:0\] of the converted value
 ///
 /// Only values in range of 0..=15 are allowed.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcLshift(u8);
 
@@ -148,7 +148,7 @@ impl AdcLshift {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalOffset(u16);
 
@@ -158,7 +158,7 @@ impl AdcCalOffset {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcCalLinear([u32; 6]);
 
@@ -339,13 +339,13 @@ impl defmt::Format for StoredConfig {
 fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
     // Select Kernel Clock
     let adc_clock = match prec.get_kernel_clk_mux() {
-        Some(rec::AdcClkSel::PLL2_P) => {
+        Some(rec::AdcClkSel::Pll2P) => {
             clocks.pll2_p_ck().expect("ADC: PLL2_P must be enabled")
         }
-        Some(rec::AdcClkSel::PLL3_R) => {
+        Some(rec::AdcClkSel::Pll3R) => {
             clocks.pll3_r_ck().expect("ADC: PLL3_R must be enabled")
         }
-        Some(rec::AdcClkSel::PER) => {
+        Some(rec::AdcClkSel::Per) => {
             clocks.per_ck().expect("ADC: PER clock must be enabled")
         }
         _ => unreachable!(),
@@ -489,7 +489,7 @@ macro_rules! adc_hal {
                     Self {
                         rb,
                         sample_time: AdcSampleTime::default(),
-                        resolution: Resolution::SIXTEENBIT,
+                        resolution: Resolution::SixteenBit,
                         lshift: AdcLshift::default(),
                         current_channel: None,
                         _enabled: PhantomData,
@@ -758,7 +758,7 @@ macro_rules! adc_hal {
                 pub fn default_cfg(&mut self) -> StoredConfig {
                     let cfg = self.save_cfg();
                     self.set_sample_time(AdcSampleTime::default());
-                    self.set_resolution(Resolution::SIXTEENBIT);
+                    self.set_resolution(Resolution::SixteenBit);
                     self.set_lshift(AdcLshift::default());
                     cfg
                 }
