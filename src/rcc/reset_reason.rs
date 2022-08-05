@@ -10,8 +10,8 @@ pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
     // Clear the register
     rcc.rsr.modify(|_, w| w.rmvf().clear());
 
-
     // See STM32H743 reference 8.4.4 Reset source identification
+    #[rustfmt::skip]
     match (
         reset_reason.lpwrrstf().is_reset_occourred(),
         reset_reason.wwdg1rstf().is_reset_occourred(),

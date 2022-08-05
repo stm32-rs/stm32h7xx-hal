@@ -150,8 +150,8 @@ use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
-use reset_reason::ResetReason;
 use reset_reason::get_reset_reason;
+use reset_reason::ResetReason;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
