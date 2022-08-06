@@ -1273,10 +1273,11 @@ macro_rules! sdmmc {
                     self.cmd(common_cmd::idle())?;
 
                     let ocr = loop {
-                        // Initialize card
-
                         // 3.2-3.3V
-                        match self.cmd(emmc_cmd::send_op_cond(0b01000000111111111000000000000000)) {
+                        let op_cond_3v3 = 0b0100_0000_1111_1111_1000_0000_0000_0000;
+
+                        // Initialize card
+                        match self.cmd(emmc_cmd::send_op_cond(op_cond_3v3)) {
                             Ok(_) => (),
                             Err(Error::Crc) => (),
                             Err(err) => return Err(err),
@@ -1332,7 +1333,7 @@ macro_rules! sdmmc {
                 }
 
                 pub fn set_bus(&mut self, width: Buswidth, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    const EXTENDED_CSD_HS_TIMING: u8=185;
+                    //const EXTENDED_CSD_HS_TIMING: u8=185;
                     const EXTENDED_CSD_BUS_WIDTH: u8=183;
 
                     // CMD6: SWITCH command
