@@ -59,6 +59,32 @@
 //!     info!("SD Card Connected: {:?}", card);
 //! }
 //! ```
+//!
+//! # High Speed Signaling - SD Card
+//!
+//! Up to 25MHz supported
+//!
+//! TODO
+//!
+//! # High Speed Signaling - eMMC
+//!
+//! The following signaling modes are supported for eMMC, *assuming that the
+//! eMMC device itself supports them*
+//!
+//! | Signaling Mode | Maximum Frequency | Bus Width
+//! | --- | --- | ---
+//! | Default Speed (DS) | 26MHz | 1-bit, 4-bit or 8-bit
+//! | High Speed (HS) | 52MHz | 1-bit, 4-bit or 8-bit
+//! | DDR52 | 52MHz | 4-bit or 8-bit
+//!
+//! The initialisation routine always uses Default Speed (DS) and thus the
+//! specified frequency must be 26MHz or less. For higher frequencies, call
+//! [`set_bus`](crate::sdmmc::Sdmmc::set_bus) to increase the signalling mode.
+//!
+//! ```
+//! sdmmc1.init(26.MHz())?;
+//! sdmmc1.set_bus(Buswidth::Eight, 52.MHz(), EmmcSignaling::DDR52)?;
+//! ```
 
 // Adapted from stm32f4xx-hal
 // https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/sdio.rs
