@@ -230,6 +230,8 @@ impl Default for SdCardSignaling {
     }
 }
 
+/// Signaling mode for communicating with eMMC. Refer to RM0433 Rev 7
+/// Table 465.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum EmmcSignaling {
@@ -268,6 +270,7 @@ pub enum Error {
     RxOverFlow,
     NoCard,
     BadClock,
+    InvalidConfiguration,
     SignalingSwitchFailed,
 }
 
@@ -345,6 +348,9 @@ pub struct Sdmmc<SDMMC, P: SdmmcPeripheral> {
     clock: Hertz,
     /// Current signaling scheme to the card
     signaling: P::Signaling,
+    /// Indicates if CMD16 is illegal in the current card state. This can occour
+    /// if the block size is fixed to 512 bytes, for example in eMMC DDR mode
+    cmd16_illegal: bool,
     /// Address (RCA) currently assigned to card. For eMMC cards this is
     /// assigned by us (the host), for SD cards it is only ever retrieved from
     /// the card response
@@ -530,6 +536,7 @@ macro_rules! sdmmc {
                         bus_width,
                         clock,
                         signaling: Default::default(),
+                        cmd16_illegal: false,
                         card_rca: 0,
                         card: None,
                     }
@@ -615,7 +622,9 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup read command
                     self.start_datapath_transfer(512, 9, Dir::CardToHost);
@@ -662,11 +671,14 @@ macro_rules! sdmmc {
                     assert!(buffer.len() % 512 == 0,
                             "Buffer length must be a multiple of 512");
                     let n_blocks = buffer.len() / 512;
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup read command
                     self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::CardToHost);
-                    self.cmd(common_cmd::read_multiple_blocks(address))?;
+                    self.cmd(common_cmd::read_multiple_blocks(address))?; // CMD18
 
                     let mut i = 0;
                     let mut status;
@@ -705,7 +717,9 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup write command
                     self.start_datapath_transfer(512, 9, Dir::HostToCard);
@@ -1343,26 +1357,63 @@ macro_rules! sdmmc {
                     };
                     self.card.replace(card);
 
-                    self.set_bus(self.bus_width, freq)?;
+                    self.set_bus(self.bus_width, freq, EmmcSignaling::DefaultSpeed)?;
                     Ok(())
                 }
 
-                pub fn set_bus(&mut self, width: Buswidth, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    //const EXTENDED_CSD_HS_TIMING: u8=185;
+                pub fn set_bus(&mut self,
+                               width: Buswidth,
+                               freq: impl Into<Hertz>,
+                               signaling: EmmcSignaling
+                ) -> Result<(), Error> {
+                    const EXTENDED_CSD_HS_TIMING: u8=185;
                     const EXTENDED_CSD_BUS_WIDTH: u8=183;
+                    let freq: Hertz = freq.into();
+
+                    // Check configuration
+                    match signaling {
+                        EmmcSignaling::DefaultSpeed if freq.raw() > 26_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::HighSpeed if freq.raw() > 52_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::DDR52 if freq.raw() > 52_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::DDR52 if matches!(width, Buswidth::One) =>
+                            return Err(Error::InvalidConfiguration),
+                        _ => {},
+                    };
+
+                    // Signaling mode
+                    let (hs_timing, ddr, bus_mode) = match signaling {
+                        EmmcSignaling::HighSpeed => (1, false, width as u8),
+                        EmmcSignaling::DDR52 => (1, true, 4 + width as u8),
+                        EmmcSignaling::HS200 => unimplemented!(),
+                        _ => (0, false, width as u8)
+                    };
 
                     // CMD6: SWITCH command
                     self.cmd(emmc_cmd::modify_ext_csd(
                         emmc_cmd::AccessMode::WriteByte,
-                        EXTENDED_CSD_BUS_WIDTH,
-                        width as u8,
+                        EXTENDED_CSD_HS_TIMING,
+                        hs_timing,
                     ))?;
 
                     // CMD6 is R1b, so wait for the card to be ready again
                     // before proceeding.
                     while !self.card_ready()? {}
 
-                    // CPSMACT and DPSMACT must be 0 to set WIDBUS
+                    // CMD6: SWITCH command
+                    self.cmd(emmc_cmd::modify_ext_csd(
+                        emmc_cmd::AccessMode::WriteByte,
+                        EXTENDED_CSD_BUS_WIDTH,
+                        bus_mode,
+                    ))?;
+
+                    // CMD6 is R1b, so wait for the card to be ready again
+                    // before proceeding.
+                    while !self.card_ready()? {}
+
+                    // CPSMACT and DPSMACT must be 0 to set WIDBUS and DDR
                     while self.sdmmc.star.read().dpsmact().bit_is_set()
                         || self.sdmmc.star.read().cpsmact().bit_is_set()
                     {}
@@ -1373,10 +1424,20 @@ macro_rules! sdmmc {
                             Buswidth::One => 0,
                             Buswidth::Four => 1,
                             Buswidth::Eight => 2,
-                        })
+                        }).ddr().bit(ddr)
                     });
+                    // Set fixed block size of 512 for DDR52 mode
+                    self.cmd16_illegal = matches!(signaling, EmmcSignaling::DDR52);
+                    // Set signaling mode
+                    self.signaling = signaling;
                     // Set CLKDIV
-                    self.clkcr_set_clkdiv(freq.into().raw(), width)?;
+                    self.clkcr_set_clkdiv(freq.raw(), width)?;
+
+                    // Check the achieved clkdiv in DDR mode
+                    if matches!(signaling, EmmcSignaling::DDR52) &&
+                        self.sdmmc.clkcr.read().clkdiv().bits() == 0 {
+                        return Err(Error::InvalidConfiguration);
+                    }
 
                     Ok(())
                 }
