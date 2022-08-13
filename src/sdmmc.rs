@@ -10,7 +10,7 @@
 //!
 //! ## IO Setup
 //!
-//! For high speed signalling (bus clock > 16MHz), the IO speed needs to be
+//! For high speed signaling (bus clock > 16MHz), the IO speed needs to be
 //! increased from the default.
 //!
 //! ```
@@ -211,21 +211,36 @@ pins! {
         D123DIR: []
 }
 
-/// The signalling scheme used on the SDMMC bus
+/// Signaling mode for communicating with Sd Cards. Refer to RM0433 Rev 7
+/// Table 465.
 #[non_exhaustive]
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Signalling {
+pub enum SdCardSignaling {
     SDR12,
     SDR25,
     SDR50,
     SDR104,
     DDR50,
 }
-impl Default for Signalling {
+impl Default for SdCardSignaling {
     fn default() -> Self {
-        Signalling::SDR12
+        Self::SDR12
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum EmmcSignaling {
+    DefaultSpeed,
+    HighSpeed,
+    DDR52,
+    HS200,
+}
+impl Default for EmmcSignaling {
+    fn default() -> Self {
+        Self::DefaultSpeed
     }
 }
 
@@ -253,7 +268,7 @@ pub enum Error {
     RxOverFlow,
     NoCard,
     BadClock,
-    SignallingSwitchFailed,
+    SignalingSwitchFailed,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -326,10 +341,10 @@ pub struct Sdmmc<SDMMC, P: SdmmcPeripheral> {
     hclk: Hertz,
     /// Data bus width
     bus_width: Buswidth,
-    /// Current clock to card
+    /// Current clock to the card
     clock: Hertz,
-    /// Current signalling scheme to card
-    signalling: Signalling,
+    /// Current signaling scheme to the card
+    signaling: P::Signaling,
     /// Address (RCA) currently assigned to card. For eMMC cards this is
     /// assigned by us (the host), for SD cards it is only ever retrieved from
     /// the card response
@@ -342,7 +357,7 @@ impl<SDMMC, P: SdmmcPeripheral> fmt::Debug for Sdmmc<SDMMC, P> {
         f.debug_struct("SDMMC Peripheral")
             .field("Card detected", &self.card.is_some())
             .field("Bus Width (bits)", &self.bus_width)
-            .field("Signalling", &self.signalling)
+            .field("Signaling", &self.signaling)
             .field("Bus Clock", &self.clock)
             .finish()
     }
@@ -514,7 +529,7 @@ macro_rules! sdmmc {
                         hclk,
                         bus_width,
                         clock,
-                        signalling: Default::default(),
+                        signaling: Default::default(),
                         card_rca: 0,
                         card: None,
                     }
@@ -1003,19 +1018,19 @@ macro_rules! sdmmc {
 
                     if freq.raw() > 25_000_000 {
                         // Switch to SDR25
-                        self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
+                        self.signaling = self.switch_signaling_mode(SdCardSignaling::SDR25)?;
 
-                        if self.signalling == Signalling::SDR25 {
+                        if self.signaling == SdCardSignaling::SDR25 {
                             // Set final clock frequency
                             self.clkcr_set_clkdiv(freq.raw(), width)?;
 
                             if !self.card_ready()? {
-                                return Err(Error::SignallingSwitchFailed);
+                                return Err(Error::SignalingSwitchFailed);
                             }
                         }
                     }
 
-                    // Read status after signalling change
+                    // Read status after signaling change
                     self.read_sd_status()?;
 
                     Ok(())
@@ -1100,24 +1115,24 @@ macro_rules! sdmmc {
 
                 /// Switch mode using CMD6.
                 ///
-                /// Attempt to set a new signalling mode. The selected
-                /// signalling mode is returned. Expects the current clock
+                /// Attempt to set a new signaling mode. The selected
+                /// signaling mode is returned. Expects the current clock
                 /// frequency to be > 12.5MHz.
-                fn switch_signalling_mode(
+                fn switch_signaling_mode(
                     &self,
-                    signalling: Signalling,
-                ) -> Result<Signalling, Error> {
+                    signaling: SdCardSignaling,
+                ) -> Result<SdCardSignaling, Error> {
                     // NB PLSS v7_10 4.3.10.4: "the use of SET_BLK_LEN command is not
                     // necessary"
 
                     let set_function = 0x8000_0000
-                        | match signalling {
+                        | match signaling {
                             // See PLSS v7_10 Table 4-11
-                            Signalling::DDR50 => 0xFF_FF04,
-                            Signalling::SDR104 => 0xFF_1F03,
-                            Signalling::SDR50 => 0xFF_1F02,
-                            Signalling::SDR25 => 0xFF_FF01,
-                            Signalling::SDR12 => 0xFF_FF00,
+                            SdCardSignaling::DDR50 => 0xFF_FF04,
+                            SdCardSignaling::SDR104 => 0xFF_1F03,
+                            SdCardSignaling::SDR50 => 0xFF_1F02,
+                            SdCardSignaling::SDR25 => 0xFF_FF01,
+                            SdCardSignaling::SDR12 => 0xFF_FF00,
                         };
 
                     // Prepare the transfer
@@ -1162,11 +1177,11 @@ macro_rules! sdmmc {
                     let selection = (u32::from_be(status[4]) >> 24) & 0xF;
 
                     match selection {
-                        0 => Ok(Signalling::SDR12),
-                        1 => Ok(Signalling::SDR25),
-                        2 => Ok(Signalling::SDR50),
-                        3 => Ok(Signalling::SDR104),
-                        4 => Ok(Signalling::DDR50),
+                        0 => Ok(SdCardSignaling::SDR12),
+                        1 => Ok(SdCardSignaling::SDR25),
+                        2 => Ok(SdCardSignaling::SDR50),
+                        3 => Ok(SdCardSignaling::SDR104),
+                        4 => Ok(SdCardSignaling::DDR50),
                         _ => Err(Error::UnsupportedCardType),
                     }
                 }
@@ -1377,6 +1392,8 @@ sdmmc! {
 }
 
 impl SdmmcPeripheral for SdCard {
+    type Signaling = SdCardSignaling;
+
     fn get_address(&self) -> u16 {
         self.rca.address()
     }
@@ -1386,6 +1403,8 @@ impl SdmmcPeripheral for SdCard {
 }
 
 impl SdmmcPeripheral for Emmc {
+    type Signaling = EmmcSignaling;
+
     fn get_address(&self) -> u16 {
         self.rca.address()
     }
@@ -1395,6 +1414,8 @@ impl SdmmcPeripheral for Emmc {
 }
 
 pub trait SdmmcPeripheral {
+    type Signaling: Default + core::fmt::Debug;
+
     fn get_address(&self) -> u16;
     fn get_capacity(&self) -> CardCapacity;
 }
