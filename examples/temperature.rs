@@ -49,13 +49,19 @@ fn main() -> ! {
 
     // Setup ADC
     #[cfg(not(feature = "rm0455"))]
-    let mut adc =
-        adc::Adc::adc3(dp.ADC3, &mut delay, ccdr.peripheral.ADC3, &ccdr.clocks);
+    let mut adc = adc::Adc::adc3(
+        dp.ADC3,
+        4.MHz(),
+        &mut delay,
+        ccdr.peripheral.ADC3,
+        &ccdr.clocks,
+    );
 
     // On RM0455 parts, the temperature sensor is on ADC2
     #[cfg(feature = "rm0455")]
     let mut adc = adc::Adc::adc2(
         dp.ADC2,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,

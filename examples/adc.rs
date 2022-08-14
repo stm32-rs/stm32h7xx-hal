@@ -54,6 +54,7 @@ fn main() -> ! {
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(
         dp.ADC1,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,

@@ -18,11 +18,15 @@ use core::marker::PhantomData;
 
 use nb::block;
 
-#[cfg(feature = "rm0455")]
 use crate::stm32::ADC12_COMMON;
 use crate::stm32::{ADC1, ADC2};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::{ADC3, ADC3_COMMON};
+
+#[cfg(feature = "rm0455")]
+use crate::stm32::adc12_common::ccr::PRESC_A;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::adc3_common::ccr::PRESC_A;
 
 use crate::gpio::{self, Analog};
 use crate::rcc::rec::AdcClkSelGetter;
@@ -306,6 +310,7 @@ pub trait AdcExt<ADC>: Sized {
 
     fn adc(
         self,
+        f_adc: impl Into<Hertz>,
         delay: &mut impl DelayUs<u8>,
         prec: Self::Rec,
         clocks: &CoreClocks,
@@ -362,6 +367,7 @@ fn kernel_clk_unwrap(
 pub fn adc12(
     adc1: ADC1,
     adc2: ADC2,
+    f_adc: impl Into<Hertz>,
     delay: &mut impl DelayUs<u8>,
     prec: rec::Adc12,
     clocks: &CoreClocks,
@@ -381,11 +387,12 @@ pub fn adc12(
     adc2.power_down();
 
     // Reset peripheral
-    let _ = prec.reset(); // drop, can be recreated by free method
+    let prec = prec.reset();
 
     // Power Up, Preconfigure and Calibrate
     adc1.power_up(delay);
     adc2.power_up(delay);
+    adc1.configure_clock(f_adc.into(), prec, clocks); // ADC12_COMMON
     adc1.preconfigure();
     adc2.preconfigure();
     adc1.calibrate();
@@ -427,7 +434,7 @@ impl<ED> Adc<ADC3, ED> {
 #[allow(unused_macros)]
 macro_rules! adc_hal {
     ($(
-        $ADC:ident: (
+        $ADC:ident, $ADC_COMMON:ident: (
             $adcX: ident,
             $Rec:ident
         )
@@ -437,11 +444,12 @@ macro_rules! adc_hal {
                 type Rec = rec::$Rec;
 
 	            fn adc(self,
+                       f_adc: impl Into<Hertz>,
                        delay: &mut impl DelayUs<u8>,
                        prec: rec::$Rec,
                        clocks: &CoreClocks) -> Adc<$ADC, Disabled>
 	            {
-	                Adc::$adcX(self, delay, prec, clocks)
+	                Adc::$adcX(self, f_adc, delay, prec, clocks)
 	            }
 	        }
 
@@ -450,15 +458,12 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adcX(adc: $ADC, delay: &mut impl DelayUs<u8>,
+                pub fn $adcX(adc: $ADC, f_adc: impl Into<Hertz>, delay: &mut impl DelayUs<u8>,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
                     // Consume ADC register block, produce Self with default
                     // settings
                     let mut adc = Self::default_from_rb(adc);
-
-                    // Check adc_ker_ck_input
-                    kernel_clk_unwrap(&prec, clocks);
 
                     // Enable AHB clock
                     let prec = prec.enable();
@@ -467,10 +472,11 @@ macro_rules! adc_hal {
                     adc.power_down();
 
                     // Reset peripheral
-                    let _ = prec.reset(); // drop, can be recreated by free method
+                    let prec = prec.reset();
 
                     // Power Up, Preconfigure and Calibrate
                     adc.power_up(delay);
+                    adc.configure_clock(f_adc.into(), prec, clocks);
                     adc.preconfigure();
                     adc.calibrate();
 
@@ -487,6 +493,52 @@ macro_rules! adc_hal {
                         _enabled: PhantomData,
                     }
                 }
+                /// Sets the clock configuration for this ADC. This is common
+                /// between ADC1 and ADC2, so the prec block is used to ensure
+                /// this method can only be called on one of the ADCs (or both,
+                /// using the
+                ///
+                /// Only `CKMODE[1:0]` = 0 is supported
+                fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) {
+                    let ker_ck = kernel_clk_unwrap(&prec, clocks);
+
+                    // Target mux output. See RM0433 Rev 7 - Figure 136.
+                    #[cfg(feature = "revision_v")]
+                    let f_target = f_adc.raw() * 2;
+
+                    #[cfg(not(feature = "revision_v"))]
+                    let f_target = f_adc.raw();
+
+                    let (divider, presc) = match (ker_ck.raw() + f_target - 1) / f_target {
+                        1 => (1, PRESC_A::Div1),
+                        2 => (2, PRESC_A::Div2),
+                        3..=4 => (4, PRESC_A::Div4),
+                        5..=6 => (6, PRESC_A::Div6),
+                        7..=8 => (8, PRESC_A::Div8),
+                        9..=10 => (10, PRESC_A::Div10),
+                        11..=12 => (12, PRESC_A::Div12),
+                        13..=16 => (16, PRESC_A::Div16),
+                        17..=32 => (32, PRESC_A::Div32),
+                        33..=64 => (64, PRESC_A::Div64),
+                        65..=128 => (128, PRESC_A::Div128),
+                        129..=256 => (256, PRESC_A::Div256),
+                        _ => panic!(),
+                    };
+                    unsafe { &*$ADC_COMMON::ptr() }.ccr.modify(|_, w| w.presc().variant(presc));
+
+                    // Calculate actual value. See RM0433 Rev 7 - Figure 136.
+                    #[cfg(feature = "revision_v")]
+                    let f_adc = Hertz::from_raw(ker_ck.raw() / (divider * 2));
+
+                    // Calculate actual value Revison Y. See RM0433 Rev 7 - Figure 137.
+                    #[cfg(not(feature = "revision_v"))]
+                    let f_adc = Hertz::from_raw(ker_ck.raw() / divider);
+
+                    // Maximum value, for VOS0 only. Other voltage scale values
+                    // result in a lower maximum f_adc
+                    assert!(f_adc.raw() <= 50_000_000);
+                }
+
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
@@ -903,9 +955,11 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (adc1, Adc12), // ADC1
-    ADC2: (adc2, Adc12), // ADC2
+    ADC1,
+    ADC12_COMMON: (adc1, Adc12),
+    ADC2,
+    ADC12_COMMON: (adc2, Adc12),
 );
 
 #[cfg(not(feature = "rm0455"))]
-adc_hal!(ADC3: (adc3, Adc3));
+adc_hal!(ADC3, ADC3_COMMON: (adc3, Adc3));
