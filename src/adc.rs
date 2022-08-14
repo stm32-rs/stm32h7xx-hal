@@ -29,12 +29,6 @@ use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 
-#[cfg(not(feature = "revision_v"))]
-const ADC_KER_CK_MAX: u32 = 36_000_000;
-
-#[cfg(feature = "revision_v")]
-const ADC_KER_CK_MAX: u32 = 100_000_000;
-
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
@@ -335,10 +329,16 @@ impl defmt::Format for StoredConfig {
     }
 }
 
-/// Get and check the adc_ker_ck_input
-fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
-    // Select Kernel Clock
-    let adc_clock = match prec.get_kernel_clk_mux() {
+/// Returns the frequency of the current adc_ker_ck
+///
+/// # Panics
+///
+/// Panics if the kernel clock is not running
+fn kernel_clk_unwrap(
+    prec: &impl AdcClkSelGetter,
+    clocks: &CoreClocks,
+) -> Hertz {
+    match prec.get_kernel_clk_mux() {
         Some(rec::AdcClkSel::Pll2P) => {
             clocks.pll2_p_ck().expect("ADC: PLL2_P must be enabled")
         }
@@ -349,15 +349,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
             clocks.per_ck().expect("ADC: PER clock must be enabled")
         }
         _ => unreachable!(),
-    };
-
-    // Check against datasheet requirements
-    assert!(
-        adc_clock.raw() <= ADC_KER_CK_MAX,
-        "adc_ker_ck_input is too fast"
-    );
-
-    adc_clock
+    }
 }
 
 // ADC12 is a unique case where a single reset line is used to control two
@@ -379,7 +371,7 @@ pub fn adc12(
     let mut adc2 = Adc::<ADC2, Disabled>::default_from_rb(adc2);
 
     // Check adc_ker_ck_input
-    check_clock(&prec, clocks);
+    kernel_clk_unwrap(&prec, clocks);
 
     // Enable AHB clock
     let prec = prec.enable();
@@ -466,7 +458,7 @@ macro_rules! adc_hal {
                     let mut adc = Self::default_from_rb(adc);
 
                     // Check adc_ker_ck_input
-                    check_clock(&prec, clocks);
+                    kernel_clk_unwrap(&prec, clocks);
 
                     // Enable AHB clock
                     let prec = prec.enable();
