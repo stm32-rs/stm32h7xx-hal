@@ -72,7 +72,7 @@ pub struct Adc<ADC, ED> {
 ///
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
 //
-// Refer to RM0433 Rev 6 - Chapter 24.4.13
+// Refer to RM0433 Rev 7 - Chapter 25.4.13
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
@@ -101,7 +101,7 @@ impl AdcSampleTime {
     }
 }
 
-// Refer to RM0433 Rev 6 - Chapter 24.4.13
+// Refer to RM0433 Rev 7 - Chapter 25.4.13
 impl From<AdcSampleTime> for u8 {
     fn from(val: AdcSampleTime) -> u8 {
         match val {
@@ -491,7 +491,7 @@ macro_rules! adc_hal {
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
                 pub fn power_up(&mut self, delay: &mut impl DelayUs<u8>) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
@@ -503,7 +503,7 @@ macro_rules! adc_hal {
                 ///
                 /// Note: This resets the [`calibration`](#method.calibrate) of the ADC
                 pub fn power_down(&mut self) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().set_bit()
                             .advregen().clear_bit()
@@ -514,7 +514,7 @@ macro_rules! adc_hal {
                 ///
                 /// Note: The ADC must be disabled
                 pub fn calibrate(&mut self) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.8
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.8
                     self.check_calibration_conditions();
 
                     // single channel (INNx equals to V_ref-)
@@ -555,7 +555,7 @@ macro_rules! adc_hal {
                 /// Configuration process immediately after enabling the ADC
                 fn configure(&mut self) {
                     // Single conversion mode, Software trigger
-                    // Refer to RM0433 Rev 6 - Chapters 24.4.15, 24.4.19
+                    // Refer to RM0433 Rev 7 - Chapters 25.4.15, 25.4.19
                     self.rb.cfgr.modify(|_, w|
                         w.cont().clear_bit()
                             .exten().disabled()
@@ -564,7 +564,7 @@ macro_rules! adc_hal {
 
                     // Enables boost mode for highest possible clock frequency
                     //
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.3
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.3
                     #[cfg(not(feature = "revision_v"))]
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
                     #[cfg(feature = "revision_v")]
@@ -573,7 +573,7 @@ macro_rules! adc_hal {
 
                 /// Enable ADC
                 pub fn enable(mut self) -> Adc<$ADC, Enabled> {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.9
                     self.rb.isr.modify(|_, w| w.adrdy().set_bit());
                     self.rb.cr.modify(|_, w| w.aden().set_bit());
                     while self.rb.isr.read().adrdy().bit_is_clear() {}
@@ -640,7 +640,7 @@ macro_rules! adc_hal {
                 ///
                 /// This method will start reading sequence on the given pin.
                 /// The value can be then read through the `read_sample` method.
-                // Refer to RM0433 Rev 6 - Chapter 24.4.16
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
                 pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
                     where PIN: Channel<$ADC, ID = u8>,
                 {
@@ -655,7 +655,7 @@ macro_rules! adc_hal {
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
 
-                    // Select channel (with preselection, refer to RM0433 Rev 6 - Chapter 24.4.12)
+                    // Select channel (with preselection, refer to RM0433 Rev 7 - Chapter 25.4.12)
                     self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
                     self.set_chan_smp(chan);
                     self.rb.sqr1.modify(|_, w| unsafe {
@@ -672,7 +672,7 @@ macro_rules! adc_hal {
                 ///
                 /// `nb::Error::WouldBlock` in case the conversion is still
                 /// progressing.
-                // Refer to RM0433 Rev 6 - Chapter 24.4.16
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
                 pub fn read_sample(&mut self) -> nb::Result<u32, Infallible> {
                     let chan = self.current_channel.expect("No channel was selected, use start_conversion first");
 
@@ -681,7 +681,7 @@ macro_rules! adc_hal {
                         return Err(nb::Error::WouldBlock);
                     }
 
-                    // Disable preselection of this channel, refer to RM0433 Rev 6 - Chapter 24.4.12
+                    // Disable preselection of this channel, refer to RM0433 Rev 7 - Chapter 25.4.12
                     self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << chan)) });
                     self.current_channel = None;
 
@@ -711,7 +711,7 @@ macro_rules! adc_hal {
                 /// Disable ADC
                 pub fn disable(mut self) -> Adc<$ADC, Disabled> {
                     let cr = self.rb.cr.read();
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.9
                     if cr.adstart().bit_is_set() {
                         self.stop_regular_conversion();
                     }
@@ -824,7 +824,7 @@ macro_rules! adc_hal {
                 /// ...
                 /// LINCALRDYW6 -> result\[5\]
                 pub fn read_linear_calibration_values(&mut self) -> AdcCalLinear {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.8 (Page 920)
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.8
                     self.check_linear_read_conditions();
 
                     // Read 1st block of linear correction
