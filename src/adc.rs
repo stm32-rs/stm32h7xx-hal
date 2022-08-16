@@ -68,6 +68,7 @@ pub struct Adc<ADC, ED> {
     sample_time: AdcSampleTime,
     resolution: Resolution,
     lshift: AdcLshift,
+    frequency: Hertz,
     current_channel: Option<u8>,
     _enabled: PhantomData<ED>,
 }
@@ -392,7 +393,8 @@ pub fn adc12(
     // Power Up, Preconfigure and Calibrate
     adc1.power_up(delay);
     adc2.power_up(delay);
-    adc1.configure_clock(f_adc.into(), prec, clocks); // ADC12_COMMON
+    let f_adc = adc1.configure_clock(f_adc.into(), prec, clocks); // ADC12_COMMON
+    adc2.frequency = f_adc;
     adc1.preconfigure();
     adc2.preconfigure();
     adc1.calibrate();
@@ -489,6 +491,7 @@ macro_rules! adc_hal {
                         sample_time: AdcSampleTime::default(),
                         resolution: Resolution::SixteenBit,
                         lshift: AdcLshift::default(),
+                        frequency: Hertz::from_raw(0),
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -499,7 +502,7 @@ macro_rules! adc_hal {
                 /// using the
                 ///
                 /// Only `CKMODE[1:0]` = 0 is supported
-                fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) {
+                fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
                     let ker_ck = kernel_clk_unwrap(&prec, clocks);
 
                     // Target mux output. See RM0433 Rev 7 - Figure 136.
@@ -543,6 +546,17 @@ macro_rules! adc_hal {
                     // Maximum value, for VOS0 only. Other voltage scale values
                     // result in a lower maximum f_adc
                     assert!(f_adc.raw() <= 50_000_000);
+
+                    self.frequency = f_adc;
+                    f_adc
+                }
+
+                /// The current ADC frequency. Defined as f_ADC in device datasheets
+                ///
+                /// The value returned by this method will always be equal or
+                /// lower than the `f_adc` passed to [`init`](#method.init)
+                pub fn frequency(&self) -> Hertz {
+                    self.frequency
                 }
 
                 /// Disables Deeppowerdown-mode and enables voltage regulator
@@ -644,6 +658,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
+                        frequency: self.frequency,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -785,6 +800,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
+                        frequency: self.frequency,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
