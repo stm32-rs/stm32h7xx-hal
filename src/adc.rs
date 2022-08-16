@@ -269,7 +269,18 @@ adc_pins!(ADC2,
     gpio::PA5<Analog> => 19,
 );
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(feature = "rm0455")]
+adc_internal!(
+    [ADC2, ADC12_COMMON];
+
+    Vbat => (14, vbaten),
+    Temperature => (18, vsenseen),
+    Vrefint => (19, vrefen)
+);
+
+// -------- ADC3 --------
+
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_pins!(ADC3,
     // 0, 1 are Pxy_C pins
     gpio::PF9<Analog> => 2,
@@ -288,7 +299,7 @@ adc_pins!(ADC3,
     gpio::PH4<Analog> => 15,
     gpio::PH5<Analog> => 16,
 );
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_internal!(
     [ADC3, ADC3_COMMON];
 
@@ -297,13 +308,35 @@ adc_internal!(
     Vrefint => (19, vrefen)
 );
 
-#[cfg(feature = "rm0455")]
-adc_internal!(
-    [ADC2, ADC12_COMMON];
+// ADC 3 not present on RM0455 parts
 
-    Vbat => (14, vbaten),
-    Temperature => (18, vsenseen),
-    Vrefint => (19, vrefen)
+#[cfg(feature = "rm0468")]
+adc_pins!(ADC3,
+    // 0, 1 are Pxy_C pins
+    gpio::PF9<Analog> => 2,
+    gpio::PF7<Analog> => 3,
+    gpio::PF5<Analog> => 4,
+    gpio::PF3<Analog> => 5,
+    gpio::PF10<Analog> => 6,
+    gpio::PF8<Analog> => 7,
+    gpio::PF6<Analog> => 8,
+    gpio::PF4<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PH2<Analog> => 13,
+    gpio::PH3<Analog> => 14,
+    gpio::PH4<Analog> => 15,
+    // Although ADC3_INP16 appears in device datasheets (on PH5), RM0468 Rev 7
+    // Figure 231 does not show ADC3_INP16
+);
+#[cfg(feature = "rm0468")]
+adc_internal!(
+    [ADC3, ADC3_COMMON];
+
+    Vbat => (16, vbaten),
+    Temperature => (17, vsenseen),
+    Vrefint => (18, vrefen)
 );
 
 pub trait AdcExt<ADC>: Sized {
