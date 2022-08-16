@@ -38,8 +38,8 @@ fn main() -> ! {
     // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. Here we
     // set per_ck to 4MHz.
     //
-    // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
-    // otherwise
+    // adc_ker_ck_input is then divided by the ADC prescaler to give f_adc. The
+    // maximum f_adc is 50MHz in VOS0 or 25MHz in VOS1
     let mut ccdr = rcc
         .sys_ck(100.MHz())
         .per_ck(4.MHz())
