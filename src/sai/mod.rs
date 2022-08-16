@@ -174,8 +174,8 @@ pub enum Event {
 /// SAI Channels
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum SaiChannel {
-    ChannelA,
-    ChannelB,
+    ChannelA = 0,
+    ChannelB = 1,
 }
 
 /// Hardware serial audio interface peripheral
@@ -201,10 +201,7 @@ macro_rules! sai_hal {
                 fn master_channel<F, T>(&self, func: F) -> T
                     where F: FnOnce(&CH) -> T,
                 {
-                    match self.master_channel {
-                        SaiChannel::ChannelA => func(self.rb.cha()),
-                        SaiChannel::ChannelB => func(self.rb.chb()),
-                    }
+                    func(&self.rb.ch[self.master_channel as usize])
                 }
 
                 /// Access to the current slave channel, if set
@@ -212,18 +209,14 @@ macro_rules! sai_hal {
                     where F: FnOnce(&CH) -> T,
                 {
                     match self.slave_channel {
-                        Some(SaiChannel::ChannelA) => Some(func(self.rb.cha())),
-                        Some(SaiChannel::ChannelB) => Some(func(self.rb.chb())),
+                        Some(channel) => Some(func(&self.rb.ch[channel as usize])),
                         None => None
                     }
                 }
 
                 /// Start listening for `event` on a given `channel`
                 pub fn listen(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = match channel {
-                        SaiChannel::ChannelA => self.rb.cha(),
-                        SaiChannel::ChannelB => self.rb.chb(),
-                    };
+                    let ch = &self.rb.ch[channel as usize];
                     match event {
                         Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().set_bit()),
                         Event::Muted                => ch.im.modify(|_, w| w.mutedetie().set_bit()),
@@ -236,10 +229,7 @@ macro_rules! sai_hal {
 
                 /// Stop listening for `event` on a given `channel`
                 pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = match channel {
-                        SaiChannel::ChannelA => self.rb.cha(),
-                        SaiChannel::ChannelB => self.rb.chb(),
-                    };
+                    let ch = &self.rb.ch[channel as usize];
                     match event {
                         Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().clear_bit()),
                         Event::Muted                => ch.im.modify(|_, w| w.mutedetie().clear_bit()),
@@ -256,10 +246,7 @@ macro_rules! sai_hal {
                 ///
                 /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
                 pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = match channel {
-                        SaiChannel::ChannelA => self.rb.cha(),
-                        SaiChannel::ChannelB => self.rb.chb(),
-                    };
+                    let ch = &self.rb.ch[channel as usize];
                     match event {
                         Event::Overdue              => ch.clrfr.write(|w| w.covrudr().set_bit()),
                         Event::Muted                => ch.clrfr.write(|w| w.cmutedet().set_bit()),
@@ -274,10 +261,7 @@ macro_rules! sai_hal {
 
                 /// Clears all interrupts on the `channel`
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
-                    let ch = match channel {
-                        SaiChannel::ChannelA => self.rb.cha(),
-                        SaiChannel::ChannelB => self.rb.chb(),
-                    };
+                    let ch = &self.rb.ch[channel as usize];
                     unsafe {
                         ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
                     }
@@ -288,19 +272,13 @@ macro_rules! sai_hal {
                 /// Mute `channel`, this is checked at the start of each frame
                 /// Meaningful only in Tx mode
                 pub fn mute(&mut self, channel: SaiChannel) {
-                    match channel {
-                        SaiChannel::ChannelA => self.rb.cha().cr2.modify(|_, w| w.mute().enabled()),
-                        SaiChannel::ChannelB => self.rb.cha().cr2.modify(|_, w| w.mute().enabled()),
-                    };
+                    self.rb.ch[channel as usize].cr2.modify(|_, w| w.mute().enabled());
                 }
 
                 /// Unmute `channel`, this is checked at the start of each frame
                 /// Meaningful only in Tx mode
                 pub fn unmute(&mut self, channel: SaiChannel) {
-                    match channel {
-                        SaiChannel::ChannelA => self.rb.cha().cr2.modify(|_, w| w.mute().disabled()),
-                        SaiChannel::ChannelB => self.rb.chb().cr2.modify(|_, w| w.mute().disabled()),
-                    };
+                    self.rb.ch[channel as usize].cr2.modify(|_, w| w.mute().disabled());
                 }
 
                 /// Used to operate the audio block(s) with an external SAI for synchronization
@@ -324,10 +302,7 @@ macro_rules! sai_hal {
 
                 /// Enable DMA for the SAI peripheral.
                 pub fn enable_dma(&mut self, channel: SaiChannel) {
-                    match channel {
-                        SaiChannel::ChannelA => self.rb.cha().cr1.modify(|_, w| w.dmaen().enabled()),
-                        SaiChannel::ChannelB => self.rb.chb().cr1.modify(|_, w| w.dmaen().enabled()),
-                    };
+                    self.rb.ch[channel as usize].cr1.modify(|_, w| w.dmaen().enabled());
                 }
 
                 /// Releases the SAI peripheral
