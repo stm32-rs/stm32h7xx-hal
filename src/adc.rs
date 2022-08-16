@@ -536,6 +536,10 @@ macro_rules! adc_hal {
                     #[cfg(not(feature = "revision_v"))]
                     let f_adc = Hertz::from_raw(ker_ck.raw() / divider);
 
+                    // Minimum value for VOS0 VOS1 and VOS2. Consider removing
+                    // for VOS3
+                    assert!(f_adc.raw() >= 120_000);
+
                     // Maximum value, for VOS0 only. Other voltage scale values
                     // result in a lower maximum f_adc
                     assert!(f_adc.raw() <= 50_000_000);
