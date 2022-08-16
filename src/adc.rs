@@ -522,7 +522,9 @@ macro_rules! adc_hal {
                         33..=64 => (64, PRESC_A::Div64),
                         65..=128 => (128, PRESC_A::Div128),
                         129..=256 => (256, PRESC_A::Div256),
-                        _ => panic!(),
+                        _ => panic!("Selecting the ADC clock required a prescaler > 256, \
+                                     which is not possible in hardware. Either increase the ADC \
+                                     clock frequency or decrease the kernel clock frequency"),
                     };
                     unsafe { &*$ADC_COMMON::ptr() }.ccr.modify(|_, w| w.presc().variant(presc));
 
