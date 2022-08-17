@@ -170,7 +170,6 @@
 //! Additionally, the GPIO will always be high-impedance during power-up or in reset, so pull-ups or pull-downs to ensure safe state are always a good idea.
 
 use core::marker::PhantomData;
-use core::mem::MaybeUninit;
 
 use crate::hal;
 use crate::pac;
@@ -190,6 +189,7 @@ use crate::gpio::{self, Alternate};
 /// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
 pub trait Pins<TIM, CHANNEL, COMP> {
     type Channel;
+    fn split() -> Self::Channel;
 }
 
 /// NPins is a trait that marks which GPIO pins may be used as complementary PWM channels; it should not be directly used.
@@ -305,6 +305,15 @@ pub struct PwmControl<TIM, FAULT> {
     _fault: PhantomData<FAULT>,
 }
 
+impl<TIM, FAULT> PwmControl<TIM, FAULT> {
+    fn new() -> Self {
+        Self {
+            _tim: PhantomData,
+            _fault: PhantomData,
+        }
+    }
+}
+
 /// Marker struct indicating that a PwmControl is in charge of fault monitoring
 pub struct FaultEnabled;
 /// Marker struct indicating that a PwmControl does not handle fault monitoring
@@ -321,6 +330,9 @@ macro_rules! pins_tuples {
                 CHB: Pins<TIM, Ch<$CHB>, TB>,
             {
                 type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new())
+                }
             }
         )*
     };
@@ -347,6 +359,9 @@ macro_rules! pins_tuples {
                 CHC: Pins<TIM, Ch<$CHC>, TC>,
             {
                 type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>, Pwm<TIM, $CHC, TC>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new(), Pwm::new())
+                }
             }
         )*
     };
@@ -374,6 +389,9 @@ macro_rules! pins_tuples {
                 CHD: Pins<TIM, Ch<$CHD>, TD>,
             {
                 type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>, Pwm<TIM, $CHC, TC>, Pwm<TIM, $CHD, TD>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new(), Pwm::new(), Pwm::new())
+                }
             }
         )*
     }
@@ -415,26 +433,40 @@ macro_rules! pins {
         $(
             $(
                 impl Pins<$TIMX, Ch<C1>, ComplementaryImpossible> for $OUT {
-                    type Channel = Pwm<$TIMX, 0, ComplementaryImpossible>;
+                    type Channel = Pwm<$TIMX, C1, ComplementaryImpossible>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
         )+
     };
     // Dual channel timer $pm
     ($($TIMX:ty:
-        CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*] BRK: [$($( #[ $pmeta5:meta ] )* $BRK:ty),*] BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*])+) => {
+        CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
+        CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*]
+        CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*]
+        BRK:  [$($( #[ $pmeta5:meta ] )* $BRK:ty),*]
+        BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
                 impl Pins<$TIMX, Ch<C1>, $COMP1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1, $COMP1>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta2 ] )*
                 impl Pins<$TIMX, Ch<C2>, $COMP2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2, $COMP2>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
@@ -461,35 +493,52 @@ macro_rules! pins {
     };
     // Quad channel timers
     ($($TIMX:ty:
-       CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-       CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*] CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
-       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
-       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*] CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
-       BRK: [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
-       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*])+) => {
+       CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
+       CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+       CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*]
+       CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
+       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*]
+       CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
+       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*]
+       CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
+       BRK:  [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
+       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
                 impl Pins<$TIMX, Ch<C1>, $COMP1> for $CH1 {
                     type Channel = Pwm<$TIMX, C1, $COMP1>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta2 ] )*
                 impl Pins<$TIMX, Ch<C2>, $COMP2> for $CH2 {
                     type Channel = Pwm<$TIMX, C2, $COMP2>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta3 ] )*
                 impl Pins<$TIMX, Ch<C3>, $COMP3> for $CH3 {
                     type Channel = Pwm<$TIMX, C3, $COMP3>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta4 ] )*
                 impl Pins<$TIMX, Ch<C4>, $COMP4> for $CH4 {
                     type Channel = Pwm<$TIMX, C4, $COMP4>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
@@ -928,8 +977,6 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
     let deadtime_ticks = deadtime_ticks as u64 * 429497;
     let deadtime_ticks = (deadtime_ticks >> 32) as u32;
 
-    let deadtime_ticks = deadtime_ticks as u32;
-
     // Choose CR1 CKD divider of 1, 2, or 4 to determine tDTS
     let (deadtime_ticks, ckd) = match deadtime_ticks {
         t if t <= 1008 => (deadtime_ticks, 1),
@@ -1052,16 +1099,12 @@ macro_rules! tim_hal {
                 $(
                     // Set CCxP = OCxREF / CCxNP = !OCxREF
                     // Refer to RM0433 Rev 6 - Table 324.
-                    tim.$bdtr.write(|w|
-                                   w.moe().$moe_set()
-                    );
+                    tim.$bdtr.write(|w| w.moe().$moe_set());
                 )?
 
-                tim.cr1.write(|w|
-                          w.cen().enabled()
-                );
+                tim.cr1.write(|w| w.cen().enabled());
 
-                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
+                PINS::split()
             }
 
             impl PwmAdvExt<$typ> for $TIMX {
@@ -1188,10 +1231,7 @@ macro_rules! tim_hal {
 
                     tim.cr1.modify(|_, w| w.cen().enabled());
 
-                    unsafe {
-                        MaybeUninit::<(PwmControl<$TIMX, FAULT>, PINS::Channel)>::uninit()
-                            .assume_init()
-                    }
+                    (PwmControl::new(), PINS::split())
                 }
 
                 /// Set the PWM frequency; will overwrite the previous prescaler
@@ -1645,7 +1685,7 @@ macro_rules! lptim_hal {
                 // entire timer
                 tim.cr.modify(|_, w| w.enable().disabled());
 
-                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
+                PINS::split()
             }
 
             impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
