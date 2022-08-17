@@ -1019,8 +1019,12 @@ macro_rules! pwm_ext_hal {
 
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
-    ($($TIMX:ident: ($timX:ident, $Rec:ident,
-                     $typ:ty, $bits:expr $(, DIR: $cms:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident $(, $bk2inp_setting:ident)*)*),)+) => {
+    ($($TIMX:ident: ($timX:ident, $Rec:ident, $typ:ty, $bits:expr
+        $(, DIR: $cms:ident)?
+        $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident
+            $(, $bk2inp_setting:ident)?
+        )?
+    ),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
@@ -1058,7 +1062,7 @@ macro_rules! tim_hal {
                     tim.$bdtr.write(|w|
                                    w.moe().$moe_set()
                     );
-                )*
+                )?
 
                 tim.cr1.write(|w|
                           w.cen().enabled()
@@ -1166,7 +1170,7 @@ macro_rules! tim_hal {
                                 //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
                                 tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
                             }
-                        )*
+                        )?
                         else {
                             // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
                             unsafe {
@@ -1178,7 +1182,7 @@ macro_rules! tim_hal {
                         // Set CCxP = OCxREF / CCxNP = !OCxREF
                         // Refer to RM0433 Rev 6 - Table 324.
                         tim.$bdtr.modify(|_, w| w.moe().$moe_set());
-                    )*
+                    )?
 
 
                     $(
@@ -1187,7 +1191,7 @@ macro_rules! tim_hal {
                             Alignment::Right => { tim.cr1.modify(|_, w| w.dir().down()); },
                             Alignment::Center => { tim.cr1.modify(|_, w| w.$cms().center_aligned3()); }
                         }
-                    )*
+                    )?
 
                     tim.cr1.modify(|_, w| w.cen().enabled());
 
@@ -1248,7 +1252,7 @@ macro_rules! tim_hal {
 
                         self
                     }
-                )*
+                )?
 
                 #[must_use]
                 pub fn left_aligned(mut self) -> Self {
@@ -1276,7 +1280,7 @@ macro_rules! tim_hal {
 
                         self
                     }
-                )*
+                )?
             }
 
             // Timers with break/fault, dead time, and complimentary capabilities
@@ -1317,7 +1321,7 @@ macro_rules! tim_hal {
                         tim.$bdtr.modify(|_, w| w.moe().clear_bit());
                     }
                 }
-            )*
+            )?
         )+
     }
 }
