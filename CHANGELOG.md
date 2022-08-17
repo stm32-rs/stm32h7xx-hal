@@ -3,6 +3,7 @@
 ## Unreleased
 * Update `smoltcp` dependency to `0.9.0`
 * MSRV increased to 1.65.0
+* add `IntoAf` trait to restrict `into_alternate` [#346]
 
 ## [v0.14.0] 2023-03-22
 
@@ -32,9 +33,6 @@
 * adc: Remove unnecessary multiple reads of the CR register [#364]
 * adc: Add DMA TargetAddress implementations [#389]
 * adc: Poll LDORDY bit before ADC calibration [#386]
-* Remove pulling from `Input` mode. Use `internal_regiter(Pull)` instead,
-  add universal `into_mode::<MODE>()` pin mode converter,
-  `AFx` is now alias to `Alternate<x>` [#346]
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
 * flash: Use Ordering fence to prevent inconsistency errors when writing to flash sector [#382]
 * iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog` [#376]
@@ -65,7 +63,6 @@
   `Input`. Use `internal_resistor()` method instead, add universal
   `into_mode::<MODE>()` pin mode converter, Rename `set_speed()` method to
   `speed()` `AFx` is now alias to `Alternate<x>` [#347]
-
 * **Breaking**: Use [fugit](https://docs.rs/fugit/0.3.5/fugit/index.html) crate
   for duration and rate units. `.mhz()` -> `.MHz()`, `.khz()` -> `.kHz()`,
   `.hz()` -> `.Hz()`. Methods that previously accepted durations (`.ms()`,

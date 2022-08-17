@@ -230,7 +230,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["usb_hs"]
+required-features = ["usb_hs", "gpio-h747"]
 
 [[example]]
 name = "usb_rtic"
