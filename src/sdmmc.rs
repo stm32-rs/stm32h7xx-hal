@@ -10,7 +10,7 @@
 //!
 //! ## IO Setup
 //!
-//! For high speed signalling (bus clock > 16MHz), the IO speed needs to be
+//! For high speed signaling (bus clock > 16MHz), the IO speed needs to be
 //! increased from the default.
 //!
 //! ```
@@ -59,6 +59,32 @@
 //!     info!("SD Card Connected: {:?}", card);
 //! }
 //! ```
+//!
+//! # High Speed Signaling - SD Card
+//!
+//! Up to 25MHz supported
+//!
+//! TODO
+//!
+//! # High Speed Signaling - eMMC
+//!
+//! The following signaling modes are supported for eMMC, *assuming that the
+//! eMMC device itself supports them*
+//!
+//! | Signaling Mode | Maximum Frequency | Bus Width
+//! | --- | --- | ---
+//! | Default Speed (DS) | 26MHz | 1-bit, 4-bit or 8-bit
+//! | High Speed (HS) | 52MHz | 1-bit, 4-bit or 8-bit
+//! | DDR52 | 52MHz | 4-bit or 8-bit
+//!
+//! The initialisation routine always uses Default Speed (DS) and thus the
+//! specified frequency must be 26MHz or less. For higher frequencies, call
+//! [`set_bus`](crate::sdmmc::Sdmmc::set_bus) to increase the signalling mode.
+//!
+//! ```
+//! sdmmc1.init(26.MHz())?;
+//! sdmmc1.set_bus(Buswidth::Eight, 52.MHz(), EmmcSignaling::DDR52)?;
+//! ```
 
 // Adapted from stm32f4xx-hal
 // https://github.com/stm32-rs/stm32f4xx-hal/blob/master/src/sdio.rs
@@ -67,7 +93,10 @@ use core::fmt;
 
 use sdio_host::{
     common_cmd::{self, ResponseLen},
-    emmc::{CardCapacity, CardStatus, CurrentState, CID, CSD, EMMC, OCR, RCA},
+    emmc::{
+        CardCapacity, CardStatus, CurrentState, ExtCSD, CID, CSD, EMMC, OCR,
+        RCA,
+    },
     emmc_cmd,
     sd::{SDStatus, CIC, SCR, SD},
     sd_cmd, Cmd,
@@ -208,21 +237,38 @@ pins! {
         D123DIR: []
 }
 
-/// The signalling scheme used on the SDMMC bus
+/// Signaling mode for communicating with Sd Cards. Refer to RM0433 Rev 7
+/// Table 465.
 #[non_exhaustive]
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Signalling {
+pub enum SdCardSignaling {
     SDR12,
     SDR25,
     SDR50,
     SDR104,
     DDR50,
 }
-impl Default for Signalling {
+impl Default for SdCardSignaling {
     fn default() -> Self {
-        Signalling::SDR12
+        Self::SDR12
+    }
+}
+
+/// Signaling mode for communicating with eMMC. Refer to RM0433 Rev 7
+/// Table 465.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum EmmcSignaling {
+    DefaultSpeed,
+    HighSpeed,
+    DDR52,
+    HS200,
+}
+impl Default for EmmcSignaling {
+    fn default() -> Self {
+        Self::DefaultSpeed
     }
 }
 
@@ -250,7 +296,8 @@ pub enum Error {
     RxOverFlow,
     NoCard,
     BadClock,
-    SignallingSwitchFailed,
+    InvalidConfiguration,
+    SignalingSwitchFailed,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -281,11 +328,11 @@ impl SdCard {
 #[derive(Clone, Copy, Default)]
 /// eMMC
 pub struct Emmc {
-    pub capacity: CardCapacity,
     pub ocr: OCR<EMMC>,
     pub rca: RCA<EMMC>,
     pub cid: CID<EMMC>,
     pub csd: CSD<EMMC>,
+    pub ext_csd: ExtCSD,
 }
 
 macro_rules! err_from_datapath_sm {
@@ -323,10 +370,17 @@ pub struct Sdmmc<SDMMC, P: SdmmcPeripheral> {
     hclk: Hertz,
     /// Data bus width
     bus_width: Buswidth,
-    /// Current clock to card
+    /// Current clock to the card
     clock: Hertz,
-    /// Current signalling scheme to card
-    signalling: Signalling,
+    /// Current signaling scheme to the card
+    signaling: P::Signaling,
+    /// Indicates if CMD16 is illegal in the current card state. This can occour
+    /// if the block size is fixed to 512 bytes, for example in eMMC DDR mode
+    cmd16_illegal: bool,
+    /// Address (RCA) currently assigned to card. For eMMC cards this is
+    /// assigned by us (the host), for SD cards it is only ever retrieved from
+    /// the card response
+    card_rca: u16,
     /// Card
     card: Option<P>,
 }
@@ -335,7 +389,7 @@ impl<SDMMC, P: SdmmcPeripheral> fmt::Debug for Sdmmc<SDMMC, P> {
         f.debug_struct("SDMMC Peripheral")
             .field("Card detected", &self.card.is_some())
             .field("Bus Width (bits)", &self.bus_width)
-            .field("Signalling", &self.signalling)
+            .field("Signaling", &self.signaling)
             .field("Bus Clock", &self.clock)
             .finish()
     }
@@ -506,9 +560,11 @@ macro_rules! sdmmc {
                         ker_ck,
                         hclk,
                         bus_width,
-                        card: None,
                         clock,
-                        signalling: Default::default(),
+                        signaling: Default::default(),
+                        cmd16_illegal: false,
+                        card_rca: 0,
+                        card: None,
                     }
 
                     // drop prec: ker_ck can no longer be modified
@@ -592,7 +648,9 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup read command
                     self.start_datapath_transfer(512, 9, Dir::CardToHost);
@@ -639,11 +697,14 @@ macro_rules! sdmmc {
                     assert!(buffer.len() % 512 == 0,
                             "Buffer length must be a multiple of 512");
                     let n_blocks = buffer.len() / 512;
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup read command
                     self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::CardToHost);
-                    self.cmd(common_cmd::read_multiple_blocks(address))?;
+                    self.cmd(common_cmd::read_multiple_blocks(address))?; // CMD18
 
                     let mut i = 0;
                     let mut status;
@@ -682,7 +743,9 @@ macro_rules! sdmmc {
                 ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
 
                     // Setup write command
                     self.start_datapath_transfer(512, 9, Dir::HostToCard);
@@ -730,20 +793,21 @@ macro_rules! sdmmc {
                 /// Query the card status (CMD13, returns R1)
                 ///
                 fn read_status(&self) -> Result<CardStatus<P>, Error> {
-                    let card = self.card()?;
-
-                    self.cmd(common_cmd::card_status(card.get_address(), false))?; // CMD13
+                    // CMD13
+                    self.cmd(common_cmd::card_status(self.card_rca, false))?;
 
                     let r1 = self.sdmmc.resp1r.read().bits();
                     Ok(CardStatus::from(r1))
                 }
 
-                /// Check if card is done writing/reading and back in transfer state
+                /// CMD13: Check if card is done writing/reading and back in transfer state
                 fn card_ready(&mut self) -> Result<bool, Error> {
                     Ok(self.read_status()?.state() == CurrentState::Transfer)
                 }
 
-                /// Select the card with `address` and place it into the _Tranfer State_
+                /// CMD7: Select the card with `address` and place it into the _Tranfer State_
+                ///
+                /// When called with rca = 0, deselects the card (and ignores)
                 fn select_card(&self, rca: u16) -> Result<(), Error> {
                     let r = self.cmd(common_cmd::select_card(rca));
                     match (r, rca) {
@@ -753,8 +817,7 @@ macro_rules! sdmmc {
                 }
 
                 fn app_cmd<R: common_cmd::Resp>(&self, acmd: Cmd<R>) -> Result<(), Error> {
-                    let rca = self.card().map(|card| card.get_address()).unwrap_or(0);
-                    self.cmd(common_cmd::app_cmd(rca))?;
+                    self.cmd(common_cmd::app_cmd(self.card_rca))?;
                     self.cmd(acmd)
                 }
 
@@ -956,8 +1019,10 @@ macro_rules! sdmmc {
                     self.select_card(card.rca.address())?;
                     card.scr = self.get_scr(card.rca.address())?;
 
-                    // Replace: self.app_cmd will now select this card
+                    // Replace
                     let _ = self.card.replace(card);
+                    // self.app_cmd will now select this card
+                    self.card_rca = card.rca.address();
 
                     // Set bus width
                     let (width, acmd_arg) = match self.bus_width {
@@ -993,19 +1058,19 @@ macro_rules! sdmmc {
 
                     if freq.raw() > 25_000_000 {
                         // Switch to SDR25
-                        self.signalling = self.switch_signalling_mode(Signalling::SDR25)?;
+                        self.signaling = self.switch_signaling_mode(SdCardSignaling::SDR25)?;
 
-                        if self.signalling == Signalling::SDR25 {
+                        if self.signaling == SdCardSignaling::SDR25 {
                             // Set final clock frequency
                             self.clkcr_set_clkdiv(freq.raw(), width)?;
 
                             if !self.card_ready()? {
-                                return Err(Error::SignallingSwitchFailed);
+                                return Err(Error::SignalingSwitchFailed);
                             }
                         }
                     }
 
-                    // Read status after signalling change
+                    // Read status after signaling change
                     self.read_sd_status()?;
 
                     Ok(())
@@ -1014,13 +1079,11 @@ macro_rules! sdmmc {
                 /// Reads the SD Status (ACMD13)
                 ///
                 fn read_sd_status(&mut self) -> Result<(), Error> {
-                    let card = self.card()?;
-
                     self.cmd(common_cmd::set_block_length(64))?; // CMD16
 
                     // Prepare the transfer
                     self.start_datapath_transfer(64, 6, Dir::CardToHost);
-                    self.app_cmd(common_cmd::card_status(card.get_address(), false))?; // ACMD13
+                    self.app_cmd(common_cmd::card_status(self.card_rca, false))?; // ACMD13
 
                     let mut status = [0u32; 16];
                     let mut idx = 0;
@@ -1092,24 +1155,24 @@ macro_rules! sdmmc {
 
                 /// Switch mode using CMD6.
                 ///
-                /// Attempt to set a new signalling mode. The selected
-                /// signalling mode is returned. Expects the current clock
+                /// Attempt to set a new signaling mode. The selected
+                /// signaling mode is returned. Expects the current clock
                 /// frequency to be > 12.5MHz.
-                fn switch_signalling_mode(
+                fn switch_signaling_mode(
                     &self,
-                    signalling: Signalling,
-                ) -> Result<Signalling, Error> {
+                    signaling: SdCardSignaling,
+                ) -> Result<SdCardSignaling, Error> {
                     // NB PLSS v7_10 4.3.10.4: "the use of SET_BLK_LEN command is not
                     // necessary"
 
                     let set_function = 0x8000_0000
-                        | match signalling {
+                        | match signaling {
                             // See PLSS v7_10 Table 4-11
-                            Signalling::DDR50 => 0xFF_FF04,
-                            Signalling::SDR104 => 0xFF_1F03,
-                            Signalling::SDR50 => 0xFF_1F02,
-                            Signalling::SDR25 => 0xFF_FF01,
-                            Signalling::SDR12 => 0xFF_FF00,
+                            SdCardSignaling::DDR50 => 0xFF_FF04,
+                            SdCardSignaling::SDR104 => 0xFF_1F03,
+                            SdCardSignaling::SDR50 => 0xFF_1F02,
+                            SdCardSignaling::SDR25 => 0xFF_FF01,
+                            SdCardSignaling::SDR12 => 0xFF_FF00,
                         };
 
                     // Prepare the transfer
@@ -1154,11 +1217,11 @@ macro_rules! sdmmc {
                     let selection = (u32::from_be(status[4]) >> 24) & 0xF;
 
                     match selection {
-                        0 => Ok(Signalling::SDR12),
-                        1 => Ok(Signalling::SDR25),
-                        2 => Ok(Signalling::SDR50),
-                        3 => Ok(Signalling::SDR104),
-                        4 => Ok(Signalling::DDR50),
+                        0 => Ok(SdCardSignaling::SDR12),
+                        1 => Ok(SdCardSignaling::SDR25),
+                        2 => Ok(SdCardSignaling::SDR50),
+                        3 => Ok(SdCardSignaling::SDR104),
+                        4 => Ok(SdCardSignaling::DDR50),
                         _ => Err(Error::UnsupportedCardType),
                     }
                 }
@@ -1213,7 +1276,46 @@ macro_rules! sdmmc {
             }
 
             impl Sdmmc<$SDMMCX, Emmc> {
-                /// Initializes eMMC device (if present) and sets the bus at the specified frequency.
+                /// Reads the Extended CSD register CMD8
+                ///
+                pub fn read_extended_csd(&mut self) -> Result<ExtCSD, Error> {
+                    // start transfer
+                    self.start_datapath_transfer(512, 9, Dir::CardToHost);
+                    self.cmd(emmc_cmd::send_ext_csd())?; // CMD8
+
+                    let mut buffer = [0u32; 128];
+                    let mut idx = 0;
+                    let mut sta_reg;
+                    while {
+                        sta_reg = self.sdmmc.star.read();
+                        !(sta_reg.rxoverr().bit()
+                          || sta_reg.dcrcfail().bit()
+                          || sta_reg.dtimeout().bit()
+                          || sta_reg.dbckend().bit())
+                    } {
+                        if sta_reg.rxfifohf().bit() {
+                            for _ in 0..8 {
+                                buffer[idx] = u32::from_be(
+                                    self.sdmmc.fifor.read().bits());
+
+                                idx += 1;
+                            }
+                        }
+
+                        if idx == buffer.len() {
+                            break;
+                        }
+                    }
+
+                    err_from_datapath_sm!(sta_reg);
+
+                    // wait for card to be ready again
+                    while !self.card_ready()? {}
+
+                    Ok(ExtCSD::from(buffer))
+                }
+
+                /// Initializes eMMC device (if present) and sets the bus at the specified frequency
                 pub fn init(&mut self, freq: impl Into<Hertz>) -> Result<(), Error> {
                     let card_addr: RCA<EMMC> = RCA::from(1u16);
 
@@ -1222,14 +1324,15 @@ macro_rules! sdmmc {
 
                     // Enable clock - Already?
 
-                    // Send card to idle state
+                    // CMD0: Send card to idle state
                     self.cmd(common_cmd::idle())?;
 
                     let ocr = loop {
-                        // Initialize card
-
                         // 3.2-3.3V
-                        match self.cmd(emmc_cmd::send_op_cond(0b01000000111111111000000000000000)) {
+                        let op_cond_3v3 = 0b0100_0000_1111_1111_1000_0000_0000_0000;
+
+                        // Initialize card
+                        match self.cmd(emmc_cmd::send_op_cond(op_cond_3v3)) {
                             Ok(_) => (),
                             Err(Error::Crc) => (),
                             Err(err) => return Err(err),
@@ -1240,14 +1343,7 @@ macro_rules! sdmmc {
                         }
                     };
 
-                    // True for SDHC and SDXC False for SDSC
-                    let capacity = if ocr.high_capacity() {
-                        CardCapacity::HighCapacity
-                    } else {
-                        CardCapacity::StandardCapacity
-                    };
-
-                    // Get CID
+                    // CMD2: Get CID
                     self.cmd(common_cmd::all_send_cid())?;
                     let mut cid = [0; 4];
                     cid[3] = self.sdmmc.resp1r.read().bits();
@@ -1256,9 +1352,12 @@ macro_rules! sdmmc {
                     cid[0] = self.sdmmc.resp4r.read().bits();
                     let cid = CID::from(cid);
 
+                    // CMD3: Assign address
                     self.cmd(emmc_cmd::assign_relative_address(card_addr.address()))?;
+                    self.card_rca = card_addr.address();
 
-                    self.cmd(common_cmd::send_csd(card_addr.address()))?;
+                    // CMD9: Send CSD
+                    self.cmd(common_cmd::send_csd(self.card_rca))?;
 
                     let mut csd = [0; 4];
                     csd[3] = self.sdmmc.resp1r.read().bits();
@@ -1267,47 +1366,105 @@ macro_rules! sdmmc {
                     csd[0] = self.sdmmc.resp4r.read().bits();
                     let csd = CSD::from(csd);
 
+                    // CMD7: Place card in the transfer state
+                    self.select_card(self.card_rca)?;
+
+                    while !self.card_ready()? {}
+
+                    // Get extended CSD
+                    let ext_csd = self.read_extended_csd()?;
+
                     let card = Emmc {
-                        capacity,
                         ocr,
                         rca: card_addr,
                         cid,
                         csd,
+                        ext_csd,
                     };
-
-                    self.select_card(card.rca.address())?;
                     self.card.replace(card);
 
-                    // Wait before setting the bus width and frequency to avoid
-                    // timeouts on SDSC cards
-                    while !self.card_ready()? {}
-
-                    self.set_bus(self.bus_width, freq)?;
+                    self.set_bus(self.bus_width, freq, EmmcSignaling::DefaultSpeed)?;
                     Ok(())
                 }
 
-                pub fn set_bus(&mut self, width: Buswidth, freq: impl Into<Hertz>) -> Result<(), Error> {
-                    // Use access mode 0b11 to write a value of 0x02 to byte
-                    // 183. Cmd Set is 0 (not used).
+                pub fn set_bus(&mut self,
+                               width: Buswidth,
+                               freq: impl Into<Hertz>,
+                               signaling: EmmcSignaling
+                ) -> Result<(), Error> {
+                    const EXTENDED_CSD_HS_TIMING: u8=185;
+                    const EXTENDED_CSD_BUS_WIDTH: u8=183;
+                    let freq: Hertz = freq.into();
+
+                    // Check configuration
+                    match signaling {
+                        EmmcSignaling::DefaultSpeed if freq.raw() > 26_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::HighSpeed if freq.raw() > 52_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::DDR52 if freq.raw() > 52_000_000 =>
+                            return Err(Error::InvalidConfiguration),
+                        EmmcSignaling::DDR52 if matches!(width, Buswidth::One) =>
+                            return Err(Error::InvalidConfiguration),
+                        _ => {},
+                    };
+
+                    // Signaling mode
+                    let (hs_timing, ddr, bus_mode) = match signaling {
+                        EmmcSignaling::HighSpeed => (1, false, width as u8),
+                        EmmcSignaling::DDR52 => (1, true, 4 + width as u8),
+                        EmmcSignaling::HS200 => unimplemented!(),
+                        _ => (0, false, width as u8)
+                    };
+
+                    // CMD6: SWITCH command
                     self.cmd(emmc_cmd::modify_ext_csd(
                         emmc_cmd::AccessMode::WriteByte,
-                        183,
-                        width as u8,
+                        EXTENDED_CSD_HS_TIMING,
+                        hs_timing,
                     ))?;
 
                     // CMD6 is R1b, so wait for the card to be ready again
                     // before proceeding.
                     while !self.card_ready()? {}
 
+                    // CMD6: SWITCH command
+                    self.cmd(emmc_cmd::modify_ext_csd(
+                        emmc_cmd::AccessMode::WriteByte,
+                        EXTENDED_CSD_BUS_WIDTH,
+                        bus_mode,
+                    ))?;
+
+                    // CMD6 is R1b, so wait for the card to be ready again
+                    // before proceeding.
+                    while !self.card_ready()? {}
+
+                    // CPSMACT and DPSMACT must be 0 to set WIDBUS and DDR
+                    while self.sdmmc.star.read().dpsmact().bit_is_set()
+                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    {}
+
+                    // Set WIDBUS
                     self.sdmmc.clkcr.modify(|_, w| unsafe {
                         w.widbus().bits(match width {
                             Buswidth::One => 0,
                             Buswidth::Four => 1,
                             Buswidth::Eight => 2,
-                        })
+                        }).ddr().bit(ddr)
                     });
+                    // Set fixed block size of 512 for DDR52 mode
+                    self.cmd16_illegal = matches!(signaling, EmmcSignaling::DDR52);
+                    // Set signaling mode
+                    self.signaling = signaling;
+                    // Set CLKDIV
+                    self.clkcr_set_clkdiv(freq.raw(), width)?;
 
-                    self.clkcr_set_clkdiv(freq.into().raw(), width)?;
+                    // Check the achieved clkdiv in DDR mode
+                    if matches!(signaling, EmmcSignaling::DDR52) &&
+                        self.sdmmc.clkcr.read().clkdiv().bits() == 0 {
+                        return Err(Error::InvalidConfiguration);
+                    }
+
                     Ok(())
                 }
             }
@@ -1322,6 +1479,8 @@ sdmmc! {
 }
 
 impl SdmmcPeripheral for SdCard {
+    type Signaling = SdCardSignaling;
+
     fn get_address(&self) -> u16 {
         self.rca.address()
     }
@@ -1331,15 +1490,19 @@ impl SdmmcPeripheral for SdCard {
 }
 
 impl SdmmcPeripheral for Emmc {
+    type Signaling = EmmcSignaling;
+
     fn get_address(&self) -> u16 {
         self.rca.address()
     }
     fn get_capacity(&self) -> CardCapacity {
-        self.capacity
+        CardCapacity::HighCapacity
     }
 }
 
 pub trait SdmmcPeripheral {
+    type Signaling: Default + core::fmt::Debug;
+
     fn get_address(&self) -> u16;
     fn get_capacity(&self) -> CardCapacity;
 }
