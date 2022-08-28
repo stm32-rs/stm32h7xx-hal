@@ -1276,10 +1276,10 @@ macro_rules! tim_hal {
                 $(
                     /// Set the deadtime for complementary PWM channels of this timer
                     #[must_use]
-                    pub fn with_deadtime(mut self, deadtime: NanoSeconds) -> Self {
+                    pub fn with_deadtime<T: Into<NanoSeconds>>(mut self, deadtime: T) -> Self {
                         // $bdtr is an Ident that only exists for timers with deadtime, so we can use it as a variable name to
                         // only implement this method for timers that support deadtime.
-                        let $bdtr = deadtime;
+                        let $bdtr = deadtime.into();
 
                         self.deadtime = $bdtr;
 
