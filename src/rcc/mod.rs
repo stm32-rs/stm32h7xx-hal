@@ -150,8 +150,6 @@ use crate::stm32::rcc::cfgr::TIMPRE_A as TIMPRE;
 use crate::stm32::rcc::pllckselr::PLLSRC_A as PLLSRC;
 use crate::stm32::{RCC, SYSCFG};
 use crate::time::Hertz;
-use reset_reason::get_reset_reason;
-use reset_reason::ResetReason;
 
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdcfgr1::HPRE_A as HPRE;
@@ -169,11 +167,12 @@ pub mod backup;
 mod core_clocks;
 mod pll;
 pub mod rec;
-pub mod reset_reason;
+mod reset_reason;
 
 pub use core_clocks::CoreClocks;
 pub use pll::{PllConfig, PllConfigStrategy};
 pub use rec::{LowPowerMode, PeripheralREC, ResetEnable};
+pub use reset_reason::ResetReason;
 
 mod mco;
 use mco::{MCO1Config, MCO2Config, MCO1, MCO2};
@@ -243,7 +242,7 @@ pub struct Rcc {
 impl Rcc {
     /// Gets and clears the reason of why the mcu was reset
     pub fn get_reset_reason(&mut self) -> ResetReason {
-        get_reset_reason(&mut self.rb)
+        reset_reason::get_reset_reason(&mut self.rb)
     }
 }
 
