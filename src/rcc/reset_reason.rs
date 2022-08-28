@@ -11,7 +11,8 @@ pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
     // Clear the register
     rcc.rsr.modify(|_, w| w.rmvf().clear());
 
-    // See STM32H743 reference 8.4.4 Reset source identification
+    #[cfg(not(feature = "rm0455"))]
+    // See R0433 Rev 7 Section 8.4.4 Reset source identification
     match (
         reset_reason.lpwrrstf().is_reset_occourred(),
         reset_reason.wwdg1rstf().is_reset_occourred(),
@@ -55,6 +56,46 @@ pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
             ResetReason::D2ExitsDStandbyMode
         }
         (true, false, false, false, false, true, false, false, false, true) => {
+            ResetReason::D1EntersDStandbyErroneouslyOrCpuEntersCStopErroneously
+        }
+        _ => ResetReason::Unknown {
+            rcc_rsr: reset_reason.bits(),
+        },
+    }
+    #[cfg(feature = "rm0455")]
+    // See RM0455 Rev 6 Section 8.4.4 Reset source identification
+    match (
+        reset_reason.lpwrrstf().is_reset_occourred(),
+        reset_reason.wwdgrstf().is_reset_occourred(),
+        reset_reason.iwdgrstf().is_reset_occourred(),
+        reset_reason.sftrstf().is_reset_occourred(),
+        reset_reason.porrstf().is_reset_occourred(),
+        reset_reason.pinrstf().is_reset_occourred(),
+        reset_reason.borrstf().is_reset_occourred(),
+        reset_reason.cdrstf().is_reset_occourred(),
+    ) {
+        (false, false, false, false, true, true, true, true) => {
+            ResetReason::PowerOnReset
+        }
+        (false, false, false, false, false, true, false, false) => {
+            ResetReason::PinReset
+        }
+        (false, false, false, false, false, true, true, false) => {
+            ResetReason::BrownoutReset
+        }
+        (false, false, false, true, false, true, false, false) => {
+            ResetReason::SystemReset
+        }
+        (false, true, false, false, false, true, false, false) => {
+            ResetReason::WindowWatchdogReset
+        }
+        (false, false, true, false, false, true, false, false) => {
+            ResetReason::IndependantWatchdogReset
+        }
+        (false, true, true, false, false, true, false, false) => {
+            ResetReason::GenericWatchdogReset
+        }
+        (true, false, false, false, false, true, false, false) => {
             ResetReason::D1EntersDStandbyErroneouslyOrCpuEntersCStopErroneously
         }
         _ => ResetReason::Unknown {
