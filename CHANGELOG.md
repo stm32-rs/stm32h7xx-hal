@@ -3,10 +3,11 @@
 ## [Unreleased]
 
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
-* iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog`
+* iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog` [#376]
 * pac: Upgrade to stm32-rs v0.15.1 [#370]
 * octospi: add support for octospi1 on rm0455 parts [#370]
 * serial: add support for uart9 and usart10 [#370]
+* rcc: Added a way to read the chip's reset reason [#377]
 
 ## [v0.12.2] 2022-05-06
 
