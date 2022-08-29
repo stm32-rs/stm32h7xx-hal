@@ -16,6 +16,7 @@
 //! Note: STM32H750xB is not yet supported
 
 use crate::stm32::{flash, FLASH};
+use core::sync::atomic::{fence, Ordering};
 
 #[cfg(all(
     any(feature = "rm0433"),
@@ -446,11 +447,15 @@ impl Flash {
         // Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
 
+        // Enable double-word parallelism.
+        unsafe { regs.cr.modify(|_, w| w.psize().bits(0b11)) }
+
         // Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
         regs.cr.modify(|_, w| w.pg().set_bit());
 
-        // Enable double-word parallelism.
-        unsafe { regs.cr.modify(|_, w| w.psize().bits(0b11)) }
+        // Ensure that the write to Device memory to set the appropriate PG CR bit occurs
+        // *before* we begin writing to Normal flash memory. This is to prevent PROGRAMMING_SEQUENCE errors
+        fence(Ordering::SeqCst);
 
         // Check the protection of the targeted memory area.
         // SKIP: In standard mode the entire UserBank1 and UserBank2 should have no write protections
