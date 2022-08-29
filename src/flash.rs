@@ -16,6 +16,7 @@
 //! Note: STM32H750xB is not yet supported
 
 use crate::stm32::{flash, FLASH};
+use core::sync::atomic::{fence, Ordering};
 
 #[cfg(all(
     any(feature = "rm0433"),
@@ -164,8 +165,8 @@ impl Bank {
     /// The number of bytes within the bank
     pub fn size(&self) -> usize {
         match *self {
-            Bank::UserBank1 => (BANK1_ADDR_END - BANK1_ADDR_START),
-            Bank::UserBank2 => (BANK2_ADDR_END - BANK2_ADDR_START),
+            Bank::UserBank1 => BANK1_ADDR_END - BANK1_ADDR_START,
+            Bank::UserBank2 => BANK2_ADDR_END - BANK2_ADDR_START,
         }
     }
     /// The number of sectors within the bank, including sector zero
@@ -440,19 +441,23 @@ impl Flash {
         // Ensure no effective write, erase or option byte change operation is ongoing
         while regs.sr.read().bsy().bit_is_set() {}
 
-        // 1. Clear all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        // Clear all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
         clear_error_flags(regs);
 
-        // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
+        // Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration protection (only if register is not already unlocked).
         self.unlock(bank)?;
 
-        // 3. Enable double-word parallelism.
+        // Enable double-word parallelism.
         unsafe { regs.cr.modify(|_, w| w.psize().bits(0b11)) }
 
-        // 4. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
+        // Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
         regs.cr.modify(|_, w| w.pg().set_bit());
 
-        // 5. Check the protection of the targeted memory area.
+        // Ensure that the write to Device memory to set the appropriate PG CR bit occurs
+        // *before* we begin writing to Normal flash memory. This is to prevent PROGRAMMING_SEQUENCE errors
+        fence(Ordering::SeqCst);
+
+        // Check the protection of the targeted memory area.
         // SKIP: In standard mode the entire UserBank1 and UserBank2 should have no write protections
 
         let mut addr = bank.sector_address(sector) as *mut u32;
@@ -460,7 +465,7 @@ impl Flash {
         // Offset it by the start position
         addr = unsafe { addr.add(start / 4) };
 
-        // 6. Write a double-word corresponding to 32-byte data starting at a 32-byte aligned address.
+        // Write a double-word corresponding to 32-byte data starting at a 32-byte aligned address.
         for chunk in data.chunks_exact(32) {
             if addr as usize > bank.end_address() {
                 // Unable to write outside of the bank end address
@@ -479,19 +484,18 @@ impl Flash {
                 }
             }
 
-            // 7. Wait until the write buffer is complete (WBNE1/WBNE2) and all operations have finished (QW1/QW2).
+            // Wait until the write buffer is complete (WBNE1/WBNE2) and all operations have finished (QW1/QW2).
             while {
                 let sr = regs.sr.read();
                 sr.wbne().bit_is_set() | sr.qw().bit_is_set()
             } {}
         }
 
-        // 8. Cleanup by clearing the PG bit
+        // Cleanup by clearing the PG bit and relocking the bank
         regs.cr.modify(|_, w| w.pg().clear_bit());
-
         self.lock(bank);
 
-        // 9. Check all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
+        // Check all the error flags due to previous programming/erase operation. Refer to Section 4.7: FLASH error management for details.
         handle_illegal(self.bank_registers(bank))?;
 
         Ok(())
@@ -520,6 +524,8 @@ fn clear_error_flags(regs: &BANK) {
             .set_bit()
             .rdserr()
             .set_bit()
+            .incerr()
+            .set_bit()
     })
 }
 
@@ -529,10 +535,10 @@ fn clear_error_flags(regs: &BANK) {
     not(feature = "stm32h750v")
 ))]
 /// Handle illegal status flags
-/// TODO: Clear error flags
 fn handle_illegal(regs: &BANK) -> Result<(), Error> {
     let sr = regs.sr.read();
     let mut bank_err = BankError::empty();
+
     if sr.pgserr().bit_is_set() {
         bank_err |= BankError::PROGRAMMING_SEQUENCE;
     }
