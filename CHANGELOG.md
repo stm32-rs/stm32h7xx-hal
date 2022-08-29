@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+* flash: Use Ordering fence to prevent inconsistency errors when writing to flash sector [#382]
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
 * iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog` [#376]
 * pac: Upgrade to stm32-rs v0.15.1 [#370]
