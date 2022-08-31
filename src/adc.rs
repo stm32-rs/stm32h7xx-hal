@@ -673,7 +673,17 @@ macro_rules! adc_hal {
                     #[cfg(not(feature = "revision_v"))]
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
                     #[cfg(feature = "revision_v")]
-                    self.rb.cr.modify(|_, w| w.boost().lt50());
+                    self.rb.cr.modify(|_, w| {
+                        if self.frequency.raw() <= 6_250_000 {
+                            w.boost().lt6_25()
+                        } else if self.frequency.raw() <= 12_500_000 {
+                            w.boost().lt12_5()
+                        } else if self.frequency.raw() <= 25_000_000 {
+                            w.boost().lt25()
+                        } else {
+                            w.boost().lt50()
+                        }
+                    });
                 }
 
                 /// Enable ADC
