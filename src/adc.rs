@@ -580,14 +580,6 @@ macro_rules! adc_hal {
                     f_adc
                 }
 
-                /// The current ADC frequency. Defined as f_ADC in device datasheets
-                ///
-                /// The value returned by this method will always be equal or
-                /// lower than the `f_adc` passed to [`init`](#method.init)
-                pub fn frequency(&self) -> Hertz {
-                    self.frequency
-                }
-
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
@@ -866,6 +858,14 @@ macro_rules! adc_hal {
                     self.set_resolution(Resolution::SixteenBit);
                     self.set_lshift(AdcLshift::default());
                     cfg
+                }
+
+                /// The current ADC frequency. Defined as f_ADC in device datasheets
+                ///
+                /// The value returned by this method will always be equal or
+                /// lower than the `f_adc` passed to [`init`](#method.init)
+                pub fn frequency(&self) -> Hertz {
+                    self.frequency
                 }
 
                 /// Get ADC samping time
