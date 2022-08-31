@@ -533,7 +533,7 @@ macro_rules! adc_hal {
                 /// Sets the clock configuration for this ADC. This is common
                 /// between ADC1 and ADC2, so the prec block is used to ensure
                 /// this method can only be called on one of the ADCs (or both,
-                /// using the
+                /// using the [adc12](#method.adc12) method).
                 ///
                 /// Only `CKMODE[1:0]` = 0 is supported
                 fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
@@ -557,6 +557,19 @@ macro_rules! adc_hal {
                     assert!(ker_ck.raw() <= max_ker_ck,
                             "Kernel clock violates maximum frequency defined in Reference Manual. \
                              Can result in erroneous ADC readings");
+
+                    let f_adc = self.configure_clock_unchecked(f_adc, prec, clocks);
+
+                    // Maximum ADC clock speed. With BOOST = 0 there is a no
+                    // minimum frequency given in part datasheets
+                    assert!(f_adc.raw() <= 50_000_000);
+
+                    f_adc
+                }
+
+                /// No clock checks
+                fn configure_clock_unchecked(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
+                    let ker_ck = kernel_clk_unwrap(&prec, clocks);
 
                     // Target mux output. See RM0433 Rev 7 - Figure 136.
                     #[cfg(feature = "revision_v")]
@@ -591,10 +604,6 @@ macro_rules! adc_hal {
                     // Calculate actual value Revison Y. See RM0433 Rev 7 - Figure 137.
                     #[cfg(not(feature = "revision_v"))]
                     let f_adc = Hertz::from_raw(ker_ck.raw() / divider);
-
-                    // Maximum ADC clock speed. With BOOST = 0 there is a no
-                    // minimum frequency given in part datasheets
-                    assert!(f_adc.raw() <= 50_000_000);
 
                     self.frequency = f_adc;
                     f_adc
