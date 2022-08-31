@@ -8,6 +8,10 @@
 * octospi: add support for octospi1 on rm0455 parts [#370]
 * serial: add support for uart9 and usart10 [#370]
 
+
+
+* pwm: Remove `POL` and `NPOL` generic type parameters from `Pwm` types [#381]
+
 ## [v0.12.2] 2022-05-06
 
 * gpio: Fix `with_<mode>` methods [#359]
