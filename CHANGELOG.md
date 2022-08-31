@@ -10,6 +10,10 @@
 * serial: add support for uart9 and usart10 [#370]
 * rcc: Added a way to read the chip's reset reason [#377]
 
+
+
+* pwm: Remove `POL` and `NPOL` generic type parameters from `Pwm` types [#381]
+
 ## [v0.12.2] 2022-05-06
 
 * gpio: Fix `with_<mode>` methods [#359]

@@ -170,17 +170,9 @@
 //! Additionally, the GPIO will always be high-impedance during power-up or in reset, so pull-ups or pull-downs to ensure safe state are always a good idea.
 
 use core::marker::PhantomData;
-use core::mem::MaybeUninit;
 
 use crate::hal;
-use crate::stm32::{lptim1, lptim3};
-use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::{LPTIM4, LPTIM5};
-use crate::stm32::{
-    TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
-    TIM8,
-};
+use crate::pac;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::{Hertz, NanoSeconds};
@@ -197,6 +189,7 @@ use crate::gpio::{self, Alternate};
 /// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
 pub trait Pins<TIM, CHANNEL, COMP> {
     type Channel;
+    fn split() -> Self::Channel;
 }
 
 /// NPins is a trait that marks which GPIO pins may be used as complementary PWM channels; it should not be directly used.
@@ -209,14 +202,23 @@ pub trait FaultPins<TIM> {
     const INPUT: BreakInput;
 }
 
+/// Channel wrapper
+pub struct Ch<const C: u8>;
+impl<const C: u8> Ch<C> {
+    const EN: u32 = 1 << (C * 4);
+    const POL: u32 = 1 << (C * 4 + 1);
+    const N_EN: u32 = 1 << (C * 4 + 2);
+    const N_POL: u32 = 1 << (C * 4 + 3);
+}
+
 /// Marker struct for PWM channel 1 on Pins trait and Pwm struct
-pub struct C1;
+pub const C1: u8 = 0;
 /// Marker struct for PWM channel 2 on Pins trait and Pwm struct
-pub struct C2;
+pub const C2: u8 = 1;
 /// Marker struct for PWM channel 3 on Pins trait and Pwm struct
-pub struct C3;
+pub const C3: u8 = 2;
 /// Marker struct for PWM channel 4 on Pins trait and Pwm struct
-pub struct C4;
+pub const C4: u8 = 3;
 
 /// Marker struct for pins and PWM channels that do not support complementary output
 pub struct ComplementaryImpossible;
@@ -226,6 +228,7 @@ pub struct ComplementaryDisabled;
 pub struct ComplementaryEnabled;
 
 /// Enum for IO polarity
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Polarity {
     ActiveHigh,
     ActiveLow,
@@ -259,21 +262,21 @@ pub enum Alignment {
 }
 
 /// Pwm represents one PWM channel; it is created by calling TIM?.pwm(...) and lets you control the channel through the PwmPin trait
-pub struct Pwm<TIM, CHANNEL, COMP, POL, NPOL> {
-    _channel: PhantomData<CHANNEL>,
-    _tim: PhantomData<TIM>,
-    _complementary: PhantomData<COMP>,
-    _polarity: PhantomData<POL>,
-    _npolarity: PhantomData<NPOL>,
+pub struct Pwm<TIM, const CHANNEL: u8, COMP> {
+    _markers: PhantomData<(TIM, COMP)>,
+}
+
+impl<TIM, const CHANNEL: u8, COMP> Pwm<TIM, CHANNEL, COMP> {
+    fn new() -> Self {
+        Self {
+            _markers: PhantomData,
+        }
+    }
 }
 
 /// PwmBuilder is used to configure advanced PWM features
 pub struct PwmBuilder<TIM, PINS, CHANNEL, FAULT, COMP, WIDTH> {
-    _tim: PhantomData<TIM>,
-    _pins: PhantomData<PINS>,
-    _channel: PhantomData<CHANNEL>,
-    _fault: PhantomData<FAULT>,
-    _comp: PhantomData<COMP>,
+    _markers: PhantomData<(TIM, PINS, CHANNEL, FAULT, COMP)>,
     alignment: Alignment,
     base_freq: Hertz,
     count: CountSettings<WIDTH>,
@@ -302,6 +305,15 @@ pub struct PwmControl<TIM, FAULT> {
     _fault: PhantomData<FAULT>,
 }
 
+impl<TIM, FAULT> PwmControl<TIM, FAULT> {
+    fn new() -> Self {
+        Self {
+            _tim: PhantomData,
+            _fault: PhantomData,
+        }
+    }
+}
+
 /// Marker struct indicating that a PwmControl is in charge of fault monitoring
 pub struct FaultEnabled;
 /// Marker struct indicating that a PwmControl does not handle fault monitoring
@@ -310,19 +322,22 @@ pub struct FaultDisabled;
 // automatically implement Pins trait for tuples of individual pins
 macro_rules! pins_tuples {
     // Tuple of two pins
-    ($(($CHA:ty, $CHB:ty)),*) => {
+    ($(($CHA:ident, $CHB:ident)),*) => {
         $(
-            impl<TIM, CHA, CHB, TA, TB> Pins<TIM, ($CHA, $CHB), (TA, TB)> for (CHA, CHB)
+            impl<TIM, CHA, CHB, TA, TB> Pins<TIM, (Ch<$CHA>, Ch<$CHB>), (TA, TB)> for (CHA, CHB)
             where
-                CHA: Pins<TIM, $CHA, TA>,
-                CHB: Pins<TIM, $CHB, TB>,
+                CHA: Pins<TIM, Ch<$CHA>, TA>,
+                CHB: Pins<TIM, Ch<$CHB>, TB>,
             {
-                type Channel = (Pwm<TIM, $CHA, TA, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHB, TB, ActiveHigh, ActiveHigh>);
+                type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new())
+                }
             }
         )*
     };
     // Tuple of three pins
-    ($(($CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+    ($(($CHA:ident, $CHB:ident, $CHC:ident)),*) => {
         $(
             pins_tuples! {
                 PERM3: ($CHA, $CHB, $CHC),
@@ -335,20 +350,23 @@ macro_rules! pins_tuples {
         )*
     };
     // Permutate tuple of three pins
-    ($(PERM3: ($CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+    ($(PERM3: ($CHA:ident, $CHB:ident, $CHC:ident)),*) => {
         $(
-            impl<TIM, CHA, CHB, CHC, TA, TB, TC> Pins<TIM, ($CHA, $CHB, $CHC), (TA, TB, TC)> for (CHA, CHB, CHC)
+            impl<TIM, CHA, CHB, CHC, TA, TB, TC> Pins<TIM, (Ch<$CHA>, Ch<$CHB>, Ch<$CHC>), (TA, TB, TC)> for (CHA, CHB, CHC)
             where
-                CHA: Pins<TIM, $CHA, TA>,
-                CHB: Pins<TIM, $CHB, TB>,
-                CHC: Pins<TIM, $CHC, TC>,
+                CHA: Pins<TIM, Ch<$CHA>, TA>,
+                CHB: Pins<TIM, Ch<$CHB>, TB>,
+                CHC: Pins<TIM, Ch<$CHC>, TC>,
             {
-                type Channel = (Pwm<TIM, $CHA, TA, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHB, TB, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHC, TC, ActiveHigh, ActiveHigh>);
+                type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>, Pwm<TIM, $CHC, TC>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new(), Pwm::new())
+                }
             }
         )*
     };
     // Tuple of four pins (permutates the last 3, leaves 4th in place)
-    ($(($CHD:ty, $CHA:ty, $CHB:ty, $CHC:ty)),*) => {
+    ($(($CHD:ident, $CHA:ident, $CHB:ident, $CHC:ident)),*) => {
         $(
             pins_tuples! {
                 PERM4: ($CHD, $CHA, $CHB, $CHC),
@@ -361,16 +379,19 @@ macro_rules! pins_tuples {
         )*
     };
     // Tuple of four pins (permutates the last 3, leaves 1st in place)
-    ($(PERM4: ($CHA:ty, $CHB:ty, $CHC:ty, $CHD:ty)),*) => {
+    ($(PERM4: ($CHA:ident, $CHB:ident, $CHC:ident, $CHD:ident)),*) => {
         $(
-            impl<TIM, CHA, CHB, CHC, CHD, TA, TB, TC, TD> Pins<TIM, ($CHA, $CHB, $CHC, $CHD), (TA, TB, TC, TD)> for (CHA, CHB, CHC, CHD)
+            impl<TIM, CHA, CHB, CHC, CHD, TA, TB, TC, TD> Pins<TIM, (Ch<$CHA>, Ch<$CHB>, Ch<$CHC>, Ch<$CHD>), (TA, TB, TC, TD)> for (CHA, CHB, CHC, CHD)
             where
-                CHA: Pins<TIM, $CHA, TA>,
-                CHB: Pins<TIM, $CHB, TB>,
-                CHC: Pins<TIM, $CHC, TC>,
-                CHD: Pins<TIM, $CHD, TD>,
+                CHA: Pins<TIM, Ch<$CHA>, TA>,
+                CHB: Pins<TIM, Ch<$CHB>, TB>,
+                CHC: Pins<TIM, Ch<$CHC>, TC>,
+                CHD: Pins<TIM, Ch<$CHD>, TD>,
             {
-                type Channel = (Pwm<TIM, $CHA, TA, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHB, TB, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHC, TC, ActiveHigh, ActiveHigh>, Pwm<TIM, $CHD, TD, ActiveHigh, ActiveHigh>);
+                type Channel = (Pwm<TIM, $CHA, TA>, Pwm<TIM, $CHB, TB>, Pwm<TIM, $CHC, TC>, Pwm<TIM, $CHD, TD>);
+                fn split() -> Self::Channel {
+                    (Pwm::new(), Pwm::new(), Pwm::new(), Pwm::new())
+                }
             }
         )*
     }
@@ -411,36 +432,50 @@ macro_rules! pins {
     ($($TIMX:ty: OUT: [$($OUT:ty),*])+) => {
         $(
             $(
-                impl Pins<$TIMX, C1, ComplementaryImpossible> for $OUT {
-                    type Channel = Pwm<$TIMX, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C1>, ComplementaryImpossible> for $OUT {
+                    type Channel = Pwm<$TIMX, C1, ComplementaryImpossible>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
         )+
     };
     // Dual channel timer $pm
     ($($TIMX:ty:
-        CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*] BRK: [$($( #[ $pmeta5:meta ] )* $BRK:ty),*] BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*])+) => {
+        CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
+        CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*]
+        CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*]
+        BRK:  [$($( #[ $pmeta5:meta ] )* $BRK:ty),*]
+        BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
-                impl Pins<$TIMX, C1, $COMP1> for $CH1 {
-                    type Channel = Pwm<$TIMX, C1, $COMP1, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C1>, $COMP1> for $CH1 {
+                    type Channel = Pwm<$TIMX, C1, $COMP1>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta2 ] )*
-                impl Pins<$TIMX, C2, $COMP2> for $CH2 {
-                    type Channel = Pwm<$TIMX, C2, $COMP2, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C2>, $COMP2> for $CH2 {
+                    type Channel = Pwm<$TIMX, C2, $COMP2>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta3 ] )*
-                impl NPins<$TIMX, C1> for $CH1N {}
+                impl NPins<$TIMX, Ch<C1>> for $CH1N {}
             )*
             $(
                 $( #[ $pmeta4 ] )*
-                impl NPins<$TIMX, C2> for $CH2N {}
+                impl NPins<$TIMX, Ch<C2>> for $CH2N {}
             )*
             $(
                 $( #[ $pmeta5 ] )*
@@ -458,52 +493,69 @@ macro_rules! pins {
     };
     // Quad channel timers
     ($($TIMX:ty:
-       CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*] CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-       CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*] CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
-       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*] CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
-       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*] CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
-       BRK: [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
-       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*])+) => {
+       CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
+       CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
+       CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*]
+       CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
+       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*]
+       CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
+       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*]
+       CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
+       BRK:  [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
+       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*]
+    )+) => {
         $(
             $(
                 $( #[ $pmeta1 ] )*
-                impl Pins<$TIMX, C1, $COMP1> for $CH1 {
-                    type Channel = Pwm<$TIMX, C1, $COMP1, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C1>, $COMP1> for $CH1 {
+                    type Channel = Pwm<$TIMX, C1, $COMP1>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta2 ] )*
-                impl Pins<$TIMX, C2, $COMP2> for $CH2 {
-                    type Channel = Pwm<$TIMX, C2, $COMP2, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C2>, $COMP2> for $CH2 {
+                    type Channel = Pwm<$TIMX, C2, $COMP2>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta3 ] )*
-                impl Pins<$TIMX, C3, $COMP3> for $CH3 {
-                    type Channel = Pwm<$TIMX, C3, $COMP3, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C3>, $COMP3> for $CH3 {
+                    type Channel = Pwm<$TIMX, C3, $COMP3>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta4 ] )*
-                impl Pins<$TIMX, C4, $COMP4> for $CH4 {
-                    type Channel = Pwm<$TIMX, C4, $COMP4, ActiveHigh, ActiveHigh>;
+                impl Pins<$TIMX, Ch<C4>, $COMP4> for $CH4 {
+                    type Channel = Pwm<$TIMX, C4, $COMP4>;
+                    fn split() -> Self::Channel {
+                        Pwm::new()
+                    }
                 }
             )*
             $(
                 $( #[ $pmeta5 ] )*
-                impl NPins<$TIMX, C1> for $CH1N {}
+                impl NPins<$TIMX, Ch<C1>> for $CH1N {}
             )*
             $(
                 $( #[ $pmeta6 ] )*
-                impl NPins<$TIMX, C2> for $CH2N {}
+                impl NPins<$TIMX, Ch<C2>> for $CH2N {}
             )*
             $(
                 $( #[ $pmeta7 ] )*
-                impl NPins<$TIMX, C3> for $CH3N {}
+                impl NPins<$TIMX, Ch<C3>> for $CH3N {}
             )*
             $(
                 $( #[ $pmeta8 ] )*
-                impl NPins<$TIMX, C4> for $CH4N {}
+                impl NPins<$TIMX, Ch<C4>> for $CH4N {}
             )*
             $(
                 $( #[ $pmeta9 ] )*
@@ -522,34 +574,34 @@ macro_rules! pins {
 }
 // Single channel timers
 pins! {
-    LPTIM1:
+    pac::LPTIM1:
         OUT: [
             gpio::PD13<Alternate<1>>,
             gpio::PG13<Alternate<1>>
         ]
-    LPTIM2:
+    pac::LPTIM2:
         OUT: [
             gpio::PB13<Alternate<3>>
         ]
-    LPTIM3:
+    pac::LPTIM3:
         OUT: [
             gpio::PA1<Alternate<3>>
         ]
 }
 #[cfg(not(feature = "rm0455"))]
 pins! {
-    LPTIM4:
+    pac::LPTIM4:
         OUT: [
             gpio::PA2<Alternate<3>>
         ]
-    LPTIM5:
+    pac::LPTIM5:
         OUT: [
             gpio::PA3<Alternate<3>>
         ]
 }
 // Dual channel timers
 pins! {
-    TIM12:
+    pac::TIM12:
         CH1(ComplementaryImpossible): [
             gpio::PB14<Alternate<2>>,
             gpio::PH6<Alternate<2>>
@@ -562,7 +614,7 @@ pins! {
         CH2N: []
         BRK: []
         BRK2: []
-    TIM13:
+    pac::TIM13:
         CH1(ComplementaryImpossible): [
             gpio::PA6<Alternate<9>>,
             gpio::PF8<Alternate<9>>
@@ -572,7 +624,7 @@ pins! {
         CH2N: []
         BRK: []
         BRK2: []
-    TIM14:
+    pac::TIM14:
         CH1(ComplementaryImpossible): [
             gpio::PA7<Alternate<9>>,
             gpio::PF9<Alternate<9>>
@@ -582,7 +634,7 @@ pins! {
         CH2N: []
         BRK: []
         BRK2: []
-    TIM15:
+    pac::TIM15:
         CH1(ComplementaryDisabled): [
             gpio::PA2<Alternate<4>>,
             gpio::PE5<Alternate<4>>,
@@ -605,7 +657,7 @@ pins! {
             gpio::PE3<Alternate<4>>
         ]
         BRK2: []
-    TIM16:
+    pac::TIM16:
         CH1(ComplementaryDisabled): [
             gpio::PB8<Alternate<1>>,
             gpio::PF6<Alternate<1>>
@@ -621,7 +673,7 @@ pins! {
             gpio::PF10<Alternate<1>>
         ]
         BRK2: []
-    TIM17:
+    pac::TIM17:
         CH1(ComplementaryDisabled): [
             gpio::PB9<Alternate<1>>,
             gpio::PF7<Alternate<1>>
@@ -640,7 +692,7 @@ pins! {
 }
 // Quad channel timers
 pins! {
-    TIM1:
+    pac::TIM1:
         CH1(ComplementaryDisabled): [
             gpio::PA8<Alternate<1>>,
             gpio::PE9<Alternate<1>>,
@@ -696,7 +748,7 @@ pins! {
             gpio::PE6<Alternate<1>>,
             gpio::PG4<Alternate<1>>
         ]
-    TIM2:
+    pac::TIM2:
         CH1(ComplementaryImpossible): [
             gpio::PA0<Alternate<1>>,
             gpio::PA5<Alternate<1>>,
@@ -720,7 +772,7 @@ pins! {
         CH4N: []
         BRK: []
         BRK2: []
-    TIM3:
+    pac::TIM3:
         CH1(ComplementaryImpossible): [
             gpio::PA6<Alternate<2>>,
             gpio::PB4<Alternate<2>>,
@@ -745,7 +797,7 @@ pins! {
         CH4N: []
         BRK: []
         BRK2: []
-    TIM4:
+    pac::TIM4:
         CH1(ComplementaryImpossible): [
             gpio::PB6<Alternate<2>>,
             gpio::PD12<Alternate<2>>
@@ -768,7 +820,7 @@ pins! {
         CH4N: []
         BRK: []
         BRK2: []
-    TIM5:
+    pac::TIM5:
         CH1(ComplementaryImpossible): [
             gpio::PA0<Alternate<2>>,
             gpio::PH10<Alternate<2>>
@@ -792,7 +844,7 @@ pins! {
         CH4N: []
         BRK: []
         BRK2: []
-    TIM8:
+    pac::TIM8:
         CH1(ComplementaryDisabled): [
             gpio::PC6<Alternate<3>>,
             #[cfg(not(feature = "rm0468"))]
@@ -925,8 +977,6 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
     let deadtime_ticks = deadtime_ticks as u64 * 429497;
     let deadtime_ticks = (deadtime_ticks >> 32) as u32;
 
-    let deadtime_ticks = deadtime_ticks as u32;
-
     // Choose CR1 CKD divider of 1, 2, or 4 to determine tDTS
     let (deadtime_ticks, ckd) = match deadtime_ticks {
         t if t <= 1008 => (deadtime_ticks, 1),
@@ -987,7 +1037,7 @@ pub trait PwmAdvExt<WIDTH>: Sized {
 
 // Implement PwmExt trait for timer
 macro_rules! pwm_ext_hal {
-    ($TIMX:ident: $timX:ident, $Rec:ident) => {
+    ($TIMX:ty: $timX:ident, $Rec:ident) => {
         impl PwmExt for $TIMX {
             type Rec = rec::$Rec;
 
@@ -1009,8 +1059,12 @@ macro_rules! pwm_ext_hal {
 
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
-    ($($TIMX:ident: ($timX:ident, $Rec:ident,
-                     $typ:ty, $bits:expr $(, DIR: $cms:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident $(, $bk2inp_setting:ident)*)*),)+) => {
+    ($($TIMX:ty: ($timX:ident, $Rec:ident, $typ:ty, $bits:expr
+        $(, DIR: $cms:ident)?
+        $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident
+            $(, $bk2inp_setting:ident)?
+        )?
+    ),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
@@ -1027,7 +1081,7 @@ macro_rules! tim_hal {
             {
                 let _ = prec.enable().reset(); // drop
 
-                let clk = $TIMX::get_clk(clocks)
+                let clk = <$TIMX>::get_clk(clocks)
                     .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
 
                 let (period, prescale) = match $bits {
@@ -1045,16 +1099,12 @@ macro_rules! tim_hal {
                 $(
                     // Set CCxP = OCxREF / CCxNP = !OCxREF
                     // Refer to RM0433 Rev 6 - Table 324.
-                    tim.$bdtr.write(|w|
-                                   w.moe().$moe_set()
-                    );
-                )*
+                    tim.$bdtr.write(|w| w.moe().$moe_set());
+                )?
 
-                tim.cr1.write(|w|
-                          w.cen().enabled()
-                );
+                tim.cr1.write(|w| w.cen().enabled());
 
-                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
+                PINS::split()
             }
 
             impl PwmAdvExt<$typ> for $TIMX {
@@ -1071,15 +1121,11 @@ macro_rules! tim_hal {
                 {
                     let _ = prec.enable().reset(); // drop
 
-                    let clk = $TIMX::get_clk(clocks)
+                    let clk = <$TIMX>::get_clk(clocks)
                         .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
 
                     PwmBuilder {
-                        _tim: PhantomData,
-                        _pins: PhantomData,
-                        _channel: PhantomData,
-                        _fault: PhantomData,
-                        _comp: PhantomData,
+                        _markers: PhantomData,
                         alignment: Alignment::Left,
                         base_freq: clk,
                         count: CountSettings::Explicit { period: 65535, prescaler: 0, },
@@ -1097,7 +1143,7 @@ macro_rules! tim_hal {
                 PINS: Pins<$TIMX, CHANNEL, COMP>,
             {
                 pub fn finalize(self) -> (PwmControl<$TIMX, FAULT>, PINS::Channel) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     let (period, prescaler) = match self.count {
                         CountSettings::Explicit { period, prescaler } => (period as u32, prescaler),
@@ -1160,7 +1206,7 @@ macro_rules! tim_hal {
                                 //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
                                 tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
                             }
-                        )*
+                        )?
                         else {
                             // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
                             unsafe {
@@ -1172,7 +1218,7 @@ macro_rules! tim_hal {
                         // Set CCxP = OCxREF / CCxNP = !OCxREF
                         // Refer to RM0433 Rev 6 - Table 324.
                         tim.$bdtr.modify(|_, w| w.moe().$moe_set());
-                    )*
+                    )?
 
 
                     $(
@@ -1181,14 +1227,11 @@ macro_rules! tim_hal {
                             Alignment::Right => { tim.cr1.modify(|_, w| w.dir().down()); },
                             Alignment::Center => { tim.cr1.modify(|_, w| w.$cms().center_aligned3()); }
                         }
-                    )*
+                    )?
 
                     tim.cr1.modify(|_, w| w.cen().enabled());
 
-                    unsafe {
-                        MaybeUninit::<(PwmControl<$TIMX, FAULT>, PINS::Channel)>::uninit()
-                            .assume_init()
-                    }
+                    (PwmControl::new(), PINS::split())
                 }
 
                 /// Set the PWM frequency; will overwrite the previous prescaler
@@ -1242,7 +1285,7 @@ macro_rules! tim_hal {
 
                         self
                     }
-                )*
+                )?
 
                 #[must_use]
                 pub fn left_aligned(mut self) -> Self {
@@ -1270,7 +1313,7 @@ macro_rules! tim_hal {
 
                         self
                     }
-                )*
+                )?
             }
 
             // Timers with break/fault, dead time, and complimentary capabilities
@@ -1280,11 +1323,7 @@ macro_rules! tim_hal {
                     /// Note: not all timers have fault inputs; FaultPins<TIM> is only implemented for valid pins/timers.
                     pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
                         PwmBuilder {
-                            _tim: PhantomData,
-                            _pins: PhantomData,
-                            _channel: PhantomData,
-                            _fault: PhantomData,
-                            _comp: PhantomData,
+                            _markers: PhantomData,
                             alignment: self.alignment,
                             base_freq: self.base_freq,
                             count: self.count,
@@ -1298,45 +1337,45 @@ macro_rules! tim_hal {
 
                 impl FaultMonitor for PwmControl<$TIMX, FaultEnabled> {
                     fn is_fault_active(&self) -> bool {
-                        let tim = unsafe { &*$TIMX::ptr() };
+                        let tim = unsafe { &*<$TIMX>::ptr() };
 
                         !tim.$bdtr.read().moe().bit()
                     }
 
                     fn clear_fault(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
+                        let tim = unsafe { &*<$TIMX>::ptr() };
 
                         tim.$bdtr.modify(|_, w| w.moe().set_bit());
                     }
 
                     fn set_fault(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
+                        let tim = unsafe { &*<$TIMX>::ptr() };
 
                         tim.$bdtr.modify(|_, w| w.moe().clear_bit());
                     }
                 }
-            )*
+            )?
         )+
     }
 }
 
 tim_hal! {
-    TIM1: (tim1, Tim1, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
-    TIM2: (tim2, Tim2, u32, 32, DIR: cms),
-    TIM3: (tim3, Tim3, u16, 16, DIR: cms),
-    TIM4: (tim4, Tim4, u16, 16, DIR: cms),
-    TIM5: (tim5, Tim5, u32, 32, DIR: cms),
-    TIM8: (tim8, Tim8, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
+    pac::TIM1: (tim1, Tim1, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
+    pac::TIM2: (tim2, Tim2, u32, 32, DIR: cms),
+    pac::TIM3: (tim3, Tim3, u16, 16, DIR: cms),
+    pac::TIM4: (tim4, Tim4, u16, 16, DIR: cms),
+    pac::TIM5: (tim5, Tim5, u32, 32, DIR: cms),
+    pac::TIM8: (tim8, Tim8, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
 }
 tim_hal! {
-    TIM12: (tim12, Tim12, u16, 16),
-    TIM13: (tim13, Tim13, u16, 16),
-    TIM14: (tim14, Tim14, u16, 16),
+    pac::TIM12: (tim12, Tim12, u16, 16),
+    pac::TIM13: (tim13, Tim13, u16, 16),
+    pac::TIM14: (tim14, Tim14, u16, 16),
 }
 tim_hal! {
-    TIM15: (tim15, Tim15, u16, 16, BDTR: bdtr, set_bit, af1, set_bit),
-    TIM16: (tim16, Tim16, u16, 16, BDTR: bdtr, set_bit, tim16_af1, set_bit),
-    TIM17: (tim17, Tim17, u16, 16, BDTR: bdtr, set_bit, tim17_af1, set_bit),
+    pac::TIM15: (tim15, Tim15, u16, 16, BDTR: bdtr, set_bit, af1, set_bit),
+    pac::TIM16: (tim16, Tim16, u16, 16, BDTR: bdtr, set_bit, tim16_af1, set_bit),
+    pac::TIM17: (tim17, Tim17, u16, 16, BDTR: bdtr, set_bit, tim17_af1, set_bit),
 }
 
 pub trait PwmPinEnable {
@@ -1347,13 +1386,12 @@ pub trait PwmPinEnable {
 // Implement PwmPin for timer channels
 macro_rules! tim_pin_hal {
     // Standard pins (no complementary functionality)
-    ($($TIMX:ident:
-       ($CH:ty, $ccxe:ident, $ccxp:ident, $ccmrx_output:ident, $ocxpe:ident, $ocxm:ident,
-        $ccrx:ident, $typ:ident $(,$ccxne:ident, $ccxnp:ident)*),)+
+    ($TIMX:ty, $typ:ty: $(
+       ($CH:ident, $ccmrx_output:ident, $ocxpe:ident, $ocxm:ident),)+
     ) => {
         $(
-            impl<COMP, POL, NPOL> hal::PwmPin for Pwm<$TIMX, $CH, COMP, POL, NPOL>
-                where Pwm<$TIMX, $CH, COMP, POL, NPOL>: PwmPinEnable {
+            impl<COMP> hal::PwmPin for Pwm<$TIMX, $CH, COMP>
+                where Pwm<$TIMX, $CH, COMP>: PwmPinEnable {
                 type Duty = $typ;
 
                 // You may not access self in the following methods!
@@ -1364,7 +1402,7 @@ macro_rules! tim_pin_hal {
                 }
 
                 fn enable(&mut self) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.$ccmrx_output().modify(|_, w|
                         w.$ocxpe()
@@ -1377,13 +1415,13 @@ macro_rules! tim_pin_hal {
                 }
 
                 fn get_duty(&self) -> Self::Duty {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    tim.$ccrx().read().ccr().bits()
+                    tim.ccr[$CH as usize].read().ccr().bits()
                 }
 
                 fn get_max_duty(&self) -> Self::Duty {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     let arr = tim.arr.read().arr().bits();
 
@@ -1400,219 +1438,199 @@ macro_rules! tim_pin_hal {
                 }
 
                 fn set_duty(&mut self, duty: Self::Duty) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    tim.$ccrx().write(|w| w.ccr().bits(duty));
+                    tim.ccr[$CH as usize].write(|w| w.ccr().bits(duty));
                 }
             }
 
-            // Enable implementation for ComplementaryImpossible
-            impl<POL, NPOL> PwmPinEnable for Pwm<$TIMX, $CH, ComplementaryImpossible, POL, NPOL> {
-                fn ccer_enable(&mut self) {
-                    let tim = unsafe { &*$TIMX::ptr() };
-
-                    tim.ccer.modify(|_, w| w.$ccxe().set_bit());
-                }
-                fn ccer_disable(&mut self) {
-                    let tim = unsafe { &*$TIMX::ptr() };
-
-                    tim.ccer.modify(|_, w| w.$ccxe().clear_bit());
-                }
-            }
-
-            impl<COMP, NPOL> Pwm<$TIMX, $CH, COMP, ActiveHigh, NPOL> {
-                pub fn into_active_low(self) -> Pwm<$TIMX, $CH, COMP, ActiveLow, NPOL> {
-                    let tim = unsafe { &*$TIMX::ptr() };
-
-                    tim.ccer.modify(|_, w| w.$ccxp().set_bit());
-
-                    Pwm {
-                        _channel: PhantomData,
-                        _tim: PhantomData,
-                        _complementary: PhantomData,
-                        _polarity: PhantomData,
-                        _npolarity: PhantomData,
-                    }
-                }
-            }
-
-            impl<COMP, NPOL> Pwm<$TIMX, $CH, COMP, ActiveLow, NPOL> {
-                pub fn into_active_high(self) -> Pwm<$TIMX, $CH, COMP, ActiveHigh, NPOL> {
-                    let tim = unsafe { &*$TIMX::ptr() };
-
-                    tim.ccer.modify(|_, w| w.$ccxp().clear_bit());
-
-                    Pwm {
-                        _channel: PhantomData,
-                        _tim: PhantomData,
-                        _complementary: PhantomData,
-                        _polarity: PhantomData,
-                        _npolarity: PhantomData,
-                    }
-                }
-            }
-
-            // Complementary channels
-            $(
-                // Enable implementation for ComplementaryDisabled
-                impl<POL, NPOL> PwmPinEnable for Pwm<$TIMX, $CH, ComplementaryDisabled, POL, NPOL> {
-                    fn ccer_enable(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxe().set_bit());
-                    }
-                    fn ccer_disable(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxe().clear_bit());
-                    }
-                }
-
-                // Enable implementation for ComplementaryEnabled
-                impl<POL, NPOL> PwmPinEnable for Pwm<$TIMX, $CH, ComplementaryEnabled, POL, NPOL> {
-                    fn ccer_enable(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxe().set_bit().$ccxne().set_bit());
-                    }
-                    fn ccer_disable(&mut self) {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxe().clear_bit().$ccxne().clear_bit());
-                    }
-                }
-
-                impl<POL, NPOL> Pwm<$TIMX, $CH, ComplementaryDisabled, POL, NPOL> {
-                    pub fn into_complementary<NPIN>(self, _npin: NPIN) -> Pwm<$TIMX, $CH, ComplementaryEnabled, POL, NPOL>
-                        where NPIN: NPins<$TIMX, $CH> {
-                        // Make sure we aren't switching to complementary after we enable the channel
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        let enabled = tim.ccer.read().$ccxe().bit();
-
-                        assert!(!enabled);
-
-                        Pwm {
-                            _channel: PhantomData,
-                            _tim: PhantomData,
-                            _complementary: PhantomData,
-                            _polarity: PhantomData,
-                            _npolarity: PhantomData,
-                        }
-                    }
-                }
-
-                impl<POL> Pwm<$TIMX, $CH, ComplementaryEnabled, POL, ActiveHigh> {
-                    pub fn into_comp_active_low(self) -> Pwm<$TIMX, $CH, ComplementaryEnabled, POL, ActiveLow> {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxnp().set_bit());
-
-                        Pwm {
-                            _channel: PhantomData,
-                            _tim: PhantomData,
-                            _complementary: PhantomData,
-                            _polarity: PhantomData,
-                            _npolarity: PhantomData,
-                        }
-                    }
-                }
-
-                impl<POL> Pwm<$TIMX, $CH, ComplementaryEnabled, POL, ActiveLow> {
-                    pub fn into_comp_active_high(self) -> Pwm<$TIMX, $CH, ComplementaryEnabled, POL, ActiveHigh> {
-                        let tim = unsafe { &*$TIMX::ptr() };
-
-                        tim.ccer.modify(|_, w| w.$ccxnp().clear_bit());
-
-                        Pwm {
-                            _channel: PhantomData,
-                            _tim: PhantomData,
-                            _complementary: PhantomData,
-                            _polarity: PhantomData,
-                            _npolarity: PhantomData,
-                        }
-                    }
-                }
-            )*
         )+
+
+        // Enable implementation for ComplementaryImpossible
+        impl<const C: u8> PwmPinEnable for Pwm<$TIMX, C, ComplementaryImpossible> {
+            fn ccer_enable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() | Ch::<C>::EN) });
+            }
+            fn ccer_disable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() & !Ch::<C>::EN) });
+            }
+        }
+
+
+        impl<const C: u8, COMP> Pwm<$TIMX, C, COMP> {
+            pub fn set_polarity(&mut self, pol: Polarity) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(match pol {
+                    Polarity::ActiveLow => r.bits() | Ch::<C>::POL,
+                    Polarity::ActiveHigh => r.bits() & !Ch::<C>::POL,
+                })});
+            }
+        }
+
+        impl<const C: u8, COMP> Pwm<$TIMX, C, COMP> {
+            pub fn into_active_low(mut self) -> Pwm<$TIMX, C, COMP> {
+                self.set_polarity(Polarity::ActiveLow);
+                self
+            }
+        }
+
+        impl<const C: u8, COMP> Pwm<$TIMX, C, COMP> {
+            pub fn into_active_high(mut self) -> Pwm<$TIMX, C, COMP> {
+                self.set_polarity(Polarity::ActiveHigh);
+                self
+            }
+        }
+
+        // Complementary channels
+
+        // Enable implementation for ComplementaryDisabled
+        impl<const C: u8> PwmPinEnable for Pwm<$TIMX, C, ComplementaryDisabled> {
+            fn ccer_enable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() | Ch::<C>::EN) });
+            }
+            fn ccer_disable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() & !Ch::<C>::EN) });
+            }
+        }
+
+        // Enable implementation for ComplementaryEnabled
+        impl<const C: u8> PwmPinEnable for Pwm<$TIMX, C, ComplementaryEnabled> {
+            fn ccer_enable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() | Ch::<C>::EN | Ch::<C>::N_EN) });
+            }
+            fn ccer_disable(&mut self) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() & !Ch::<C>::EN & !Ch::<C>::N_EN) });
+            }
+        }
+
+        impl<const C: u8> Pwm<$TIMX, C, ComplementaryDisabled> {
+            pub fn into_complementary<NPIN>(self, _npin: NPIN) -> Pwm<$TIMX, C, ComplementaryEnabled>
+                where NPIN: NPins<$TIMX, Ch<C>> {
+                // Make sure we aren't switching to complementary after we enable the channel
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                let enabled = (tim.ccer.read().bits() & Ch::<C>::EN) != 0;
+
+                assert!(!enabled);
+
+                Pwm::new()
+            }
+        }
+
+        impl<const C: u8> Pwm<$TIMX, C, ComplementaryEnabled> {
+            pub fn set_comp_polarity(&mut self, pol: Polarity) {
+                let tim = unsafe { &*<$TIMX>::ptr() };
+
+                tim.ccer.modify(|r, w| unsafe { w.bits(match pol {
+                    Polarity::ActiveLow => r.bits() | Ch::<C>::N_POL,
+                    Polarity::ActiveHigh => r.bits() & !Ch::<C>::N_POL,
+                })});
+            }
+        }
+
+        impl<const C: u8> Pwm<$TIMX, C, ComplementaryEnabled> {
+            pub fn into_comp_active_low(mut self) -> Pwm<$TIMX, C, ComplementaryEnabled> {
+                self.set_comp_polarity(Polarity::ActiveLow);
+                self
+            }
+        }
+
+        impl<const C: u8> Pwm<$TIMX, C, ComplementaryEnabled> {
+            pub fn into_comp_active_high(mut self) -> Pwm<$TIMX, C, ComplementaryEnabled> {
+                self.set_comp_polarity(Polarity::ActiveHigh);
+                self
+            }
+        }
     };
 }
 
 // Dual channel timers
 tim_pin_hal! {
-    TIM12: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-    TIM12: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+    pac::TIM12, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
 }
 tim_pin_hal! {
-    TIM15: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
-}
-// Channel 1 is complementary, channel 2 isn't
-tim_pin_hal! {
-    TIM15: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+    pac::TIM15, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
 }
 
 // Single channel timers
 tim_pin_hal! {
-    TIM13: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    pac::TIM13, u16: (C1, ccmr1_output, oc1pe, oc1m),
 }
 tim_pin_hal! {
-    TIM14: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    pac::TIM14, u16: (C1, ccmr1_output, oc1pe, oc1m),
 }
 tim_pin_hal! {
-    TIM16: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
+    pac::TIM16, u16: (C1, ccmr1_output, oc1pe, oc1m),
 }
 tim_pin_hal! {
-    TIM17: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
+    pac::TIM17, u16: (C1, ccmr1_output, oc1pe, oc1m),
 }
 
 // Quad channel timers
 tim_pin_hal! {
-    TIM1: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
-    TIM1: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16, cc2ne, cc2np),
-    TIM1: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16, cc3ne, cc3np),
-}
-// Channels 1-3 are complementary, channel 4 isn't
-tim_pin_hal! {
-    TIM1: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
+    pac::TIM1, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 tim_pin_hal! {
-    TIM2: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u32),
-    TIM2: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u32),
-    TIM2: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u32),
-    TIM2: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u32),
+    pac::TIM2, u32:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 tim_pin_hal! {
-    TIM3: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-    TIM3: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
-    TIM3: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16),
-    TIM3: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
+    pac::TIM3, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 tim_pin_hal! {
-    TIM4: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-    TIM4: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
-    TIM4: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16),
-    TIM4: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
+    pac::TIM4, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 tim_pin_hal! {
-    TIM5: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u32),
-    TIM5: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u32),
-    TIM5: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u32),
-    TIM5: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u32),
+    pac::TIM5, u32:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 // Quad channel timers
 tim_pin_hal! {
-    TIM8: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
-    TIM8: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16, cc2ne, cc2np),
-    TIM8: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u16, cc3ne, cc3np),
-}
-// Channels 1-3 are complementary, channel 4 isn't
-tim_pin_hal! {
-    TIM8: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
+    pac::TIM8, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
 }
 
 // Low-power timers
 macro_rules! lptim_hal {
-    ($($TIMX:ident: ($timX:ident, $Rec:ident, $timXpac:ident),)+) => {
+    ($($TIMX:ty: ($timX:ident, $Rec:ident),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX, $Rec);
 
@@ -1629,21 +1647,22 @@ macro_rules! lptim_hal {
             {
                 let _ = prec.enable().reset(); // drop
 
-                let clk = $TIMX::get_clk(clocks)
+                let clk = <$TIMX>::get_clk(clocks)
                     .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
                 let reload = clk / freq;
                 assert!(reload < 128 * (1 << 16));
 
                 // Calculate prescaler
+                use pac::$timX::cfgr::PRESC_A;
                 let (prescale, prescale_div) = match reload / (1 << 16) {
-                    0 => ($timXpac::cfgr::PRESC_A::Div1, 1),
-                    1 => ($timXpac::cfgr::PRESC_A::Div2, 2),
-                    2..=3 => ($timXpac::cfgr::PRESC_A::Div4, 4),
-                    4..=7 => ($timXpac::cfgr::PRESC_A::Div8, 8),
-                    8..=15 => ($timXpac::cfgr::PRESC_A::Div16, 16),
-                    16..=31 => ($timXpac::cfgr::PRESC_A::Div32, 32),
-                    32..=63 => ($timXpac::cfgr::PRESC_A::Div64, 64),
-                    _ => ($timXpac::cfgr::PRESC_A::Div128, 128),
+                    0 => (PRESC_A::Div1, 1),
+                    1 => (PRESC_A::Div2, 2),
+                    2..=3 => (PRESC_A::Div4, 4),
+                    4..=7 => (PRESC_A::Div8, 8),
+                    8..=15 => (PRESC_A::Div16, 16),
+                    16..=31 => (PRESC_A::Div32, 32),
+                    32..=63 => (PRESC_A::Div64, 64),
+                    _ => (PRESC_A::Div128, 128),
                 };
 
                 // Calcuate reload
@@ -1666,17 +1685,17 @@ macro_rules! lptim_hal {
                 // entire timer
                 tim.cr.modify(|_, w| w.enable().disabled());
 
-                unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
+                PINS::split()
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh> {
+            impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
                 type Duty = u16;
 
                 // You may not access self in the following methods!
                 // See unsafe above
 
                 fn disable(&mut self) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     // LPTIM only has one output, so we disable the
                     // entire timer
@@ -1684,25 +1703,25 @@ macro_rules! lptim_hal {
                 }
 
                 fn enable(&mut self) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.cr.modify(|_, w| w.cntstrt().start().enable().enabled());
                 }
 
                 fn get_duty(&self) -> u16 {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.cmp.read().cmp().bits()
                 }
 
                 fn get_max_duty(&self) -> u16 {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.arr.read().arr().bits()
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    let tim = unsafe { &*$TIMX::ptr() };
+                    let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.cmp.write(|w| w.cmp().bits(duty));
                     while !tim.isr.read().cmpok().is_set() {}
@@ -1714,12 +1733,12 @@ macro_rules! lptim_hal {
 }
 
 lptim_hal! {
-    LPTIM1: (lptim1, Lptim1, lptim1),
-    LPTIM2: (lptim2, Lptim2, lptim1),
-    LPTIM3: (lptim3, Lptim3, lptim3),
+    pac::LPTIM1: (lptim1, Lptim1),
+    pac::LPTIM2: (lptim2, Lptim2),
+    pac::LPTIM3: (lptim3, Lptim3),
 }
 #[cfg(not(feature = "rm0455"))]
 lptim_hal! {
-    LPTIM4: (lptim4, Lptim4, lptim3),
-    LPTIM5: (lptim5, Lptim5, lptim3),
+    pac::LPTIM4: (lptim4, Lptim4),
+    pac::LPTIM5: (lptim5, Lptim5),
 }
