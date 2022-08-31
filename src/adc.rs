@@ -29,6 +29,7 @@ use crate::stm32::adc12_common::ccr::PRESC_A;
 use crate::stm32::adc3_common::ccr::PRESC_A;
 
 use crate::gpio::{self, Analog};
+use crate::pwr::{current_vos, VoltageScale};
 use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
@@ -537,6 +538,25 @@ macro_rules! adc_hal {
                 /// Only `CKMODE[1:0]` = 0 is supported
                 fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
                     let ker_ck = kernel_clk_unwrap(&prec, clocks);
+
+                    let max_ker_ck = match current_vos() {
+                        // See RM0468 Rev 3 Table 56.
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale0 | VoltageScale::Scale1 => 160_000_000,
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale2 => 60_000_000,
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale3 => 40_000_000,
+
+                        // See RM0433 Rev 7 Table 59.
+                        #[cfg(not(feature = "rm0468"))]
+                        VoltageScale::Scale0 | VoltageScale::Scale1 => 80_000_000,
+                        #[cfg(not(feature = "rm0468"))]
+                        VoltageScale::Scale2 | VoltageScale::Scale3 => 40_000_000
+                    };
+                    assert!(ker_ck.raw() <= max_ker_ck,
+                            "Kernel clock violates maximum frequency defined in Reference Manual. \
+                             Can result in erroneous ADC readings");
 
                     // Target mux output. See RM0433 Rev 7 - Figure 136.
                     #[cfg(feature = "revision_v")]
