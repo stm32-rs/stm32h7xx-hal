@@ -35,15 +35,12 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     // We need to configure a clock for adc_ker_ck_input. The default
-    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. Here we
-    // set per_ck to 4MHz.
+    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. per_ck is sourced
+    // from the 64MHz HSI
     //
     // adc_ker_ck_input is then divided by the ADC prescaler to give f_adc. The
-    // maximum f_adc is 50MHz in VOS0 or 25MHz in VOS1
-    let mut ccdr = rcc
-        .sys_ck(100.MHz())
-        .per_ck(4.MHz())
-        .freeze(pwrcfg, &dp.SYSCFG);
+    // maximum f_adc is 50MHz
+    let mut ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
     ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
