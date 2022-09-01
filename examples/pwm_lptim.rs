@@ -1,3 +1,5 @@
+//! PWM output using a LPTIM Low Power Timer
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -6,7 +8,7 @@ use cortex_m::asm;
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::{pac, prelude::*};
+use stm32h7xx_hal::{pac, prelude::*, rcc::rec};
 
 use log::info;
 
@@ -25,28 +27,26 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc.sys_ck(8.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
-    // Acquire the GPIOA and GPIOB peripherals. This also enables the clocks for
-    // these peripherals in the RCC register.
-    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
+    // Acquire the GPIOB peripheral. This also enables the clock for
+    // GPIOB in the RCC register.
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
-    // Select PWM output pins
-    let pins = (
-        gpioa.pa8.into_alternate(),
-        gpioa.pa9.into_alternate(),
-        gpioa.pa10.into_alternate(),
+    info!("");
+    info!("stm32h7xx-hal example - PWM from LPTIM");
+    info!("");
+
+    // Configure PWM at 1kHz, from LSI
+    let mut pwm = dp.LPTIM2.pwm(
+        gpiob.pb13.into_alternate(),
+        1.kHz(),
+        ccdr.peripheral
+            .LPTIM2
+            .kernel_clk_mux(rec::Lptim2ClkSel::Lsi),
+        &ccdr.clocks,
     );
+    pwm.enable(); // must be enabled before use
 
-    info!("");
-    info!("stm32h7xx-hal example - PWM");
-    info!("");
-
-    // Configure PWM at 10kHz
-    let (mut pwm, ..) =
-        dp.TIM1
-            .pwm(pins, 10.kHz(), ccdr.peripheral.TIM1, &ccdr.clocks);
-
-    // Output PWM on PA8
+    // Output PWM on PB13
     let max = pwm.get_max_duty();
     pwm.set_duty(max / 2);
 
@@ -65,18 +65,6 @@ fn main() -> ! {
     info!("100%");
     pwm.set_duty(max);
     asm::bkpt();
-
-    let mut pwm = dp.TIM12.pwm(
-        gpiob.pb14.into_alternate(),
-        10.kHz(),
-        ccdr.peripheral.TIM12,
-        &ccdr.clocks,
-    );
-
-    // Output PWM on PB14
-    let max = pwm.get_max_duty();
-    pwm.set_duty(max / 2);
-    pwm.enable();
 
     loop {
         cortex_m::asm::nop()
