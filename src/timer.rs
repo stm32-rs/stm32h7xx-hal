@@ -547,6 +547,7 @@ macro_rules! lptim_hal {
                     self.clear_irq();
 
                     // Start counter
+                    self.tim.cr.write(|w| w.enable().enabled());
                     self.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
                 }
 
@@ -601,6 +602,7 @@ macro_rules! lptim_hal {
                     timer.clear_irq();
 
                     // Start counter
+                    timer.tim.cr.write(|w| w.enable().enabled());
                     timer.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
 
                     timer
