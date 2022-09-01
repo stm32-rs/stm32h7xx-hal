@@ -644,6 +644,9 @@ macro_rules! adc_hal {
                             .advregen().set_bit()
                     );
                     delay.delay_us(10_u8);
+
+                    #[cfg(feature = "revision_v")]
+                    while self.rb.isr.read().bits() & 0x1000 == 0 {} // LDORDY bit
                 }
 
                 /// Enables Deeppowerdown-mode and disables voltage regulator
