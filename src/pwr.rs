@@ -220,6 +220,48 @@ macro_rules! d3cr {
     };
 }
 
+/// Returns the voltage scale at the current moment
+pub(crate) fn current_vos() -> VoltageScale {
+    // NOTE(unsafe): Read-only access
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
+    if unsafe { (*SYSCFG::ptr()).pwrcr.read().oden().bit_is_set() } {
+        return VoltageScale::Scale0;
+    }
+
+    // NOTE(unsafe): Read-only access
+    let d3cr = unsafe { d3cr!(*PWR::ptr()).read() };
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    match d3cr.vos().bits() {
+        // RM0433 Rev 7 6.8.6
+        0b01 => VoltageScale::Scale3,
+        0b10 => VoltageScale::Scale2,
+        0b11 => VoltageScale::Scale1,
+        _ => VoltageScale::Scale3,
+    }
+    #[cfg(feature = "rm0455")]
+    match d3cr.vos().bits() {
+        // RM0455 Rev 3 6.8.6
+        0b00 => VoltageScale::Scale3,
+        0b01 => VoltageScale::Scale2,
+        0b10 => VoltageScale::Scale1,
+        0b11 => VoltageScale::Scale0,
+        _ => unreachable!(),
+    }
+    #[cfg(feature = "rm0468")]
+    match d3cr.vos().bits() {
+        // RM0468 Rev 2 6.8.6
+        0b00 => VoltageScale::Scale0,
+        0b01 => VoltageScale::Scale3,
+        0b10 => VoltageScale::Scale2,
+        0b11 => VoltageScale::Scale1,
+        _ => unreachable!(),
+    }
+}
+
 /// Internal power methods
 impl Pwr {
     /// Verify that the lower byte of CR3 reads as written

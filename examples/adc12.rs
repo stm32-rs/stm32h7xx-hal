@@ -44,6 +44,7 @@ fn main() -> ! {
     let (adc1, adc2) = adc::adc12(
         dp.ADC1,
         dp.ADC2,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,

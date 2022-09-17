@@ -1705,7 +1705,8 @@ macro_rules! lptim_hal {
                 fn enable(&mut self) {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    tim.cr.modify(|_, w| w.cntstrt().start().enable().enabled());
+                    tim.cr.modify(|_, w| w.enable().enabled());
+                    tim.cr.modify(|_, w| w.cntstrt().start());
                 }
 
                 fn get_duty(&self) -> u16 {

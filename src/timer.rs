@@ -74,7 +74,7 @@ impl GetClk for LPTIM1 {
             Some(ccip2r::LPTIM1SEL_A::Pll2P) => clocks.pll2_p_ck(),
             Some(ccip2r::LPTIM1SEL_A::Pll3R) => clocks.pll3_r_ck(),
             Some(ccip2r::LPTIM1SEL_A::Lse) => unimplemented!(),
-            Some(ccip2r::LPTIM1SEL_A::Lsi) => unimplemented!(),
+            Some(ccip2r::LPTIM1SEL_A::Lsi) => clocks.lsi_ck(),
             Some(ccip2r::LPTIM1SEL_A::Per) => clocks.per_ck(),
             _ => unreachable!(),
         }
@@ -95,7 +95,7 @@ impl GetClk for LPTIM2 {
             Some(srdccipr::LPTIM2SEL_A::Pll2P) => clocks.pll2_p_ck(),
             Some(srdccipr::LPTIM2SEL_A::Pll3R) => clocks.pll3_r_ck(),
             Some(srdccipr::LPTIM2SEL_A::Lse) => unimplemented!(),
-            Some(srdccipr::LPTIM2SEL_A::Lsi) => unimplemented!(),
+            Some(srdccipr::LPTIM2SEL_A::Lsi) => clocks.lsi_ck(),
             Some(srdccipr::LPTIM2SEL_A::Per) => clocks.per_ck(),
             _ => unreachable!(),
         }
@@ -115,7 +115,7 @@ impl GetClk for LPTIM3 {
             1 => clocks.pll2_p_ck(),
             2 => clocks.pll3_r_ck(),
             3 => unimplemented!(),
-            4 => unimplemented!(),
+            4 => clocks.lsi_ck(),
             5 => clocks.per_ck(),
             _ => unreachable!(),
         }
@@ -138,7 +138,7 @@ macro_rules! impl_clk_lptim345 {
                         Some(srdccipr::LPTIM345SEL_A::Pll2P) => clocks.pll2_p_ck(),
                         Some(srdccipr::LPTIM345SEL_A::Pll3R) => clocks.pll3_r_ck(),
                         Some(srdccipr::LPTIM345SEL_A::Lse) => unimplemented!(),
-                        Some(srdccipr::LPTIM345SEL_A::Lsi) => unimplemented!(),
+                        Some(srdccipr::LPTIM345SEL_A::Lsi) => clocks.lsi_ck(),
                         Some(srdccipr::LPTIM345SEL_A::Per) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
@@ -547,6 +547,7 @@ macro_rules! lptim_hal {
                     self.clear_irq();
 
                     // Start counter
+                    self.tim.cr.write(|w| w.enable().enabled());
                     self.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
                 }
 
@@ -601,6 +602,7 @@ macro_rules! lptim_hal {
                     timer.clear_irq();
 
                     // Start counter
+                    timer.tim.cr.write(|w| w.enable().enabled());
                     timer.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
 
                     timer

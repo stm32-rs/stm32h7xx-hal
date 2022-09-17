@@ -18,22 +18,21 @@ use core::marker::PhantomData;
 
 use nb::block;
 
-#[cfg(feature = "rm0455")]
 use crate::stm32::ADC12_COMMON;
 use crate::stm32::{ADC1, ADC2};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::{ADC3, ADC3_COMMON};
 
+#[cfg(feature = "rm0455")]
+use crate::stm32::adc12_common::ccr::PRESC_A;
+#[cfg(not(feature = "rm0455"))]
+use crate::stm32::adc3_common::ccr::PRESC_A;
+
 use crate::gpio::{self, Analog};
+use crate::pwr::{current_vos, VoltageScale};
 use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
-
-#[cfg(not(feature = "revision_v"))]
-const ADC_KER_CK_MAX: u32 = 36_000_000;
-
-#[cfg(feature = "revision_v")]
-const ADC_KER_CK_MAX: u32 = 100_000_000;
 
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
@@ -70,6 +69,7 @@ pub struct Adc<ADC, ED> {
     sample_time: AdcSampleTime,
     resolution: Resolution,
     lshift: AdcLshift,
+    frequency: Hertz,
     current_channel: Option<u8>,
     _enabled: PhantomData<ED>,
 }
@@ -78,7 +78,7 @@ pub struct Adc<ADC, ED> {
 ///
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
 //
-// Refer to RM0433 Rev 6 - Chapter 24.4.13
+// Refer to RM0433 Rev 7 - Chapter 25.4.13
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
@@ -107,7 +107,7 @@ impl AdcSampleTime {
     }
 }
 
-// Refer to RM0433 Rev 6 - Chapter 24.4.13
+// Refer to RM0433 Rev 7 - Chapter 25.4.13
 impl From<AdcSampleTime> for u8 {
     fn from(val: AdcSampleTime) -> u8 {
         match val {
@@ -270,7 +270,18 @@ adc_pins!(ADC2,
     gpio::PA5<Analog> => 19,
 );
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(feature = "rm0455")]
+adc_internal!(
+    [ADC2, ADC12_COMMON];
+
+    Vbat => (14, vbaten),
+    Temperature => (18, vsenseen),
+    Vrefint => (19, vrefen)
+);
+
+// -------- ADC3 --------
+
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_pins!(ADC3,
     // 0, 1 are Pxy_C pins
     gpio::PF9<Analog> => 2,
@@ -289,7 +300,7 @@ adc_pins!(ADC3,
     gpio::PH4<Analog> => 15,
     gpio::PH5<Analog> => 16,
 );
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_internal!(
     [ADC3, ADC3_COMMON];
 
@@ -298,13 +309,35 @@ adc_internal!(
     Vrefint => (19, vrefen)
 );
 
-#[cfg(feature = "rm0455")]
-adc_internal!(
-    [ADC2, ADC12_COMMON];
+// ADC 3 not present on RM0455 parts
 
-    Vbat => (14, vbaten),
-    Temperature => (18, vsenseen),
-    Vrefint => (19, vrefen)
+#[cfg(feature = "rm0468")]
+adc_pins!(ADC3,
+    // 0, 1 are Pxy_C pins
+    gpio::PF9<Analog> => 2,
+    gpio::PF7<Analog> => 3,
+    gpio::PF5<Analog> => 4,
+    gpio::PF3<Analog> => 5,
+    gpio::PF10<Analog> => 6,
+    gpio::PF8<Analog> => 7,
+    gpio::PF6<Analog> => 8,
+    gpio::PF4<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PH2<Analog> => 13,
+    gpio::PH3<Analog> => 14,
+    gpio::PH4<Analog> => 15,
+    // Although ADC3_INP16 appears in device datasheets (on PH5), RM0468 Rev 7
+    // Figure 231 does not show ADC3_INP16
+);
+#[cfg(feature = "rm0468")]
+adc_internal!(
+    [ADC3, ADC3_COMMON];
+
+    Vbat => (16, vbaten),
+    Temperature => (17, vsenseen),
+    Vrefint => (18, vrefen)
 );
 
 pub trait AdcExt<ADC>: Sized {
@@ -312,6 +345,7 @@ pub trait AdcExt<ADC>: Sized {
 
     fn adc(
         self,
+        f_adc: impl Into<Hertz>,
         delay: &mut impl DelayUs<u8>,
         prec: Self::Rec,
         clocks: &CoreClocks,
@@ -335,10 +369,16 @@ impl defmt::Format for StoredConfig {
     }
 }
 
-/// Get and check the adc_ker_ck_input
-fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
-    // Select Kernel Clock
-    let adc_clock = match prec.get_kernel_clk_mux() {
+/// Returns the frequency of the current adc_ker_ck
+///
+/// # Panics
+///
+/// Panics if the kernel clock is not running
+fn kernel_clk_unwrap(
+    prec: &impl AdcClkSelGetter,
+    clocks: &CoreClocks,
+) -> Hertz {
+    match prec.get_kernel_clk_mux() {
         Some(rec::AdcClkSel::Pll2P) => {
             clocks.pll2_p_ck().expect("ADC: PLL2_P must be enabled")
         }
@@ -349,15 +389,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
             clocks.per_ck().expect("ADC: PER clock must be enabled")
         }
         _ => unreachable!(),
-    };
-
-    // Check against datasheet requirements
-    assert!(
-        adc_clock.raw() <= ADC_KER_CK_MAX,
-        "adc_ker_ck_input is too fast"
-    );
-
-    adc_clock
+    }
 }
 
 // ADC12 is a unique case where a single reset line is used to control two
@@ -370,6 +402,7 @@ fn check_clock(prec: &impl AdcClkSelGetter, clocks: &CoreClocks) -> Hertz {
 pub fn adc12(
     adc1: ADC1,
     adc2: ADC2,
+    f_adc: impl Into<Hertz>,
     delay: &mut impl DelayUs<u8>,
     prec: rec::Adc12,
     clocks: &CoreClocks,
@@ -379,7 +412,7 @@ pub fn adc12(
     let mut adc2 = Adc::<ADC2, Disabled>::default_from_rb(adc2);
 
     // Check adc_ker_ck_input
-    check_clock(&prec, clocks);
+    kernel_clk_unwrap(&prec, clocks);
 
     // Enable AHB clock
     let prec = prec.enable();
@@ -389,11 +422,13 @@ pub fn adc12(
     adc2.power_down();
 
     // Reset peripheral
-    let _ = prec.reset(); // drop, can be recreated by free method
+    let prec = prec.reset();
 
     // Power Up, Preconfigure and Calibrate
     adc1.power_up(delay);
     adc2.power_up(delay);
+    let f_adc = adc1.configure_clock(f_adc.into(), prec, clocks); // ADC12_COMMON
+    adc2.frequency = f_adc;
     adc1.preconfigure();
     adc2.preconfigure();
     adc1.calibrate();
@@ -435,7 +470,7 @@ impl<ED> Adc<ADC3, ED> {
 #[allow(unused_macros)]
 macro_rules! adc_hal {
     ($(
-        $ADC:ident: (
+        $ADC:ident, $ADC_COMMON:ident: (
             $adcX: ident,
             $Rec:ident
         )
@@ -445,11 +480,12 @@ macro_rules! adc_hal {
                 type Rec = rec::$Rec;
 
 	            fn adc(self,
+                       f_adc: impl Into<Hertz>,
                        delay: &mut impl DelayUs<u8>,
                        prec: rec::$Rec,
                        clocks: &CoreClocks) -> Adc<$ADC, Disabled>
 	            {
-	                Adc::$adcX(self, delay, prec, clocks)
+	                Adc::$adcX(self, f_adc, delay, prec, clocks)
 	            }
 	        }
 
@@ -458,15 +494,12 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adcX(adc: $ADC, delay: &mut impl DelayUs<u8>,
+                pub fn $adcX(adc: $ADC, f_adc: impl Into<Hertz>, delay: &mut impl DelayUs<u8>,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
                     // Consume ADC register block, produce Self with default
                     // settings
                     let mut adc = Self::default_from_rb(adc);
-
-                    // Check adc_ker_ck_input
-                    check_clock(&prec, clocks);
 
                     // Enable AHB clock
                     let prec = prec.enable();
@@ -475,10 +508,11 @@ macro_rules! adc_hal {
                     adc.power_down();
 
                     // Reset peripheral
-                    let _ = prec.reset(); // drop, can be recreated by free method
+                    let prec = prec.reset();
 
                     // Power Up, Preconfigure and Calibrate
                     adc.power_up(delay);
+                    adc.configure_clock(f_adc.into(), prec, clocks);
                     adc.preconfigure();
                     adc.calibrate();
 
@@ -491,15 +525,95 @@ macro_rules! adc_hal {
                         sample_time: AdcSampleTime::default(),
                         resolution: Resolution::SixteenBit,
                         lshift: AdcLshift::default(),
+                        frequency: Hertz::from_raw(0),
                         current_channel: None,
                         _enabled: PhantomData,
                     }
                 }
+                /// Sets the clock configuration for this ADC. This is common
+                /// between ADC1 and ADC2, so the prec block is used to ensure
+                /// this method can only be called on one of the ADCs (or both,
+                /// using the [adc12](#method.adc12) method).
+                ///
+                /// Only `CKMODE[1:0]` = 0 is supported
+                fn configure_clock(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
+                    let ker_ck = kernel_clk_unwrap(&prec, clocks);
+
+                    let max_ker_ck = match current_vos() {
+                        // See RM0468 Rev 3 Table 56.
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale0 | VoltageScale::Scale1 => 160_000_000,
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale2 => 60_000_000,
+                        #[cfg(feature = "rm0468")]
+                        VoltageScale::Scale3 => 40_000_000,
+
+                        // See RM0433 Rev 7 Table 59.
+                        #[cfg(not(feature = "rm0468"))]
+                        VoltageScale::Scale0 | VoltageScale::Scale1 => 80_000_000,
+                        #[cfg(not(feature = "rm0468"))]
+                        VoltageScale::Scale2 | VoltageScale::Scale3 => 40_000_000
+                    };
+                    assert!(ker_ck.raw() <= max_ker_ck,
+                            "Kernel clock violates maximum frequency defined in Reference Manual. \
+                             Can result in erroneous ADC readings");
+
+                    let f_adc = self.configure_clock_unchecked(f_adc, prec, clocks);
+
+                    // Maximum ADC clock speed. With BOOST = 0 there is a no
+                    // minimum frequency given in part datasheets
+                    assert!(f_adc.raw() <= 50_000_000);
+
+                    f_adc
+                }
+
+                /// No clock checks
+                fn configure_clock_unchecked(&mut self, f_adc: Hertz, prec: rec::$Rec, clocks: &CoreClocks) -> Hertz {
+                    let ker_ck = kernel_clk_unwrap(&prec, clocks);
+
+                    // Target mux output. See RM0433 Rev 7 - Figure 136.
+                    #[cfg(feature = "revision_v")]
+                    let f_target = f_adc.raw() * 2;
+
+                    #[cfg(not(feature = "revision_v"))]
+                    let f_target = f_adc.raw();
+
+                    let (divider, presc) = match (ker_ck.raw() + f_target - 1) / f_target {
+                        1 => (1, PRESC_A::Div1),
+                        2 => (2, PRESC_A::Div2),
+                        3..=4 => (4, PRESC_A::Div4),
+                        5..=6 => (6, PRESC_A::Div6),
+                        7..=8 => (8, PRESC_A::Div8),
+                        9..=10 => (10, PRESC_A::Div10),
+                        11..=12 => (12, PRESC_A::Div12),
+                        13..=16 => (16, PRESC_A::Div16),
+                        17..=32 => (32, PRESC_A::Div32),
+                        33..=64 => (64, PRESC_A::Div64),
+                        65..=128 => (128, PRESC_A::Div128),
+                        129..=256 => (256, PRESC_A::Div256),
+                        _ => panic!("Selecting the ADC clock required a prescaler > 256, \
+                                     which is not possible in hardware. Either increase the ADC \
+                                     clock frequency or decrease the kernel clock frequency"),
+                    };
+                    unsafe { &*$ADC_COMMON::ptr() }.ccr.modify(|_, w| w.presc().variant(presc));
+
+                    // Calculate actual value. See RM0433 Rev 7 - Figure 136.
+                    #[cfg(feature = "revision_v")]
+                    let f_adc = Hertz::from_raw(ker_ck.raw() / (divider * 2));
+
+                    // Calculate actual value Revison Y. See RM0433 Rev 7 - Figure 137.
+                    #[cfg(not(feature = "revision_v"))]
+                    let f_adc = Hertz::from_raw(ker_ck.raw() / divider);
+
+                    self.frequency = f_adc;
+                    f_adc
+                }
+
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
                 pub fn power_up(&mut self, delay: &mut impl DelayUs<u8>) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
@@ -511,7 +625,7 @@ macro_rules! adc_hal {
                 ///
                 /// Note: This resets the [`calibration`](#method.calibrate) of the ADC
                 pub fn power_down(&mut self) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.6
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().set_bit()
                             .advregen().clear_bit()
@@ -522,7 +636,7 @@ macro_rules! adc_hal {
                 ///
                 /// Note: The ADC must be disabled
                 pub fn calibrate(&mut self) {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.8
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.8
                     self.check_calibration_conditions();
 
                     // single channel (INNx equals to V_ref-)
@@ -563,7 +677,7 @@ macro_rules! adc_hal {
                 /// Configuration process immediately after enabling the ADC
                 fn configure(&mut self) {
                     // Single conversion mode, Software trigger
-                    // Refer to RM0433 Rev 6 - Chapters 24.4.15, 24.4.19
+                    // Refer to RM0433 Rev 7 - Chapters 25.4.15, 25.4.19
                     self.rb.cfgr.modify(|_, w|
                         w.cont().clear_bit()
                             .exten().disabled()
@@ -572,16 +686,26 @@ macro_rules! adc_hal {
 
                     // Enables boost mode for highest possible clock frequency
                     //
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.3
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.3
                     #[cfg(not(feature = "revision_v"))]
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
                     #[cfg(feature = "revision_v")]
-                    self.rb.cr.modify(|_, w| w.boost().lt50());
+                    self.rb.cr.modify(|_, w| {
+                        if self.frequency.raw() <= 6_250_000 {
+                            w.boost().lt6_25()
+                        } else if self.frequency.raw() <= 12_500_000 {
+                            w.boost().lt12_5()
+                        } else if self.frequency.raw() <= 25_000_000 {
+                            w.boost().lt25()
+                        } else {
+                            w.boost().lt50()
+                        }
+                    });
                 }
 
                 /// Enable ADC
                 pub fn enable(mut self) -> Adc<$ADC, Enabled> {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.9
                     self.rb.isr.modify(|_, w| w.adrdy().set_bit());
                     self.rb.cr.modify(|_, w| w.aden().set_bit());
                     while self.rb.isr.read().adrdy().bit_is_clear() {}
@@ -594,6 +718,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
+                        frequency: self.frequency,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -648,7 +773,7 @@ macro_rules! adc_hal {
                 ///
                 /// This method will start reading sequence on the given pin.
                 /// The value can be then read through the `read_sample` method.
-                // Refer to RM0433 Rev 6 - Chapter 24.4.16
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
                 pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
                     where PIN: Channel<$ADC, ID = u8>,
                 {
@@ -663,7 +788,7 @@ macro_rules! adc_hal {
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
 
-                    // Select channel (with preselection, refer to RM0433 Rev 6 - Chapter 24.4.12)
+                    // Select channel (with preselection, refer to RM0433 Rev 7 - Chapter 25.4.12)
                     self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
                     self.set_chan_smp(chan);
                     self.rb.sqr1.modify(|_, w| unsafe {
@@ -680,7 +805,7 @@ macro_rules! adc_hal {
                 ///
                 /// `nb::Error::WouldBlock` in case the conversion is still
                 /// progressing.
-                // Refer to RM0433 Rev 6 - Chapter 24.4.16
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
                 pub fn read_sample(&mut self) -> nb::Result<u32, Infallible> {
                     let chan = self.current_channel.expect("No channel was selected, use start_conversion first");
 
@@ -689,7 +814,7 @@ macro_rules! adc_hal {
                         return Err(nb::Error::WouldBlock);
                     }
 
-                    // Disable preselection of this channel, refer to RM0433 Rev 6 - Chapter 24.4.12
+                    // Disable preselection of this channel, refer to RM0433 Rev 7 - Chapter 25.4.12
                     self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << chan)) });
                     self.current_channel = None;
 
@@ -719,7 +844,7 @@ macro_rules! adc_hal {
                 /// Disable ADC
                 pub fn disable(mut self) -> Adc<$ADC, Disabled> {
                     let cr = self.rb.cr.read();
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.9
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.9
                     if cr.adstart().bit_is_set() {
                         self.stop_regular_conversion();
                     }
@@ -735,6 +860,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
+                        frequency: self.frequency,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -761,6 +887,14 @@ macro_rules! adc_hal {
                     self.set_resolution(Resolution::SixteenBit);
                     self.set_lshift(AdcLshift::default());
                     cfg
+                }
+
+                /// The current ADC frequency. Defined as f_ADC in device datasheets
+                ///
+                /// The value returned by this method will always be equal or
+                /// lower than the `f_adc` passed to [`init`](#method.init)
+                pub fn frequency(&self) -> Hertz {
+                    self.frequency
                 }
 
                 /// Get ADC samping time
@@ -832,7 +966,7 @@ macro_rules! adc_hal {
                 /// ...
                 /// LINCALRDYW6 -> result\[5\]
                 pub fn read_linear_calibration_values(&mut self) -> AdcCalLinear {
-                    // Refer to RM0433 Rev 6 - Chapter 24.4.8 (Page 920)
+                    // Refer to RM0433 Rev 7 - Chapter 25.4.8
                     self.check_linear_read_conditions();
 
                     // Read 1st block of linear correction
@@ -911,9 +1045,11 @@ macro_rules! adc_hal {
 }
 
 adc_hal!(
-    ADC1: (adc1, Adc12), // ADC1
-    ADC2: (adc2, Adc12), // ADC2
+    ADC1,
+    ADC12_COMMON: (adc1, Adc12),
+    ADC2,
+    ADC12_COMMON: (adc2, Adc12),
 );
 
 #[cfg(not(feature = "rm0455"))]
-adc_hal!(ADC3: (adc3, Adc3));
+adc_hal!(ADC3, ADC3_COMMON: (adc3, Adc3));

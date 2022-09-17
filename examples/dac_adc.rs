@@ -1,8 +1,6 @@
-//! Example of reading a voltage with ADC1
+//! Example of using the DAC to generate a voltage and the ADC to read it
 //!
-//! For an example of using ADC3, see examples/temperature.rs
-//! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
-//! For an example of using ADC1 and ADC2 in parallel, see examples/adc12_parallel.rs
+//! Connect a jumper between pins PA4 and PC0
 
 #![no_main]
 #![no_std]
@@ -11,7 +9,9 @@ use log::info;
 
 use cortex_m_rt::entry;
 
-use stm32h7xx_hal::{adc, delay::Delay, pac, prelude::*, rcc::rec::AdcClkSel};
+use stm32h7xx_hal::{
+    adc, delay::Delay, pac, prelude::*, rcc::rec::AdcClkSel, traits::DacOut,
+};
 
 #[macro_use]
 mod utilities;
@@ -37,13 +37,13 @@ fn main() -> ! {
     //
     // adc_ker_ck_input is then divided by the ADC prescaler to give f_adc. The
     // maximum f_adc is 50MHz
-    let mut ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
+    let mut ccdr = rcc.sys_ck(50.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
     ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
 
     info!("");
-    info!("stm32h7xx-hal example - ADC");
+    info!("stm32h7xx-hal example - DAC and ADC");
     info!("");
 
     let mut delay = Delay::new(cp.SYST, ccdr.clocks);
@@ -51,7 +51,7 @@ fn main() -> ! {
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(
         dp.ADC1,
-        4.MHz(),
+        16.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
@@ -62,19 +62,29 @@ fn main() -> ! {
     // We can't use ADC2 here because ccdr.peripheral.ADC12 has been
     // consumed. See examples/adc12.rs
 
-    // Setup GPIOC
+    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    // Configure pc0 as an analog input
+    // Setup DAC
+    #[cfg(not(feature = "rm0455"))]
+    let dac = dp.DAC.dac(gpioa.pa4, ccdr.peripheral.DAC12);
+    #[cfg(feature = "rm0455")]
+    let dac = dp.DAC1.dac(gpioa.pa4, ccdr.peripheral.DAC1);
+
+    // Calibrate output buffer then enable DAC channel
+    let mut dac = dac.calibrate_buffer(&mut delay).enable();
+
     let mut channel = gpioc.pc0.into_analog(); // ANALOG IN 10
 
+    dac.set_value(2048); // set to 50% of vdda
+
     loop {
-        let data: u32 = adc1.read(&mut channel).unwrap();
+        let reading: u32 = adc1.read(&mut channel).unwrap();
         // voltage = reading * (vref/resolution)
-        info!(
-            "ADC reading: {}, voltage for nucleo: {}",
-            data,
-            data as f32 * (3.3 / adc1.slope() as f32)
-        );
+        let voltage = reading as f32 * (3.3 / adc1.slope() as f32);
+        info!("ADC reading: {}, voltage for nucleo: {}", reading, voltage);
+
+        // check voltage is really 50% of vdda
+        assert!(voltage - 1.65 < 8.25e-3); // 0.5% error
     }
 }

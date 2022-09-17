@@ -196,6 +196,6 @@ mco2_setters! {
     mco2_from_pll2_p_ck: Pll2P "pll2_p_ck",
     mco2_from_hse: Hse "the HSE",
     mco2_from_pll1_p_ck: Pll1P "pll1_p_ck",
-    mco2_from_csi: Csi "CSI"
-    //mco2_from_lsi: Lsi "the LSI",    UNIMPLEMENTED
+    mco2_from_csi: Csi "CSI",
+    mco2_from_lsi: Lsi "the LSI"
 }
