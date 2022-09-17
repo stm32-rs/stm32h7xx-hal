@@ -159,6 +159,10 @@ name = "can-echo"
 required-features = ["can"]
 
 [[example]]
+name = "can-fd"
+required-features = ["can"]
+
+[[example]]
 name = "qspi"
 required-features = ["xspi", "rm0433"]
 
