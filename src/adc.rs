@@ -74,6 +74,15 @@ pub struct Adc<ADC, ED> {
     _enabled: PhantomData<ED>,
 }
 
+/// ADC DMA modes
+///
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum AdcDmaMode {
+    OneShot,
+    Circular,
+}
+
 /// ADC sampling time
 ///
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
@@ -769,21 +778,9 @@ macro_rules! adc_hal {
                     }
                 }
 
-                /// Start conversion
-                ///
-                /// This method will start reading sequence on the given pin.
-                /// The value can be then read through the `read_sample` method.
-                // Refer to RM0433 Rev 7 - Chapter 25.4.16
-                pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
-                    where PIN: Channel<$ADC, ID = u8>,
-                {
-                    let chan = PIN::channel();
-                    assert!(chan <= 19);
-
+                // This method starts a conversion sequence on the given channel
+                fn start_conversion_common(&mut self, chan: u8) {
                     self.check_conversion_conditions();
-
-                    // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
 
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
@@ -800,6 +797,51 @@ macro_rules! adc_hal {
                     // Perform conversion
                     self.rb.cr.modify(|_, w| w.adstart().set_bit());
                 }
+
+                /// Start conversion
+                ///
+                /// This method starts a conversion sequence on the given pin.
+                /// The value can be then read through the `read_sample` method.
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
+                pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
+                    where PIN: Channel<$ADC, ID = u8>,
+                {
+                    let chan = PIN::channel();
+                    assert!(chan <= 19);
+
+                    // Set resolution
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    // Set discontinuous mode
+                    self.rb.cfgr.modify(|_, w| w.cont().clear_bit().discen().set_bit());
+
+                    self.start_conversion_common(chan);
+                }
+
+                /// Start conversion in DMA mode
+                ///
+                /// This method starts a conversion sequence with DMA
+                /// enabled. The DMA mode selected depends on the [`AdcDmaMode`] specified.
+                pub fn start_conversion_dma<PIN>(&mut self, _pin: &mut PIN, mode: AdcDmaMode)
+                    where PIN: Channel<$ADC, ID = u8>,
+                {
+                    let chan = PIN::channel();
+                    assert!(chan <= 19);
+
+                    // Set resolution
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+
+
+                    self.rb.cfgr.modify(|_, w| w.dmngt().bits(match mode {
+                        AdcDmaMode::OneShot => 0b01,
+                        AdcDmaMode::Circular => 0b11,
+                    }));
+
+                    // Set continuous mode
+                    self.rb.cfgr.modify(|_, w| w.cont().set_bit().discen().clear_bit() );
+
+                    self.start_conversion_common(chan);
+                }
+
 
                 /// Read sample
                 ///
