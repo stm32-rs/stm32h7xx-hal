@@ -1168,16 +1168,12 @@ macro_rules! spi {
 
                     /// Internal implementation for blocking::spi::Transfer and
                     /// blocking::spi::Write
-                    fn transfer_internal<'w>(&mut self,
+                    fn transfer_internal_w<'w>(&mut self,
                                              write_words: &'w [$TY],
-                                             read_words: Option<&'w mut [$TY]>
                     ) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         // both buffers are the same length
-                        if let Some(ref read) = read_words {
-                            debug_assert!(write_words.len() == read.len());
-                        }
                         if write_words.is_empty() {
                             return Ok(());
                         }
@@ -1210,32 +1206,16 @@ macro_rules! spi {
                             nb::block!(self.send(*write.next().unwrap()))?;
                         }
 
-                        if let Some(read) = read_words {
-                            let mut read = read.iter_mut();
+                        // Continue filling write FIFO and emptying read FIFO
+                        for word in write {
+                            let _ = nb::block!(
+                                self.exchange_duplex_internal(*word)
+                            )?;
+                        }
 
-                            // Continue filling write FIFO and emptying read FIFO
-                            for word in write {
-                                *read.next().unwrap() = nb::block!(
-                                    self.exchange_duplex_internal(*word)
-                                )?;
-                            }
-
-                            // Finish emptying the read FIFO
-                            for word in read {
-                                *word = nb::block!(self.read_duplex_internal())?;
-                            }
-                        } else {
-                            // Continue filling write FIFO and emptying read FIFO
-                            for word in write {
-                                let _ = nb::block!(
-                                    self.exchange_duplex_internal(*word)
-                                )?;
-                            }
-
-                            // Dummy read from the read FIFO
-                            for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-                                let _ = nb::block!(self.read_duplex_internal())?;
-                            }
+                        // Dummy read from the read FIFO
+                        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                            let _ = nb::block!(self.read_duplex_internal())?;
                         }
 
                         // Are we in frame mode?
@@ -1246,17 +1226,80 @@ macro_rules! spi {
 
                         Ok(())
                     }
+                
+                    /// Internal implementation for blocking::spi::Transfer and
+                    /// blocking::spi::Write
+                    fn transfer_internal_rw<'w>(&mut self,
+                        words : &'w mut [$TY]
+                    ) -> Result<(), Error> {
+                        use hal::spi::FullDuplex;
+
+
+                        if words.is_empty() {
+                            return Ok(());
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            const MAX_WORDS: usize = 0xFFFF;
+
+                            // Can we send
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
+                            }
+
+                            // Setup that we're going to send this amount of bits
+                            // SAFETY: We already checked that `write_words` is not empty
+                            self.setup_transaction(unsafe {
+                                core::num::NonZeroU16::new_unchecked(words.len() as u16)
+                            })?;
+                        }
+
+                        // Depth of FIFO to use. All current SPI implementations
+                        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+                        // Tabel 409.) but pick 4 as a conservative value.
+                        const FIFO_WORDS: usize = 4;
+
+                        
+                        let len = words.len();
+
+                        for i in 0..len+FIFO_WORDS {
+                            // Fill the first half of the write FIFO
+                            if i < FIFO_WORDS {
+                                nb::block!(self.send(words[i]))?;
+                            
+                            // Continue filling write FIFO and emptying read FIFO
+                            } else if i < len {
+                                let read_value = nb::block!(
+                                    self.exchange_duplex_internal(words[i])
+                                )?;
+    
+                                words[i - FIFO_WORDS] = read_value;
+
+                            // Finish emptying the read FIFO
+                            } else if i < len + FIFO_WORDS {
+                                words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
+                            }
+
+                        }
+
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            // Clean up
+                            self.end_transaction()?;
+                        }
+
+                        Ok(())
+                    }
                 }
+            
                 impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-                        // SAFETY: transfer_internal always writes out words
-                        // before modifying them
-                        let write = unsafe {
-                            core::slice::from_raw_parts(words.as_ptr(), words.len())
-                        };
-                        self.transfer_internal(write, Some(words))?;
+
+                        self.transfer_internal_rw(words)?;
 
                         Ok(words)
                     }
@@ -1265,7 +1308,7 @@ macro_rules! spi {
                     type Error = Error;
 
                     fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
-                        self.transfer_internal(words, None)
+                        self.transfer_internal_w(words)
                     }
                 }
             )+
