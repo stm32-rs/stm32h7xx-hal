@@ -1273,7 +1273,7 @@ macro_rules! spi {
                                 words[i - FIFO_WORDS] = read_value;
 
                             // Finish emptying the read FIFO
-                            } else if i < len + FIFO_WORDS {
+                            } else {
                                 words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
                             }
                         }
