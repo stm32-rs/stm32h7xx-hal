@@ -1195,7 +1195,7 @@ macro_rules! spi {
 
                         // Depth of FIFO to use. All current SPI implementations
                         // have a FIFO depth of at least 8 (see RM0433 Rev 7
-                        // Tabel 409.) but pick 4 as a conservative value.
+                        // Table 409.) but pick 4 as a conservative value.
                         const FIFO_WORDS: usize = 4;
 
                         // Fill the first half of the write FIFO
@@ -1254,7 +1254,7 @@ macro_rules! spi {
 
                         // Depth of FIFO to use. All current SPI implementations
                         // have a FIFO depth of at least 8 (see RM0433 Rev 7
-                        // Tabel 409.) but pick 4 as a conservative value.
+                        // Table 409.) but pick 4 as a conservative value.
                         const FIFO_WORDS: usize = 4;
 
                         let len = words.len();
