@@ -1225,13 +1225,12 @@ macro_rules! spi {
 
                         Ok(())
                     }
-                
+
                     /// Internal implementation for blocking::spi::Transfer
                     fn transfer_internal_rw<'w>(&mut self,
                         words : &'w mut [$TY]
                     ) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
-
 
                         if words.is_empty() {
                             return Ok(());
@@ -1258,29 +1257,26 @@ macro_rules! spi {
                         // Tabel 409.) but pick 4 as a conservative value.
                         const FIFO_WORDS: usize = 4;
 
-                        
                         let len = words.len();
 
                         for i in 0..len+FIFO_WORDS {
                             // Fill the first half of the write FIFO
                             if i < FIFO_WORDS {
                                 nb::block!(self.send(words[i]))?;
-                            
+
                             // Continue filling write FIFO and emptying read FIFO
                             } else if i < len {
                                 let read_value = nb::block!(
                                     self.exchange_duplex_internal(words[i])
                                 )?;
-    
+
                                 words[i - FIFO_WORDS] = read_value;
 
                             // Finish emptying the read FIFO
                             } else if i < len + FIFO_WORDS {
                                 words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
                             }
-
                         }
-
 
                         // Are we in frame mode?
                         if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
@@ -1291,7 +1287,7 @@ macro_rules! spi {
                         Ok(())
                     }
                 }
-            
+
                 impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
