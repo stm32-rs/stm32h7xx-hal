@@ -1257,23 +1257,22 @@ macro_rules! spi {
                         // Table 409.) but pick 4 as a conservative value.
                         const FIFO_WORDS: usize = 4;
 
+                        // Fill the first half of the write FIFO
                         let len = words.len();
+                        for i in 0..core::cmp::min(FIFO_WORDS, len) {
+                            nb::block!(self.send(words[i]))?;
+                        }
 
-                        for i in 0..len+FIFO_WORDS {
-                            // Fill the first half of the write FIFO
-                            if i < FIFO_WORDS {
-                                nb::block!(self.send(words[i]))?;
-
-                            // Continue filling write FIFO and emptying read FIFO
-                            } else if i < len {
+                        for i in FIFO_WORDS..len+FIFO_WORDS {
+                            if i < len {
+                                // Continue filling write FIFO and emptying read FIFO
                                 let read_value = nb::block!(
                                     self.exchange_duplex_internal(words[i])
                                 )?;
 
                                 words[i - FIFO_WORDS] = read_value;
-
-                            // Finish emptying the read FIFO
                             } else {
+                                // Finish emptying the read FIFO
                                 words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
                             }
                         }
