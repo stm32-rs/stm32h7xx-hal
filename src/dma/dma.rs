@@ -12,6 +12,8 @@ use super::{
 use core::marker::PhantomData;
 
 use crate::{
+    adc,
+    adc::Adc,
     i2c::I2c,
     pac::{self, DMA1, DMA2, DMAMUX1},
     rcc::{rec, rec::ResetEnable},
@@ -1150,3 +1152,28 @@ peripheral_target_address!(
         DMAReq::Sai3BDma
     ),
 );
+
+peripheral_target_address!(
+    (
+        HAL: Adc<pac::ADC1, adc::Enabled>,
+        dr,
+        u16,
+        P2M,
+        DMAReq::Adc1Dma
+    ),
+    (
+        HAL: Adc<pac::ADC2, adc::Enabled>,
+        dr,
+        u16,
+        P2M,
+        DMAReq::Adc2Dma
+    )
+);
+#[cfg(not(feature = "rm0455"))]
+peripheral_target_address!((
+    HAL: Adc<pac::ADC3, adc::Enabled>,
+    dr,
+    u16,
+    P2M,
+    DMAReq::Adc3Dma
+));

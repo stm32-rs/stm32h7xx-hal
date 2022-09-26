@@ -44,7 +44,7 @@ macro_rules! peripheral_target_instance {
     };
 
     // PAC and HAL targets, generic
-    ((HAL: $hal:ident<$peripheral:ty>, $register:ident, $size:ty,
+    ((HAL: $hal:ident<$peripheral:ty $(, $generic:ty)*>, $register:ident, $size:ty,
       $dir:ty $(, $mux:expr)*)) => {
 
         // PAC implementation
@@ -61,7 +61,7 @@ macro_rules! peripheral_target_instance {
         }
 
         // HAL implementation
-        unsafe impl TargetAddress<$dir> for $hal<$peripheral> {
+        unsafe impl TargetAddress<$dir> for $hal<$peripheral $(, $generic)*> {
             #[inline(always)]
             fn address(&self) -> usize {
                 &self.inner().$register as *const _ as usize

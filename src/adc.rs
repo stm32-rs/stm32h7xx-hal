@@ -69,9 +69,18 @@ pub struct Adc<ADC, ED> {
     sample_time: AdcSampleTime,
     resolution: Resolution,
     lshift: AdcLshift,
-    frequency: Hertz,
+    clock: Hertz,
     current_channel: Option<u8>,
     _enabled: PhantomData<ED>,
+}
+
+/// ADC DMA modes
+///
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum AdcDmaMode {
+    OneShot,
+    Circular,
 }
 
 /// ADC sampling time
@@ -101,9 +110,25 @@ pub enum AdcSampleTime {
     T_810,
 }
 
-impl AdcSampleTime {
-    pub fn default() -> Self {
+impl Default for AdcSampleTime {
+    fn default() -> Self {
         AdcSampleTime::T_32
+    }
+}
+impl AdcSampleTime {
+    /// Returns the number of half clock cycles represented by this sampling time
+    fn clock_cycles_x2(&self) -> u32 {
+        let x = match self {
+            AdcSampleTime::T_1 => 1,
+            AdcSampleTime::T_2 => 2,
+            AdcSampleTime::T_8 => 8,
+            AdcSampleTime::T_16 => 16,
+            AdcSampleTime::T_32 => 32,
+            AdcSampleTime::T_64 => 64,
+            AdcSampleTime::T_387 => 387,
+            AdcSampleTime::T_810 => 810,
+        };
+        (2 * x) + 1
     }
 }
 
@@ -428,7 +453,7 @@ pub fn adc12(
     adc1.power_up(delay);
     adc2.power_up(delay);
     let f_adc = adc1.configure_clock(f_adc.into(), prec, clocks); // ADC12_COMMON
-    adc2.frequency = f_adc;
+    adc2.clock = f_adc;
     adc1.preconfigure();
     adc2.preconfigure();
     adc1.calibrate();
@@ -525,7 +550,7 @@ macro_rules! adc_hal {
                         sample_time: AdcSampleTime::default(),
                         resolution: Resolution::SixteenBit,
                         lshift: AdcLshift::default(),
-                        frequency: Hertz::from_raw(0),
+                        clock: Hertz::from_raw(0),
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -605,7 +630,7 @@ macro_rules! adc_hal {
                     #[cfg(not(feature = "revision_v"))]
                     let f_adc = Hertz::from_raw(ker_ck.raw() / divider);
 
-                    self.frequency = f_adc;
+                    self.clock = f_adc;
                     f_adc
                 }
 
@@ -691,11 +716,11 @@ macro_rules! adc_hal {
                     self.rb.cr.modify(|_, w| w.boost().set_bit());
                     #[cfg(feature = "revision_v")]
                     self.rb.cr.modify(|_, w| {
-                        if self.frequency.raw() <= 6_250_000 {
+                        if self.clock.raw() <= 6_250_000 {
                             w.boost().lt6_25()
-                        } else if self.frequency.raw() <= 12_500_000 {
+                        } else if self.clock.raw() <= 12_500_000 {
                             w.boost().lt12_5()
-                        } else if self.frequency.raw() <= 25_000_000 {
+                        } else if self.clock.raw() <= 25_000_000 {
                             w.boost().lt25()
                         } else {
                             w.boost().lt50()
@@ -718,7 +743,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
-                        frequency: self.frequency,
+                        clock: self.clock,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -769,21 +794,9 @@ macro_rules! adc_hal {
                     }
                 }
 
-                /// Start conversion
-                ///
-                /// This method will start reading sequence on the given pin.
-                /// The value can be then read through the `read_sample` method.
-                // Refer to RM0433 Rev 7 - Chapter 25.4.16
-                pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
-                    where PIN: Channel<$ADC, ID = u8>,
-                {
-                    let chan = PIN::channel();
-                    assert!(chan <= 19);
-
+                // This method starts a conversion sequence on the given channel
+                fn start_conversion_common(&mut self, chan: u8) {
                     self.check_conversion_conditions();
-
-                    // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
 
                     // Set LSHIFT[3:0]
                     self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
@@ -800,6 +813,51 @@ macro_rules! adc_hal {
                     // Perform conversion
                     self.rb.cr.modify(|_, w| w.adstart().set_bit());
                 }
+
+                /// Start conversion
+                ///
+                /// This method starts a conversion sequence on the given pin.
+                /// The value can be then read through the `read_sample` method.
+                // Refer to RM0433 Rev 7 - Chapter 25.4.16
+                pub fn start_conversion<PIN>(&mut self, _pin: &mut PIN)
+                    where PIN: Channel<$ADC, ID = u8>,
+                {
+                    let chan = PIN::channel();
+                    assert!(chan <= 19);
+
+                    // Set resolution
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    // Set discontinuous mode
+                    self.rb.cfgr.modify(|_, w| w.cont().clear_bit().discen().set_bit());
+
+                    self.start_conversion_common(chan);
+                }
+
+                /// Start conversion in DMA mode
+                ///
+                /// This method starts a conversion sequence with DMA
+                /// enabled. The DMA mode selected depends on the [`AdcDmaMode`] specified.
+                pub fn start_conversion_dma<PIN>(&mut self, _pin: &mut PIN, mode: AdcDmaMode)
+                    where PIN: Channel<$ADC, ID = u8>,
+                {
+                    let chan = PIN::channel();
+                    assert!(chan <= 19);
+
+                    // Set resolution
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+
+
+                    self.rb.cfgr.modify(|_, w| w.dmngt().bits(match mode {
+                        AdcDmaMode::OneShot => 0b01,
+                        AdcDmaMode::Circular => 0b11,
+                    }));
+
+                    // Set continuous mode
+                    self.rb.cfgr.modify(|_, w| w.cont().set_bit().discen().clear_bit() );
+
+                    self.start_conversion_common(chan);
+                }
+
 
                 /// Read sample
                 ///
@@ -860,7 +918,7 @@ macro_rules! adc_hal {
                         sample_time: self.sample_time,
                         resolution: self.resolution,
                         lshift: self.lshift,
-                        frequency: self.frequency,
+                        clock: self.clock,
                         current_channel: None,
                         _enabled: PhantomData,
                     }
@@ -889,12 +947,36 @@ macro_rules! adc_hal {
                     cfg
                 }
 
-                /// The current ADC frequency. Defined as f_ADC in device datasheets
+                /// The current ADC clock frequency. Defined as f_ADC in device datasheets
                 ///
                 /// The value returned by this method will always be equal or
                 /// lower than the `f_adc` passed to [`init`](#method.init)
-                pub fn frequency(&self) -> Hertz {
-                    self.frequency
+                pub fn clock_frequency(&self) -> Hertz {
+                    self.clock
+                }
+
+                /// The current ADC sampling frequency. This is the reciprocal of Tconv
+                pub fn sampling_frequency(&self) -> Hertz {
+                    let sample_cycles_x2 = self.sample_time.clock_cycles_x2();
+
+                    // TODO: Exception for RM0468 ADC3
+                    // let sar_cycles_x2 = match self.resolution {
+                    //     Resolution::SixBit => 13, // 6.5
+                    //     Resolution::EightBit => 17, // 8.5
+                    //     Resolution::TenBit => 21,   // 10.5
+                    //     _ => 25,                    // 12.5
+                    // };
+
+                    let sar_cycles_x2 = match self.resolution {
+                        Resolution::EightBit => 9, // 4.5
+                        Resolution::TenBit => 11,  // 5.5
+                        Resolution::TwelveBit => 13, // 6.5
+                        Resolution::FourteenBit => 15, // 7.5
+                        _ => 17,                       // 8.5
+                    };
+
+                    let cycles = (sample_cycles_x2 + sar_cycles_x2) / 2;
+                    self.clock / cycles
                 }
 
                 /// Get ADC samping time
