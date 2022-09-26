@@ -498,6 +498,7 @@ macro_rules! adc_hal {
         $ADC:ident, $ADC_COMMON:ident: (
             $adcX: ident,
             $Rec:ident
+            $(, $ldordy:ident )*
         )
     ),+ $(,)*) => {
         $(
@@ -644,6 +645,15 @@ macro_rules! adc_hal {
                             .advregen().set_bit()
                     );
                     delay.delay_us(10_u8);
+
+                    // check LDORDY bit if present
+                    $(
+                        #[cfg(feature = "revision_v")]
+                        while {
+                            let $ldordy = self.rb.isr.read().bits() & 0x1000;
+                            $ldordy == 0
+                        }{}
+                    )*
                 }
 
                 /// Enables Deeppowerdown-mode and disables voltage regulator
@@ -1128,10 +1138,12 @@ macro_rules! adc_hal {
 
 adc_hal!(
     ADC1,
-    ADC12_COMMON: (adc1, Adc12),
+    ADC12_COMMON: (adc1, Adc12, ldordy),
     ADC2,
-    ADC12_COMMON: (adc2, Adc12),
+    ADC12_COMMON: (adc2, Adc12, ldordy),
 );
 
-#[cfg(not(feature = "rm0455"))]
+#[cfg(any(feature = "rm0433", feature = "rm0399"))]
+adc_hal!(ADC3, ADC3_COMMON: (adc3, Adc3, ldordy));
+#[cfg(feature = "rm0468")]
 adc_hal!(ADC3, ADC3_COMMON: (adc3, Adc3));
