@@ -2,19 +2,24 @@
 
 ## [Unreleased]
 
-* flash: Use Ordering fence to prevent inconsistency errors when writing to flash sector [#382]
+## [v0.13.0] 2022-10-06
+
 * **Breaking** Require frequency when initialising adc, use this to set the prescaler [#379]
-* adc: fix internal channel allocations for RM0468 parts [#379]
+* **Breaking** Remove `POL` and `NPOL` generic type parameters from `Pwm` types [#381]
+* adc: Fix internal channel allocations for RM0468 parts [#379]
+* adc: Remove unnecessary multiple reads of the CR register [#364]
+* adc: Add DMA TargetAddress implementations [#389]
+* adc: Poll LDORDY bit before ADC calibration [#386]
 * flash: Rewrite `write_sector` to correctly write data in 256 bit chunks [#371]
+* flash: Use Ordering fence to prevent inconsistency errors when writing to flash sector [#382]
 * iwdt: Added HAL implementation. Changed the name of the other implementation to `system_watchdog` [#376]
+* lptim: Fixes for low power times as pwm outputs [#385]
 * pac: Upgrade to stm32-rs v0.15.1 [#370]
-* octospi: add support for octospi1 on rm0455 parts [#370]
-* serial: add support for uart9 and usart10 [#370]
+* octospi: Add support for octospi1 on rm0455 parts [#370]
+* sdmmc: Use sdio-host v0.9, add support for eMMC Extended CSD register [#378]
+* serial: Add support for uart9 and usart10 [#370]
+* spi: Remove potential UB in transfer method [#390]
 * rcc: Added a way to read the chip's reset reason [#377]
-
-
-
-* pwm: Remove `POL` and `NPOL` generic type parameters from `Pwm` types [#381]
 
 ## [v0.12.2] 2022-05-06
 
@@ -247,7 +252,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...HEAD
+[v0.13.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...v0.13.0
 [v0.12.2]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...v0.12.2
 [v0.12.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...v0.12.1
 [v0.12.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.11.0...v0.12.0
@@ -311,6 +317,16 @@
 [#357]: https://github.com/stm32-rs/stm32h7xx-hal/pull/357
 [#359]: https://github.com/stm32-rs/stm32h7xx-hal/pull/359
 [#361]: https://github.com/stm32-rs/stm32h7xx-hal/pull/361
-[#371]: https://github.com/stm32-rs/stm32h7xx-hal/pull/371
+[#364]: https://github.com/stm32-rs/stm32h7xx-hal/pull/364
 [#370]: https://github.com/stm32-rs/stm32h7xx-hal/pull/370
+[#371]: https://github.com/stm32-rs/stm32h7xx-hal/pull/371
+[#376]: https://github.com/stm32-rs/stm32h7xx-hal/pull/376
+[#377]: https://github.com/stm32-rs/stm32h7xx-hal/pull/377
+[#378]: https://github.com/stm32-rs/stm32h7xx-hal/pull/378
 [#379]: https://github.com/stm32-rs/stm32h7xx-hal/pull/379
+[#381]: https://github.com/stm32-rs/stm32h7xx-hal/pull/381
+[#382]: https://github.com/stm32-rs/stm32h7xx-hal/pull/382
+[#385]: https://github.com/stm32-rs/stm32h7xx-hal/pull/385
+[#386]: https://github.com/stm32-rs/stm32h7xx-hal/pull/386
+[#389]: https://github.com/stm32-rs/stm32h7xx-hal/pull/389
+[#390]: https://github.com/stm32-rs/stm32h7xx-hal/pull/390
