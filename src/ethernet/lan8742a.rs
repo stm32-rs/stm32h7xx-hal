@@ -72,8 +72,21 @@ impl<MAC: StationManagement> PHY for LAN8742A<MAC> {
 
 /// Public functions for the LAN8742A
 impl<MAC: StationManagement> LAN8742A<MAC> {
+    /// Create LAN8742A instance from ETHMAC peripheral
     pub fn new(mac: MAC) -> Self {
         LAN8742A { mac }
+    }
+    /// Returns a reference to the inner ETHMAC peripheral
+    pub fn inner(&self) -> &MAC {
+        &self.mac
+    }
+    /// Returns a mutable reference to the inner ETHMAC peripheral
+    pub fn inner_mut(&mut self) -> &mut MAC {
+        &mut self.mac
+    }
+    /// Releases the ETHMAC peripheral
+    pub fn free(self) -> MAC {
+        self.mac
     }
 
     /// Poll PHY to determine link status.
