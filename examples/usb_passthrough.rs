@@ -1,6 +1,9 @@
 //! Dual CDC-ACM serial port example using polling in a busy loop.
 //!
 //! Characters written to one serial port appear on both.
+//!
+//! This example uses both USB1 and USB2. This is only possible on devices that
+//! have the USB2 peripheral.
 #![no_std]
 #![no_main]
 

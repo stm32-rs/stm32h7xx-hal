@@ -1,4 +1,13 @@
 //! CDC-ACM serial port example using polling in a busy loop
+//!
+//! Tested with a NUCLEO-H723ZG
+//!
+//! This example uses the USB1 peripheral. On parts that have multiple USB
+//! OTG_HS peripherals the USB1 D+/D- pins are located on PB14 and PB15. If your
+//! development board uses PA11 and PA12 instead, you should adapt the example
+//! to use the USB2 peripheral together with PA11 and PA12. This applies to the
+//! NUCLEO-H743ZI2 board.
+//!
 #![no_std]
 #![no_main]
 
