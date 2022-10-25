@@ -1,4 +1,4 @@
-//! Example of reading a voltage with ADC1
+//! Example of reading a voltage with ADC1 through DMA
 //!
 //! For an example of using ADC3, see examples/temperature.rs
 //! For an example of using ADC1 and ADC2 together, see examples/adc12.rs

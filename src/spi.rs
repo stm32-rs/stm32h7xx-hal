@@ -55,7 +55,10 @@
 //! # Examples
 //!
 //! - [Blocking SPI](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi.rs)
-//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs).
+//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs)
+//! - [SPI with DMA (RTIC framework)](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma-rtic.rs)
+//! - [SPI with Hardware Chip Select](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi_hardware_cs.rs)
+//! - [SPI with Frame Transactions](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi_send_frames.rs)
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 

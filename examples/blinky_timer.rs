@@ -1,3 +1,5 @@
+//! This example produces waveform on Pin PE1 using the TIM2 and SysTick peripherals
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]

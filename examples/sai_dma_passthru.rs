@@ -1,5 +1,6 @@
-// This demo code runs on the Electro Smith Daisy Seed board
-// https://www.electro-smith.com/daisy
+//! This example was tested on the original Electro Smith Daisy Seed board with
+//! AK4556 codec https://www.electro-smith.com/daisy
+
 #![allow(unused_macros)]
 #![deny(warnings)]
 // #![deny(unsafe_code)]

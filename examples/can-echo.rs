@@ -1,3 +1,12 @@
+//! Basic Controller Area Network (CAN bus) example
+//!
+//! The example is configured to use loopback mode. In this mode each packet
+//! that is sent appears on the devices pins, but is also received by the
+//! peripheral. To receive packets from external devices, uncomment the
+//! `can.into_normal()` method.
+//!
+//! Tested on a STM32H735G-DK
+
 #![no_main]
 #![no_std]
 

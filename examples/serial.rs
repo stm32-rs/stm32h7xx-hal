@@ -1,3 +1,6 @@
+//! Creates a 19200 baud USART on pins PC10 and PC11. It prints "Hello, world!"
+//! and then echos any received bytes
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]

@@ -50,6 +50,8 @@ fn main() -> ! {
     watchdog.start(100.millis());
 
     loop {
+        // We can feed the watchdog like this:
+        // watchdog.feed();
         cortex_m::asm::nop()
     }
 }

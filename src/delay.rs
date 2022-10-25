@@ -33,6 +33,10 @@
 //! // Release the timer from the delay
 //! let timer2 = delay.free();
 //! ```
+//!
+//! # Examples
+//!
+//! - [Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs)
 
 use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;

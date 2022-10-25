@@ -3,6 +3,7 @@
 //! # Examples
 //!
 //! - [Simple DAC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dac.rs)
+//! - [Using DAC and ADC together](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dac_adc.rs)
 
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;

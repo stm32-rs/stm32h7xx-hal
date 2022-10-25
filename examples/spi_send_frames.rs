@@ -47,7 +47,7 @@ fn main() -> ! {
     let hcs = gpioa.pa4.into_alternate();
 
     info!("");
-    info!("stm32h7xx-hal example - SPI");
+    info!("stm32h7xx-hal example - SPI Frame Transactions");
     info!("");
 
     // Initialise the SPI peripheral.

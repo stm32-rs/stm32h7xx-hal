@@ -1,4 +1,4 @@
-//! HAL for LTDC
+//! LCD-TFT Display Controller
 
 use core::marker::PhantomData;
 use core::ops::Deref;

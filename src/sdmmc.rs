@@ -7,6 +7,7 @@
 //! # Examples
 //!
 //! - [SDMMC example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc.rs)
+//! - [SDMMC with FAT filesystem](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sdmmc_fat.rs)
 //!
 //! ## IO Setup
 //!

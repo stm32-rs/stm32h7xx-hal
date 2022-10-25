@@ -1,4 +1,4 @@
-//! Direct Memory Access.
+//! Direct Memory Access
 //!
 //! This module implements Memory To Memory, Peripheral To Memory and Memory to
 //! Peripheral transfers. Double buffering is supported only for Peripheral To
