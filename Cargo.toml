@@ -77,6 +77,9 @@ panic-itm = { version = "~0.4.1" }
 panic-semihosting = "0.6"
 usb-device = "0.2.5"
 usbd-serial = "0.1.0"
+numtoa = "0.2.3"
+tinybmp = "0.4"
+embedded-graphics = "0.7"
 
 [dev-dependencies.smoltcp]
 version = "0.8.0"
@@ -189,6 +192,10 @@ required-features = ["sdmmc"]
 [[example]]
 name = "sdmmc_fat"
 required-features = ["sdmmc", "sdmmc-fatfs"]
+
+[[example]]
+name = "embedded-graphics"
+required-features = ["ltdc", "xspi", "rm0468"]
 
 [[example]]
 name = "ethernet-stm32h747i-disco"
