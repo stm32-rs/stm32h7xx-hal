@@ -5,6 +5,7 @@
 ## [v0.13.1] 2022-11-06
 
 * i2c: Wait for automatic stop condition to occour before returning [#402]
+* MSRV increased to 1.61.0
 
 ## [v0.13.0] 2022-10-06
 
