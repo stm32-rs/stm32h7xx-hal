@@ -284,9 +284,8 @@ fn main() -> ! {
 /// A display with swappable framebuffers
 pub struct BufferedDisplay<'a, LY> {
     layer: LY,
-    frame_buffer_seq: u8,
-    frame_buffer_a: &'a mut [u32],
-    frame_buffer_b: &'a mut [u32],
+    front_buffer: &'a mut [u32],
+    back_buffer: &'a mut [u32],
 }
 
 /// An individual display layer, borrowing from `BufferedDisplay`
@@ -301,22 +300,21 @@ where
 {
     pub fn new(
         mut layer: LY,
-        frame_buffer_a: &'a mut [u32],
-        frame_buffer_b: &'a mut [u32],
+        front_buffer: &'a mut [u32],
+        back_buffer: &'a mut [u32],
     ) -> Self {
         // Safety: the frame buffer has the right size
         unsafe {
             layer.enable(
-                frame_buffer_a.as_ptr() as *const u8,
+                front_buffer.as_ptr() as *const u8,
                 embedded_display_controller::PixelFormat::ARGB8888,
             );
         }
 
         BufferedDisplay {
             layer,
-            frame_buffer_seq: 0,
-            frame_buffer_a,
-            frame_buffer_b,
+            front_buffer,
+            back_buffer,
         }
     }
 
@@ -328,17 +326,10 @@ where
     /// after this may write to the wrong layer. For a safe version, use
     /// swap_layer_wait
     pub unsafe fn swap_layer(&mut self) {
-        if self.frame_buffer_seq & 1 == 0 {
-            // Have been filling buffer A
-            self.layer.swap_framebuffer(self.frame_buffer_a.as_ptr());
-            // Fill buffer B
-            self.frame_buffer_seq = 1;
-        } else {
-            // Have been filling buffer B
-            self.layer.swap_framebuffer(self.frame_buffer_b.as_ptr());
-            // Fill buffer A
-            self.frame_buffer_seq = 0;
-        }
+        // Have been filling back buffer
+        self.layer.swap_framebuffer(self.back_buffer.as_ptr());
+        // Swap the back buffer to the front and visa versa
+        mem::swap(&mut self.back_buffer, &mut self.front_buffer);
     }
 
     /// Swaps frame buffers then waits for the swap to occour on the next
@@ -350,20 +341,13 @@ where
         while self.layer.is_swap_pending() {}
     }
 
-    /// Access to layer 1 via closure
+    /// Access to layer via closure
     pub fn layer<F, T>(&mut self, func: F) -> T
     where
         F: FnOnce(&mut DisplayBuffer) -> T,
     {
-        // Double buffering
-        let buffer = if self.frame_buffer_seq & 1 == 0 {
-            &mut self.frame_buffer_a
-        } else {
-            &mut self.frame_buffer_b
-        };
-
         // Create a layer that lives until the end of this call
-        let mut layer = DisplayBuffer(buffer);
+        let mut layer = DisplayBuffer(&mut self.back_buffer);
         func(&mut layer)
     }
 }
