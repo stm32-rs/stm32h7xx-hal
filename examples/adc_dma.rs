@@ -1,4 +1,4 @@
-//! Example of reading ADC1 data using DMA1/2
+//! Example of reading ADC1 data using DMA1
 //!
 //! For an example of using ADC3, see examples/temperature.rs
 //! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
