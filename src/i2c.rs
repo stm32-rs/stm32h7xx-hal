@@ -631,7 +631,8 @@ macro_rules! i2c {
                         *byte = self.i2c.rxdr.read().rxdata().bits();
                     }
 
-                    // automatic STOP
+                    // Wait until the read finishes
+                    busy_wait!(self.i2c, busy, is_not_busy);
 
                     Ok(())
                 }
@@ -657,7 +658,8 @@ macro_rules! i2c {
                         *byte = self.i2c.rxdr.read().rxdata().bits();
                     }
 
-                    // automatic STOP
+                    // Wait until the read finishes
+                    busy_wait!(self.i2c, busy, is_not_busy);
 
                     Ok(())
                 }
