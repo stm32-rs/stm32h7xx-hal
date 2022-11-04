@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* i2c: Fix stop condition not awaited bug [#402]
+
 ## [v0.13.0] 2022-10-06
 
 * **Breaking** Require frequency when initialising adc, use this to set the prescaler [#379]
