@@ -9,7 +9,7 @@
 //! - [Reading a temperature using ADC3](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/temperature.rs)
 //! - [Using ADC1 and ADC2 together](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12.rs)
 //! - [Using ADC1 and ADC2 in parallel](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12_parallel.rs)
-//! - [Using ADC1 through DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12_parallel.rs)
+//! - [Using ADC1 through DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc_dma.rs)
 
 use crate::hal::adc::{Channel, OneShot};
 use crate::hal::blocking::delay::DelayUs;
