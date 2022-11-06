@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-* i2c: Fix stop condition not awaited bug [#402]
+## [v0.13.1] 2022-11-06
+
+* i2c: Wait for automatic stop condition to occour before returning [#402]
 
 ## [v0.13.0] 2022-10-06
 
@@ -254,7 +256,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.1...HEAD
+[v0.13.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...v0.13.1
 [v0.13.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...v0.13.0
 [v0.12.2]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...v0.12.2
 [v0.12.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.0...v0.12.1
@@ -332,3 +335,4 @@
 [#386]: https://github.com/stm32-rs/stm32h7xx-hal/pull/386
 [#389]: https://github.com/stm32-rs/stm32h7xx-hal/pull/389
 [#390]: https://github.com/stm32-rs/stm32h7xx-hal/pull/390
+[#402]: https://github.com/stm32-rs/stm32h7xx-hal/pull/402
