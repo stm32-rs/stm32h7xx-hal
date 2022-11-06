@@ -1,5 +1,24 @@
-//! Implementation of [IndependentWatchdog]
-
+//! Independent Watchdog
+//!
+//! This module implements the embedded-hal
+//! [Watchdog](https://docs.rs/embedded-hal/latest/embedded_hal/watchdog/trait.Watchdog.html)
+//! trait for the Independent Watchdog peripheral.
+//!
+//! The Independent Watchdog peripheral triggers a system reset when its internal counter expires.
+//!
+//! # Peripheral Naming
+//!
+//! The naming of the Independent Watchdog peripheral varies between parts
+//!
+//! | Parts | IWDG Peripheral | Second IWDG Peripheral |
+//! | --- | --- | --- |
+//! | stm32H742/743/750/753/7a3/7b0/7b3 | IWDG | - |
+//! | stm32h745/747/755/757 | IWDG1 | IWDG2 |
+//! | stm32h725/735 | IWDG1 | - |
+//!
+//! # Examples
+//!
+//! - [IWDG Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/independent_watchdog.rs)
 use crate::{prelude::*, time::MilliSeconds};
 
 #[cfg(any(feature = "rm0433", feature = "rm0455"))]

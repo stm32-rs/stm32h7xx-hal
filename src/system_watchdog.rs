@@ -1,5 +1,19 @@
 //! System Window Watchdog
 //!
+//! This module implements the embedded-hal
+//! [Watchdog](https://docs.rs/embedded-hal/latest/embedded_hal/watchdog/trait.Watchdog.html)
+//! trait for the System Window Watchdog peripheral.
+//!
+//! # Peripheral Naming
+//!
+//! The naming of the System Watchdog peripheral varies between parts
+//!
+//! | Parts | WWDG Peripheral | Second WWDG Peripheral |
+//! | --- | --- | --- |
+//! | stm32h742/743/750/753/7a3/7b0/7b3 | WWDG | - |
+//! | stm32h745/747/755/757 | WWDG1 | WWDG2 |
+//! | stm32h725/735 | WWDG1 | - |
+//!
 //! # Examples
 //!
 //! - [Example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/watchdog.rs)

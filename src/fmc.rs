@@ -1,4 +1,4 @@
-//! HAL for Flexible memory controller (FMC)
+//! Flexible Memory Controller
 //!
 //! FMC support is implemented via the
 //! [stm32-fmc](https://github.com/stm32-rs/stm32-fmc) crate.

@@ -1,3 +1,5 @@
+//! Basic example that produces a 1Hz square-wave on Pin PE1
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]

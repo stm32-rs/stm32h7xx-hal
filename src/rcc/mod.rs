@@ -2,11 +2,11 @@
 //!
 //! This module configures the RCC unit to provide set frequencies for
 //! the input to the SCGU `sys_ck`, the AMBA High-performance Busses
-//! and Advanced eXtensible Interface bus `hclk`, the AMBA Peripheral
+//! and Advanced eXtensible Interface Bus `hclk`, the AMBA Peripheral
 //! Busses `pclkN` and the peripheral clock `per_ck`.
 //!
-//! See Fig 46 "Core and bus clock generation" in Reference Manual
-//! RM0433 for information (p 336).
+//! See Figure 49 "Core and bus clock generation" in Reference Manual
+//! RM0433 Rev 7 for more information (p 348).
 //!
 //! HSI is 64 MHz.
 //! CSI is 4 MHz.
@@ -14,7 +14,7 @@
 //!
 //! # Usage
 //!
-//! This peripheral is must be used alongside the
+//! This peripheral must be used alongside the
 //! [`PWR`](../pwr/index.html) peripheral to freeze voltage scaling of the
 //! device.
 //!

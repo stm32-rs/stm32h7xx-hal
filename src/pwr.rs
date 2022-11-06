@@ -1,4 +1,4 @@
-//! Power Configuration
+//! Power configuration
 //!
 //! This module configures the PWR unit to provide the core voltage `VCORE`. The
 //! voltage scaling mode is VOS1 (High Performance) by default, but VOS2, VOS3
@@ -8,9 +8,10 @@
 //! `freeze`, it will be in Run mode. See RM0433 Rev 7 Section 6.6.1
 //! "System/D3 domain modes".
 //!
-//! # Example
+//! # Examples
 //!
-//! You can also find a simple example [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs).
+//! - [Enable VOS0](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs)
+//! - [Enable USB regulator](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
 //!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
@@ -58,8 +59,8 @@
 //!
 //! | Parts | Reference Manual | Maximum Core Clock with VOS0 |
 //! | --- | --- | ---
-//! | stm32h743/753/750 | RM0433 | 480MHz [^revv]
-//! | stm32h747/757 | RM0399 | 480MHz
+//! | stm32h742/743/753/750 | RM0433 | 480MHz [^revv]
+//! | stm32h745/747/755/757 | RM0399 | 480MHz
 //! | stm32h7a3/7b3/7b0 | RM0455 | VOS0 not supported
 //! | stm32h725/735 | RM0468 | 520MHz [^rm0468ecc]
 //!
@@ -68,10 +69,6 @@
 //! [^rm0468ecc]: These parts allow up to 550MHz by setting an additional bit in
 //! User Register 18, but this is not supported through the HAL.
 //!
-//! ## Examples
-//!
-//! - [Enable VOS0](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs)
-//! - [Enable USB regulator](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;

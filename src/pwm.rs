@@ -10,6 +10,7 @@
 //!
 //! - [Simple example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm.rs)
 //! - [Advanced example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm_advanced.rs)
+//! - [LPTIM peripheral example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/pwm_lptim.rs)
 //!
 //! ## Usage
 //!
@@ -1320,7 +1321,7 @@ macro_rules! tim_hal {
             $(
                 impl<PINS, CHANNEL, COMP> PwmBuilder<$TIMX, PINS, CHANNEL, FaultDisabled, COMP, $typ> {
                     /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
-                    /// Note: not all timers have fault inputs; FaultPins<TIM> is only implemented for valid pins/timers.
+                    /// Note: not all timers have fault inputs; `FaultPins<TIM>` is only implemented for valid pins/timers.
                     pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
                         PwmBuilder {
                             _markers: PhantomData,

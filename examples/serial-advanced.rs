@@ -1,3 +1,5 @@
+//! Demonstrates the usage of advanced USART functions
+
 #![no_main]
 #![no_std]
 

@@ -1,4 +1,4 @@
-//! CAN and FD-CAN support.
+//! CAN and FD-CAN
 //!
 //! The module implements CAN and CAN-FD support using the [fdcan] crate.
 //!
@@ -35,6 +35,11 @@
 //! ```
 //!
 //! [fdcan]: https://docs.rs/fdcan
+//!
+//! # Examples
+//!
+//! - [Basic Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/can-echo.rs)
+//! - [CAN-FD with Bit Rate Switching](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/can-fd.rs)
 
 use crate::gpio::gpioa::{PA11, PA12};
 use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};

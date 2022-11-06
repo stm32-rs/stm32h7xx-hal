@@ -4,6 +4,8 @@
 //!
 //! - [Simple Blocking Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial.rs)
 //! - [Serial Transfer using DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-dma.rs)
+//! - [Advanced USART Functions](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-advanced.rs)
+//! - [Inverted Signal Levels](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-inverted-loopback.rs)
 
 use core::fmt;
 use core::marker::PhantomData;

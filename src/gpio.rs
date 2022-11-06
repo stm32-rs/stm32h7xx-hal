@@ -59,6 +59,7 @@
 //! - [Simple Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs)
 //! - [Digital Read](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/digital_read.rs)
 //! - [External Interrupt via Button](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/exti_interrupt.rs)
+//! - [Usage of `with_*` methods](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/gpio_with_input.rs)
 
 use core::marker::PhantomData;
 

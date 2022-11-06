@@ -10,6 +10,7 @@
 //! - [Simple link checker for the Nucleo-H743ZI2](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-nucleo-h743zi2.rs)
 //! - [Simple link checker for the STM32H747I-DISCO](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-stm32h747i-disco.rs)
 //! - [Ethernet example for the STM32H747I-DISCO using RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-rtic-stm32h747i-disco.rs)
+//! - [Ethernet example for the STM32H735G-DK using RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-rtic-stm32h735g-dk.rs)
 
 use crate::gpio::Speed;
 

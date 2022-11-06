@@ -4,8 +4,8 @@
 //!
 //! | Interface | Parts | # IO lines |
 //! | --- | --- | --- |
-//! | Quad Spi | H742/743/750/753/747/757 | 1-bit, 2-bit or 4-bit |
-//! | Octo Spi | H725/735/7a3/7b0/7b3 | 1-bit, 2-bit, 4-bit or 8-bit |
+//! | Quad Spi | stm32h742/743/750/753/745/747/755/757 | 1-bit, 2-bit or 4-bit |
+//! | Octo Spi | stm32h725/735/7a3/7b0/7b3 | 1-bit, 2-bit, 4-bit or 8-bit |
 //!
 //! # Usage
 //!
@@ -93,6 +93,7 @@
 //! - [QSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_flash_memory.rs)
 //! - [QSPI using MDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/qspi_mdma.rs)
 //! - [OCTOSPI memory usage](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/octospi.rs)
+//! - [OCTOSPI HyperRAM](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/octospi_hyperram.rs)
 //!
 //! # Limitations
 //!
