@@ -33,7 +33,8 @@
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
 use stm32_fmc::{
-    AddressPinSet, PinsSdram, Sdram, SdramChip, SdramPinSet, SdramTargetBank,
+    AddressPinSet, Nand, NandChip, PinsNand, PinsSdram, Sdram, SdramChip,
+    SdramPinSet, SdramTargetBank,
 };
 
 use crate::rcc::{rec, rec::ResetEnable, CoreClocks};
@@ -81,6 +82,39 @@ pub trait FmcExt: Sized {
     ) -> Sdram<FMC, CHIP> {
         let fmc = self.fmc(prec, clocks);
         Sdram::new_unchecked(fmc, bank, chip)
+    }
+
+    /// A new NAND flash memory via the Flexible Memory Controller
+    fn nand<PINS: PinsNand, CHIP: NandChip>(
+        self,
+        pins: PINS,
+        chip: CHIP,
+        prec: rec::Fmc,
+        clocks: &CoreClocks,
+    ) -> Nand<FMC, CHIP> {
+        let fmc = self.fmc(prec, clocks);
+        Nand::new(fmc, pins, chip)
+    }
+
+    /// A new NAND flash memory via the Flexible Memory Controller
+    ///
+    /// # Safety
+    ///
+    /// This method does not ensure that IO pins are configured
+    /// correctly. Misconfiguration may result in a bus lockup or stall when
+    /// attempting to initialise the NAND device.
+    ///
+    /// The pins are not checked against the requirements for the NAND
+    /// chip. Using this method it is possible to initialise a NAND device
+    /// without sufficient pins to access the whole memory
+    unsafe fn nand_unchecked<CHIP: NandChip>(
+        self,
+        chip: CHIP,
+        prec: rec::Fmc,
+        clocks: &CoreClocks,
+    ) -> Nand<FMC, CHIP> {
+        let fmc = self.fmc(prec, clocks);
+        Nand::new_unchecked(fmc, chip)
     }
 }
 
