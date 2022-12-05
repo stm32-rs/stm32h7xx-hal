@@ -72,7 +72,8 @@ macro_rules! vco_output_divider_setup {
         // Calcuate VCO output
         let vco_ck = $output * pll_x_p;
 
-        assert!(pll_x_p <= 128);
+        assert!(pll_x_p <= 128,
+                "Cannot achieve output frequency this low: Maximum PLL divider is 128");
         assert!(vco_ck >= $vco_min);
         assert!(vco_ck <= $vco_max);
 
@@ -289,6 +290,10 @@ macro_rules! pll_setup {
                         // Enable based on config
                         match pll.$CK {
                             Some(_) => {
+                                // Bounds check
+                                assert!(dividers.$DD <= 128,
+                                        "Cannot achieve output frequency this low: Maximum PLL divider is 128");
+
                                 // Setup divider
                                 rcc.$pllXdivr
                                     .modify(|_, w| $($unsafe)* {
