@@ -1,4 +1,8 @@
 //! LCD-TFT Display Controller
+//!
+//! # Examples
+//!
+//! - [External display using embedded-graphics library](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/embedded-graphics.rs)
 
 use core::marker::PhantomData;
 use core::ops::Deref;
