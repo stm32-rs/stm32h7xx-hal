@@ -152,7 +152,7 @@ impl From<AdcSampleTime> for u8 {
 /// ADC LSHIFT\[3:0\] of the converted value
 ///
 /// Only values in range of 0..=15 are allowed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdcLshift(u8);
 
@@ -163,10 +163,6 @@ impl AdcLshift {
         }
 
         AdcLshift(lshift)
-    }
-
-    pub fn default() -> Self {
-        AdcLshift(0)
     }
 
     pub fn value(self) -> u8 {
