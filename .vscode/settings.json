@@ -1,0 +1,13 @@
+{
+    "rust-analyzer.cargo.features": [
+        "rt",
+        "stm32h743v",
+    ],
+    "rust-analyzer.checkOnSave.features": [
+        "rt",
+        "stm32h743v",
+    ],
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "rust-analyzer.checkOnSave.target": "thumbv7em-none-eabihf",
+    "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
+}
