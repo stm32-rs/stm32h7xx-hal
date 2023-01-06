@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+* Alternate pins are readable. [#409]
 
 ## [v0.13.1] 2022-11-06
 
