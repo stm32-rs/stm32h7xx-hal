@@ -668,7 +668,7 @@ fn i2s_config_channel(
     unsafe {
         audio_ch.cr1.modify(|_, w| {
             w.mode()
-                .bits(mode_bits as u8)
+                .bits(mode_bits)
                 .prtcfg()
                 .free()
                 .ds()

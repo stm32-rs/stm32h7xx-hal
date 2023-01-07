@@ -190,6 +190,7 @@ mod marker {
 impl<MODE> marker::Interruptable for Output<MODE> {}
 impl marker::Interruptable for Input {}
 impl marker::Readable for Input {}
+impl<const A: u8, MODE> marker::Readable for Alternate<A, MODE> {}
 impl marker::Readable for Output<OpenDrain> {}
 impl marker::Active for Input {}
 impl<Otype> marker::OutputSpeed for Output<Otype> {}
