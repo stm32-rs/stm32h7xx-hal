@@ -5,4 +5,6 @@ Cargo.lock
 *.bin
 .gdb_history
 Embed.toml
-**/*.vscode
+.vscode/*
+!.vscode/settings.json
+

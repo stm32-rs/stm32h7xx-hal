@@ -72,7 +72,8 @@ macro_rules! vco_output_divider_setup {
         // Calcuate VCO output
         let vco_ck = $output * pll_x_p;
 
-        assert!(pll_x_p <= 128);
+        assert!(pll_x_p <= 128,
+                "Cannot achieve output frequency this low: Maximum PLL divider is 128");
         assert!(vco_ck >= $vco_min);
         assert!(vco_ck <= $vco_max);
 
@@ -194,122 +195,128 @@ macro_rules! pll_setup {
             let pllsrc = self.config.hse.unwrap_or(HSI);
             assert!(pllsrc > 0);
 
-            // PLL output
-            match pll.p_ck {
-                Some(output) => {
-                    // Set VCO parameters based on VCO strategy
-                    let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) =
-                        match pll.strategy {
-                            PllConfigStrategy::Normal => {
-                                vco_setup! { NORMAL: pllsrc, output,
-                                    rcc, $pllXvcosel,
-                                    $pllXrge $(, $pll1_p)* }
-                            },
-                            // Iterative, Fractional, FractionalNotLess
-                            _ => {
-                                vco_setup! { ITERATIVE: pllsrc, output,
-                                    rcc, $pllXvcosel,
-                                    $pllXrge $(, $pll1_p)* }
-
-                            }
-
-                        };
-
-                    // Feedback divider. Integer only
-                    let pll_x_n = vco_ck_target / ref_x_ck;
-
-                    // Write dividers
-                    rcc.pllckselr.modify(|_, w| {
-                        w.$divmX().bits(pll_x_m as u8) // ref prescaler
-                    });
-                    // unsafe as not all values are permitted: see RM0433
-                    assert!(pll_x_n >= 4);
-                    assert!(pll_x_n <= 512);
-                    rcc.$pllXdivr
-                        .modify(|_, w| unsafe { w.$divnX().bits((pll_x_n - 1) as u16) });
-
-                    // Configure N divider. Returns the resulting VCO frequency
-                    let vco_ck = match pll.strategy {
-                        PllConfigStrategy::Fractional => {
-                            // Calculate FRACN
-                            let pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x_p as f32, output as f32);
-                            //RCC_PLL1FRACR
-                            rcc.$pllXfracr.modify(|_, w| {
-                                w.$fracnx().bits(pll_x_fracn)
-                            });
-                            // Enable FRACN
-                            rcc.pllcfgr.modify(|_, w| {
-                                w.$pllXfracen().set()
-                            });
-
-                            calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
+            // PLL output. Use P, Q or R ck in that order of preference
+            if let Some(output) = pll.p_ck.or(pll.q_ck.or(pll.r_ck))
+            {
+                // Set VCO parameters based on VCO strategy
+                //
+                // pll_x is the divider correponding to the channel that
+                // produces output. In the case that for PLL1 p_ck = None but
+                // output corresponds to q_ck or r_ck instead, we
+                // (unnecessarily) apply the P divider restrictions to that
+                // channel anyhow
+                let (ref_x_ck, pll_x_m, pll_x, vco_ck_target) =
+                    match pll.strategy {
+                        PllConfigStrategy::Normal => {
+                            vco_setup! { NORMAL: pllsrc, output,
+                                rcc, $pllXvcosel,
+                                $pllXrge $(, $pll1_p)* }
                         },
-                        PllConfigStrategy::FractionalNotLess => {
-                            // Calculate FRACN
-                            let mut pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x_p as f32, output as f32);
-                            // Round up instead of down for FractionalNotLess
-                            pll_x_fracn += 1;
-                            //RCC_PLL1FRACR
-                            rcc.$pllXfracr.modify(|_, w| {
-                                w.$fracnx().bits(pll_x_fracn)
-                            });
-                            // Enable FRACN
-                            rcc.pllcfgr.modify(|_, w| {
-                                w.$pllXfracen().set()
-                            });
-
-                            calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
-                        },
-                        // Normal
-                        // Iterative
+                        // Iterative, Fractional, FractionalNotLess
                         _ => {
-                            // No FRACN
-                            rcc.pllcfgr.modify(|_, w| {
-                                w.$pllXfracen().reset()
-                            });
+                            vco_setup! { ITERATIVE: pllsrc, output,
+                                rcc, $pllXvcosel,
+                                $pllXrge $(, $pll1_p)* }
 
-                            ref_x_ck * pll_x_n
+                        }
+
+                    };
+
+                // Feedback divider. Integer only
+                let pll_x_n = vco_ck_target / ref_x_ck;
+
+                // Write dividers
+                rcc.pllckselr.modify(|_, w| {
+                    w.$divmX().bits(pll_x_m as u8) // ref prescaler
+                });
+                // unsafe as not all values are permitted: see RM0433
+                assert!(pll_x_n >= 4);
+                assert!(pll_x_n <= 512);
+                rcc.$pllXdivr
+                    .modify(|_, w| unsafe { w.$divnX().bits((pll_x_n - 1) as u16) });
+
+                // Configure N divider. Returns the resulting VCO frequency
+                let vco_ck = match pll.strategy {
+                    PllConfigStrategy::Fractional => {
+                        // Calculate FRACN
+                        let pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x as f32, output as f32);
+                        //RCC_PLL1FRACR
+                        rcc.$pllXfracr.modify(|_, w| {
+                            w.$fracnx().bits(pll_x_fracn)
+                        });
+                        // Enable FRACN
+                        rcc.pllcfgr.modify(|_, w| {
+                            w.$pllXfracen().set()
+                        });
+
+                        calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
+                    },
+                    PllConfigStrategy::FractionalNotLess => {
+                        // Calculate FRACN
+                        let mut pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x as f32, output as f32);
+                        // Round up instead of down for FractionalNotLess
+                        pll_x_fracn += 1;
+                        //RCC_PLL1FRACR
+                        rcc.$pllXfracr.modify(|_, w| {
+                            w.$fracnx().bits(pll_x_fracn)
+                        });
+                        // Enable FRACN
+                        rcc.pllcfgr.modify(|_, w| {
+                            w.$pllXfracen().set()
+                        });
+
+                        calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
+                    },
+                    // Normal
+                    // Iterative
+                    _ => {
+                        // No FRACN
+                        rcc.pllcfgr.modify(|_, w| {
+                            w.$pllXfracen().reset()
+                        });
+
+                        ref_x_ck * pll_x_n
+                    },
+                };
+
+                // Calculate output dividers. If p_ck is None then this will be re-calculation
+                let pll_x_q = match pll.q_ck {
+                    Some(ck) => calc_ck_div(pll.strategy, vco_ck, ck),
+                    None => 0
+                };
+                let pll_x_r = match pll.r_ck {
+                    Some(ck) => calc_ck_div(pll.strategy, vco_ck, ck),
+                    None => 0
+                };
+
+                let dividers = (pll_x, pll_x_q, pll_x_r);
+
+                // Setup and return output clocks
+                ($(
+                    // Enable based on config
+                    match pll.$CK {
+                        Some(_) => {
+                            // Bounds check
+                            assert!(dividers.$DD <= 128,
+                                    "Cannot achieve output frequency this low: Maximum PLL divider is 128");
+
+                            // Setup divider
+                            rcc.$pllXdivr
+                                .modify(|_, w| $($unsafe)* {
+                                    w.$div().bits((dividers.$DD - 1) as u8)
+                                });
+
+                            rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
+                            Some(Hertz::from_raw(vco_ck / dividers.$DD))
                         },
-                    };
-
-                    // Calulate additional output dividers
-                    let pll_x_q = match pll.q_ck {
-                        Some(ck) => calc_ck_div(pll.strategy, vco_ck, ck),
-                        None => 0
-                    };
-                    let pll_x_r = match pll.r_ck {
-                        Some(ck) => calc_ck_div(pll.strategy, vco_ck, ck),
-                        None => 0
-                    };
-
-                    let dividers = (pll_x_p, pll_x_q, pll_x_r);
-
-                    // Setup and return output clocks
-                    ($(
-                        // Enable based on config
-                        match pll.$CK {
-                            Some(_) => {
-                                // Setup divider
-                                rcc.$pllXdivr
-                                    .modify(|_, w| $($unsafe)* {
-                                        w.$div().bits((dividers.$DD - 1) as u8)
-                                    });
-
-                                rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
-                                Some(Hertz::from_raw(vco_ck / dividers.$DD))
-                            },
-                            None => {
-                                rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
-                                None
-                            }
-                        },
-                    )+)
-                },
-                None => {
-                    assert!(pll.q_ck.is_none(), "Must set PLL P clock for Q clock to take effect!");
-                    assert!(pll.r_ck.is_none(), "Must set PLL P clock for R clock to take effect!");
-                    (None, None, None)
-                }
+                        None => {
+                            rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
+                            None
+                        }
+                    },
+                )+)
+            } else {
+                (None, None, None)
             }
         }
     };
@@ -431,6 +438,8 @@ mod tests {
     }
 
     #[test]
+    /// Normal strategy: VCOL, highest PFD frequency, highest VCO frequency
+    ///
     /// Test PFD input frequency PLL and VCO output frequency
     fn vco_setup_normal() {
         let rcc = MockRcc::new();
@@ -449,7 +458,7 @@ mod tests {
 
         // VCO Setup
         println!("NORMAL");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+        let (ref_x_ck, pll_x_m, pll_x, vco_ck_target) = vco_setup! {
             NORMAL: pllsrc, pll_p_target, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
@@ -482,8 +491,8 @@ mod tests {
         println!();
 
         // Output
-        println!("P Divider {}", pll_x_p);
-        let output_p = vco_ck_achieved as f32 / pll_x_p as f32;
+        println!("P Divider {}", pll_x);
+        let output_p = vco_ck_achieved as f32 / pll_x as f32;
         println!("==> Output {} MHz", output_p / 1e6);
 
         let error = output_p - pll_p_target as f32;
@@ -511,6 +520,8 @@ mod tests {
     }
 
     #[test]
+    /// Iterative strategy: VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    ///
     /// Test PFD input frequency PLL and VCO output frequency
     fn vco_setup_iterative() {
         let rcc = MockRcc::new();
@@ -529,7 +540,7 @@ mod tests {
 
         // VCO Setup
         println!("ITERATIVE");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+        let (ref_x_ck, pll_x_m, pll_x, vco_ck_target) = vco_setup! {
             ITERATIVE: pllsrc, pll_p_target, rcc, vcosel, pllrge
         };
         // Feedback divider. Integer only
@@ -562,8 +573,8 @@ mod tests {
         println!();
 
         // Output
-        println!("P Divider {}", pll_x_p);
-        let output_p = pll_x_n as f32 * input / pll_x_p as f32;
+        println!("P Divider {}", pll_x);
+        let output_p = pll_x_n as f32 * input / pll_x as f32;
         println!("==> Output P {} MHz", output_p / 1e6);
         println!();
         assert_eq!(output_p, 240e6);
@@ -582,6 +593,9 @@ mod tests {
     }
 
     #[test]
+    /// Fractional strategy: VCOH, choose PFD frequency for accuracy, highest VCO frequency
+    /// Uses fractional mode to precisely set the P clock
+    ///
     /// Test PFD input frequency PLL and VCO output frequency
     fn vco_setup_fractional() {
         let rcc = MockRcc::new();
@@ -601,7 +615,7 @@ mod tests {
 
         // VCO Setup
         println!("Fractional");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+        let (ref_x_ck, pll_x_m, pll_x, vco_ck_target) = vco_setup! {
             ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
         };
         let input = pllsrc as f32 / pll_x_m as f32;
@@ -611,7 +625,7 @@ mod tests {
         let pll_x_fracn = calc_fracn(
             input as f32,
             pll_x_n as f32,
-            pll_x_p as f32,
+            pll_x as f32,
             output as f32,
         );
         println!("FRACN Divider {}", pll_x_fracn);
@@ -642,8 +656,8 @@ mod tests {
         println!();
 
         // Output
-        let output_p = vco_ck_achieved as f32 / pll_x_p as f32;
-        println!("P Divider {}", pll_x_p);
+        let output_p = vco_ck_achieved as f32 / pll_x as f32;
+        println!("P Divider {}", pll_x);
         println!("==> Output P {} MHz", output_p / 1e6);
         println!();
 
@@ -687,7 +701,7 @@ mod tests {
 
         // VCO Setup
         println!("FractionalNotLess");
-        let (ref_x_ck, pll_x_m, pll_x_p, vco_ck_target) = vco_setup! {
+        let (ref_x_ck, pll_x_m, pll_x, vco_ck_target) = vco_setup! {
             ITERATIVE: pllsrc, output, rcc, vcosel, pllrge
         };
         let input = pllsrc as f32 / pll_x_m as f32;
@@ -697,7 +711,7 @@ mod tests {
         let pll_x_fracn = calc_fracn(
             input as f32,
             pll_x_n as f32,
-            pll_x_p as f32,
+            pll_x as f32,
             output as f32,
         ) + 1;
         println!("FRACN Divider {}", pll_x_fracn);
@@ -729,8 +743,8 @@ mod tests {
         println!();
 
         // Output
-        let output_p = vco_ck_achieved as f32 / pll_x_p as f32;
-        println!("P Divider {}", pll_x_p);
+        let output_p = vco_ck_achieved as f32 / pll_x as f32;
+        println!("P Divider {}", pll_x);
         println!("==> Output P {} MHz", output_p / 1e6);
         println!();
 
