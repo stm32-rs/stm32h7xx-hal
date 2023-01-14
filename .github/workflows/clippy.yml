@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ staging, trying, master ]
+    branches: [staging, trying, master]
   pull_request:
 
 name: Clippy
@@ -13,7 +13,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
-          toolchain: stable
+          toolchain: 1.66.0
           target: thumbv7em-none-eabihf
           override: true
       - uses: actions-rs/clippy-check@v1
