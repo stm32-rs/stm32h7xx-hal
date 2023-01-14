@@ -24,6 +24,7 @@ exclude = [".gitignore"]
 [package.metadata.docs.rs]
 features = ["stm32h743v", "rt", "xspi", "sdmmc", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "can", "defmt", "log", "fugit/defmt"]
 targets = ["thumbv7em-none-eabihf"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 fugit = "0.3.5"

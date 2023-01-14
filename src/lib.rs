@@ -55,6 +55,7 @@
 //! * [`defmt`](https://defmt.ferrous-systems.com/) formatting for some types can be enabled with the feature `defmt`.
 
 #![cfg_attr(not(test), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(non_camel_case_types)]
 
 extern crate paste;
@@ -140,13 +141,16 @@ pub use crate::stm32 as device;
 
 // Enable use of interrupt macro
 #[cfg(feature = "rt")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
 #[cfg(all(feature = "device-selected", feature = "can"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "can")))]
 pub mod can;
 #[cfg(all(feature = "device-selected", feature = "crc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "crc")))]
 pub mod crc;
 #[cfg(feature = "device-selected")]
 pub mod dac;
@@ -159,12 +163,14 @@ pub mod dma;
     feature = "ethernet",
     not(feature = "rm0455")
 ))]
+#[cfg_attr(docsrs, doc(cfg(feature = "ethernet")))]
 pub mod ethernet;
 #[cfg(feature = "device-selected")]
 pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 #[cfg(all(feature = "device-selected", feature = "fmc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmc")))]
 pub mod fmc;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
@@ -173,6 +179,7 @@ pub mod i2c;
 #[cfg(feature = "device-selected")]
 pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "ltdc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "ltdc")))]
 pub mod ltdc;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
@@ -187,10 +194,12 @@ pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod rng;
 #[cfg(all(feature = "device-selected", feature = "rtc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "rtc")))]
 pub mod rtc;
 #[cfg(feature = "device-selected")]
 pub mod sai;
 #[cfg(all(feature = "device-selected", feature = "sdmmc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "sdmmc")))]
 pub mod sdmmc;
 #[cfg(feature = "device-selected")]
 pub mod serial;
@@ -205,8 +214,10 @@ pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
 #[cfg(all(feature = "device-selected", feature = "usb_hs"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "usb_hs")))]
 pub mod usb_hs;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
 pub mod xspi;
 
 #[cfg(feature = "device-selected")]

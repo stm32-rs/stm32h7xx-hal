@@ -1,7 +1,5 @@
 //! USB OTG peripherals
 //!
-//! Requires the `usb_hs` feature.
-//!
 //! ## ULPI Transciever Delay
 //!
 //! Some ULPI PHYs like the Microchip USB334x series require a delay between the

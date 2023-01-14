@@ -1228,6 +1228,7 @@ macro_rules! sdmmc {
                 }
 
                 #[cfg(feature = "sdmmc-fatfs")]
+                #[cfg_attr(docsrs, doc(cfg(feature = "sdmmc-fatfs")))]
                 pub fn sdmmc_block_device(self) -> SdmmcBlockDevice<Sdmmc<$SDMMCX, SdCard>> {
                     SdmmcBlockDevice {
                         sdmmc: core::cell::RefCell::new(self)
@@ -1236,6 +1237,7 @@ macro_rules! sdmmc {
             }
 
             #[cfg(feature = "sdmmc-fatfs")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "sdmcc-fatfs")))]
             impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<$SDMMCX, SdCard>> {
                 type Error = Error;
 

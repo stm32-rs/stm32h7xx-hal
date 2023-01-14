@@ -26,6 +26,7 @@
 #[non_exhaustive]
 pub struct BackupREC {
     #[cfg(feature = "rtc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "rtc")))]
     pub RTC: Rtc,
     backup_regulator: bool,
 }
@@ -54,9 +55,11 @@ impl BackupREC {
 }
 
 #[cfg(feature = "rtc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rtc")))]
 pub use rtc::{Rtc, RtcClkSel};
 
 #[cfg(feature = "rtc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rtc")))]
 mod rtc {
     use crate::rcc::rec::ResetEnable;
     use crate::stm32::RCC;
