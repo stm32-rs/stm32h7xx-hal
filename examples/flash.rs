@@ -1,14 +1,22 @@
-//! Example of Flash erasing, writing and reading with the stm32h743zi (rm0433)
-//! Assumes this example runs at sector 0 of bank 1 (0x0800_0000)
-
+//! Example of Flash erasing, writing and reading
+//!
+//! Tested on the following parts:
+//! - STM32H7A3ZIT6Q (NUCLEO-H7A3ZI-Q)
+//! - STM32H735IGK (STM32H735G-DK)
+//! - STM32H747XIH (STM32H747I-DISCO)
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
 use cortex_m_rt::entry;
+use stm32h7xx_hal::{pac, prelude::*};
+
+// traits for read, write and erase methods
+use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
+
 #[macro_use]
 mod utilities;
 use log::info;
-use stm32h7xx_hal::{flash::Bank, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -18,31 +26,38 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let _pwrcfg = example_power!(pwr).freeze();
+    let pwrcfg = example_power!(pwr).vos3().freeze(); // TODO
 
-    // The RCC is never setup in this example, so the device is still in Run*
-    // mode
+    // Constrain and Freeze clock
+    info!("Setup RCC...                  ");
+    let rcc = dp.RCC.constrain();
+    let _ccdr = rcc.sys_ck(50.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
-    info!("stm32h7xx-hal example - FLASH erase, write and read");
+    info!("stm32h7xx-hal example - Flash erase, write and read");
     info!("");
 
-    // Constrain the flash peripheral,
-    // giving access to read/write/erase operations
-    let mut flash = dp.FLASH.constrain();
+    // Initialise both flash banks
+    let (mut flash1, mut flash2) = dp.FLASH.split();
 
-    // Skipping sector 0, erase all other sectors of user bank 1
-    for i in 1..8 {
-        flash.erase_sector(Bank::UserBank1, i).unwrap();
+    // Erase 16kB at the end of user bank 1
+    let len = flash1.len() as u32;
+    let start = len - 16 * 1024;
+    {
+        let mut f = flash1.unlocked();
+        f.erase(start, len).unwrap();
     }
 
-    // Erase the entirety of user bank 2
-    flash.erase_bank(Bank::UserBank2).unwrap();
+    // Erase the entirety of user bank 2, if present
+    if let Some(ref mut f2) = flash2 {
+        let mut f = f2.unlocked();
+        f.erase(0, 1024 * 1024).unwrap();
+    }
 
     // Fill up write buffer
-    let mut buff = [0u8; 1024 * 15];
+    let mut buf = [0u8; 1024 * 16];
     let mut count = 0;
-    for b in buff.iter_mut() {
+    for b in buf.iter_mut() {
         *b = count;
         count += 1;
         if count >= 100 {
@@ -50,22 +65,21 @@ fn main() -> ! {
         }
     }
 
-    // Write data on bank 1 and read it back
-    flash.write_sector(Bank::UserBank1, 1, 0, &buff).unwrap();
-    let mut read = [0u8; 1024 * 15];
-    flash.read_sector(Bank::UserBank1, 1, 0, &mut read).unwrap();
-    for i in 0..read.len() {
-        assert_eq!(read[i], buff[i]);
+    // Write data on user bank 1 and read it back
+    {
+        let mut f = flash1.unlocked();
+        f.write(start, &buf).unwrap();
     }
+    let mut read = [0u8; 1024 * 16];
+    flash1.read(start, &mut read).unwrap();
+    assert_eq!(read, buf);
 
-    // Write data on bank 2, sector 0, offset 256 and read it back
-    flash.write_sector(Bank::UserBank2, 0, 256, &buff).unwrap();
-    let mut read = [0u8; 1024 * 15];
-    flash
-        .read_sector(Bank::UserBank2, 0, 256, &mut read)
-        .unwrap();
-    for i in 0..read.len() {
-        assert_eq!(read[i], buff[i]);
+    // Write data on user bank 2 offset 256 and read it back, if user bank 2 present
+    if let Some(ref mut f2) = flash2 {
+        let mut f = f2.unlocked();
+        f.write(256, &buf).unwrap();
+        f.read(256, &mut read).unwrap();
+        assert_eq!(read, buf);
     }
 
     info!("Successfully erased, written and read back flash data");
