@@ -18,10 +18,10 @@
 use crate::stm32::{flash, FLASH};
 use core::sync::atomic::{fence, Ordering};
 
-#[cfg(feature = "defmt")]
-use defmt::bitflags;
 #[cfg(not(feature = "defmt"))]
 use bitflags::bitflags;
+#[cfg(feature = "defmt")]
+use defmt::bitflags;
 
 #[cfg(all(
     any(feature = "rm0433"),
