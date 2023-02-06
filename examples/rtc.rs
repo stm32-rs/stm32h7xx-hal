@@ -50,7 +50,10 @@ fn main() -> ! {
     );
 
     // TODO: Get current time from some source
-    let now = NaiveDate::from_ymd(2001, 1, 1).and_hms(0, 0, 0);
+    let now = NaiveDate::from_ymd_opt(2001, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
 
     rtc.set_date_time(now);
     rtc.enable_wakeup(10);
