@@ -349,6 +349,7 @@ macro_rules! err_from_datapath_sm {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// Indicates transfer direction
 enum Dir {
     CardToHost,
@@ -356,6 +357,7 @@ enum Dir {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// SDMMC Power Control
 enum PowerCtrl {
     Off = 0b00,

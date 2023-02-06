@@ -230,6 +230,7 @@ pub struct ComplementaryEnabled;
 
 /// Enum for IO polarity
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Polarity {
     ActiveHigh,
     ActiveLow,
