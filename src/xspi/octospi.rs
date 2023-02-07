@@ -75,7 +75,7 @@ impl HyperbusConfig {
     pub fn device_size_bytes(mut self, size_order: u8) -> Self {
         debug_assert!(size_order > 4, "Memory size must be at least 32 bytes");
         debug_assert!(
-            size_order <= 26,
+            size_order <= 28,
             "Maximum memory size that can be mapped is 256 MBytes"
         );
 
