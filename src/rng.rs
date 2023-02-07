@@ -228,6 +228,7 @@ rng_core_large!(usize);
 
 // rand_core
 #[cfg(feature = "rand")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
 impl rand_core::RngCore for Rng {
     /// Generate a random u32
     /// Panics if RNG fails.
@@ -264,4 +265,5 @@ impl rand_core::RngCore for Rng {
 }
 
 #[cfg(feature = "rand")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
 impl rand_core::CryptoRng for Rng {}

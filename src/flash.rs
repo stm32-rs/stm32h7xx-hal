@@ -18,6 +18,11 @@
 use crate::stm32::{flash, FLASH};
 use core::sync::atomic::{fence, Ordering};
 
+#[cfg(not(feature = "defmt"))]
+use bitflags::bitflags;
+#[cfg(feature = "defmt")]
+use defmt::bitflags;
+
 #[cfg(all(
     any(feature = "rm0433"),
     not(feature = "stm32h750"),
@@ -187,7 +192,7 @@ impl Bank {
     not(feature = "stm32h750"),
     not(feature = "stm32h750v")
 ))]
-bitflags::bitflags! {
+bitflags! {
     /// Specific error flags that may result from flash operations.
     pub struct BankError: u8 {
         const PROGRAMMING_SEQUENCE = 1 << 0;
@@ -206,6 +211,7 @@ bitflags::bitflags! {
     not(feature = "stm32h750v")
 ))]
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 /// Possible error states for flash operations.
 pub enum Error {
     /// Error detected (by command execution, or because no command could be executed)
