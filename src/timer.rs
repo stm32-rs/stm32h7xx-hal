@@ -80,6 +80,7 @@ impl GetClk for LPTIM1 {
         }
     }
 }
+
 /// LPTIM2 Kernel Clock
 impl GetClk for LPTIM2 {
     /// Current kernel clock
@@ -152,6 +153,7 @@ impl_clk_lptim345! { LPTIM3, LPTIM4, LPTIM5 }
 
 /// Enabled LPTIM (type state)
 pub struct Enabled;
+
 /// Disabled LPTIM (type state)
 pub struct Disabled;
 
@@ -188,6 +190,68 @@ pub trait TimerExt<TIM> {
 pub struct Timer<TIM> {
     clk: u32,
     tim: TIM,
+}
+
+pub trait HalLpTimer {
+    type Timer;
+    type Rec;
+
+    /// Read the counter of the LPTIM peripheral
+    fn counter(&self) -> u16;
+
+    /// Clears interrupt flag
+    fn clear_irq(&mut self);
+
+    /// Releases the LPTIM peripheral
+    fn free(self) -> (Self::Timer, Self::Rec);
+}
+
+pub trait HalDisabledLpTimer: HalLpTimer {
+    /// The enabled variant of the LPTIM
+    type Enabled: HalEnabledLpTimer<
+        Timer = Self::Timer,
+        Rec = Self::Rec,
+        Disabled = Self,
+    >;
+
+    /// Sets the frequency of the LPTIM counter
+    ///
+    /// The counter must be disabled
+    fn set_freq(&mut self, timeout: Hertz);
+
+    /// Configures the timer to count up at the given frequency
+    ///
+    /// The counter must be disabled
+    fn set_tick_freq(&mut self, frequency: Hertz);
+
+    /// Start listening for `event`
+    ///
+    /// The timer must be disabled, see RM0433 Rev 7. 43.4.13
+    fn listen(&mut self, event: Event);
+
+    /// Stop listening for `event`
+    ///
+    /// The timer must be disabled, see RM0433 Rev 7. 43.4.13
+    fn unlisten(&mut self, event: Event);
+
+    /// Enables the LPTIM, and starts counting
+    fn resume(self) -> Self::Enabled;
+}
+
+pub trait HalEnabledLpTimer: HalLpTimer {
+    /// The disabled variant of the LPTIM
+    type Disabled: HalDisabledLpTimer<
+        Timer = Self::Timer,
+        Rec = Self::Rec,
+        Enabled = Self,
+    >;
+
+    /// Perform a synchronous reset of the LPTIM counter. The timer
+    /// must be running.
+    fn reset_counter(&mut self);
+
+    /// Disables the LPTIM peripheral
+    fn pause(self) -> Self::Disabled;
 }
 
 /// Low power hardware timers
@@ -630,10 +694,12 @@ macro_rules! lptim_hal {
 
                     timer
                 }
+            }
 
-                /// Perform a synchronous reset of the LPTIM counter. The timer
-                /// must be running.
-                pub fn reset_counter(&mut self) {
+            impl HalEnabledLpTimer for LpTimer<$TIMX, Enabled> {
+                type Disabled = LpTimer<$TIMX, Disabled>;
+
+                fn reset_counter(&mut self) {
                     // Counter Reset
                     self.tim.cr.write(|w| w.countrst().set_bit().enable().enabled());
                     let _ = self.tim.cr.read();
@@ -641,11 +707,11 @@ macro_rules! lptim_hal {
                 }
 
                 /// Disables the LPTIM peripheral
-                pub fn pause(self) -> LpTimer<$TIMX, Disabled> {
+                fn pause(self) -> Self::Disabled {
                     // Disable the entire timer
                     self.tim.cr.write(|w| w.enable().disabled());
 
-                    LpTimer {
+                    Self::Disabled {
                         clk: self.clk,
                         tim: self.tim,
                         timeout: self.timeout,
@@ -654,21 +720,17 @@ macro_rules! lptim_hal {
                 }
             }
 
-            impl LpTimer<$TIMX, Disabled> {
-                /// Sets the frequency of the LPTIM counter
-                ///
-                /// The counter must be disabled
-                pub fn set_freq(&mut self, timeout: Hertz) {
+            impl HalDisabledLpTimer for LpTimer<$TIMX, Disabled> {
+                type Enabled = LpTimer<$TIMX, Enabled>;
+
+                fn set_freq(&mut self, timeout: Hertz) {
                     self.priv_set_freq(timeout); // side effect: enables counter
 
                     // Disable timer
                     self.tim.cr.write(|w| w.enable().disabled());
                 }
 
-                /// Configures the timer to count up at the given frequency
-                ///
-                /// The counter must be disabled
-                pub fn set_tick_freq(&mut self, frequency: Hertz)
+                fn set_tick_freq(&mut self, frequency: Hertz)
                 {
                     self.priv_set_tick_freq(frequency); // side effect: enables counter
 
@@ -676,10 +738,7 @@ macro_rules! lptim_hal {
                     self.tim.cr.write(|w| w.enable().disabled());
                 }
 
-                /// Start listening for `event`
-                ///
-                /// The timer must be disabled, see RM0433 Rev 7. 43.4.13
-                pub fn listen(&mut self, event: Event) {
+                fn listen(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
                             // Enable autoreload match interrupt
@@ -688,10 +747,7 @@ macro_rules! lptim_hal {
                     }
                 }
 
-                /// Stop listening for `event`
-                ///
-                /// The timer must be disabled, see RM0433 Rev 7. 43.4.13
-                pub fn unlisten(&mut self, event: Event) {
+                fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
                             // Disable autoreload match interrupt
@@ -703,12 +759,12 @@ macro_rules! lptim_hal {
                 }
 
                 /// Enables the LPTIM, and starts counting
-                pub fn resume(self) -> LpTimer<$TIMX, Enabled> {
+                fn resume(self) -> Self::Enabled {
                     // Enable and start counting
                     self.tim.cr.write(|w| w.enable().enabled());
                     self.tim.cr.write(|w| w.cntstrt().set_bit().enable().enabled());
 
-                    LpTimer {
+                    Self::Enabled {
                         clk: self.clk,
                         tim: self.tim,
                         timeout: self.timeout,
@@ -795,9 +851,13 @@ macro_rules! lptim_hal {
                     while self.tim.isr.read().arrok().bit_is_clear() {}
                     self.tim.icr.write(|w| w.arrokcf().clear());
                 }
+            }
 
-                /// Read the counter of the LPTIM peripheral
-                pub fn counter(&self) -> u16 {
+            impl<ED> HalLpTimer for LpTimer<$TIMX, ED> {
+                type Timer = $TIMX;
+                type Rec = rec::$Rec;
+
+                fn counter(&self) -> u16 {
                     loop {
                         // Read once
                         let count1 = self.tim.cnt.read().cnt().bits();
@@ -809,15 +869,13 @@ macro_rules! lptim_hal {
                     }
                 }
 
-                /// Clears interrupt flag
-                pub fn clear_irq(&mut self) {
+                fn clear_irq(&mut self) {
                     // Clear autoreload match event
                     self.tim.icr.write(|w| w.arrmcf().set_bit());
                     while self.tim.isr.read().arrm().bit_is_set() {}
                 }
 
-                /// Releases the LPTIM peripheral
-                pub fn free(self) -> ($TIMX, rec::$Rec) {
+                fn free(self) -> (Self::Timer, Self::Rec) {
                     // Disable timer
                     self.tim.cr.write(|w| w.enable().disabled());
 
