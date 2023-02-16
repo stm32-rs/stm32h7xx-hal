@@ -204,6 +204,12 @@ pub trait HalLpTimer {
 
     /// Releases the LPTIM peripheral
     fn free(self) -> (Self::Timer, Self::Rec);
+
+    /// Returns a reference to the inner peripheral
+    fn inner(&self) -> &Self::Timer;
+
+    /// Returns a mutable reference to the inner peripheral
+    fn inner_mut(&mut self) -> &mut Self::Timer;
 }
 
 pub trait HalDisabledLpTimer: HalLpTimer {
@@ -880,6 +886,14 @@ macro_rules! lptim_hal {
                     self.tim.cr.write(|w| w.enable().disabled());
 
                     (self.tim, rec::$Rec { _marker: PhantomData })
+                }
+
+                fn inner(&self) -> &$TIMX {
+                    &self.tim
+                }
+
+                fn inner_mut(&mut self) -> &mut $TIMX {
+                    &mut self.tim
                 }
             }
         )+
