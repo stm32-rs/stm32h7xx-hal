@@ -47,6 +47,7 @@
 //! * [Direct Memory Access (DMA)](crate::dma)
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
 //! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
+//! * [Embedded Flash Memory](crate::flash)
 //! * [System Window Watchdog](crate::system_watchdog)
 //! * [Independent Watchdog](crate::independent_watchdog)
 //!

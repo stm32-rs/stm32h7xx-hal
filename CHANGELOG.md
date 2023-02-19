@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 * Alternate pins are readable. [#409]
+* MSRV increased to 1.62.0
 
 ## [v0.13.1] 2022-11-06
 
