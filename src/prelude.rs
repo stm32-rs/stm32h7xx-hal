@@ -35,6 +35,9 @@ pub use crate::spi::HalEnabledSpi as _stm32h7xx_hal_spi_HalEnabledSpi;
 pub use crate::spi::HalSpi as _stm32h7xx_hal_spi_HalSpi;
 pub use crate::spi::SpiExt as _stm32h7xx_hal_spi_SpiExt;
 pub use crate::time::U32Ext as _stm32h7xx_hal_time_U32Ext;
+pub use crate::timer::HalDisabledLpTimer as _stm32h7xx_hal_timer_HalDisabledLpTimer;
+pub use crate::timer::HalEnabledLpTimer as _stm32h7xx_hal_timer_HalEnabledLpTimer;
+pub use crate::timer::HalLpTimer as _stm32h7xx_hal_timer_HalLpTimer;
 pub use crate::timer::TimerExt as _stm32h7xx_hal_timer_TimerExt;
 #[cfg(all(feature = "xspi"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
