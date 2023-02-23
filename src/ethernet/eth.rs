@@ -799,11 +799,7 @@ impl StationManagement for EthernetMAC {
 pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
 
 impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
-    fn consume<R, F>(
-        self,
-        len: usize,
-        f: F,
-    ) -> R
+    fn consume<R, F>(self, len: usize, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
     {
@@ -830,9 +826,7 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
 }
 
 /// Implement the smoltcp Device interface
-impl<const TD: usize, const RD: usize> phy::Device
-    for EthernetDMA<TD, RD>
-{
+impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
     type RxToken<'a> = RxToken<'a, RD>;
     type TxToken<'a> = TxToken<'a, TD>;
 
@@ -847,7 +841,10 @@ impl<const TD: usize, const RD: usize> phy::Device
         caps
     }
 
-    fn receive(&mut self, _timestamp: Instant) -> Option<(RxToken<RD>, TxToken<TD>)> {
+    fn receive(
+        &mut self,
+        _timestamp: Instant,
+    ) -> Option<(RxToken<RD>, TxToken<TD>)> {
         // Skip all queued packets with errors.
         while self.ring.rx.available() && !self.ring.rx.valid() {
             self.ring.rx.release()
