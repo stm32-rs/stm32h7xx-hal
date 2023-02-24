@@ -396,7 +396,7 @@ impl Pwr {
         any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
     ))]
     #[must_use]
-    pub fn vos0(mut self, _: &SYSCFG) -> Self {
+    pub fn vos0(mut self) -> Self {
         self.target_vos = VoltageScale::Scale0;
         self
     }
