@@ -2,6 +2,7 @@
 
 ## Unreleased
 * Update `smoltcp` dependency to `0.9.0`
+* MSRV increased to 1.65.0
 
 ## [v0.14.0] 2023-03-22
 
