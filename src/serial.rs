@@ -605,6 +605,14 @@ macro_rules! usart {
                     let mut serial = Serial { usart, ker_ck };
                     let config = config.into();
                     serial.usart.cr1.reset();
+
+                    // If synchronous mode is supported, check that it is not
+                    // enabled alongside half duplex mode
+                    $(
+                        if config.halfduplex & $synchronous {
+                            return Err(config::InvalidConfig);
+                        }
+                    )?
                     serial.configure(&config $(, $synchronous )?);
 
                     Ok(serial)
