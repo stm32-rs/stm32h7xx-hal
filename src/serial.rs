@@ -19,6 +19,7 @@ use nb::block;
 use stm32::usart1::cr2::{
     CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A,
 };
+use stm32::usart1::cr3::HDSEL_A;
 
 use crate::gpio::{self, Alternate};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
@@ -144,6 +145,7 @@ pub mod config {
         pub inverttx: bool,
         pub rxfifothreshold: FifoThreshold,
         pub txfifothreshold: FifoThreshold,
+        pub halfduplex: bool,
     }
 
     impl Config {
@@ -165,6 +167,7 @@ pub mod config {
                 inverttx: false,
                 rxfifothreshold: FifoThreshold::Eighth,
                 txfifothreshold: FifoThreshold::Eighth,
+                halfduplex: false,
             }
         }
 
@@ -254,6 +257,12 @@ pub mod config {
             txfifothreshold: FifoThreshold,
         ) -> Self {
             self.txfifothreshold = txfifothreshold;
+            self
+        }
+
+        /// If `true`, sets to half-duplex mode
+        pub fn halfduplex(mut self, halfduplex: bool) -> Self {
+            self.halfduplex = halfduplex;
             self
         }
     }
@@ -596,6 +605,14 @@ macro_rules! usart {
                     let mut serial = Serial { usart, ker_ck };
                     let config = config.into();
                     serial.usart.cr1.reset();
+
+                    // If synchronous mode is supported, check that it is not
+                    // enabled alongside half duplex mode
+                    $(
+                        if config.halfduplex & $synchronous {
+                            return Err(config::InvalidConfig);
+                        }
+                    )?
                     serial.configure(&config $(, $synchronous )?);
 
                     Ok(serial)
@@ -649,6 +666,15 @@ macro_rules! usart {
                     unsafe {
                         self.usart.cr3.modify(|_, w| w.txftcfg().bits(fifo_threshold_bits));
                     }
+
+                    // Configure half-duplex mode
+                    self.usart.cr3.modify(|_, w| {
+                        w.hdsel().variant(if config.halfduplex {
+                            HDSEL_A::Selected
+                        } else {
+                            HDSEL_A::NotSelected
+                        })
+                    });
 
                     // Configure serial mode
                     self.usart.cr2.write(|w| {
