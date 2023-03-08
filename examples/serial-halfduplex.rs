@@ -71,14 +71,14 @@ fn main() -> ! {
     loop {
         // Tx from usart3
         for c in "Hello, world!".chars() {
-            let _res = block!(usart3.write(c as u8)).unwrap();
+            block!(usart3.write(c as u8)).unwrap();
             let received = block!(usart6.read()).unwrap();
             info!("usart6 rx {}", received as char);
         }
 
         // Tx from usart6
         for c in "Hello, world!".chars() {
-            let _res = block!(usart6.write(c as u8)).unwrap();
+            block!(usart6.write(c as u8)).unwrap();
             let received = block!(usart3.read()).unwrap();
             info!("usart3 rx {}", received as char);
         }
