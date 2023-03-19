@@ -1,9 +1,21 @@
 # Changelog
 
-## [Unreleased]
-* Alternate pins are readable. [#409]
+## Unreleased
+
+## [v0.14.0] 2023-03-22
+
+* **Breaking** flash: Rework API to support all parts and use
+  [embedded-storage](https://github.com/rust-embedded-community/embedded-storage)
+  traits [#415]
+* **Breaking** sdmmc: Bump `embedded-sdmmc` to 0.4 [#421]
+* gpio: Make `Alternate` variants readable [#409]
+* lptim: Add LPTIM traits [#419]
+* pll: Add bounds check on PLL R/Q dividers [#407]
+* serial: Add support for half-duplex mode [#408]
+* Add missing Defmt impls [#418]
+* Bump `cortex-m` dependency to `0.7.7` and add `critical-section-single-core` feature [#426]
+* Update `bitflags` dependency to `2.0.0` [#426]
 * MSRV increased to 1.62.0
-* **Breaking** Bump `embedded-sdmmc` to 0.4
 
 ## [v0.13.1] 2022-11-06
 
@@ -260,7 +272,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.14.0...HEAD
+[v0.14.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.1...v0.14.0
 [v0.13.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...v0.13.1
 [v0.13.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...v0.13.0
 [v0.12.2]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.1...v0.12.2
@@ -340,3 +353,11 @@
 [#389]: https://github.com/stm32-rs/stm32h7xx-hal/pull/389
 [#390]: https://github.com/stm32-rs/stm32h7xx-hal/pull/390
 [#402]: https://github.com/stm32-rs/stm32h7xx-hal/pull/402
+[#407]: https://github.com/stm32-rs/stm32h7xx-hal/pull/407
+[#408]: https://github.com/stm32-rs/stm32h7xx-hal/pull/408
+[#409]: https://github.com/stm32-rs/stm32h7xx-hal/pull/409
+[#415]: https://github.com/stm32-rs/stm32h7xx-hal/pull/415
+[#418]: https://github.com/stm32-rs/stm32h7xx-hal/pull/418
+[#419]: https://github.com/stm32-rs/stm32h7xx-hal/pull/419
+[#421]: https://github.com/stm32-rs/stm32h7xx-hal/pull/421
+[#426]: https://github.com/stm32-rs/stm32h7xx-hal/pull/426
