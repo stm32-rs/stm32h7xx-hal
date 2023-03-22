@@ -87,7 +87,7 @@ fn main() -> ! {
         gpiod.pd5,              // NWE
         gpiod.pd6               // NWAIT
     };
-    let _wp = gpioe.pe2.into_push_pull_output().set_high(); // unprotect
+    gpioe.pe2.into_push_pull_output().set_high(); // unprotect
 
     let mut fmc_nand = dp.FMC.nand(
         nand_flash_pins,

@@ -399,6 +399,7 @@ pub struct EthernetMAC {
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
+#[allow(clippy::too_many_arguments)]
 pub fn new<'a, const TD: usize, const RD: usize>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
