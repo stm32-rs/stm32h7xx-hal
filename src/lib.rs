@@ -77,6 +77,10 @@ compile_error!(
         stm32h7b3
         stm32h7b0
         stm32h7a3
+        stm32h735
+        stm32h733
+        stm32h723
+        stm32h725
 "
 );
 
@@ -126,6 +130,8 @@ pub use stm32h7::stm32h7b3 as stm32;
     feature = "stm32h725",
     feature = "stm32h735",
     feature = "stm32h730",
+    feature = "stm32h723",
+    feature = "stm32h733"
 ))]
 pub use stm32h7::stm32h735 as stm32;
 
