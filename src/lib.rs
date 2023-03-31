@@ -78,9 +78,6 @@ compile_error!(
         stm32h7b0
         stm32h7a3
         stm32h735
-        stm32h733
-        stm32h723
-        stm32h725
 "
 );
 
