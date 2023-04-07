@@ -28,13 +28,13 @@ Collaboration on this crate is highly welcome, as are pull requests!
 Supported Configurations
 ------------------------
 
-* __stm32h743v__ (Revision V: stm32h743, stm32h742, stm32h750)
-* __stm32h753v__
-* __stm32h747cm7__ (stm32h747, stm32h757)
-* __stm32h7b3__
-* __stm32h7b0__
+* __stm32h743v__ (Revision V: stm32h742, stm32h743, stm32h750)
+* __stm32h753v__ (Revision V: stm32h753
+* __stm32h747cm7__ (stm32h745, stm32h747, stm32h755, stm32h757)
 * __stm32h7a3__
-* __stm32h735__ (stm32h725, stm32h735)
+* __stm32h7b0__
+* __stm32h7b3__
+* __stm32h735__ (stm32h723, stm32h725, stm32h730, stm32h733, stm32h735)
 
 #### Old revision STM32H742/743/750/753 parts
 
@@ -46,7 +46,36 @@ revision (Revision Y) are supported by feature gates without the 'v'
 suffix. (__stm32h743__, __stm32h753__)
 
 #### Dual core parts (Cortex M7 + Cortex M4)
+
 On dual core parts, currently only the Cortex M7 core is supported.
+
+#### Family-specific memory.x
+
+Each H7 device family has a somewhat different memory layout. To make starting
+a project easier, a specific example memory.x file is included for each family.
+You can use these to replace the memory.x included in this crate for the examples.
+
+The memory layout for each device family is specified in their respective
+reference manual (RM). The table below relates the various parts to their
+applicable memory.x and reference manual. 
+
+RM     | memory.x                     | Applicable devices
+-------|------------------------------|----------------------------------------
+RM0399 | memory_745_747_755_757.x     | stm32h745, stm32h747, stm32h755, stm32h757
+RM0433 | memory_742.x                 | stm32h742
+RM0433 | memory_743_750_753.x         | stm32h743, stm32h750, stm32h753
+RM0455 | memory_7A3_7B0_7B3.x         | stm32h7a3, stm32h7b0, stm32h7b3
+RM0468 | memory_723_725_730_733_735.x | stm32h723, stm32h725, stm32h730, stm32h733, stm32h735
+
+To use these files, substitute memory.x by the applicable one and update the
+flash memory size as indicated below.
+
+⚠️: If you use [flip-link](https://github.com/knurling-rs/flip-link) for stack
+overflow protection, there is one more change to make. Flip-link does not (yet)
+support the use of region aliases and expects an entry called RAM in the MEMORY
+block. The work-around is to comment-out the "REGION_ALIAS(RAM, DTCM)" line and
+manually substitute the RAM label in the respective MEMORY entry. Eg: replace
+DTCM by RAM.
 
 #### Flash memory size
 
