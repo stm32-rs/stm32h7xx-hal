@@ -61,7 +61,7 @@
 //! | --- | --- | ---
 //! | stm32h742/743/753/750 | RM0433 | 480MHz [^revv]
 //! | stm32h745/747/755/757 | RM0399 | 480MHz
-//! | stm32h7a3/7b3/7b0 | RM0455 | VOS0 not supported
+//! | stm32h7a3/7b3/7b0 | RM0455 | 280MHz
 //! | stm32h725/735 | RM0468 | 520MHz [^rm0468ecc]
 //!
 //! [^revv]: Revision V and later parts only
@@ -72,7 +72,10 @@
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
-#[cfg(all(feature = "revision_v", feature = "rm0468"))]
+#[cfg(all(
+    feature = "revision_v",
+    any(feature = "rm0468", feature = "rm0455")
+))]
 use crate::stm32::SYSCFG;
 #[cfg(all(
     feature = "revision_v",
@@ -393,7 +396,12 @@ impl Pwr {
 
     #[cfg(all(
         feature = "revision_v",
-        any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
+        any(
+            feature = "rm0433",
+            feature = "rm0399",
+            feature = "rm0468",
+            feature = "rm0455"
+        )
     ))]
     #[must_use]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
@@ -522,6 +530,15 @@ impl Pwr {
                 != self.rb.csr1.read().actvos().bits()
             {}
             while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+        }
+
+        #[cfg(all(feature = "revision_v", feature = "rm0455"))]
+        if matches!(self.target_vos, VoltageScale::Scale0) {
+            // RM0455 section 6.8.6 says that CSR1.ACTVOSRDY must be set,
+            // before VOS0 can be changed.
+            while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+            vos = VoltageScale::Scale0;
+            self.voltage_scaling_transition(vos);
         }
 
         // Disable backup power domain write protection
