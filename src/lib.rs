@@ -77,6 +77,7 @@ compile_error!(
         stm32h7b3
         stm32h7b0
         stm32h7a3
+        stm32h735
 "
 );
 
@@ -122,11 +123,7 @@ pub use stm32h7::stm32h757cm7 as stm32;
 pub use stm32h7::stm32h7b3 as stm32;
 
 // High Speed
-#[cfg(any(
-    feature = "stm32h725",
-    feature = "stm32h735",
-    feature = "stm32h730",
-))]
+#[cfg(feature = "stm32h735")]
 pub use stm32h7::stm32h735 as stm32;
 
 #[cfg(all(feature = "rm0433", feature = "rm0399"))]

@@ -62,7 +62,7 @@
 //! | stm32h742/743/753/750 | RM0433 | 480MHz [^revv]
 //! | stm32h745/747/755/757 | RM0399 | 480MHz
 //! | stm32h7a3/7b3/7b0 | RM0455 | VOS0 not supported
-//! | stm32h725/735 | RM0468 | 520MHz [^rm0468ecc]
+//! | stm32h723/725/730/733/735 | RM0468 | 520MHz [^rm0468ecc]
 //!
 //! [^revv]: Revision V and later parts only
 //!
