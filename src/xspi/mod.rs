@@ -5,7 +5,7 @@
 //! | Interface | Parts | # IO lines |
 //! | --- | --- | --- |
 //! | Quad Spi | stm32h742/743/750/753/745/747/755/757 | 1-bit, 2-bit or 4-bit |
-//! | Octo Spi | stm32h725/735/7a3/7b0/7b3 | 1-bit, 2-bit, 4-bit or 8-bit |
+//! | Octo Spi | stm32h723/725/730/733/735/7a3/7b0/7b3 | 1-bit, 2-bit, 4-bit or 8-bit |
 //!
 //! # Usage
 //!
