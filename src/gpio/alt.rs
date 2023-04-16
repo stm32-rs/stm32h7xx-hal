@@ -2435,8 +2435,8 @@ pub mod spi1 {
             PD7<5>,
         ],
         <Nss> for [
-            PA15<5>,
             PA4<5>,
+            PA15<5>,
             PG10<5>,
         ],
     }
@@ -2446,8 +2446,8 @@ pub mod spi2 {
     use super::*;
     pin! {
         <Sck> for no:NoPin, [
-            PA12<5>,
             PA9<5>,
+            PA12<5>,
             PB10<5>,
             PB13<5>,
             PD3<5>,
@@ -2458,7 +2458,7 @@ pub mod spi2 {
         <Miso> for no:NoPin, [
             PB14<5>,
 
-            #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
+            // #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))] TODO: check
             PC2<5>,
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
             PI2<5>,
@@ -2467,15 +2467,15 @@ pub mod spi2 {
             PB15<5>,
             PC1<5>,
 
-            #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
+            // #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))] TODO: check
             PC3<5>,
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
             PI3<5>,
         ],
         <Nss> for [
             PA11<5>,
-            PB12<5>,
             PB4<7>,
+            PB12<5>,
             PB9<5>,
 
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
