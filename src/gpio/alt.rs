@@ -1,4 +1,4 @@
-use super::{Alternate, OpenDrain, PinMode};
+use super::{Alternate, NoPin, OpenDrain, PinMode};
 use crate::gpio;
 
 macro_rules! pin {
@@ -2341,6 +2341,7 @@ pub mod sdmmc2 {
     }
 }
 
+#[cfg(any(feature = "gpio-h72", feature = "gpio-h747"))]
 pub mod spdifrx1 {
     use super::*;
     pin! {
@@ -2418,12 +2419,17 @@ pub mod spdifrx {
 pub mod spi1 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PA5<5>,
+            PB3<5>,
+            PG11<5>,
+        ],
+        <Miso> for no:NoPin, [
             PA6<5>,
             PB4<5>,
             PG9<5>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PA7<5>,
             PB5<5>,
             PD7<5>,
@@ -2433,18 +2439,23 @@ pub mod spi1 {
             PA4<5>,
             PG10<5>,
         ],
-        <Sck> for [
-            PA5<5>,
-            PB3<5>,
-            PG11<5>,
-        ],
     }
 }
 
 pub mod spi2 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PA12<5>,
+            PA9<5>,
+            PB10<5>,
+            PB13<5>,
+            PD3<5>,
+
+            #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
+            PI1<5>,
+        ],
+        <Miso> for no:NoPin, [
             PB14<5>,
 
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
@@ -2452,7 +2463,7 @@ pub mod spi2 {
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
             PI2<5>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PB15<5>,
             PC1<5>,
 
@@ -2470,27 +2481,21 @@ pub mod spi2 {
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
             PI0<5>,
         ],
-        <Sck> for [
-            PA12<5>,
-            PA9<5>,
-            PB10<5>,
-            PB13<5>,
-            PD3<5>,
-
-            #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
-            PI1<5>,
-        ],
     }
 }
 
 pub mod spi3 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PB3<6>,
+            PC10<6>,
+        ],
+        <Miso> for no:NoPin, [
             PB4<6>,
             PC11<6>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PB2<7>,
             PB5<7>,
             PC12<6>,
@@ -2500,21 +2505,21 @@ pub mod spi3 {
             PA15<6>,
             PA4<6>,
         ],
-        <Sck> for [
-            PB3<6>,
-            PC10<6>,
-        ],
     }
 }
 
 pub mod spi4 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PE12<5>,
+            PE2<5>,
+        ],
+        <Miso> for no:NoPin, [
             PE13<5>,
             PE5<5>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PE14<5>,
             PE6<5>,
         ],
@@ -2522,22 +2527,23 @@ pub mod spi4 {
             PE11<5>,
             PE4<5>,
         ],
-        <Sck> for [
-            PE12<5>,
-            PE2<5>,
-        ],
     }
 }
 
 pub mod spi5 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PF7<5>,
+            PH6<5>,
+            PK0<5>,
+        ],
+        <Miso> for no:NoPin, [
             PF8<5>,
             PH7<5>,
             PJ11<5>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PF11<5>,
             PF9<5>,
             PJ10<5>,
@@ -2547,23 +2553,26 @@ pub mod spi5 {
             PH5<5>,
             PK1<5>,
         ],
-        <Sck> for [
-            PF7<5>,
-            PH6<5>,
-            PK0<5>,
-        ],
     }
 }
 
 pub mod spi6 {
     use super::*;
     pin! {
-        <Miso> for [
+        <Sck> for no:NoPin, [
+            PA5<8>,
+            PB3<8>,
+            PG13<5>,
+
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
+            PC12<5>,
+        ],
+        <Miso> for no:NoPin, [
             PA6<8>,
             PB4<8>,
             PG12<5>,
         ],
-        <Mosi> for [
+        <Mosi> for no:NoPin, [
             PA7<8>,
             PB5<8>,
             PG14<5>,
@@ -2575,14 +2584,6 @@ pub mod spi6 {
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PA0<5>,
-        ],
-        <Sck> for [
-            PA5<8>,
-            PB3<8>,
-            PG13<5>,
-
-            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PC12<5>,
         ],
     }
 }

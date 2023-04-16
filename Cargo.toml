@@ -193,6 +193,10 @@ name = "fmc_nand_flash"
 required-features = ["fmc"]
 
 [[example]]
+name = "i2c4_bdma"
+required-features = ["rm0433"]
+
+[[example]]
 name = "octospi"
 required-features = ["xspi", "rm0468"]
 

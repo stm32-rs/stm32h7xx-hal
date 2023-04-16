@@ -298,13 +298,13 @@ impl HardwareCS {
 }
 
 /// A filler type for when the SCK pin is unnecessary
-pub struct NoSck;
+pub use gpio::NoPin as NoSck;
 
 /// A filler type for when the Miso pin is unnecessary
-pub struct NoMiso;
+pub use gpio::NoPin as NoMiso;
 
 /// A filler type for when the Mosi pin is unnecessary
-pub struct NoMosi;
+pub use gpio::NoPin as NoMosi;
 
 macro_rules! pins {
     ($($SPIX:ty:

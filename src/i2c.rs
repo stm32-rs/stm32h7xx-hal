@@ -487,7 +487,7 @@ impl<I2C: Instance> I2c<I2C> {
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
         self.i2c.cr2.write(|w| {
-            w.sadd().bits((addr << 1 | 0) as u16);
+            w.sadd().bits((addr << 1) as u16);
             w.rd_wrn().read();
             w.nbytes().bits(length as u8);
             w.start().set_bit();
@@ -516,7 +516,7 @@ impl<I2C: Instance> I2c<I2C> {
         // I2C is in slave mode.
         self.i2c.cr2.write(|w| {
             w.start().set_bit();
-            w.sadd().bits(u16(addr << 1 | 0));
+            w.sadd().bits(u16(addr << 1));
             w.add10().clear_bit();
             w.rd_wrn().write();
             w.nbytes().bits(length as u8);
@@ -565,7 +565,7 @@ impl<I2C: Instance> Write for I2c<I2C> {
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
+        assert!(bytes.len() < 256 && !bytes.is_empty());
 
         // I2C start
         //
@@ -605,8 +605,8 @@ impl<I2C: Instance> WriteRead for I2c<I2C> {
         buffer: &mut [u8],
     ) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(bytes.len() < 256 && !bytes.is_empty());
+        assert!(buffer.len() < 256 && !buffer.is_empty());
 
         // I2C start
         //
@@ -647,13 +647,9 @@ impl<I2C: Instance> WriteRead for I2c<I2C> {
 impl<I2C: Instance> Read for I2c<I2C> {
     type Error = Error;
 
-    fn read(
-        &mut self,
-        addr: u8,
-        buffer: &mut [u8],
-    ) -> Result<(), Error> {
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(buffer.len() < 256 && !buffer.is_empty());
 
         self.master_read(addr, buffer.len(), Stop::Automatic);
 
@@ -671,12 +667,44 @@ impl<I2C: Instance> Read for I2c<I2C> {
     }
 }
 
+#[cfg(not(feature = "rm0455"))]
 i2c!(
     pac::I2C1: (i2c1, I2c1, pclk1),
     pac::I2C2: (i2c2, I2c2, pclk1),
     pac::I2C3: (i2c3, I2c3, pclk1),
     pac::I2C4: (i2c4, I2c4, pclk4),
 );
+
+// TODO: fix derive SPI3 from SPI1 in SVD
+#[cfg(feature = "rm0455")]
+i2c!(
+    pac::I2C1: (i2c1, I2c1, pclk1),
+    pac::I2C2: (i2c2, I2c2, pclk1),
+);
+#[cfg(feature = "rm0455")]
+impl I2c<pac::I2C3> {
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &pac::I2C3 {
+        &self.i2c
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut pac::I2C3 {
+        &mut self.i2c
+    }
+}
+#[cfg(feature = "rm0455")]
+impl I2c<pac::I2C4> {
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &pac::I2C4 {
+        &self.i2c
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut pac::I2C4 {
+        &mut self.i2c
+    }
+}
 
 #[cfg(test)]
 mod tests {
