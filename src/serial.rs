@@ -16,14 +16,14 @@ use embedded_hal::prelude::*;
 use embedded_hal::serial;
 use nb::block;
 
-use stm32::usart1::cr2::{
+use pac::usart1::cr2::{
     CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A,
 };
-use stm32::usart1::cr3::HDSEL_A;
+use pac::usart1::cr3::HDSEL_A;
 
-use crate::gpio::{self, Alternate};
+use crate::gpio;
+use crate::pac;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::stm32;
 #[cfg(feature = "rm0455")]
 use crate::stm32::rcc::cdccip2r::{USART16910SEL_A, USART234578SEL_A};
 #[cfg(feature = "rm0468")]
@@ -31,11 +31,7 @@ use crate::stm32::rcc::d2ccip2r::{USART16910SEL_A, USART234578SEL_A};
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 use crate::stm32::rcc::d2ccip2r::{USART16SEL_A, USART234578SEL_A};
 
-use crate::stm32::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
-use crate::stm32::{UART4, UART5, UART7, UART8};
-#[cfg(any(feature = "rm0455", feature = "rm0468"))]
-use crate::stm32::{UART9, USART10};
-use crate::stm32::{USART1, USART2, USART3, USART6};
+use crate::pac::usart1::cr1::{M0_A as M0, PCE_A as PCE, PS_A as PS};
 use crate::time::Hertz;
 
 /// Serial error
@@ -286,233 +282,83 @@ pub mod config {
 
 pub trait Pins<USART> {
     const SYNCHRONOUS: bool = false;
+    type AltPins;
+    fn convert(self) -> Self::AltPins;
 }
-pub trait PinTx<USART> {}
-pub trait PinRx<USART> {}
-pub trait PinCk<USART> {}
 
 impl<USART, TX, RX> Pins<USART> for (TX, RX)
 where
-    TX: PinTx<USART>,
-    RX: PinRx<USART>,
+    USART: AsyncPins,
+    TX: Into<USART::Tx>,
+    RX: Into<USART::Rx>,
 {
+    type AltPins = (USART::Tx, USART::Rx);
+    fn convert(self) -> Self::AltPins {
+        (self.0.into(), self.1.into())
+    }
 }
 
 impl<USART, TX, RX, CK> Pins<USART> for (TX, RX, CK)
 where
-    TX: PinTx<USART>,
-    RX: PinRx<USART>,
-    CK: PinCk<USART>,
+    USART: AsyncPins + SyncPins,
+    TX: Into<USART::Tx>,
+    RX: Into<USART::Rx>,
+    CK: Into<USART::Ck>,
 {
     const SYNCHRONOUS: bool = true;
+    type AltPins = (USART::Tx, USART::Rx, USART::Ck);
+    fn convert(self) -> Self::AltPins {
+        (self.0.into(), self.1.into(), self.2.into())
+    }
 }
 
 /// A filler type for when the Tx pin is unnecessary
-pub struct NoTx;
+pub use gpio::NoPin as NoTx;
 /// A filler type for when the Rx pin is unnecessary
-pub struct NoRx;
+pub use gpio::NoPin as NoRx;
 /// A filler type for when the Ck pin is unnecessary
-pub struct NoCk;
+pub use gpio::NoPin as NoCk;
 
-macro_rules! usart_pins {
-    ($($USARTX:ty: TX: [$($TX:ty),*] RX: [$($RX:ty),*] CK: [$($CK:ty),*])+) => {
-        $(
-            $(
-                impl PinTx<$USARTX> for $TX {}
-            )*
-            $(
-                impl PinRx<$USARTX> for $RX {}
-            )*
-            $(
-                impl PinCk<$USARTX> for $CK {}
-            )*
-        )+
-    }
+pub trait AsyncPins: crate::Sealed {
+    type Tx;
+    type Rx;
 }
-macro_rules! uart_pins {
-    ($($UARTX:ty:
-       TX: [$($( #[ $pmeta1:meta ] )* $TX:ty),*]
-       RX: [$($( #[ $pmeta2:meta ] )* $RX:ty),*]
-    )+) => {
-        $(
-            $(
-                $( #[ $pmeta1 ] )*
-                impl PinTx<$UARTX> for $TX {}
-            )*
-            $(
-                $( #[ $pmeta2 ] )*
-                impl PinRx<$UARTX> for $RX {}
-            )*
-        )+
+
+pub trait SyncPins: crate::Sealed {
+    type Ck;
+}
+
+pub trait UartInstance:
+    crate::Sealed + core::ops::Deref<Target = pac::uart4::RegisterBlock> + AsyncPins
+{
+    /// Returns the frequency of the current kernel clock
+    fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz>;
+    /// Returns the frequency of the current kernel clock
+    ///
+    /// # Panics
+    ///
+    /// Panics if the kernel clock is not running
+    fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+        Self::kernel_clk(clocks).unwrap()
     }
 }
 
-usart_pins! {
-    USART1:
-        TX: [
-            NoTx,
-            gpio::PA9<Alternate<7>>,
-            gpio::PB6<Alternate<7>>,
-            gpio::PB14<Alternate<4>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PA10<Alternate<7>>,
-            gpio::PB7<Alternate<7>>,
-            gpio::PB15<Alternate<4>>
-        ]
-        CK: [
-            NoCk,
-            gpio::PA8<Alternate<7>>
-        ]
-    USART2:
-        TX: [
-            NoTx,
-            gpio::PA2<Alternate<7>>,
-            gpio::PD5<Alternate<7>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PA3<Alternate<7>>,
-            gpio::PD6<Alternate<7>>
-        ]
-        CK: [
-            NoCk,
-            gpio::PA4<Alternate<7>>,
-            gpio::PD7<Alternate<7>>
-        ]
-    USART3:
-        TX: [
-            NoTx,
-            gpio::PB10<Alternate<7>>,
-            gpio::PC10<Alternate<7>>,
-            gpio::PD8<Alternate<7>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PB11<Alternate<7>>,
-            gpio::PC11<Alternate<7>>,
-            gpio::PD9<Alternate<7>>
-        ]
-        CK: [
-            NoCk,
-            gpio::PB12<Alternate<7>>,
-            gpio::PC12<Alternate<7>>,
-            gpio::PD10<Alternate<7>>
-        ]
-    USART6:
-        TX: [
-            NoTx,
-            gpio::PC6<Alternate<7>>,
-            gpio::PG14<Alternate<7>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PC7<Alternate<7>>,
-            gpio::PG9<Alternate<7>>
-        ]
-        CK: [
-            NoCk,
-            gpio::PC8<Alternate<7>>,
-            gpio::PG7<Alternate<7>>
-        ]
-}
-#[cfg(any(feature = "rm0455", feature = "rm0468"))]
-usart_pins! {
-        USART10:
-        TX: [
-            NoTx,
-            gpio::PE3<Alternate<11>>,
-            gpio::PG12<Alternate<4>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PE2<Alternate<4>>,
-            gpio::PG11<Alternate<4>>
-        ]
-        CK: [
-            NoCk,
-            gpio::PE15<Alternate<11>>,
-            gpio::PG15<Alternate<11>>
-        ]
-}
-uart_pins! {
-    UART4:
-        TX: [
-            NoTx,
-            gpio::PA0<Alternate<8>>,
-            gpio::PA12<Alternate<6>>,
-            gpio::PB9<Alternate<8>>,
-            gpio::PC10<Alternate<8>>,
-            gpio::PD1<Alternate<8>>,
-            gpio::PH13<Alternate<8>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PA1<Alternate<8>>,
-            gpio::PA11<Alternate<6>>,
-            gpio::PB8<Alternate<8>>,
-            gpio::PC11<Alternate<8>>,
-            gpio::PD0<Alternate<8>>,
-            gpio::PH14<Alternate<8>>,
-            #[cfg(not(feature = "rm0468"))]
-            gpio::PI9<Alternate<8>>
-        ]
-    UART5:
-        TX: [
-            NoTx,
-            gpio::PB6<Alternate<14>>,
-            gpio::PB13<Alternate<14>>,
-            gpio::PC12<Alternate<8>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PB5<Alternate<14>>,
-            gpio::PB12<Alternate<14>>,
-            gpio::PD2<Alternate<8>>
-        ]
-    UART7:
-        TX: [
-            NoTx,
-            gpio::PA15<Alternate<11>>,
-            gpio::PB4<Alternate<11>>,
-            gpio::PE8<Alternate<7>>,
-            gpio::PF7<Alternate<7>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PA8<Alternate<11>>,
-            gpio::PB3<Alternate<11>>,
-            gpio::PE7<Alternate<7>>,
-            gpio::PF6<Alternate<7>>
-        ]
-    UART8:
-        TX: [
-            NoTx,
-            gpio::PE1<Alternate<8>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ8<Alternate<8>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PE0<Alternate<8>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ9<Alternate<8>>
-        ]
-}
-#[cfg(any(feature = "rm0455", feature = "rm0468"))]
-uart_pins! {
-    UART9:
-        TX: [
-            NoTx,
-            gpio::PD15<Alternate<11>>,
-            gpio::PG1<Alternate<11>>
-        ]
-        RX: [
-            NoRx,
-            gpio::PD14<Alternate<11>>,
-            gpio::PG0<Alternate<11>>
-        ]
+pub trait UsartInstance:
+    crate::Sealed
+    + core::ops::Deref<Target = pac::usart1::RegisterBlock>
+    + AsyncPins
+    + SyncPins
+{
+    /// Returns the frequency of the current kernel clock
+    fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz>;
+    /// Returns the frequency of the current kernel clock
+    ///
+    /// # Panics
+    ///
+    /// Panics if the kernel clock is not running
+    fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+        Self::kernel_clk(clocks).unwrap()
+    }
 }
 
 /// Serial abstraction
@@ -537,7 +383,7 @@ pub trait SerialExt<USART>: Sized {
 
     fn serial<P: Pins<USART>>(
         self,
-        _pins: P,
+        pins: P,
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
@@ -584,7 +430,7 @@ macro_rules! replace_expr {
 }
 macro_rules! usart {
     ($(
-        $USARTX:ident: ($usartX:ident, $Rec:ident, $pclkX:ident $(, $synchronous:ident)?),
+        $USARTX:ty: ($usartX:ident, $Rec:ident, $pclkX:ident $(, $synchronous:ident)?),
     )+) => {
         $(
             /// Configures a USART peripheral to provide serial
@@ -601,7 +447,7 @@ macro_rules! usart {
                     // Enable clock for USART and reset
                     prec.enable().reset();
 
-                    let ker_ck = Self::kernel_clk_unwrap(clocks);
+                    let ker_ck = <$USARTX>::kernel_clk_unwrap(clocks);
                     let mut serial = Serial { usart, ker_ck };
                     let config = config.into();
                     serial.usart.cr1.reset();
@@ -861,12 +707,12 @@ macro_rules! usart {
                 /// The line idle status bit is set when the peripheral detects the receive line is idle.
                 /// The bit is cleared by software, by calling `clear_idle()`.
                 pub fn is_idle(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().idle().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().idle().bit_is_set() }
                 }
 
                 /// Clear the line idle status bit
                 pub fn clear_idle(&mut self) {
-                    unsafe { (*$USARTX::ptr()).icr.write(|w| w.idlecf().set_bit()) }
+                    unsafe { (*<$USARTX>::ptr()).icr.write(|w| w.idlecf().set_bit()) }
                     let _ = self.usart.isr.read();
                     let _ = self.usart.isr.read(); // Delay 2 peripheral clocks
                 }
@@ -876,17 +722,17 @@ macro_rules! usart {
                 /// The busy status bit is set when there is communication active on the receive line,
                 /// and reset at the end of reception.
                 pub fn is_busy(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().busy().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().busy().bit_is_set() }
                 }
 
                 /// Return true if the tx register is empty (and can accept data)
                 pub fn is_txe(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().txe().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().txe().bit_is_set() }
                 }
 
                 /// Return true if the rx register is not empty (and can be read)
                 pub fn is_rxne(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().rxne().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().rxne().bit_is_set() }
                 }
 
                 /// Splits the [`Serial`] struct into transmit ([`Tx`]) and receive ([`Rx`]) parts which can be used
@@ -936,12 +782,13 @@ macro_rules! usart {
                 type Rec = rec::$Rec;
 
                 fn serial<P: Pins<$USARTX>>(self,
-                         _pins: P,
+                         pins: P,
                          config: impl Into<config::Config>,
                          prec: rec::$Rec,
                          clocks: &CoreClocks
                 ) -> Result<Serial<$USARTX>, config::InvalidConfig>
                 {
+                    let _pins = pins.convert();
                     Serial::$usartX(
                         self, config, prec, clocks
                             $(, replace_expr!($synchronous P::SYNCHRONOUS))?
@@ -980,24 +827,24 @@ macro_rules! usart {
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*<$USARTX>::ptr()).isr.read() };
 
                     Err(if isr.pe().bit_is_set() {
-                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.pecf().clear() );};
+                        unsafe { (*<$USARTX>::ptr()).icr.write(|w| w.pecf().clear() );};
                         nb::Error::Other(Error::Parity)
                     } else if isr.fe().bit_is_set() {
-                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.fecf().clear() );};
+                        unsafe { (*<$USARTX>::ptr()).icr.write(|w| w.fecf().clear() );};
                         nb::Error::Other(Error::Framing)
                     } else if isr.nf().bit_is_set() {
-                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.ncf().clear() );};
+                        unsafe { (*<$USARTX>::ptr()).icr.write(|w| w.ncf().clear() );};
                         nb::Error::Other(Error::Noise)
                     } else if isr.ore().bit_is_set() {
-                        unsafe { (*$USARTX::ptr()).icr.write(|w| w.orecf().clear() );};
+                        unsafe { (*<$USARTX>::ptr()).icr.write(|w| w.orecf().clear() );};
                         nb::Error::Other(Error::Overrun)
                     } else if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
                         return Ok(unsafe {
-                            ptr::read_volatile(&(*$USARTX::ptr()).rdr as *const _ as *const _)
+                            ptr::read_volatile(&(*<$USARTX>::ptr()).rdr as *const _ as *const _)
                         });
                     } else {
                         nb::Error::WouldBlock
@@ -1009,13 +856,13 @@ macro_rules! usart {
                 /// Start listening for `Rxne` event
                 pub fn listen(&mut self) {
                     // unsafe: rxneie bit accessed by Rx part only
-                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.rxneie().enabled());
+                    unsafe { &*<$USARTX>::ptr() }.cr1.modify(|_, w| w.rxneie().enabled());
                 }
 
                 /// Stop listening for `Rxne` event
                 pub fn unlisten(&mut self) {
                     // unsafe: rxneie bit accessed by Rx part only
-                    let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
+                    let cr1 = &unsafe { &*<$USARTX>::ptr() }.cr1;
                     cr1.modify(|_, w| w.rxneie().disabled());
                     let _ = cr1.read();
                     let _ = cr1.read(); // Delay 2 peripheral clocks
@@ -1024,13 +871,13 @@ macro_rules! usart {
                 /// Enables the Rx DMA stream.
                 pub fn enable_dma_rx(&mut self) {
                     // unsafe: dmar bit accessed by Rx part only
-                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmar().set_bit());
+                    unsafe { &*<$USARTX>::ptr() }.cr3.modify(|_, w| w.dmar().set_bit());
                 }
 
                 /// Disables the Rx DMA stream.
                 pub fn disable_dma_rx(&mut self) {
                     // unsafe: dmar bit accessed by Rx part only
-                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmar().clear_bit());
+                    unsafe { &*<$USARTX>::ptr() }.cr3.modify(|_, w| w.dmar().clear_bit());
                 }
 
                 /// Return true if the line idle status is set
@@ -1038,12 +885,12 @@ macro_rules! usart {
                 /// The line idle status bit is set when the peripheral detects the receive line is idle.
                 /// The bit is cleared by software, by calling `clear_idle()`.
                 pub fn is_idle(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().idle().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().idle().bit_is_set() }
                 }
 
                 /// Clear the line idle status bit
                 pub fn clear_idle(&mut self) {
-                    let usart = unsafe { &*$USARTX::ptr() };
+                    let usart = unsafe { &*<$USARTX>::ptr() };
                     usart.icr.write(|w| w.idlecf().set_bit());
                     let _ = usart.isr.read();
                     let _ = usart.isr.read(); // Delay 2 peripheral clocks
@@ -1054,12 +901,12 @@ macro_rules! usart {
                 /// The busy status bit is set when there is communication active on the receive line,
                 /// and reset at the end of reception.
                 pub fn is_busy(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().busy().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().busy().bit_is_set() }
                 }
 
                 /// Return true if the rx register is not empty (and can be read)
                 pub fn is_rxne(&self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().rxne().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().rxne().bit_is_set() }
                 }
             }
 
@@ -1096,7 +943,7 @@ macro_rules! usart {
 
                 fn flush(&mut self) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*<$USARTX>::ptr()).isr.read() };
 
                     if isr.tc().bit_is_set() {
                         Ok(())
@@ -1107,7 +954,7 @@ macro_rules! usart {
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*<$USARTX>::ptr()).isr.read() };
 
                     if isr.txe().bit_is_set() {
                         // NOTE(unsafe) atomic write to stateless register
@@ -1115,7 +962,7 @@ macro_rules! usart {
                         // possible through the svd2rust API
                         unsafe {
                             ptr::write_volatile(
-                                &(*$USARTX::ptr()).tdr as *const _ as *mut _, byte)
+                                &(*<$USARTX>::ptr()).tdr as *const _ as *mut _, byte)
                         }
                         Ok(())
                     } else {
@@ -1128,13 +975,13 @@ macro_rules! usart {
                 /// Start listening for `Txe` event
                 pub fn listen(&mut self) {
                     // unsafe: txeie bit accessed by Tx part only
-                    unsafe { &*$USARTX::ptr() }.cr1.modify(|_, w| w.txeie().enabled());
+                    unsafe { &*<$USARTX>::ptr() }.cr1.modify(|_, w| w.txeie().enabled());
                 }
 
                 /// Stop listening for `Txe` event
                 pub fn unlisten(&mut self) {
                     // unsafe: txeie bit accessed by Tx part only
-                    let cr1 = &unsafe { &*$USARTX::ptr() }.cr1;
+                    let cr1 = &unsafe { &*<$USARTX>::ptr() }.cr1;
                     cr1.modify(|_, w| w.txeie().disabled());
                     let _ = cr1.read();
                     let _ = cr1.read(); // Delay 2 peripheral clocks
@@ -1143,18 +990,18 @@ macro_rules! usart {
                 /// Enables the Tx DMA stream.
                 pub fn enable_dma_tx(&mut self) {
                     // unsafe: dmat bit accessed by Tx part only
-                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmat().set_bit());
+                    unsafe { &*<$USARTX>::ptr() }.cr3.modify(|_, w| w.dmat().set_bit());
                 }
 
                 /// Disables the Tx DMA stream.
                 pub fn disable_dma_tx(&mut self) {
                     // unsafe: dmat bit accessed by Tx part only
-                    unsafe { &*$USARTX::ptr() }.cr3.modify(|_, w| w.dmat().clear_bit());
+                    unsafe { &*<$USARTX>::ptr() }.cr3.modify(|_, w| w.dmat().clear_bit());
                 }
 
                 /// Return true if the tx register is empty (and can accept data)
                 pub fn is_txe(& self) -> bool {
-                    unsafe { (*$USARTX::ptr()).isr.read().txe().bit_is_set() }
+                    unsafe { (*<$USARTX>::ptr()).isr.read().txe().bit_is_set() }
                 }
             }
         )+
@@ -1163,14 +1010,24 @@ macro_rules! usart {
 
 macro_rules! usart_sel {
 	($ccip:ident, $SEL:ident, $sel:ident, $PCLK:ident, $pclk:ident;
-     $($USARTX:ident: $doc:expr,)+) => {
+     $($USARTX:ty: $Instance:ident, $usartX:ident, $doc:expr $(, $Ck:ident)?;)+) => {
 	    $(
-            impl Serial<$USARTX> {
+            impl crate::Sealed for $USARTX {}
+            impl AsyncPins for $USARTX {
+                type Tx = gpio::alt::$usartX::Tx;
+                type Rx = gpio::alt::$usartX::Rx;
+            }
+            $(
+                impl SyncPins for $USARTX {
+                    type $Ck = gpio::alt::$usartX::$Ck;
+                }
+            )?
+            impl $Instance for $USARTX {
                 /// Returns the frequency of the current kernel clock for
                 #[doc=$doc]
-                pub fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
+                fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     // unsafe: read only
-                    let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
+                    let ccip = unsafe { (*pac::RCC::ptr()).$ccip.read() };
 
                     match ccip.$sel().variant() {
                         Some($SEL::$PCLK) => Some(clocks.$pclk()),
@@ -1188,9 +1045,9 @@ macro_rules! usart_sel {
                 /// # Panics
                 ///
                 /// Panics if the kernel clock is not running
-                pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
                     // unsafe: read only
-                    let ccip = unsafe { (*stm32::RCC::ptr()).$ccip.read() };
+                    let ccip = unsafe { (*pac::RCC::ptr()).$ccip.read() };
 
                     match ccip.$sel().variant() {
                         Some($SEL::$PCLK) => clocks.$pclk(),
@@ -1224,73 +1081,73 @@ macro_rules! usart_sel {
 }
 
 usart! {
-    USART1: (usart1, Usart1, pclk2, synchronous),
-    USART2: (usart2, Usart2, pclk1, synchronous),
-    USART3: (usart3, Usart3, pclk1, synchronous),
-    USART6: (usart6, Usart6, pclk2, synchronous),
+    pac::USART1: (usart1, Usart1, pclk2, synchronous),
+    pac::USART2: (usart2, Usart2, pclk1, synchronous),
+    pac::USART3: (usart3, Usart3, pclk1, synchronous),
+    pac::USART6: (usart6, Usart6, pclk2, synchronous),
 
-    UART4: (uart4, Uart4, pclk1),
-    UART5: (uart5, Uart5, pclk1),
-    UART7: (uart7, Uart7, pclk1),
-    UART8: (uart8, Uart8, pclk1),
+    pac::UART4: (uart4, Uart4, pclk1),
+    pac::UART5: (uart5, Uart5, pclk1),
+    pac::UART7: (uart7, Uart7, pclk1),
+    pac::UART8: (uart8, Uart8, pclk1),
 }
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 usart! {
-    UART9: (uart9, Uart9, pclk2),
-    USART10: (usart10, Usart10, pclk2, synchronous),
+    pac::UART9: (uart9, Uart9, pclk2),
+    pac::USART10: (usart10, Usart10, pclk2, synchronous),
 }
 
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 usart_sel! {
     d2ccip2r, USART16SEL_A, usart16sel, RccPclk2, pclk2;
 
-    USART1: "USART1",
-    USART6: "USART6",
+    pac::USART1: UsartInstance, usart1, "USART1", Ck;
+    pac::USART6: UsartInstance, usart6, "USART6", Ck;
 }
 #[cfg(feature = "rm0455")]
 usart_sel! {
     cdccip2r, USART16910SEL_A, usart16910sel, RccPclk2, pclk2;
 
-    USART1: "USART1",
-    USART6: "USART6",
-    USART10: "USART10",
+    pac::USART1: UsartInstance, usart1, "USART1", Ck;
+    pac::USART6: UsartInstance, usart6, "USART6", Ck;
+    pac::USART10: UsartInstance, usart10, "USART10", Ck;
 
-    UART9: "UART9",
+    pac::UART9: UartInstance, uart9, "UART9";
 }
 #[cfg(feature = "rm0468")]
 usart_sel! {
     d2ccip2r, USART16910SEL_A, usart16910sel, RccPclk2, pclk2;
 
-    USART1: "USART1",
-    USART6: "USART6",
-    USART10: "USART10",
+    pac::USART1: UsartInstance, usart1, "USART1", Ck;
+    pac::USART6: UsartInstance, usart6, "USART6", Ck;
+    pac::USART10: UsartInstance, usart10, "USART10", Ck;
 
-    UART9: "UART9",
+    pac::UART9: UartInstance, uart9, "UART9";
 }
 
 #[cfg(not(feature = "rm0455"))]
 usart_sel! {
     d2ccip2r, USART234578SEL_A, usart234578sel, RccPclk1, pclk1;
 
-    USART2: "USART2",
-    USART3: "USART3",
+    pac::USART2: UsartInstance, usart2, "USART2", Ck;
+    pac::USART3: UsartInstance, usart3, "USART3", Ck;
 
-    UART4: "UART4",
-    UART5: "UART5",
-    UART8: "UART8",
-    UART7: "UART7",
+    pac::UART4: UartInstance, uart4, "UART4";
+    pac::UART5: UartInstance, uart5, "UART5";
+    pac::UART8: UartInstance, uart8, "UART8";
+    pac::UART7: UartInstance, uart7, "UART7";
 }
 #[cfg(feature = "rm0455")]
 usart_sel! {
     cdccip2r, USART234578SEL_A, usart234578sel, RccPclk1, pclk1;
 
-    USART2: "USART2",
-    USART3: "USART3",
+    pac::USART2: UsartInstance, usart2, "USART2", Ck;
+    pac::USART3: UsartInstance, usart3, "USART3", Ck;
 
-    UART4: "UART4",
-    UART5: "UART5",
-    UART8: "UART8",
-    UART7: "UART7",
+    pac::UART4: UartInstance, uart4, "UART4";
+    pac::UART5: UartInstance, uart5, "UART5";
+    pac::UART8: UartInstance, uart8, "UART8";
+    pac::UART7: UartInstance, uart7, "UART7";
 }
 
 impl<USART> fmt::Write for Tx<USART>
