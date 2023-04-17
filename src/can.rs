@@ -41,11 +41,6 @@
 //! - [Basic Example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/can-echo.rs)
 //! - [CAN-FD with Bit Rate Switching](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/can-fd.rs)
 
-use crate::gpio::gpioa::{PA11, PA12};
-use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
-use crate::gpio::gpiod::{PD0, PD1};
-use crate::gpio::gpioh::{PH13, PH14};
-use crate::gpio::Alternate;
 use crate::rcc::{rec, rec::ResetEnable};
 
 /// Storage type for the CAN controller
@@ -60,21 +55,23 @@ impl<FDCAN> Can<FDCAN> {
     }
 }
 
+pub trait Instance: crate::Sealed {
+    type Tx;
+    type Rx;
+}
+
 /// Extension trait for CAN controller
-pub trait CanExt: Sized
+pub trait CanExt: Sized + Instance
 where
     Can<Self>: fdcan::Instance,
 {
-    fn fdcan<TX, RX>(
+    fn fdcan(
         self,
-        _tx: TX,
-        _rx: RX,
+        tx: impl Into<Self::Tx>,
+        rx: impl Into<Self::Rx>,
         prec: rec::Fdcan,
-    ) -> fdcan::FdCan<Can<Self>, fdcan::ConfigMode>
-    where
-        TX: sealed::Tx<Self>,
-        RX: sealed::Rx<Self>,
-    {
+    ) -> fdcan::FdCan<Can<Self>, fdcan::ConfigMode> {
+        let _pins = (tx.into(), rx.into());
         self.fdcan_unchecked(prec)
     }
 
@@ -152,61 +149,16 @@ macro_rules! message_ram_layout {
     };
 }
 
-mod sealed {
-    /// A TX pin configured for CAN communication
-    pub trait Tx<FDCAN> {}
-    /// An RX pin configured for CAN communication
-    pub trait Rx<FDCAN> {}
-}
-
-/// Implements sealed::{Tx,Rx} for pins associated with a CAN peripheral
-macro_rules! pins {
-        ($PER:ident =>
-            (TX: [ $($( #[ $pmetatx:meta ] )* $tx:ty),+ $(,)? ],
-             RX: [ $($( #[ $pmetarx:meta ] )* $rx:ty),+ $(,)? ])) => {
-            $(
-                $( #[ $pmetatx ] )*
-                impl sealed::Tx<crate::stm32::$PER> for $tx {}
-            )+
-            $(
-                $( #[ $pmetarx ] )*
-                impl sealed::Rx<crate::stm32::$PER> for $rx {}
-            )+
-        };
-    }
-
-pins! {
-    FDCAN1 => (
-        TX: [
-            PA12<Alternate<9>>,
-            PB9<Alternate<9>>,
-            PD1<Alternate<9>>,
-            PH13<Alternate<9>>
-        ],
-        RX: [
-            PA11<Alternate<9>>,
-            PB8<Alternate<9>>,
-            PD0<Alternate<9>>,
-            PH14<Alternate<9>>
-        ]
-    )
-}
-pins! {
-    FDCAN2 => (
-        TX: [
-            PB6<Alternate<9>>,
-            PB13<Alternate<9>>
-        ],
-        RX: [
-            PB5<Alternate<9>>,
-            PB12<Alternate<9>>
-        ]
-    )
-}
-
 mod fdcan1 {
     use super::{rec, Can, CanExt, ResetEnable};
+    use crate::gpio;
     use crate::stm32::FDCAN1;
+
+    impl crate::Sealed for FDCAN1 {}
+    impl super::Instance for FDCAN1 {
+        type Tx = gpio::alt::fdcan1::Tx;
+        type Rx = gpio::alt::fdcan1::Rx;
+    }
 
     impl Can<FDCAN1> {
         pub fn fdcan1(
@@ -242,7 +194,14 @@ mod fdcan1 {
 
 mod fdcan2 {
     use super::{rec, Can, CanExt, ResetEnable};
+    use crate::gpio;
     use crate::stm32::FDCAN2;
+
+    impl crate::Sealed for FDCAN2 {}
+    impl super::Instance for FDCAN2 {
+        type Tx = gpio::alt::fdcan2::Tx;
+        type Rx = gpio::alt::fdcan2::Rx;
+    }
 
     impl Can<FDCAN2> {
         pub fn fdcan2(
