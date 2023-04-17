@@ -82,7 +82,6 @@ use crate::stm32::rcc::{d2ccip1r as ccip1r, d3ccipr as srdccipr};
 use crate::stm32::spi1::{
     cfg1::MBR_A as MBR, cfg2::COMM_A as COMM, cfg2::SSIOP_A as SSIOP,
 };
-use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 use crate::time::Hertz;
 
 /// SPI error
@@ -547,7 +546,7 @@ macro_rules! word {
 word!(u8, u16, u32);
 
 macro_rules! spi {
-	($($SPIX:ident: $Rec:ident,)+) => {
+	($($SPIX:ty: $Rec:ident,)+) => {
         $(
             impl<TY> Spi<$SPIX, Disabled, TY> where $SPIX: Instance {
                 /// Deconstructs the SPI peripheral and returns the component parts.
@@ -557,6 +556,14 @@ macro_rules! spi {
             }
         )+
     }
+}
+spi! {
+    pac::SPI1: Spi1,
+    pac::SPI2: Spi2,
+    pac::SPI3: Spi3,
+    pac::SPI4: Spi4,
+    pac::SPI5: Spi5,
+    pac::SPI6: Spi6,
 }
 
 impl<SPI: Instance, TY: Word> Spi<SPI, Enabled, TY> {
@@ -1188,7 +1195,7 @@ impl<SPI: Instance, WORD> Spi<SPI, Enabled, WORD> {
 }
 
 macro_rules! spi123sel {
-	($($SPIX:ident: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
@@ -1244,7 +1251,7 @@ macro_rules! spi123sel {
     }
 }
 macro_rules! spi45sel {
-	($($SPIX:ident: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
@@ -1302,7 +1309,7 @@ macro_rules! spi45sel {
     }
 }
 macro_rules! spi6sel {
-	($($SPIX:ident: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
@@ -1360,24 +1367,15 @@ macro_rules! spi6sel {
     }
 }
 
-spi! {
-    SPI1: Spi1,
-    SPI2: Spi2,
-    SPI3: Spi3,
-    SPI4: Spi4,
-    SPI5: Spi5,
-    SPI6: Spi6,
-}
-
 spi123sel! {
-    SPI1: (spi1, Spi1),
-    SPI2: (spi2, Spi2),
-    SPI3: (spi3, Spi3),
+    pac::SPI1: (spi1, Spi1),
+    pac::SPI2: (spi2, Spi2),
+    pac::SPI3: (spi3, Spi3),
 }
 spi45sel! {
-    SPI4: (spi4, Spi4),
-    SPI5: (spi5, Spi5),
+    pac::SPI4: (spi4, Spi4),
+    pac::SPI5: (spi5, Spi5),
 }
 spi6sel! {
-    SPI6: (spi6, Spi6),
+    pac::SPI6: (spi6, Spi6),
 }
