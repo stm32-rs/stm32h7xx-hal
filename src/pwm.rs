@@ -17,10 +17,10 @@
 //! ```rust
 //! let gpioa = ..; // Set up and split GPIOA
 //! let pins = (
-//!     gpioa.pa8.into_alternate_af1(),
-//!     gpioa.pa9.into_alternate_af1(),
-//!     gpioa.pa10.into_alternate_af1(),
-//!     gpioa.pa11.into_alternate_af1(),
+//!     gpioa.pa8.into_alternate(),
+//!     gpioa.pa9.into_alternate(),
+//!     gpioa.pa10.into_alternate(),
+//!     gpioa.pa11.into_alternate(),
 //! );
 //! ```
 //!
@@ -56,10 +56,10 @@
 //! ```rust
 //! let gpioa = ..; // Set up and split GPIOA
 //! let pins = (
-//!     gpioa.pa8.into_alternate_af1(),
-//!     gpioa.pa9.into_alternate_af1(),
-//!     gpioa.pa10.into_alternate_af1(),
-//!     gpioa.pa11.into_alternate_af1(),
+//!     gpioa.pa8.into_alternate(),
+//!     gpioa.pa9.into_alternate(),
+//!     gpioa.pa10.into_alternate(),
+//!     gpioa.pa11.into_alternate(),
 //! );
 //! ```
 //!
@@ -201,6 +201,10 @@ pub trait NPins<TIM, CHANNEL> {}
 /// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
 pub trait FaultPins<TIM> {
     const INPUT: BreakInput;
+}
+
+pub trait PinCh<const C: u8> {
+    type Ch;
 }
 
 /// Channel wrapper

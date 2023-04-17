@@ -2695,6 +2695,20 @@ pub mod tim1 {
             PG5<1>,
         ],
     }
+    use crate::pac::TIM1 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
+    }
 }
 
 pub mod tim2 {
@@ -2723,6 +2737,20 @@ pub mod tim2 {
             PA5<1>,
         ],
     }
+    use crate::pac::TIM2 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
+    }
 }
 
 pub mod tim3 {
@@ -2750,6 +2778,20 @@ pub mod tim3 {
             PD2<2>,
         ],
     }
+    use crate::pac::TIM3 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
+    }
 }
 
 pub mod tim4 {
@@ -2774,6 +2816,20 @@ pub mod tim4 {
         <Etr> for [
             PE0<2>,
         ],
+    }
+    use crate::pac::TIM4 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
     }
 }
 
@@ -2802,6 +2858,20 @@ pub mod tim5 {
             PA4<2>,
             PH8<2>,
         ],
+    }
+    use crate::pac::TIM5 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
     }
 }
 
@@ -2911,6 +2981,20 @@ pub mod tim8 {
             PI3<3>,
         ],
     }
+    use crate::pac::TIM8 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
+    }
 }
 
 pub mod tim12 {
@@ -2925,6 +3009,14 @@ pub mod tim12 {
             PH9<2>,
         ],
     }
+    use crate::pac::TIM12 as TIM;
+    use crate::pwm::{PinCh, C1, C2};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
 }
 
 pub mod tim13 {
@@ -2935,6 +3027,11 @@ pub mod tim13 {
             PF8<9>,
         ],
     }
+    use crate::pac::TIM13 as TIM;
+    use crate::pwm::{PinCh, C1};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
 }
 
 pub mod tim14 {
@@ -2944,6 +3041,11 @@ pub mod tim14 {
             PA7<9>,
             PF9<9>,
         ],
+    }
+    use crate::pac::TIM14 as TIM;
+    use crate::pwm::{PinCh, C1};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
     }
 }
 
@@ -2973,6 +3075,14 @@ pub mod tim15 {
             PE6<4>,
         ],
     }
+    use crate::pac::TIM15 as TIM;
+    use crate::pwm::{PinCh, C1, C2};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
 }
 
 pub mod tim16 {
@@ -2991,6 +3101,11 @@ pub mod tim16 {
             PF8<1>,
         ],
     }
+    use crate::pac::TIM16 as TIM;
+    use crate::pwm::{PinCh, C1};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
 }
 
 pub mod tim17 {
@@ -3008,6 +3123,11 @@ pub mod tim17 {
             PB7<1>,
             PF9<1>,
         ],
+    }
+    use crate::pac::TIM17 as TIM;
+    use crate::pwm::{PinCh, C1};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
     }
 }
 
@@ -3039,6 +3159,20 @@ pub mod tim23 {
             PG3<13>,
         ],
     }
+    use crate::pac::TIM23 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
+    }
 }
 
 #[cfg(feature = "gpio-h72")]
@@ -3061,6 +3195,20 @@ pub mod tim24 {
             PB3<14>,
             PG2<14>,
         ],
+    }
+    use crate::pac::TIM24 as TIM;
+    use crate::pwm::{PinCh, C1, C2, C3, C4};
+    impl PinCh<C1> for TIM {
+        type Ch = Ch1;
+    }
+    impl PinCh<C2> for TIM {
+        type Ch = Ch2;
+    }
+    impl PinCh<C3> for TIM {
+        type Ch = Ch3;
+    }
+    impl PinCh<C4> for TIM {
+        type Ch = Ch4;
     }
 }
 

@@ -288,7 +288,7 @@ impl<I2C: Instance> I2c<I2C> {
         prec: I2C::Rec,
         clocks: &CoreClocks,
     ) -> Self {
-        let _pins = (pins.0.into(), pins.1.into());
+        let _pins: (I2C::Scl, I2C::Sda) = (pins.0.into(), pins.1.into());
         Self::new_unchecked(i2c, frequency, prec, clocks)
     }
     /// Create and initialise a new I2C peripheral.
