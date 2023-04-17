@@ -3,7 +3,7 @@
 //! See the parent module for documentation
 
 use crate::{
-    gpio::{self, Alternate},
+    gpio::{self, alt::quadspi as alt, Alternate},
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
 };
@@ -11,175 +11,96 @@ use crate::{
 use super::{Bank, Config, Qspi, SamplingEdge};
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
-pub struct NoIo {}
+pub use gpio::NoPin as NoIo;
 
 /// Indicates a set of pins can be used for the QSPI interface on bank 1.
-pub trait PinsBank1 {}
-pub trait PinIo0Bank1 {}
-pub trait PinIo1Bank1 {}
-pub trait PinIo2Bank1 {}
-pub trait PinIo3Bank1 {}
+pub trait PinsBank1 {
+    type AltPins;
+    fn convert(self) -> Self::AltPins;
+}
 
 /// Indicates a set of pins can be used for the QSPI interface on bank 2.
-pub trait PinsBank2 {}
-pub trait PinSckBank2 {}
-pub trait PinIo0Bank2 {}
-pub trait PinIo1Bank2 {}
-pub trait PinIo2Bank2 {}
-pub trait PinIo3Bank2 {}
-
-pub trait PinSck {}
+pub trait PinsBank2 {
+    type AltPins;
+    fn convert(self) -> Self::AltPins;
+}
 
 impl<SCK, IO0, IO1, IO2, IO3> PinsBank1 for (SCK, IO0, IO1, IO2, IO3)
 where
-    SCK: PinSck,
-    IO0: PinIo0Bank1,
-    IO1: PinIo1Bank1,
-    IO2: PinIo2Bank1,
-    IO3: PinIo3Bank1,
+    SCK: Into<alt::Clk>,
+    IO0: Into<alt::Bk1Io0>,
+    IO1: Into<alt::Bk1Io1>,
+    IO2: Into<alt::Bk1Io2>,
+    IO3: Into<alt::Bk1Io3>,
 {
+    type AltPins =
+        (alt::Clk, alt::Bk1Io0, alt::Bk1Io1, alt::Bk1Io2, alt::Bk1Io3);
+    fn convert(self) -> Self::AltPins {
+        (
+            self.0.into(),
+            self.1.into(),
+            self.2.into(),
+            self.3.into(),
+            self.4.into(),
+        )
+    }
 }
 
 impl<SCK, IO0, IO1, IO2, IO3> PinsBank2 for (SCK, IO0, IO1, IO2, IO3)
 where
-    SCK: PinSck,
-    IO0: PinIo0Bank2,
-    IO1: PinIo1Bank2,
-    IO2: PinIo2Bank2,
-    IO3: PinIo3Bank2,
+    SCK: Into<alt::Clk>,
+    IO0: Into<alt::Bk2Io0>,
+    IO1: Into<alt::Bk2Io1>,
+    IO2: Into<alt::Bk2Io2>,
+    IO3: Into<alt::Bk2Io3>,
 {
+    type AltPins =
+        (alt::Clk, alt::Bk2Io0, alt::Bk2Io1, alt::Bk2Io2, alt::Bk2Io3);
+    fn convert(self) -> Self::AltPins {
+        (
+            self.0.into(),
+            self.1.into(),
+            self.2.into(),
+            self.3.into(),
+            self.4.into(),
+        )
+    }
 }
 
-macro_rules! pins {
-    (Bank1: [IO0: [$($IO0:ty),*] IO1: [$($IO1:ty),*] IO2: [$($IO2:ty),*] IO3: [$($IO3:ty),*]]) => {
-        $(
-            impl PinIo0Bank1 for $IO0 {}
-        )*
-        $(
-            impl PinIo1Bank1 for $IO1 {}
-        )*
-        $(
-            impl PinIo2Bank1 for $IO2 {}
-        )*
-        $(
-            impl PinIo3Bank1 for $IO3 {}
-        )*
-    };
-
-    (Bank2: [IO0: [$($IO0:ty),*] IO1: [$($IO1:ty),*] IO2: [$($IO2:ty),*] IO3: [$($IO3:ty),*]]) => {
-        $(
-            impl PinIo0Bank2 for $IO0 {}
-        )*
-        $(
-            impl PinIo1Bank2 for $IO1 {}
-        )*
-        $(
-            impl PinIo2Bank2 for $IO2 {}
-        )*
-        $(
-            impl PinIo3Bank2 for $IO3 {}
-        )*
-    };
-
-    (SCK: [$($SCK:ty),*], Bank1: $bank1:tt, Bank2: $bank2:tt) => {
-        $(
-            impl PinSck for $SCK {}
-        )*
-        pins!(Bank1: $bank1);
-        pins!(Bank2: $bank2);
-    };
-}
-
-pins! {
-    SCK: [
-        gpio::PB2<Alternate<9>>,
-        gpio::PF10<Alternate<9>>
-    ],
-    Bank1: [
-        IO0: [
-            gpio::PC9<Alternate<9>>,
-            gpio::PD11<Alternate<9>>,
-            gpio::PF8<Alternate<10>>
-        ]
-        IO1: [
-            gpio::PC10<Alternate<9>>,
-            gpio::PD12<Alternate<9>>,
-            gpio::PF9<Alternate<10>>,
-            NoIo
-        ]
-        IO2: [
-            gpio::PE2<Alternate<9>>,
-            gpio::PF7<Alternate<9>>,
-            NoIo
-        ]
-        IO3: [
-            gpio::PA1<Alternate<9>>,
-            gpio::PD13<Alternate<9>>,
-            gpio::PF6<Alternate<9>>,
-            NoIo
-        ]
-    ],
-    Bank2: [
-        IO0: [
-            gpio::PE7<Alternate<10>>,
-            gpio::PF8<Alternate<10>>,
-            gpio::PH2<Alternate<9>>
-        ]
-        IO1: [
-            gpio::PE8<Alternate<10>>,
-            gpio::PF9<Alternate<10>>,
-            gpio::PH3<Alternate<9>>,
-            NoIo
-        ]
-        IO2: [
-            gpio::PE9<Alternate<10>>,
-            gpio::PG9<Alternate<9>>,
-            NoIo
-        ]
-        IO3: [
-            gpio::PE10<Alternate<10>>,
-            gpio::PG14<Alternate<9>>,
-            NoIo
-        ]
-    ]
-}
-
-pub trait QspiExt {
-    fn bank1<CONFIG, PINS>(
+pub trait QspiExt: Sized {
+    fn bank1(
         self,
-        _pins: PINS,
-        config: CONFIG,
+        pins: impl PinsBank1,
+        config: impl Into<Config>,
         clocks: &CoreClocks,
         prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>,
-        PINS: PinsBank1;
+    ) -> Qspi<stm32::QUADSPI> {
+        let _pins = pins.convert();
+        Self::qspi_unchecked(self, config, Bank::One, clocks, prec)
+    }
 
-    fn bank2<CONFIG, PINS>(
+    fn bank2(
         self,
-        _pins: PINS,
-        config: CONFIG,
+        pins: impl PinsBank2,
+        config: impl Into<Config>,
         clocks: &CoreClocks,
         prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>,
-        PINS: PinsBank2;
+    ) -> Qspi<stm32::QUADSPI> {
+        let _pins = pins.convert();
+        Self::qspi_unchecked(self, config, Bank::Two, clocks, prec)
+    }
 
-    fn qspi_unchecked<CONFIG>(
+    fn qspi_unchecked(
         self,
-        config: CONFIG,
+        config: impl Into<Config>,
         bank: Bank,
         clocks: &CoreClocks,
         prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>;
+    ) -> Qspi<stm32::QUADSPI>;
 }
 
 impl Qspi<stm32::QUADSPI> {
-    pub fn qspi_unchecked<CONFIG>(
+    pub fn new_unchecked<CONFIG>(
         regs: stm32::QUADSPI,
         config: CONFIG,
         bank: Bank,
@@ -206,30 +127,20 @@ impl Qspi<stm32::QUADSPI> {
 
         // Clear all pending flags.
         regs.fcr.write(|w| {
-            w.ctof()
-                .set_bit()
-                .csmf()
-                .set_bit()
-                .ctcf()
-                .set_bit()
-                .ctef()
-                .set_bit()
+            w.ctof().set_bit();
+            w.csmf().set_bit();
+            w.ctcf().set_bit();
+            w.ctef().set_bit()
         });
 
         // Configure the communication method for QSPI.
         regs.ccr.write(|w| unsafe {
-            w.fmode()
-                .bits(0) // indirect mode
-                .dmode()
-                .bits(config.mode.reg_value())
-                .admode()
-                .bits(config.mode.reg_value())
-                .adsize()
-                .bits(0) // Eight-bit address
-                .imode()
-                .bits(0) // No instruction phase
-                .dcyc()
-                .bits(config.dummy_cycles)
+            w.fmode().bits(0); // indirect mode
+            w.dmode().bits(config.mode.reg_value());
+            w.admode().bits(config.mode.reg_value());
+            w.adsize().bits(0); // Eight-bit address
+            w.imode().bits(0); // No instruction phase
+            w.dcyc().bits(config.dummy_cycles)
         });
 
         let spi_frequency = config.frequency.raw();
@@ -250,12 +161,10 @@ impl Qspi<stm32::QUADSPI> {
         //
         // SSHIFT must not be set in DDR mode.
         regs.cr.write(|w| unsafe {
-            w.prescaler()
-                .bits(divisor as u8)
-                .sshift()
-                .bit(config.sampling_edge == SamplingEdge::Falling)
-                .fthres()
-                .bits(config.fifo_threshold - 1)
+            w.prescaler().bits(divisor as u8);
+            w.sshift()
+                .bit(config.sampling_edge == SamplingEdge::Falling);
+            w.fthres().bits(config.fifo_threshold - 1)
         });
 
         match bank {
@@ -275,44 +184,13 @@ impl Qspi<stm32::QUADSPI> {
 }
 
 impl QspiExt for stm32::QUADSPI {
-    fn bank1<CONFIG, PINS>(
+    fn qspi_unchecked(
         self,
-        _pins: PINS,
-        config: CONFIG,
-        clocks: &CoreClocks,
-        prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>,
-        PINS: PinsBank1,
-    {
-        Qspi::qspi_unchecked(self, config, Bank::One, clocks, prec)
-    }
-
-    fn bank2<CONFIG, PINS>(
-        self,
-        _pins: PINS,
-        config: CONFIG,
-        clocks: &CoreClocks,
-        prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>,
-        PINS: PinsBank2,
-    {
-        Qspi::qspi_unchecked(self, config, Bank::Two, clocks, prec)
-    }
-
-    fn qspi_unchecked<CONFIG>(
-        self,
-        config: CONFIG,
+        config: impl Into<Config>,
         bank: Bank,
         clocks: &CoreClocks,
         prec: rec::Qspi,
-    ) -> Qspi<stm32::QUADSPI>
-    where
-        CONFIG: Into<Config>,
-    {
-        Qspi::qspi_unchecked(self, config, bank, clocks, prec)
+    ) -> Qspi<stm32::QUADSPI> {
+        Qspi::new_unchecked(self, config, bank, clocks, prec)
     }
 }

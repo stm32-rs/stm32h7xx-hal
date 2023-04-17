@@ -1773,16 +1773,16 @@ pub mod quadspi {
             PD11<9>,
             PF8<10>,
         ],
-        <Bk1Io1> for [
+        <Bk1Io1> for no:NoPin, [
             PC10<9>,
             PD12<9>,
             PF9<10>,
         ],
-        <Bk1Io2> for [
+        <Bk1Io2> for no:NoPin, [
             PE2<9>,
             PF7<9>,
         ],
-        <Bk1Io3> for [
+        <Bk1Io3> for no:NoPin, [
             PA1<9>,
             PD13<9>,
             PF6<9>,
@@ -1796,15 +1796,15 @@ pub mod quadspi {
             PE7<10>,
             PH2<9>,
         ],
-        <Bk2Io1> for [
+        <Bk2Io1> for no:NoPin, [
             PE8<10>,
             PH3<9>,
         ],
-        <Bk2Io2> for [
+        <Bk2Io2> for no:NoPin, [
             PE9<10>,
             PG9<9>,
         ],
-        <Bk2Io3> for [
+        <Bk2Io3> for no:NoPin, [
             PE10<10>,
             PG14<9>,
         ],
