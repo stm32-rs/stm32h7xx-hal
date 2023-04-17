@@ -70,7 +70,7 @@ fn main() -> ! {
     info!("");
 
     // Initialise the SPI peripheral.
-    let spi = dp.SPI2.spi::<_, u8>(
+    let spi = dp.SPI2.spi::<u8>(
         (sck, miso, mosi),
         spi::MODE_0,
         1.MHz(),

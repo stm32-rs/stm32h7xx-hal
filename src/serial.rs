@@ -378,16 +378,16 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
-pub trait SerialExt<USART>: Sized {
+pub trait SerialExt: Sized {
     type Rec: ResetEnable;
 
-    fn serial<P: Pins<USART>>(
+    fn serial<P: Pins<Self>>(
         self,
         pins: P,
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Result<Serial<USART>, config::InvalidConfig>;
+    ) -> Result<Serial<Self>, config::InvalidConfig>;
 
     fn serial_unchecked(
         self,
@@ -395,16 +395,16 @@ pub trait SerialExt<USART>: Sized {
         prec: Self::Rec,
         clocks: &CoreClocks,
         synchronous: bool,
-    ) -> Result<Serial<USART>, config::InvalidConfig>;
+    ) -> Result<Serial<Self>, config::InvalidConfig>;
 
     #[deprecated(since = "0.7.0", note = "Deprecated in favour of .serial(..)")]
     fn usart(
         self,
-        pins: impl Pins<USART>,
+        pins: impl Pins<Self>,
         config: impl Into<config::Config>,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Result<Serial<USART>, config::InvalidConfig> {
+    ) -> Result<Serial<Self>, config::InvalidConfig> {
         self.serial(pins, config, prec, clocks)
     }
 
@@ -418,7 +418,7 @@ pub trait SerialExt<USART>: Sized {
         prec: Self::Rec,
         clocks: &CoreClocks,
         synchronous: bool,
-    ) -> Result<Serial<USART>, config::InvalidConfig> {
+    ) -> Result<Serial<Self>, config::InvalidConfig> {
         self.serial_unchecked(config, prec, clocks, synchronous)
     }
 }
@@ -778,7 +778,7 @@ macro_rules! usart {
                 }
             }
 
-            impl SerialExt<$USARTX> for $USARTX {
+            impl SerialExt for $USARTX {
                 type Rec = rec::$Rec;
 
                 fn serial<P: Pins<$USARTX>>(self,
@@ -786,7 +786,7 @@ macro_rules! usart {
                          config: impl Into<config::Config>,
                          prec: rec::$Rec,
                          clocks: &CoreClocks
-                ) -> Result<Serial<$USARTX>, config::InvalidConfig>
+                ) -> Result<Serial<Self>, config::InvalidConfig>
                 {
                     let _pins = pins.convert();
                     Serial::$usartX(

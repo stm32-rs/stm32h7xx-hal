@@ -5,8 +5,8 @@
 //! tested.
 //!
 //! ```
-//! let d1 = gpioc.pc1.into_alternate_af2();
-//! let ck1 = gpioe.pe2.into_alternate_af2();
+//! let d1 = gpioc.pc1.into_alternate();
+//! let ck1 = gpioe.pe2.into_alternate();
 //! let pins = (ck1, d1);
 //!
 //! // Configure SAI for PDM mode
@@ -17,15 +17,23 @@
 
 use core::convert::TryInto;
 
-use crate::rcc::{rec, CoreClocks, ResetEnable};
+use crate::rcc::CoreClocks;
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 
-use crate::stm32::SAI1;
-#[cfg(not(feature = "rm0455"))]
-use crate::stm32::SAI4;
+use crate::pac;
 
-use crate::gpio::{self, Alternate};
+use crate::gpio;
 use crate::time::Hertz;
+
+pub trait PdmInstance:
+    crate::Sealed + core::ops::Deref<Target = pac::sai1::RegisterBlock> + GetClkSAI
+{
+    type D1;
+    type D2;
+    type D3;
+    type Ck1;
+    type Ck2;
+}
 
 /// Trait for a valid combination of SAI PDM pins
 pub trait PulseDensityPins<SAI> {
@@ -41,114 +49,25 @@ pub trait PulseDensityPins<SAI> {
     const ENABLE_BITSTREAM_CLOCK_3: bool = false;
     // Enable bitstream clock 4?
     const ENABLE_BITSTREAM_CLOCK_4: bool = false;
+
+    type AltPins;
+    fn convert(self) -> Self::AltPins;
 }
-pub trait PulseDensityPinD1<SAI> {}
-pub trait PulseDensityPinD2<SAI> {}
-pub trait PulseDensityPinD3<SAI> {}
-pub trait PulseDensityPinD4<SAI> {}
-pub trait PulseDensityPinCK1<SAI> {}
-pub trait PulseDensityPinCK2<SAI> {}
-pub trait PulseDensityPinCK3<SAI> {}
-pub trait PulseDensityPinCK4<SAI> {}
 
 // Pin sets
 impl<SAI, CK1, D1> PulseDensityPins<SAI> for (CK1, D1)
 where
-    CK1: PulseDensityPinCK1<SAI>,
-    D1: PulseDensityPinD1<SAI>,
+    SAI: PdmInstance,
+    CK1: Into<SAI::Ck1>,
+    D1: Into<SAI::D1>,
 {
     const MAX_MICROPHONES: u8 = 2;
     const ENABLE_BITSTREAM_CLOCK_1: bool = true;
-}
 
-// Pin definitions
-macro_rules! pins {
-    ($($SAIX:ty:
-       D1: [$($D1:ty),*] D2: [$($D2:ty),*]
-       D3: [$($D3:ty),*] D4: [$($D4:ty),*]
-       CK1: [$($CK1:ty),*] CK2: [$($CK2:ty),*]
-       CK3: [$($CK3:ty),*] CK4: [$($CK4:ty),*]
-    )+) => {
-        $(
-            $(
-                impl PulseDensityPinD1<$SAIX> for $D1 {}
-            )*
-            $(
-                impl PulseDensityPinD2<$SAIX> for $D2 {}
-            )*
-            $(
-                impl PulseDensityPinD3<$SAIX> for $D3 {}
-            )*
-            $(
-                impl PulseDensityPinD4<$SAIX> for $D4 {}
-            )*
-            $(
-                impl PulseDensityPinCK1<$SAIX> for $CK1 {}
-            )*
-            $(
-                impl PulseDensityPinCK2<$SAIX> for $CK2 {}
-            )*
-            $(
-                impl PulseDensityPinCK3<$SAIX> for $CK3 {}
-            )*
-            $(
-                impl PulseDensityPinCK4<$SAIX> for $CK4 {}
-            )*
-        )+
+    type AltPins = (SAI::Ck1, SAI::D1);
+    fn convert(self) -> Self::AltPins {
+        (self.0.into(), self.1.into())
     }
-}
-// Pin definitions on STM32743ZI, perhaps there are more on
-// newer/larger parts?
-pins! {
-    SAI1:
-        D1: [
-            gpio::PB2<Alternate<2>>,
-            gpio::PC1<Alternate<2>>,
-            gpio::PD6<Alternate<2>>,
-            gpio::PE6<Alternate<2>>
-        ]
-        D2: [
-            gpio::PE4<Alternate<2>>
-        ]
-        D3: [
-            gpio::PC5<Alternate<2>>,
-            gpio::PF10<Alternate<2>>
-        ]
-        D4: []
-        CK1: [
-            gpio::PE2<Alternate<2>>
-        ]
-        CK2: [
-            gpio::PE5<Alternate<2>>
-        ]
-        CK3: []
-        CK4: []
-}
-#[cfg(not(feature = "rm0455"))]
-pins! {
-    SAI4:
-        D1: [
-            gpio::PB2<Alternate<10>>,
-            gpio::PC1<Alternate<10>>,
-            gpio::PD6<Alternate<10>>,
-            gpio::PE6<Alternate<9>>
-        ]
-        D2: [
-            gpio::PE4<Alternate<10>>
-        ]
-        D3: [
-            gpio::PC5<Alternate<10>>,
-            gpio::PF10<Alternate<10>>
-        ]
-        D4: []
-        CK1: [
-            gpio::PE2<Alternate<10>>
-        ]
-        CK2: [
-            gpio::PE5<Alternate<10>>
-        ]
-        CK3: []
-        CK4: []
 }
 
 /// Pulse Density Modulation Interface
@@ -158,198 +77,179 @@ pub struct Pdm {
 impl INTERFACE for Pdm {}
 
 /// Trait to extend SAI peripherals
-pub trait SaiPdmExt<SAI>: Sized {
-    type Rec: ResetEnable;
-
-    fn pdm<PINS>(
+pub trait SaiPdmExt: Sized + PdmInstance {
+    fn pdm(
         self,
-        _pins: PINS,
+        pins: impl PulseDensityPins<Self>,
         clock: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Sai<SAI, Pdm>
+    ) -> Sai<Self, Pdm>;
+}
+
+impl<SAI: PdmInstance> SaiPdmExt for SAI {
+    fn pdm(
+        self,
+        pins: impl PulseDensityPins<Self>,
+        clock: Hertz,
+        prec: SAI::Rec,
+        clocks: &CoreClocks,
+    ) -> Sai<Self, Pdm> {
+        Sai::pdm(self, pins, clock, prec, clocks)
+    }
+}
+impl<SAI: PdmInstance> Sai<SAI, Pdm> {
+    /// Read a single data word (one 'slot')
+    pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
+        while self.interface.invalid_countdown > 0 {
+            // Check for words to read
+            if self.rb.cha().sr.read().freq().bit_is_clear() {
+                return Err(nb::Error::WouldBlock);
+            }
+
+            let _ = self.rb.cha().dr.read(); // Flush
+            self.interface.invalid_countdown -= 1;
+        }
+
+        // Check for words to read
+        if self.rb.cha().sr.read().freq().bit_is_clear() {
+            return Err(nb::Error::WouldBlock);
+        }
+
+        Ok(self.rb.cha().dr.read().bits() & 0xFFFF)
+    }
+
+    /// Initialise SAI in PDM mode
+    pub fn pdm<PINS>(
+        sai: SAI,
+        pins: PINS,
+        clock: Hertz,
+        prec: SAI::Rec,
+        clocks: &CoreClocks,
+    ) -> Self
     where
-        PINS: PulseDensityPins<Self>;
+        PINS: PulseDensityPins<SAI>,
+    {
+        let micnbr = match PINS::MAX_MICROPHONES {
+            2 => 0, // Up to 2 microphones
+            _ => unimplemented!(),
+        };
+        let frl = (16 * (micnbr + 1)) - 1; // Frame length
+        let ds = 0b100; // 16 bits
+        let nbslot: u8 = 0; // One slot
+
+        // Calculate bit clock SCK_a
+        let sck_a_hz = 2 * clock;
+
+        // Calculate master clock MCLK_a
+        let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
+
+        // Calculate divider
+        let ker_ck_a = SAI::sai_a_ker_ck(&prec, clocks);
+        let kernel_clock_divider: u8 =
+            (ker_ck_a / mclk_a_hz).try_into().expect(concat!(
+                stringify!($SAIX),
+                ": Kernel clock is out of range for required MCLK"
+            ));
+
+        // Configure SAI peripeheral
+        let mut s = Sai {
+            rb: sai,
+            master_channel: SaiChannel::ChannelA,
+            slave_channel: None,
+            interface: Pdm {
+                // count slots for 2 frames
+                invalid_countdown: 2 * (nbslot + 1),
+            },
+        };
+        // RCC enable, reset
+        s.sai_rcc_init(prec);
+
+        let _pins = pins.convert();
+
+        // Configure block 1
+        let audio_ch_a = &s.rb.cha();
+
+        unsafe {
+            audio_ch_a.cr1.modify(|_, w| {
+                w.mode().master_rx(); // Master receiver
+                w.prtcfg().free();
+                w.ds().bits(ds);
+                w.lsbfirst().clear_bit(); // MSB first
+                w.ckstr().clear_bit(); // Rising edge
+                w.mono().stereo(); // Stereo
+                w.nodiv().no_div(); // No division from MCLK to SCK
+                w.mckdiv().bits(kernel_clock_divider - 1)
+            });
+
+            audio_ch_a.frcr.modify(|_, w| {
+                w.fsoff().clear_bit();
+                w.fspol().set_bit(); // FS active high
+                w.fsdef().clear_bit();
+                w.fsall().bits(0); // Pulse width = 1 bit clock
+                w.frl().bits(frl)
+            });
+
+            audio_ch_a.slotr.modify(|_, w| {
+                w.fboff().bits(0); // No offset on slot
+                w.slotsz().bits(0); // Equal to ACR1.DS
+                w.nbslot().bits(nbslot);
+                w.sloten().bits(0x1) // Bitfield
+            });
+
+            // PDM Control Register
+            if PINS::ENABLE_BITSTREAM_CLOCK_1 {
+                s.rb.pdmcr.modify(|_, w| {
+                    w.cken1().set_bit() // CKEN1
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_2 {
+                s.rb.pdmcr.modify(|_, w| {
+                    w.cken2().set_bit() // CKEN2
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_3 {
+                s.rb.pdmcr.modify(|_, w| {
+                    w.cken3().set_bit() // CKEN3
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_4 {
+                s.rb.pdmcr.modify(|_, w| {
+                    w.cken4().set_bit() // CKEN4
+                });
+            }
+            s.rb.pdmcr.modify(|_, w| {
+                w.micnbr().bits(micnbr); // 2, 4, 6 or 8 microphones
+                w.pdmen().set_bit() // Enabled
+            });
+        }
+
+        // Enable SAI_A
+        audio_ch_a.cr1.modify(|_, w| w.saien().enabled());
+
+        // SAI
+        s
+    }
 }
 
 macro_rules! hal {
-    ($($SAIX:ident, $Rec:ident: ($pdm_saiX:ident)),+) => {
+    ($($SAIX:ty, $sai:ident, $Rec:ident: ($pdm_saiX:ident)),+) => {
         $(
-            impl SaiPdmExt<$SAIX> for $SAIX {
-                type Rec = rec::$Rec;
-
-                fn pdm<PINS>(
-                    self,
-                    _pins: PINS,
-                    clock: Hertz,
-                    prec: rec::$Rec,
-                    clocks: &CoreClocks,
-                ) -> Sai<Self, Pdm>
-                where
-                    PINS: PulseDensityPins<Self>,
-                {
-                    Sai::$pdm_saiX(self, _pins, clock, prec, clocks)
-                }
-            }
-            impl Sai<$SAIX, Pdm> {
-                /// Read a single data word (one 'slot')
-                pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
-                    while self.interface.invalid_countdown > 0 {
-                        // Check for words to read
-                        if self.rb.cha().sr.read().freq().bit_is_clear() {
-                            return Err(nb::Error::WouldBlock);
-                        }
-
-                        let _ = self.rb.cha().dr.read(); // Flush
-                        self.interface.invalid_countdown -= 1;
-                    }
-
-                    // Check for words to read
-                    if self.rb.cha().sr.read().freq().bit_is_clear() {
-                        return Err(nb::Error::WouldBlock);
-                    }
-
-                    Ok(self.rb.cha().dr.read().bits() & 0xFFFF)
-                }
-
-                /// Initialise SAI in PDM mode
-                pub fn $pdm_saiX<PINS>(
-                    sai: $SAIX,
-                    _pins: PINS,
-                    clock: Hertz,
-                    prec: rec::$Rec,
-                    clocks: &CoreClocks,
-                ) -> Self
-                where
-                    PINS: PulseDensityPins<$SAIX>,
-                {
-                    let micnbr = match PINS::MAX_MICROPHONES {
-                        2 => 0, // Up to 2 microphones
-                        _ => unimplemented!(),
-                    };
-                    let frl = (16 * (micnbr + 1)) - 1; // Frame length
-                    let ds = 0b100; // 16 bits
-                    let nbslot: u8 = 0; // One slot
-
-                    // Calculate bit clock SCK_a
-                    let sck_a_hz = 2 * clock;
-
-                    // Calculate master clock MCLK_a
-                    let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
-
-                    // Calculate divider
-                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
-                    let kernel_clock_divider: u8 = (ker_ck_a / mclk_a_hz)
-                        .try_into()
-                        .expect(concat!(stringify!($SAIX),
-                                        ": Kernel clock is out of range for required MCLK"
-                        ));
-
-
-                    // Configure SAI peripeheral
-                    let mut s = Sai {
-                        rb: sai,
-                        master_channel: SaiChannel::ChannelA,
-                        slave_channel: None,
-                        interface: Pdm {
-                            // count slots for 2 frames
-                            invalid_countdown: 2 * (nbslot + 1),
-                        },
-                    };
-                    // RCC enable, reset
-                    s.sai_rcc_init(prec);
-
-                    // Configure block 1
-                    let audio_ch_a = &s.rb.cha();
-
-                    unsafe {
-                        audio_ch_a.cr1.modify(|_, w| {
-                            w.mode()
-                                .master_rx() // Master receiver
-                                .prtcfg()
-                                .free()
-                                .ds()
-                                .bits(ds)
-                                .lsbfirst()
-                                .clear_bit() // MSB first
-                                .ckstr()
-                                .clear_bit() // Rising edge
-                                .mono()
-                                .stereo() // Stereo
-                                .nodiv()
-                                .no_div() // No division from MCLK to SCK
-                                .mckdiv()
-                                .bits(kernel_clock_divider - 1)
-                        });
-
-                        audio_ch_a.frcr.modify(|_, w| {
-                            w.fsoff()
-                                .clear_bit()
-                                .fspol()
-                                .set_bit() // FS active high
-                                .fsdef()
-                                .clear_bit()
-                                .fsall()
-                                .bits(0) // Pulse width = 1 bit clock
-                                .frl()
-                                .bits(frl)
-                        });
-
-                        audio_ch_a.slotr.modify(|_, w| {
-                            w.fboff()
-                                .bits(0) // No offset on slot
-                                .slotsz()
-                                .bits(0) // Equal to ACR1.DS
-                                .nbslot()
-                                .bits(nbslot)
-                                .sloten()
-                                .bits(0x1) // Bitfield
-                        });
-
-                        // PDM Control Register
-                        if PINS::ENABLE_BITSTREAM_CLOCK_1 {
-                            s.rb.pdmcr.modify(|_, w| {
-                                w.cken1().set_bit() // CKEN1
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_2 {
-                            s.rb.pdmcr.modify(|_, w| {
-                                w.cken2().set_bit() // CKEN2
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_3 {
-                            s.rb.pdmcr.modify(|_, w| {
-                                w.cken3().set_bit() // CKEN3
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_4 {
-                            s.rb.pdmcr.modify(|_, w| {
-                                w.cken4().set_bit() // CKEN4
-                            });
-                        }
-                        s.rb.pdmcr.modify(|_, w| {
-                            w.micnbr()
-                                .bits(micnbr) // 2, 4, 6 or 8 microphones
-                                .pdmen()
-                                .set_bit() // Enabled
-                        });
-                    }
-
-                    // Enable SAI_A
-                    audio_ch_a.cr1.modify(|_, w| w.saien().enabled());
-
-                    // SAI
-                    s
-                }
+            impl PdmInstance for $SAIX {
+                type D1 = gpio::alt::$sai::D1;
+                type D2 = gpio::alt::$sai::D2;
+                type D3 = gpio::alt::$sai::D3;
+                type Ck1 = gpio::alt::$sai::Ck1;
+                type Ck2 = gpio::alt::$sai::Ck2;
             }
         )+
     }
 }
 
 hal! {
-    SAI1, Sai1: (pdm_sai1)
+    pac::SAI1, sai1, Sai1: (pdm_sai1)
 }
 #[cfg(not(feature = "rm0455"))]
 hal! {
-    SAI4, Sai4: (pdm_sai4)
+    pac::SAI4, sai4, Sai4: (pdm_sai4)
 }

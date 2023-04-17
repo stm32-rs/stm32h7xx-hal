@@ -62,11 +62,11 @@ mod app {
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
         let sai1_pins = (
-            gpioe.pe2.into_alternate(),       // MCLK_A
-            gpioe.pe5.into_alternate(),       // SCK_A
-            gpioe.pe4.into_alternate(),       // FS_A
-            gpioe.pe6.into_alternate(),       // SD_A
-            Some(gpioe.pe3.into_alternate()), // SD_B
+            gpioe.pe2,       // MCLK_A
+            gpioe.pe5,       // SCK_A
+            gpioe.pe4,       // FS_A
+            gpioe.pe6,       // SD_A
+            Some(gpioe.pe3), // SD_B
         );
 
         // Reset the codec chip

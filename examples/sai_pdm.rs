@@ -34,9 +34,8 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
-    let d1 = gpioc.pc1.into_alternate();
-    let ck1 = gpioe.pe2.into_alternate();
-    let pins = (ck1, d1);
+    let d1 = gpioc.pc1;
+    let ck1 = gpioe.pe2;
 
     info!("");
     info!("stm32h7xx-hal example - SAI PDM");
@@ -45,7 +44,7 @@ fn main() -> ! {
     // Configure SAI for PDM mode
     let mut sai =
         dp.SAI1
-            .pdm(pins, 1_024.kHz(), ccdr.peripheral.SAI1, &ccdr.clocks);
+            .pdm((ck1, d1), 1_024.kHz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 
     loop {
         info!("0x{:04x}", 0xFFFF & block!(sai.read_data()).unwrap());

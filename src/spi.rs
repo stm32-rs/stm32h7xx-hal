@@ -371,18 +371,17 @@ pub struct Spi<SPI, ED, WORD = u8> {
     _ed: PhantomData<ED>,
 }
 
-pub trait SpiExt<SPI>: Sized + Instance {
-    fn spi<PINS, WORD>(
+pub trait SpiExt: Sized + Instance {
+    fn spi<WORD>(
         self,
-        _pins: PINS,
+        pins: impl Pins<Self>,
         config: impl Into<Config>,
         freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Spi<SPI, Enabled, WORD>
+    ) -> Spi<Self, Enabled, WORD>
     where
-        WORD: Word,
-        PINS: Pins<SPI>;
+        WORD: Word;
 
     fn spi_unchecked<WORD>(
         self,
@@ -390,7 +389,7 @@ pub trait SpiExt<SPI>: Sized + Instance {
         freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Spi<SPI, Enabled, WORD>
+    ) -> Spi<Self, Enabled, WORD>
     where
         WORD: Word;
 }
@@ -578,6 +577,12 @@ impl<SPI: Instance, TY: Word> Spi<SPI, Enabled, TY> {
     where
         PINS: Pins<SPI>,
     {
+        let config = config.into();
+        assert_eq!(
+            config.hardware_cs.enabled(),
+            PINS::HCS_PRESENT,
+            "If the hardware cs is enabled in the config, an HCS pin must be present in the given pins"
+        );
         let _pins = pins.convert();
         Self::new_unchecked(spi, config, freq, prec, clocks)
     }
@@ -702,25 +707,18 @@ impl<SPI: Instance, TY: Word> Spi<SPI, Enabled, TY> {
     }
 }
 
-impl<SPI: Instance> SpiExt<SPI> for SPI {
-    fn spi<PINS, WORD>(
+impl<SPI: Instance> SpiExt for SPI {
+    fn spi<WORD>(
         self,
-        pins: PINS,
+        pins: impl Pins<Self>,
         config: impl Into<Config>,
         freq: Hertz,
-        prec: SPI::Rec,
+        prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Spi<SPI, Enabled, WORD>
+    ) -> Spi<Self, Enabled, WORD>
     where
         WORD: Word,
-        PINS: Pins<SPI>,
     {
-        let config = config.into();
-        assert_eq!(
-            config.hardware_cs.enabled(),
-            PINS::HCS_PRESENT,
-            "If the hardware cs is enabled in the config, an HCS pin must be present in the given pins"
-        );
         Spi::new(self, pins, config, freq, prec, clocks)
     }
 
