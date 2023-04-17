@@ -443,35 +443,7 @@ mod common {
             }
 
             pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
-                #[cfg(not(feature = "rm0455"))]
-                use stm32::rcc::d1ccipr as ccipr;
-                #[cfg(feature = "rm0455")]
-                use stm32::rcc::cdccipr as ccipr;
-
-                #[cfg(not(feature = "rm0455"))]
-                let ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr.read() };
-                #[cfg(feature = "rm0455")]
-                let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
-
-                match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RccHclk3 => clocks.hclk(),
-                    ccipr::[< $ccip:upper _A >]::Pll1Q => {
-                        clocks.pll1_q_ck().expect(
-                            concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
-                        )
-                    }
-                    ccipr::[< $ccip:upper _A >]::Pll2R
-                        => {
-                        clocks.pll2_r_ck().expect(
-                            concat!(stringify!($peripheral), ": PLL2_R must be enabled")
-                        )
-                    }
-                    ccipr::[< $ccip:upper _A >]::Per => {
-                        clocks.per_ck().expect(
-                            concat!(stringify!($peripheral), ": PER clock must be enabled")
-                        )
-                    }
-                }
+                <$peripheral as GetClk>::kernel_clk_unwrap(clocks)
             }
 
             /// Configure the operational mode (number of bits) of the XSPI
@@ -920,7 +892,42 @@ mod common {
 
                 Ok(())
             }
-        }}}
+        }
+
+        impl GetClk for $peripheral {
+            fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
+                #[cfg(not(feature = "rm0455"))]
+                use stm32::rcc::d1ccipr as ccipr;
+                #[cfg(feature = "rm0455")]
+                use stm32::rcc::cdccipr as ccipr;
+
+                #[cfg(not(feature = "rm0455"))]
+                let ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr.read() };
+                #[cfg(feature = "rm0455")]
+                let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
+
+                match ccipr.$ccip().variant() {
+                    ccipr::[< $ccip:upper _A >]::RccHclk3 => clocks.hclk(),
+                    ccipr::[< $ccip:upper _A >]::Pll1Q => {
+                        clocks.pll1_q_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
+                        )
+                    }
+                    ccipr::[< $ccip:upper _A >]::Pll2R
+                        => {
+                        clocks.pll2_r_ck().expect(
+                            concat!(stringify!($peripheral), ": PLL2_R must be enabled")
+                        )
+                    }
+                    ccipr::[< $ccip:upper _A >]::Per => {
+                        clocks.per_ck().expect(
+                            concat!(stringify!($peripheral), ": PER clock must be enabled")
+                        )
+                    }
+                }
+            }
+        }
+    }}
     }
 
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -930,4 +937,8 @@ mod common {
     xspi_impl! { stm32::OCTOSPI1, rec::Octospi1, octospisel }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     xspi_impl! { stm32::OCTOSPI2, rec::Octospi2, octospisel }
+
+    pub trait GetClk {
+        fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz;
+    }
 }

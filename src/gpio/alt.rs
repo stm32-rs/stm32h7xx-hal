@@ -1580,10 +1580,10 @@ pub mod mdios {
 }
 
 #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-pub mod octospim {
+pub mod octospi1 {
     use super::*;
     pin! {
-        <P1Clk> for [
+        <Clk> for [
             PB2<9>,
             PF10<9>,
 
@@ -1593,7 +1593,11 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PA3<3>,
         ],
-        <P1Dqs> for [
+        <Nclk> for [
+            PB12<3>,
+            PF11<9>,
+        ],
+        <Dqs> for [
             PB2<10>,
             PC5<10>,
 
@@ -1603,7 +1607,14 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PA1<11>,
         ],
-        <P1Io0> for [
+        <Ncs> for [
+            PB10<9>,
+            PB6<10>,
+            PC11<9>,
+            PE11<11>,
+            PG6<10>,
+        ],
+        <Io0> for [
             PC9<9>,
             PD11<9>,
             PF8<10>,
@@ -1620,7 +1631,7 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PC3<9>,
         ],
-        <P1Io1> for [
+        <Io1> for [
             PC10<9>,
             PD12<9>,
             PF9<10>,
@@ -1631,7 +1642,7 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PB0<11>,
         ],
-        <P1Io2> for [
+        <Io2> for [
             PA7<10>,
             PE2<9>,
             PF7<10>,
@@ -1644,51 +1655,52 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PC2<9>,
         ],
-        <P1Io3> for [
+        <Io3> for [
             PA1<9>,
             PA6<6>,
             PD13<9>,
             PF6<10>,
         ],
-        <P1Io4> for [
+        <Io4> for [
             PC1<10>,
             PD4<10>,
             PE7<10>,
             PH2<9>,
         ],
-        <P1Io5> for [
+        <Io5> for [
             PD5<10>,
             PE8<10>,
             PH3<9>,
         ],
-        <P1Io6> for [
+        <Io6> for [
             PD6<10>,
             PE9<10>,
             PG9<9>,
         ],
-        <P1Io7> for [
+        <Io7> for [
             PD7<10>,
             PE10<10>,
             PG14<9>,
         ],
-        <P1Nclk> for [
-            PB12<3>,
-            PF11<9>,
-        ],
-        <P1Ncs> for [
-            PB10<9>,
-            PB6<10>,
-            PC11<9>,
-            PE11<11>,
-            PG6<10>,
-        ],
-        <P2Clk> for [
+    }
+}
+#[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
+pub mod octospi2 {
+    use super::*;
+    pin! {
+        <Clk> for [
             PF4<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PI13<3>,
         ],
-        <P2Dqs> for [
+        <Nclk> for [
+            PF5<9>,
+
+            #[cfg(feature = "gpio-h7a2")]
+            PI14<3>,
+        ],
+        <Dqs> for [
             PF12<9>,
             PG15<9>,
             PG7<9>,
@@ -1696,36 +1708,42 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PK6<3>,
         ],
-        <P2Io0> for [
+        <Ncs> for [
+            PG12<3>,
+
+            #[cfg(feature = "gpio-h7a2")]
+            PK5<3>,
+        ],
+        <Io0> for [
             PF0<9>,
             #[cfg(feature = "gpio-h7a2")]
             PI9<3>,
         ],
-        <P2Io1> for [
+        <Io1> for [
             PF1<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PI10<3>,
         ],
-        <P2Io2> for [
+        <Io2> for [
             PF2<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PI11<3>,
         ],
-        <P2Io3> for [
+        <Io3> for [
             PF3<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PI12<3>,
         ],
-        <P2Io4> for [
+        <Io4> for [
             PG0<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PJ1<3>,
         ],
-        <P2Io5> for [
+        <Io5> for [
             PG1<9>,
 
             #[cfg(feature = "gpio-h7a2")]
@@ -1734,7 +1752,7 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PJ2<3>,
         ],
-        <P2Io6> for [
+        <Io6> for [
             PG10<3>,
 
             #[cfg(feature = "gpio-h7a2")]
@@ -1743,23 +1761,11 @@ pub mod octospim {
             #[cfg(feature = "gpio-h7a2")]
             PK3<3>,
         ],
-        <P2Io7> for [
+        <Io7> for [
             PG11<9>,
 
             #[cfg(feature = "gpio-h7a2")]
             PK4<3>,
-        ],
-        <P2Nclk> for [
-            PF5<9>,
-
-            #[cfg(feature = "gpio-h7a2")]
-            PI14<3>,
-        ],
-        <P2Ncs> for [
-            PG12<3>,
-
-            #[cfg(feature = "gpio-h7a2")]
-            PK5<3>,
         ],
     }
 }
