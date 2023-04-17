@@ -116,6 +116,7 @@ pub struct Disabled;
 pub trait Pins<SPI> {
     /// States whether or not the Hardware Chip Select is present in this set of pins
     const HCS_PRESENT: bool;
+
     type AltPins;
     fn convert(self) -> Self::AltPins;
 }
