@@ -455,7 +455,7 @@ impl<SAI: I2sInstance> Sai<SAI, I2S> {
         let _pins = pins.convert();
 
         i2s_config_channel(
-            &per_sai.rb.cha(),
+            per_sai.rb.cha(),
             I2SMode::Master,
             &per_sai.interface.master,
             mclk_div,
@@ -464,7 +464,7 @@ impl<SAI: I2sInstance> Sai<SAI, I2S> {
 
         if let Some(slave) = &per_sai.interface.slave {
             i2s_config_channel(
-                &per_sai.rb.chb(),
+                per_sai.rb.chb(),
                 I2SMode::Slave,
                 slave,
                 0,
@@ -518,7 +518,7 @@ impl<SAI: I2sInstance> Sai<SAI, I2S> {
         let _pins = pins.convert();
 
         i2s_config_channel(
-            &per_sai.rb.chb(),
+            per_sai.rb.chb(),
             I2SMode::Master,
             &per_sai.interface.master,
             mclk_div,
@@ -527,7 +527,7 @@ impl<SAI: I2sInstance> Sai<SAI, I2S> {
 
         if let Some(slave) = &per_sai.interface.slave {
             i2s_config_channel(
-                &per_sai.rb.cha(),
+                per_sai.rb.cha(),
                 I2SMode::Slave,
                 slave,
                 0,

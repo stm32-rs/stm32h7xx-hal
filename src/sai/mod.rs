@@ -210,10 +210,8 @@ where
     where
         F: FnOnce(&CH) -> T,
     {
-        match self.slave_channel {
-            Some(channel) => Some(func(&self.rb.ch[channel as usize])),
-            None => None,
-        }
+        self.slave_channel
+            .map(|channel| func(&self.rb.ch[channel as usize]))
     }
 
     /// Start listening for `event` on a given `channel`
