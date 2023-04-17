@@ -149,6 +149,91 @@ impl From<AdcSampleTime> for u8 {
     }
 }
 
+/// The place in the sequence a given channel should be captured
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Sequence {
+    /// 1
+    One,
+    /// 2
+    Two,
+    /// 3
+    Three,
+    /// 4
+    Four,
+    /// 5
+    Five,
+    /// 6
+    Six,
+    /// 7
+    Seven,
+    /// 8
+    Eight,
+    /// 9
+    Nine,
+    /// 10
+    Ten,
+    /// 11
+    Eleven,
+    /// 12
+    Twelve,
+    /// 13
+    Thirteen,
+    /// 14
+    Fourteen,
+    /// 15
+    Fifteen,
+    /// 16
+    Sixteen,
+}
+
+impl From<Sequence> for u8 {
+    fn from(s: Sequence) -> u8 {
+        match s {
+            Sequence::One => 0,
+            Sequence::Two => 1,
+            Sequence::Three => 2,
+            Sequence::Four => 3,
+            Sequence::Five => 4,
+            Sequence::Six => 5,
+            Sequence::Seven => 6,
+            Sequence::Eight => 7,
+            Sequence::Nine => 8,
+            Sequence::Ten => 9,
+            Sequence::Eleven => 10,
+            Sequence::Twelve => 11,
+            Sequence::Thirteen => 12,
+            Sequence::Fourteen => 13,
+            Sequence::Fifteen => 14,
+            Sequence::Sixteen => 15,
+        }
+    }
+}
+
+impl From<u8> for Sequence {
+    fn from(bits: u8) -> Self {
+        match bits {
+            0 => Sequence::One,
+            1 => Sequence::Two,
+            2 => Sequence::Three,
+            3 => Sequence::Four,
+            4 => Sequence::Five,
+            5 => Sequence::Six,
+            6 => Sequence::Seven,
+            7 => Sequence::Eight,
+            8 => Sequence::Nine,
+            9 => Sequence::Ten,
+            10 => Sequence::Eleven,
+            11 => Sequence::Twelve,
+            12 => Sequence::Thirteen,
+            13 => Sequence::Fourteen,
+            14 => Sequence::Fifteen,
+            15 => Sequence::Sixteen,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 /// ADC LSHIFT\[3:0\] of the converted value
 ///
 /// Only values in range of 0..=15 are allowed.
@@ -819,6 +904,126 @@ macro_rules! adc_hal {
 
                     // Perform conversion
                     self.rb.cr.modify(|_, w| w.adstart().set_bit());
+                }
+
+                /// Reset the sequence
+                #[inline(always)]
+                pub fn reset_sequence(&mut self) {
+                    //The reset state is One conversion selected
+                    self.rb.sqr1.modify(|_, w| w.l().bits(Sequence::One.into()));
+                }
+
+                /// Returns the current sequence length. Primarily useful for configuring DMA.
+                #[inline(always)]
+                pub fn sequence_length(&mut self) -> u8 {
+                    self.rb.sqr1.read().l().bits() + 1
+                }
+
+                /// Configure sequence
+                ///
+                /// Example:
+                /// ```
+                /// let mut adc1 = adc1.enable();
+                /// adc1.set_resolution(adc::Resolution::SixteenBit);
+                /// // Configure sequence
+                /// adc1.reset_sequence();
+                /// adc1.configure_sequence(&mut adcpin1, adc::Sequence::One,  adc::AdcSampleTime::T_16);
+                /// adc1.configure_sequence(&mut adcpin2, adc::Sequence::Two,  adc::AdcSampleTime::T_64);
+                /// adc1.configure_sequence(&mut adcpin3, adc::Sequence::Three,  adc::AdcSampleTime::T_16);
+                /// ```
+                pub fn configure_sequence<PIN>(&mut self, _pin: &mut PIN, sequence: Sequence, sample_time: AdcSampleTime)
+                    where PIN: Channel<$ADC, ID = u8>,
+                {
+                    let chan = PIN::channel();
+                    assert!(chan <= 19);
+
+                    //Check the sequence is long enough
+                    self.rb.sqr1.modify(|r, w| {
+                        let prev: Sequence = r.l().bits().into();
+                        if prev < sequence {
+                            w.l().bits(sequence.into())
+                        } else {
+                            w
+                        }
+                    });
+
+                    //Set the channel in the right sequence field
+                    match sequence {
+                        Sequence::One      => self.rb.sqr1.modify(|_, w| unsafe {w.sq1().bits(chan) }),
+                        Sequence::Two      => self.rb.sqr1.modify(|_, w| unsafe {w.sq2().bits(chan) }),
+                        Sequence::Three    => self.rb.sqr1.modify(|_, w| unsafe {w.sq3().bits(chan) }),
+                        Sequence::Four     => self.rb.sqr1.modify(|_, w| unsafe {w.sq4().bits(chan) }),
+                        Sequence::Five     => self.rb.sqr2.modify(|_, w| unsafe {w.sq5().bits(chan) }),
+                        Sequence::Six      => self.rb.sqr2.modify(|_, w| unsafe {w.sq6().bits(chan) }),
+                        Sequence::Seven    => self.rb.sqr2.modify(|_, w| unsafe {w.sq7().bits(chan) }),
+                        Sequence::Eight    => self.rb.sqr2.modify(|_, w| unsafe {w.sq8().bits(chan) }),
+                        Sequence::Nine     => self.rb.sqr2.modify(|_, w| unsafe {w.sq9().bits(chan) }),
+                        Sequence::Ten      => self.rb.sqr3.modify(|_, w| unsafe {w.sq10().bits(chan) }),
+                        Sequence::Eleven   => self.rb.sqr3.modify(|_, w| unsafe {w.sq11().bits(chan) }),
+                        Sequence::Twelve   => self.rb.sqr3.modify(|_, w| unsafe {w.sq12().bits(chan) }),
+                        Sequence::Thirteen => self.rb.sqr3.modify(|_, w| unsafe {w.sq13().bits(chan) }),
+                        Sequence::Fourteen => self.rb.sqr3.modify(|_, w| unsafe {w.sq14().bits(chan) }),
+                        Sequence::Fifteen  => self.rb.sqr4.modify(|_, w| unsafe {w.sq15().bits(chan) }),
+                        Sequence::Sixteen  => self.rb.sqr4.modify(|_, w| unsafe {w.sq16().bits(chan) }),
+                    }
+
+                    //Set the sample time for the channel
+                    let st = u8::from(sample_time);
+                    match chan {
+                        0 => self.rb.smpr1.modify(|_, w| w.smp0().bits(st) ),
+                        1 => self.rb.smpr1.modify(|_, w| w.smp1().bits(st) ),
+                        2 => self.rb.smpr1.modify(|_, w| w.smp2().bits(st) ),
+                        3 => self.rb.smpr1.modify(|_, w| w.smp3().bits(st) ),
+                        4 => self.rb.smpr1.modify(|_, w| w.smp4().bits(st) ),
+                        5 => self.rb.smpr1.modify(|_, w| w.smp5().bits(st) ),
+                        6 => self.rb.smpr1.modify(|_, w| w.smp6().bits(st) ),
+                        7 => self.rb.smpr1.modify(|_, w| w.smp7().bits(st) ),
+                        8 => self.rb.smpr1.modify(|_, w| w.smp8().bits(st) ),
+                        9 => self.rb.smpr1.modify(|_, w| w.smp9().bits(st) ),
+                        10 => self.rb.smpr2.modify(|_, w| w.smp10().bits(st) ),
+                        11 => self.rb.smpr2.modify(|_, w| w.smp11().bits(st) ),
+                        12 => self.rb.smpr2.modify(|_, w| w.smp12().bits(st) ),
+                        13 => self.rb.smpr2.modify(|_, w| w.smp13().bits(st) ),
+                        14 => self.rb.smpr2.modify(|_, w| w.smp14().bits(st) ),
+                        15 => self.rb.smpr2.modify(|_, w| w.smp15().bits(st) ),
+                        16 => self.rb.smpr2.modify(|_, w| w.smp16().bits(st) ),
+                        17 => self.rb.smpr2.modify(|_, w| w.smp17().bits(st) ),
+                        18 => self.rb.smpr2.modify(|_, w| w.smp18().bits(st) ),
+                        _ => unimplemented!(),
+                    }
+
+                    // Select channel (with preselection, refer to RM0433 Rev 7 - Chapter 25.4.12)
+                    self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
+
+                }
+
+                /// Starts sequence conversion in DMA mode.
+                ///
+                /// This method starts a conversion sequence with DMA
+                /// enabled. The DMA mode selected depends on the [`AdcDmaMode`] specified.
+                /// Waits for the hardware to indicate it's actually started.
+                #[inline(always)]
+                pub fn start_conversion_sequence_dma(&mut self, mode: AdcDmaMode) {
+                    self.check_conversion_conditions();
+
+                    // Set DMA mode
+                    self.rb.cfgr.modify(|_, w| w.dmngt().bits(match mode {
+                        AdcDmaMode::OneShot => 0b01,
+                        AdcDmaMode::Circular => 0b11,
+                    }));
+
+                    // Set resolution
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    // Set continuous mode
+                    self.rb.cfgr.modify(|_, w| w.cont().set_bit().discen().clear_bit() );
+
+                    // Set LSHIFT[3:0]
+                    self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
+
+                    //Start conversion
+                    self.rb.cr.modify(|_, w| w.adstart().set_bit());
+
+                    while !self.rb.cr.read().adstart().bit_is_set() {}
                 }
 
                 /// Start conversion
