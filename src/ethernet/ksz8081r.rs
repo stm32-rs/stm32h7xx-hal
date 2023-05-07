@@ -23,8 +23,21 @@ impl<MAC: StationManagement> PHY for KSZ8081R<MAC> {
 
 /// Public functions for the KSZ8081R
 impl<MAC: StationManagement> KSZ8081R<MAC> {
+    /// Create KSZ8081R instance from ETHMAC peripheral
     pub fn new(mac: MAC) -> Self {
         KSZ8081R { mac }
+    }
+    /// Returns a reference to the inner ETHMAC peripheral
+    pub fn inner(&self) -> &MAC {
+        &self.mac
+    }
+    /// Returns a mutable reference to the inner ETHMAC peripheral
+    pub fn inner_mut(&mut self) -> &mut MAC {
+        &mut self.mac
+    }
+    /// Releases the ETHMAC peripheral
+    pub fn free(self) -> MAC {
+        self.mac
     }
 
     /// Poll PHY to determine link status.

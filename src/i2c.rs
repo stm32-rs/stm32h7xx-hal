@@ -2,19 +2,13 @@
 //!
 //! # Examples
 //!
-//! - [I2C simple examples](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c.rs)
+//! - [I2C simple example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c.rs)
 //! - [I2C example using I2C4 and BDMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/i2c4_bdma.rs)
 
 use core::cmp;
 use core::marker::PhantomData;
 
-use crate::gpio::gpioa::PA8;
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
-use crate::gpio::gpioc::PC9;
-use crate::gpio::gpiod::{PD12, PD13};
-use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
-use crate::gpio::gpioh::{PH11, PH12, PH4, PH5, PH7, PH8};
-use crate::gpio::{Alternate, AF4, AF6};
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
@@ -24,7 +18,7 @@ use cast::u16;
 /// I2C Events
 ///
 /// Each event is a possible interrupt source, if enabled
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// (TXIE)
     Transmit,
@@ -43,7 +37,7 @@ pub enum Event {
 /// I2C Stop Configuration
 ///
 /// Peripheral options for generating the STOP condition
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// Software end mode: Must write register to generate STOP condition
     Software,
@@ -70,30 +64,19 @@ pub enum Error {
 }
 
 /// A trait to represent the SCL Pin of an I2C Port
-pub trait PinScl<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait PinScl<I2C> {}
 
 /// A trait to represent the SDL Pin of an I2C Port
-pub trait PinSda<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait PinSda<I2C> {}
 
 /// A trait to represent the collection of pins required for an I2C port
-pub trait Pins<I2C> {
-    fn set_open_drain(self) -> Self;
-}
+pub trait Pins<I2C> {}
 
 impl<I2C, SCL, SDA> Pins<I2C> for (SCL, SDA)
 where
     SCL: PinScl<I2C>,
     SDA: PinSda<I2C>,
 {
-    fn set_open_drain(self) -> Self {
-        let (scl, sda) = self;
-
-        (scl.set_open_drain(), sda.set_open_drain())
-    }
 }
 
 #[derive(Debug)]
@@ -105,25 +88,22 @@ pub struct I2c<I2C> {
 pub trait I2cExt<I2C>: Sized {
     type Rec: ResetEnable;
 
-    fn i2c<PINS, F>(
+    fn i2c<PINS>(
         self,
         _pins: PINS,
-        frequency: F,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> I2c<I2C>
     where
-        PINS: Pins<I2C>,
-        F: Into<Hertz>;
+        PINS: Pins<I2C>;
 
-    fn i2c_unchecked<F>(
+    fn i2c_unchecked(
         self,
-        frequency: F,
+        frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> I2c<I2C>
-    where
-        F: Into<Hertz>;
+    ) -> I2c<I2C>;
 }
 
 // Sequence to flush the TXDR register. This resets the TXIS and TXE
@@ -295,22 +275,20 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                pub fn $i2cX<F> (
+                pub fn $i2cX (
                     i2c: $I2CX,
-                    frequency: F,
+                    frequency: Hertz,
                     prec: rec::$Rec,
                     clocks: &CoreClocks
-                ) -> Self where
-                    F: Into<Hertz>,
-                {
-                    prec.enable().reset();
+                ) -> Self {
+                    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
-                    let freq: u32 = frequency.into().0;
+                    let freq: u32 = frequency.raw();
 
                     // Maximum f_SCL for Fast-mode Plus (Fm+)
                     assert!(freq <= 1_000_000);
 
-                    let i2c_clk: u32 = clocks.$pclkX().0;
+                    let i2c_clk: u32 = clocks.$pclkX().raw();
 
                     // Clear PE bit in I2C_CR1
                     i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -344,6 +322,11 @@ macro_rules! i2c {
                 /// Returns a reference to the inner peripheral
                 pub fn inner(&self) -> &$I2CX {
                     &self.i2c
+                }
+
+                /// Returns a mutable reference to the inner peripheral
+                pub fn inner_mut(&mut self) -> &mut $I2CX {
+                    &mut self.i2c
                 }
 
                 /// Enable or disable the DMA mode for reception
@@ -547,14 +530,11 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c<PINS, F>(self, pins: PINS, frequency: F,
+                fn i2c<PINS>(self, _pins: PINS, frequency: Hertz,
                                 prec: rec::$Rec,
                                 clocks: &CoreClocks) -> I2c<$I2CX>
                 where
-                    PINS: Pins<$I2CX>,
-                    F: Into<Hertz>
-                {
-                    let _ = pins.set_open_drain();
+                    PINS: Pins<$I2CX> {
 
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }
@@ -570,12 +550,9 @@ macro_rules! i2c {
                 /// is out of bounds. The acceptable range is [4, 8192].
                 ///
                 /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c_unchecked<F>(self, frequency: F,
+                fn i2c_unchecked(self, frequency: Hertz,
                                     prec: rec::$Rec,
-                                    clocks: &CoreClocks) -> I2c<$I2CX>
-                where
-                    F: Into<Hertz>
-                {
+                                    clocks: &CoreClocks) -> I2c<$I2CX> {
                     I2c::$i2cX(self, frequency, prec, clocks)
                 }
             }
@@ -607,6 +584,9 @@ macro_rules! i2c {
 
                     // Stop
                     self.master_stop();
+
+                    // Wait for stop
+                    busy_wait!(self.i2c, busy, is_not_busy);
 
                     Ok(())
                 }
@@ -654,7 +634,8 @@ macro_rules! i2c {
                         *byte = self.i2c.rxdr.read().rxdata().bits();
                     }
 
-                    // automatic STOP
+                    // Wait for automatic stop
+                    busy_wait!(self.i2c, busy, is_not_busy);
 
                     Ok(())
                 }
@@ -680,7 +661,8 @@ macro_rules! i2c {
                         *byte = self.i2c.rxdr.read().rxdata().bits();
                     }
 
-                    // automatic STOP
+                    // Wait for automatic stop
+                    busy_wait!(self.i2c, busy, is_not_busy);
 
                     Ok(())
                 }
@@ -693,18 +675,10 @@ macro_rules! pins {
     ($($I2CX:ty: SCL: [$($SCL:ty),*] SDA: [$($SDA:ty),*])+) => {
         $(
             $(
-                impl PinScl<$I2CX> for $SCL {
-                    fn set_open_drain(self) -> Self {
-                        self.set_open_drain()
-                    }
-                }
+                impl PinScl<$I2CX> for $SCL { }
             )*
             $(
-                impl PinSda<$I2CX> for $SDA {
-                    fn set_open_drain(self) -> Self {
-                        self.set_open_drain()
-                    }
-                }
+                impl PinSda<$I2CX> for $SDA { }
             )*
         )+
     }
@@ -713,54 +687,54 @@ macro_rules! pins {
 pins! {
     I2C1:
         SCL: [
-            PB6<Alternate<AF4>>,
-            PB8<Alternate<AF4>>
+            gpio::PB6<Alternate<4, OpenDrain>>,
+            gpio::PB8<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<AF4>>,
-            PB9<Alternate<AF4>>
+            gpio::PB7<Alternate<4, OpenDrain>>,
+            gpio::PB9<Alternate<4, OpenDrain>>
         ]
 
     I2C2:
         SCL: [
-            PB10<Alternate<AF4>>,
-            PF1<Alternate<AF4>>,
-            PH4<Alternate<AF4>>
+            gpio::PB10<Alternate<4, OpenDrain>>,
+            gpio::PF1<Alternate<4, OpenDrain>>,
+            gpio::PH4<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PB11<Alternate<AF4>>,
-            PF0<Alternate<AF4>>,
-            PH5<Alternate<AF4>>
+            gpio::PB11<Alternate<4, OpenDrain>>,
+            gpio::PF0<Alternate<4, OpenDrain>>,
+            gpio::PH5<Alternate<4, OpenDrain>>
         ]
 
     I2C3:
         SCL: [
-            PA8<Alternate<AF4>>,
-            PH7<Alternate<AF4>>
+            gpio::PA8<Alternate<4, OpenDrain>>,
+            gpio::PH7<Alternate<4, OpenDrain>>
         ]
 
         SDA: [
-            PC9<Alternate<AF4>>,
-            PH8<Alternate<AF4>>
+            gpio::PC9<Alternate<4, OpenDrain>>,
+            gpio::PH8<Alternate<4, OpenDrain>>
         ]
 
     I2C4:
         SCL: [
-            PD12<Alternate<AF4>>,
-            PF14<Alternate<AF4>>,
-            PH11<Alternate<AF4>>,
-            PB6<Alternate<AF6>>,
-            PB8<Alternate<AF6>>
+            gpio::PD12<Alternate<4, OpenDrain>>,
+            gpio::PF14<Alternate<4, OpenDrain>>,
+            gpio::PH11<Alternate<4, OpenDrain>>,
+            gpio::PB6<Alternate<6, OpenDrain>>,
+            gpio::PB8<Alternate<6, OpenDrain>>
         ]
 
         SDA: [
-            PB7<Alternate<AF6>>,
-            PB9<Alternate<AF6>>,
-            PD13<Alternate<AF4>>,
-            PF15<Alternate<AF4>>,
-            PH12<Alternate<AF4>>
+            gpio::PB7<Alternate<6, OpenDrain>>,
+            gpio::PB9<Alternate<6, OpenDrain>>,
+            gpio::PD13<Alternate<4, OpenDrain>>,
+            gpio::PF15<Alternate<4, OpenDrain>>,
+            gpio::PH12<Alternate<4, OpenDrain>>
         ]
 }
 

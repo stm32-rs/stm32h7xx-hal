@@ -23,7 +23,7 @@
 //! // Constrain and Freeze power
 //! ...
 //! let rcc = dp.RCC.constrain();
-//! let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+//! let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 //!
 //! // Enable the clock to a peripheral and reset it
 //! ccdr.peripheral.FDCAN.enable().reset();
@@ -57,6 +57,17 @@
 //! // Can't set group kernel clock (it would also affect I2C3)
 //! // ccdr.peripheral.kernel_i2c123_clk_mux(I2c123ClkSel::HSI_KER);
 //! ```
+//!
+//! # REC object
+//!
+//! There is a REC object for each peripheral. For example:
+//!
+//! ```
+//! let rec_object = ccdr.peripheral.FDCAN;
+//! ```
+//!
+//! If REC object is dropped by user code, then the Reset or Enable state of
+//! this peripheral cannot be modified for the lifetime of the program.
 #![deny(missing_docs)]
 
 use core::marker::PhantomData;
@@ -68,17 +79,20 @@ use cortex_m::interrupt;
 /// A trait for Resetting, Enabling and Disabling a single peripheral
 pub trait ResetEnable {
     /// Enable this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn enable(self) -> Self;
     /// Disable this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn disable(self) -> Self;
     /// Reset this peripheral
+    #[allow(clippy::return_self_not_must_use)]
     fn reset(self) -> Self;
 }
 
 /// The clock gating state of a peripheral in low-power mode
 ///
 /// See RM0433 rev 7. Section 8.5.11
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LowPowerMode {
     /// Kernel and bus interface clocks are not provided in low-power modes.
     Off,
@@ -269,6 +283,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
             $( #[ $pmeta ] )*
             impl $p {
                 /// Set Low Power Mode for peripheral
+                #[allow(clippy::return_self_not_must_use)]
                 pub fn low_power(self, lpm: LowPowerMode) -> Self {
                     // unsafe: Owned exclusive access to this bitfield
                     interrupt::free(|_| {
@@ -335,6 +350,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
             impl $p {
                 $(      // Individual kernel clocks
                     #[inline(always)]
+                    #[allow(clippy::return_self_not_must_use)]
                     /// Modify the kernel clock for
                     #[doc=$clk_doc "."]
                     /// See RM0433 Rev 7 Section 8.5.8.
@@ -670,12 +686,16 @@ peripheral_reset_and_enable_control! {
         Spi5 [group clk: Spi45],
 
         Usart1 [group clk: Usart16910(Variant) cdccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
     #[cfg(feature = "rm0468")]
     APB2, "" => [
         Usart1 [group clk: Usart16910(Variant) d2ccip2 "USART1/6/9/10"],
-        Usart6 [group clk: Usart16910]
+        Usart6 [group clk: Usart16910],
+        Uart9 [group clk: Usart16910],
+        Usart10 [group clk: Usart16910]
     ];
 
 
@@ -707,7 +727,7 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(feature = "rm0455")]
     APB4, "" => [
-        Dac2,// TODO (Auto), DAC2AMEN missing from D3AMR upstream
+        (Auto) Dac2,
 
         (Auto) Lptim2 [kernel clk: Lptim2(Variant) srdccip "LPTIM2"],
         (Auto) Lptim3,// TODO [group clk: Lptim3(Variant) srdccip "LPTIM3"],

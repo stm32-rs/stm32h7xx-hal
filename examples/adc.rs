@@ -32,18 +32,15 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     // We need to configure a clock for adc_ker_ck_input. The default
-    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. Here we
-    // set per_ck to 4MHz.
+    // adc_ker_ck_input is pll2_p_ck, but we will use per_ck. per_ck is sourced
+    // from the 64MHz HSI
     //
-    // The maximum adc_ker_ck_input frequency is 100MHz for revision V and 36MHz
-    // otherwise
-    let mut ccdr = rcc
-        .sys_ck(100.mhz())
-        .per_ck(4.mhz())
-        .freeze(pwrcfg, &dp.SYSCFG);
+    // adc_ker_ck_input is then divided by the ADC prescaler to give f_adc. The
+    // maximum f_adc is 50MHz
+    let mut ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Switch adc_ker_ck_input multiplexer to per_ck
-    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::PER);
+    ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
 
     info!("");
     info!("stm32h7xx-hal example - ADC");
@@ -54,12 +51,13 @@ fn main() -> ! {
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(
         dp.ADC1,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
     )
     .enable();
-    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_resolution(adc::Resolution::SixteenBit);
 
     // We can't use ADC2 here because ccdr.peripheral.ADC12 has been
     // consumed. See examples/adc12.rs
@@ -76,7 +74,7 @@ fn main() -> ! {
         info!(
             "ADC reading: {}, voltage for nucleo: {}",
             data,
-            data as f32 * (3.3 / adc1.max_sample() as f32)
+            data as f32 * (3.3 / adc1.slope() as f32)
         );
     }
 }

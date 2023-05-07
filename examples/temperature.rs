@@ -37,8 +37,8 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
+        .sys_ck(100.MHz())
+        .pll2_p_ck(4.MHz()) // Default adc_ker_ck_input
         .freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
@@ -49,20 +49,26 @@ fn main() -> ! {
 
     // Setup ADC
     #[cfg(not(feature = "rm0455"))]
-    let mut adc =
-        adc::Adc::adc3(dp.ADC3, &mut delay, ccdr.peripheral.ADC3, &ccdr.clocks);
+    let mut adc = adc::Adc::adc3(
+        dp.ADC3,
+        4.MHz(),
+        &mut delay,
+        ccdr.peripheral.ADC3,
+        &ccdr.clocks,
+    );
 
     // On RM0455 parts, the temperature sensor is on ADC2
     #[cfg(feature = "rm0455")]
     let mut adc = adc::Adc::adc2(
         dp.ADC2,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
     );
 
     // Set resolution
-    adc.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc.set_resolution(adc::Resolution::SixteenBit);
 
     // Setup Temperature Sensor on the disabled ADC
     let mut channel = adc::Temperature::new();

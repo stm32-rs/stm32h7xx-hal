@@ -3,15 +3,12 @@
 //! # Examples
 //!
 //! - [Simple DAC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dac.rs)
+//! - [Using DAC and ADC together](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/dac_adc.rs)
 
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-#[cfg(feature = "rm0455")]
-use crate::gpio::gpioa::PA6;
-use crate::gpio::gpioa::{PA4, PA5};
-
-use crate::gpio::Analog;
+use crate::gpio::{self, Analog};
 use crate::hal::blocking::delay::DelayUs;
 use crate::rcc::{rec, ResetEnable};
 #[cfg(not(feature = "rm0455"))]
@@ -48,22 +45,22 @@ pub trait Pins<DAC> {
 
 // DAC1
 
-impl Pins<DAC1> for PA4<Analog> {
+impl Pins<DAC1> for gpio::PA4<Analog> {
     type Output = C1<DAC1, Disabled>;
 }
 
-impl Pins<DAC1> for PA5<Analog> {
+impl Pins<DAC1> for gpio::PA5<Analog> {
     type Output = C2<DAC1, Disabled>;
 }
 
-impl Pins<DAC1> for (PA4<Analog>, PA5<Analog>) {
+impl Pins<DAC1> for (gpio::PA4<Analog>, gpio::PA5<Analog>) {
     type Output = (C1<DAC1, Disabled>, C2<DAC1, Disabled>);
 }
 
 // DAC2
 
 #[cfg(feature = "rm0455")]
-impl Pins<DAC2> for PA6<Analog> {
+impl Pins<DAC2> for gpio::PA6<Analog> {
     type Output = C1<DAC2, Disabled>;
 }
 
@@ -76,7 +73,7 @@ where
     PINS: Pins<DAC>,
 {
     // Enable DAC clocks and reset
-    prec.enable().reset();
+    let _ = prec.enable().reset(); // drop, can be recreated by free method
 
     #[allow(clippy::uninit_assumed_init)]
     unsafe {

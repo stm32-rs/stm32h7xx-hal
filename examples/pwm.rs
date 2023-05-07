@@ -23,18 +23,18 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(8.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
-    // Acquire the GPIOE peripheral. This also enables the clock for
-    // GPIOE in the RCC register.
+    // Acquire the GPIOA and GPIOB peripherals. This also enables the clocks for
+    // these peripherals in the RCC register.
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
     // Select PWM output pins
     let pins = (
-        gpioa.pa8.into_alternate_af1(),
-        gpioa.pa9.into_alternate_af1(),
-        gpioa.pa10.into_alternate_af1(),
+        gpioa.pa8.into_alternate(),
+        gpioa.pa9.into_alternate(),
+        gpioa.pa10.into_alternate(),
     );
 
     info!("");
@@ -44,7 +44,7 @@ fn main() -> ! {
     // Configure PWM at 10kHz
     let (mut pwm, ..) =
         dp.TIM1
-            .pwm(pins, 10.khz(), ccdr.peripheral.TIM1, &ccdr.clocks);
+            .pwm(pins, 10.kHz(), ccdr.peripheral.TIM1, &ccdr.clocks);
 
     // Output PWM on PA8
     let max = pwm.get_max_duty();
@@ -67,8 +67,8 @@ fn main() -> ! {
     asm::bkpt();
 
     let mut pwm = dp.TIM12.pwm(
-        gpiob.pb14.into_alternate_af2(),
-        10.khz(),
+        gpiob.pb14.into_alternate(),
+        10.kHz(),
         ccdr.peripheral.TIM12,
         &ccdr.clocks,
     );

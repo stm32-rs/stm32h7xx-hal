@@ -1,5 +1,19 @@
 //! System Window Watchdog
 //!
+//! This module implements the embedded-hal
+//! [Watchdog](https://docs.rs/embedded-hal/latest/embedded_hal/watchdog/trait.Watchdog.html)
+//! trait for the System Window Watchdog peripheral.
+//!
+//! # Peripheral Naming
+//!
+//! The naming of the System Watchdog peripheral varies between parts
+//!
+//! | Parts | WWDG Peripheral | Second WWDG Peripheral |
+//! | --- | --- | --- |
+//! | stm32h742/743/750/753/7a3/7b0/7b3 | WWDG | - |
+//! | stm32h745/747/755/757 | WWDG1 | WWDG2 |
+//! | stm32h723/725/730/733/735 | WWDG1 | - |
+//!
 //! # Examples
 //!
 //! - [Example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/watchdog.rs)
@@ -89,6 +103,16 @@ impl SystemWindowWatchdog {
             }
         }
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &WWDG {
+        &self.wwdg
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut WWDG {
+        &mut self.wwdg
+    }
 }
 
 impl Watchdog for SystemWindowWatchdog {
@@ -109,13 +133,13 @@ impl WatchdogEnable for SystemWindowWatchdog {
     where
         T: Into<Self::Time>,
     {
-        let period_ms = period.into().0;
+        let period_ms = period.into().ticks();
         let maximum =
-            (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.0 / 1000);
+            (4096 * 2u32.pow(7) * 64) / (self.pclk3_frequency.raw() / 1000);
         assert!(period_ms <= maximum);
 
         // timeout = pclk * 4096 * 2^WDGTB[2:0] * (t[5:0] +1)
-        let ratio = period_ms * (self.pclk3_frequency.0 / 1000) / 4096;
+        let ratio = period_ms * (self.pclk3_frequency.raw() / 1000) / 4096;
 
         // Prescaler
         let (tb_div, wdgtb) = match ratio / 64 {
@@ -136,11 +160,7 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
-        // TODO: stm32h7 0.14.0 WDGTB is 3 bits (currently it's 2 and that's wrong), so let's set it directly
-        const WDGTB_MASK: u32 = 0b111 << 11;
-        self.wwdg.cfr.modify(|r, w| unsafe {
-            w.bits((r.bits() & !WDGTB_MASK) | (wdgtb << 11))
-        });
+        self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));
         self.wwdg.cfr.modify(|_, w| w.w().bits(self.down_counter));
         self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
         // For some reason, setting the t value makes the early wakeup pending.

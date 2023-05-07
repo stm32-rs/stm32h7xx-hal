@@ -27,6 +27,7 @@
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
+//! * [CAN and CAN-FD](crate::can) Feature gate `can`
 //!
 //! External Memory
 //!
@@ -46,20 +47,19 @@
 //! * [Direct Memory Access (DMA)](crate::dma)
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
 //! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
-//! * [System Window Watchdog](crate::watchdog)
+//! * [Embedded Flash Memory](crate::flash)
+//! * [System Window Watchdog](crate::system_watchdog)
+//! * [Independent Watchdog](crate::independent_watchdog)
 //!
 //! Cargo Features
 //!
 //! * [`defmt`](https://defmt.ferrous-systems.com/) formatting for some types can be enabled with the feature `defmt`.
 
 #![cfg_attr(not(test), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(non_camel_case_types)]
 
 extern crate paste;
-
-#[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Never {}
 
 #[cfg(not(feature = "device-selected"))]
 compile_error!(
@@ -78,6 +78,7 @@ compile_error!(
         stm32h7b3
         stm32h7b0
         stm32h7a3
+        stm32h735
 "
 );
 
@@ -125,11 +126,7 @@ pub use stm32h7::stm32h757cm7 as stm32;
 pub use stm32h7::stm32h7b3 as stm32;
 
 // High Speed
-#[cfg(any(
-    feature = "stm32h725",
-    feature = "stm32h735",
-    feature = "stm32h730",
-))]
+#[cfg(feature = "stm32h735")]
 pub use stm32h7::stm32h735 as stm32;
 
 #[cfg(all(feature = "rm0433", feature = "rm0399"))]
@@ -145,11 +142,16 @@ pub use crate::stm32 as device;
 
 // Enable use of interrupt macro
 #[cfg(feature = "rt")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;
+#[cfg(all(feature = "device-selected", feature = "can"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "can")))]
+pub mod can;
 #[cfg(all(feature = "device-selected", feature = "crc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "crc")))]
 pub mod crc;
 #[cfg(feature = "device-selected")]
 pub mod dac;
@@ -162,18 +164,23 @@ pub mod dma;
     feature = "ethernet",
     not(feature = "rm0455")
 ))]
+#[cfg_attr(docsrs, doc(cfg(feature = "ethernet")))]
 pub mod ethernet;
 #[cfg(feature = "device-selected")]
 pub mod exti;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 #[cfg(all(feature = "device-selected", feature = "fmc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmc")))]
 pub mod fmc;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
+#[cfg(feature = "device-selected")]
+pub mod independent_watchdog;
 #[cfg(all(feature = "device-selected", feature = "ltdc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "ltdc")))]
 pub mod ltdc;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
@@ -188,10 +195,12 @@ pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod rng;
 #[cfg(all(feature = "device-selected", feature = "rtc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "rtc")))]
 pub mod rtc;
 #[cfg(feature = "device-selected")]
 pub mod sai;
 #[cfg(all(feature = "device-selected", feature = "sdmmc"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "sdmmc")))]
 pub mod sdmmc;
 #[cfg(feature = "device-selected")]
 pub mod serial;
@@ -200,12 +209,27 @@ pub mod signature;
 #[cfg(feature = "device-selected")]
 pub mod spi;
 #[cfg(feature = "device-selected")]
+pub mod system_watchdog;
+#[cfg(feature = "device-selected")]
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
 #[cfg(all(feature = "device-selected", feature = "usb_hs"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "usb_hs")))]
 pub mod usb_hs;
-#[cfg(feature = "device-selected")]
-pub mod watchdog;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
 pub mod xspi;
+
+#[cfg(feature = "device-selected")]
+mod sealed {
+    pub trait Sealed {}
+}
+#[cfg(feature = "device-selected")]
+pub(crate) use sealed::Sealed;
+
+fn stripped_type_name<T>() -> &'static str {
+    let s = core::any::type_name::<T>();
+    let p = s.split("::");
+    p.last().unwrap()
+}

@@ -1,6 +1,13 @@
 //! Demo for STM32H747I-DISCO eval board using the Real Time for the Masses
 //! (RTIC) framework.
 //!
+//! STM32H747I-DISCO: RMII TXD1 is on PG12
+//!
+//! If you are using the following boards, you will need to change the TXD1 pin
+//! assignment below!
+//! NUCLEO-H743ZI2: RMII TXD1 is on PB13
+//! NUCLEO-H745I-Q: RMII TXD1 is on PB13
+//!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
 //!
 //! We use the SysTick timer to create a 1ms timebase for use with smoltcp.
@@ -14,22 +21,18 @@
 #[macro_use]
 #[allow(unused)]
 mod utilities;
-use log::info;
 
 use core::sync::atomic::AtomicU32;
 
-use smoltcp::iface::{
-    Interface, InterfaceBuilder, Neighbor, NeighborCache, Route, Routes,
-    SocketStorage,
-};
+use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::time::Instant;
-use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, Ipv6Cidr};
+use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
 use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
-    let c_ck_mhz = clocks.c_ck().0 / 1_000_000;
+    let c_ck_mhz = clocks.c_ck().to_MHz();
 
     let syst_calib = 0x3E8;
 
@@ -51,45 +54,40 @@ static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
 /// Net storage with static initialisation - another global singleton
 pub struct NetStorageStatic<'a> {
-    ip_addrs: [IpCidr; 1],
     socket_storage: [SocketStorage<'a>; 8],
-    neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; 8],
-    routes_storage: [Option<(IpCidr, Route)>; 1],
 }
 static mut STORE: NetStorageStatic = NetStorageStatic {
     // Garbage
-    ip_addrs: [IpCidr::Ipv6(Ipv6Cidr::SOLICITED_NODE_PREFIX)],
     socket_storage: [SocketStorage::EMPTY; 8],
-    neighbor_cache_storage: [None; 8],
-    routes_storage: [None; 1],
 };
 
 pub struct Net<'a> {
-    iface: Interface<'a, ethernet::EthernetDMA<'a, 4, 4>>,
+    iface: Interface,
+    ethdev: ethernet::EthernetDMA<4, 4>,
+    sockets: SocketSet<'a>,
 }
 impl<'a> Net<'a> {
     pub fn new(
-        store: &'static mut NetStorageStatic<'a>,
-        ethdev: ethernet::EthernetDMA<'a, 4, 4>,
+        store: &'a mut NetStorageStatic<'a>,
+        mut ethdev: ethernet::EthernetDMA<4, 4>,
         ethernet_addr: HardwareAddress,
     ) -> Self {
+        let mut config = Config::new();
+        config.hardware_addr = Some(ethernet_addr);
+
+        let mut iface = Interface::new(config, &mut ethdev);
         // Set IP address
-        store.ip_addrs =
-            [IpCidr::new(IpAddress::v4(192, 168, 1, 99).into(), 0)];
+        iface.update_ip_addrs(|addrs| {
+            let _ = addrs.push(IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0));
+        });
 
-        let neighbor_cache =
-            NeighborCache::new(&mut store.neighbor_cache_storage[..]);
-        let routes = Routes::new(&mut store.routes_storage[..]);
+        let sockets = SocketSet::new(&mut store.socket_storage[..]);
 
-        let iface =
-            InterfaceBuilder::new(ethdev, &mut store.socket_storage[..])
-                .hardware_addr(ethernet_addr)
-                .neighbor_cache(neighbor_cache)
-                .ip_addrs(&mut store.ip_addrs[..])
-                .routes(routes)
-                .finalize();
-
-        return Net { iface };
+        Net::<'a> {
+            iface,
+            ethdev,
+            sockets,
+        }
     }
 
     /// Polls on the ethernet interface. You should refer to the smoltcp
@@ -98,15 +96,12 @@ impl<'a> Net<'a> {
         let timestamp = Instant::from_millis(now);
 
         self.iface
-            .poll(timestamp)
-            .map(|_| ())
-            .unwrap_or_else(|e| info!("Poll: {:?}", e));
+            .poll(timestamp, &mut self.ethdev, &mut self.sockets);
     }
 }
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::{ethernet, ethernet::PHY, gpio, prelude::*};
 
     use super::*;
@@ -136,8 +131,8 @@ mod app {
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz())
+            .sys_ck(200.MHz())
+            .hclk(200.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
@@ -152,23 +147,23 @@ mod app {
         let gpiog = ctx.device.GPIOG.split(ccdr.peripheral.GPIOG);
         let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
         let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
-        link_led.set_high().ok();
+        link_led.set_high();
 
-        let rmii_ref_clk = gpioa.pa1.into_alternate_af11();
-        let rmii_mdio = gpioa.pa2.into_alternate_af11();
-        let rmii_mdc = gpioc.pc1.into_alternate_af11();
-        let rmii_crs_dv = gpioa.pa7.into_alternate_af11();
-        let rmii_rxd0 = gpioc.pc4.into_alternate_af11();
-        let rmii_rxd1 = gpioc.pc5.into_alternate_af11();
-        let rmii_tx_en = gpiog.pg11.into_alternate_af11();
-        let rmii_txd0 = gpiog.pg13.into_alternate_af11();
-        let rmii_txd1 = gpiog.pg12.into_alternate_af11();
+        let rmii_ref_clk = gpioa.pa1.into_alternate();
+        let rmii_mdio = gpioa.pa2.into_alternate();
+        let rmii_mdc = gpioc.pc1.into_alternate();
+        let rmii_crs_dv = gpioa.pa7.into_alternate();
+        let rmii_rxd0 = gpioc.pc4.into_alternate();
+        let rmii_rxd1 = gpioc.pc5.into_alternate();
+        let rmii_tx_en = gpiog.pg11.into_alternate();
+        let rmii_txd0 = gpiog.pg13.into_alternate();
+        let rmii_txd1 = gpiog.pg12.into_alternate(); // STM32H747I-DISCO
 
         // Initialise ethernet...
-        assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
-        assert_eq!(ccdr.clocks.pclk1().0, 100_000_000); // PCLK 100MHz
-        assert_eq!(ccdr.clocks.pclk2().0, 100_000_000); // PCLK 100MHz
-        assert_eq!(ccdr.clocks.pclk4().0, 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
+        assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000); // PCLK 100MHz
+        assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
@@ -188,7 +183,7 @@ mod app {
                     rmii_txd1,
                 ),
                 &mut DES_RING,
-                mac_addr.clone(),
+                mac_addr,
                 ccdr.peripheral.ETH1MAC,
                 &ccdr.clocks,
             )
@@ -228,7 +223,6 @@ mod app {
                 true => ctx.local.link_led.set_low(),
                 _ => ctx.local.link_led.set_high(),
             }
-            .ok();
         }
     }
 

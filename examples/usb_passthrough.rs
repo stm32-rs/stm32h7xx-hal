@@ -1,6 +1,9 @@
 //! Dual CDC-ACM serial port example using polling in a busy loop.
 //!
 //! Characters written to one serial port appear on both.
+//!
+//! This example uses both USB1 and USB2. This is only possible on devices that
+//! have the USB2 peripheral.
 #![no_std]
 #![no_main]
 
@@ -27,11 +30,11 @@ fn main() -> ! {
 
     // RCC
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(120.mhz()).freeze(vos, &dp.SYSCFG);
+    let mut ccdr = rcc.sys_ck(120.MHz()).freeze(vos, &dp.SYSCFG);
 
     // 48MHz CLOCK
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
-    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
+    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::Hsi48);
 
     // If your hardware uses the internal USB voltage regulator in ON mode, you
     // should uncomment this block.
@@ -49,8 +52,8 @@ fn main() -> ! {
         dp.OTG1_HS_GLOBAL,
         dp.OTG1_HS_DEVICE,
         dp.OTG1_HS_PWRCLK,
-        gpiob.pb14.into_alternate_af12(),
-        gpiob.pb15.into_alternate_af12(),
+        gpiob.pb14.into_alternate(),
+        gpiob.pb15.into_alternate(),
         ccdr.peripheral.USB1OTG,
         &ccdr.clocks,
     );
@@ -59,8 +62,8 @@ fn main() -> ! {
         dp.OTG2_HS_GLOBAL,
         dp.OTG2_HS_DEVICE,
         dp.OTG2_HS_PWRCLK,
-        gpioa.pa11.into_alternate_af10(),
-        gpioa.pa12.into_alternate_af10(),
+        gpioa.pa11.into_alternate(),
+        gpioa.pa12.into_alternate(),
         ccdr.peripheral.USB2OTG,
         &ccdr.clocks,
     );

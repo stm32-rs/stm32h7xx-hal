@@ -10,7 +10,7 @@
 //! let pins = (ck1, d1);
 //!
 //! // Configure SAI for PDM mode
-//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.khz(), ccdr.peripheral.SAI1, &ccdr.clocks);
+//! let mut sai = dp.SAI1.pdm((ck1, d1), 1_024.kHz(), ccdr.peripheral.SAI1, &ccdr.clocks);
 //!
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
@@ -24,18 +24,8 @@ use crate::stm32::SAI1;
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::SAI4;
 
+use crate::gpio::{self, Alternate};
 use crate::time::Hertz;
-
-use crate::Never;
-
-use crate::gpio::gpiob::PB2;
-use crate::gpio::gpioc::{PC1, PC5};
-use crate::gpio::gpiod::PD6;
-use crate::gpio::gpioe::{PE2, PE4, PE5, PE6};
-use crate::gpio::gpiof::PF10;
-use crate::gpio::{Alternate, AF2};
-#[cfg(not(feature = "rm0455"))]
-use crate::gpio::{AF10, AF9};
 
 /// Trait for a valid combination of SAI PDM pins
 pub trait PulseDensityPins<SAI> {
@@ -112,24 +102,24 @@ macro_rules! pins {
 pins! {
     SAI1:
         D1: [
-            PB2<Alternate<AF2>>,
-            PC1<Alternate<AF2>>,
-            PD6<Alternate<AF2>>,
-            PE6<Alternate<AF2>>
+            gpio::PB2<Alternate<2>>,
+            gpio::PC1<Alternate<2>>,
+            gpio::PD6<Alternate<2>>,
+            gpio::PE6<Alternate<2>>
         ]
         D2: [
-            PE4<Alternate<AF2>>
+            gpio::PE4<Alternate<2>>
         ]
         D3: [
-            PC5<Alternate<AF2>>,
-            PF10<Alternate<AF2>>
+            gpio::PC5<Alternate<2>>,
+            gpio::PF10<Alternate<2>>
         ]
         D4: []
         CK1: [
-            PE2<Alternate<AF2>>
+            gpio::PE2<Alternate<2>>
         ]
         CK2: [
-            PE5<Alternate<AF2>>
+            gpio::PE5<Alternate<2>>
         ]
         CK3: []
         CK4: []
@@ -138,24 +128,24 @@ pins! {
 pins! {
     SAI4:
         D1: [
-            PB2<Alternate<AF10>>,
-            PC1<Alternate<AF10>>,
-            PD6<Alternate<AF10>>,
-            PE6<Alternate<AF9>>
+            gpio::PB2<Alternate<10>>,
+            gpio::PC1<Alternate<10>>,
+            gpio::PD6<Alternate<10>>,
+            gpio::PE6<Alternate<9>>
         ]
         D2: [
-            PE4<Alternate<AF10>>
+            gpio::PE4<Alternate<10>>
         ]
         D3: [
-            PC5<Alternate<AF10>>,
-            PF10<Alternate<AF10>>
+            gpio::PC5<Alternate<10>>,
+            gpio::PF10<Alternate<10>>
         ]
         D4: []
         CK1: [
-            PE2<Alternate<AF10>>
+            gpio::PE2<Alternate<10>>
         ]
         CK2: [
-            PE5<Alternate<AF10>>
+            gpio::PE5<Alternate<10>>
         ]
         CK3: []
         CK4: []
@@ -171,16 +161,15 @@ impl INTERFACE for Pdm {}
 pub trait SaiPdmExt<SAI>: Sized {
     type Rec: ResetEnable;
 
-    fn pdm<PINS, T>(
+    fn pdm<PINS>(
         self,
         _pins: PINS,
-        clock: T,
+        clock: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Sai<SAI, Pdm>
     where
-        PINS: PulseDensityPins<Self>,
-        T: Into<Hertz>;
+        PINS: PulseDensityPins<Self>;
 }
 
 macro_rules! hal {
@@ -189,39 +178,38 @@ macro_rules! hal {
             impl SaiPdmExt<$SAIX> for $SAIX {
                 type Rec = rec::$Rec;
 
-                fn pdm<PINS, T>(
+                fn pdm<PINS>(
                     self,
                     _pins: PINS,
-                    clock: T,
+                    clock: Hertz,
                     prec: rec::$Rec,
                     clocks: &CoreClocks,
                 ) -> Sai<Self, Pdm>
                 where
                     PINS: PulseDensityPins<Self>,
-                    T: Into<Hertz>,
                 {
-                    Sai::$pdm_saiX(self, _pins, clock.into(), prec, clocks)
+                    Sai::$pdm_saiX(self, _pins, clock, prec, clocks)
                 }
             }
             impl Sai<$SAIX, Pdm> {
                 /// Read a single data word (one 'slot')
-                pub fn read_data(&mut self) -> nb::Result<u32, Never> {
+                pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
                     while self.interface.invalid_countdown > 0 {
                         // Check for words to read
-                        if self.rb.cha.sr.read().freq().bit_is_clear() {
+                        if self.rb.cha().sr.read().freq().bit_is_clear() {
                             return Err(nb::Error::WouldBlock);
                         }
 
-                        let _ = self.rb.cha.dr.read(); // Flush
+                        let _ = self.rb.cha().dr.read(); // Flush
                         self.interface.invalid_countdown -= 1;
                     }
 
                     // Check for words to read
-                    if self.rb.cha.sr.read().freq().bit_is_clear() {
+                    if self.rb.cha().sr.read().freq().bit_is_clear() {
                         return Err(nb::Error::WouldBlock);
                     }
 
-                    Ok(self.rb.cha.dr.read().bits() & 0xFFFF)
+                    Ok(self.rb.cha().dr.read().bits() & 0xFFFF)
                 }
 
                 /// Initialise SAI in PDM mode
@@ -244,14 +232,14 @@ macro_rules! hal {
                     let nbslot: u8 = 0; // One slot
 
                     // Calculate bit clock SCK_a
-                    let sck_a_hz = 2 * clock.0;
+                    let sck_a_hz = 2 * clock;
 
                     // Calculate master clock MCLK_a
                     let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
 
                     // Calculate divider
                     let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
-                    let kernel_clock_divider: u8 = (ker_ck_a.0 / mclk_a_hz)
+                    let kernel_clock_divider: u8 = (ker_ck_a / mclk_a_hz)
                         .try_into()
                         .expect(concat!(stringify!($SAIX),
                                         ": Kernel clock is out of range for required MCLK"
@@ -272,7 +260,7 @@ macro_rules! hal {
                     s.sai_rcc_init(prec);
 
                     // Configure block 1
-                    let audio_ch_a = &s.rb.cha;
+                    let audio_ch_a = &s.rb.cha();
 
                     unsafe {
                         audio_ch_a.cr1.modify(|_, w| {

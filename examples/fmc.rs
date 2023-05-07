@@ -26,8 +26,8 @@ macro_rules! fmc_pins {
         (
             $(
                 $pin.into_push_pull_output()
-                    .set_speed(Speed::VeryHigh)
-                    .into_alternate_af12()
+                    .speed(Speed::VeryHigh)
+                    .into_alternate::<12>()
                     .internal_pull_up(true)
             ),*
         )
@@ -46,8 +46,8 @@ fn main() -> ! {
     // Initialise clocks...
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .hclk(200.mhz()) // FMC clock from HCLK by default
+        .sys_ck(200.MHz())
+        .hclk(200.MHz()) // FMC clock from HCLK by default
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Get the delay provider.

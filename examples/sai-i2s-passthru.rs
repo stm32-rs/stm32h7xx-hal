@@ -1,5 +1,6 @@
-// This demo code runs on the Electro Smith Daisy Seed board
-// https://www.electro-smith.com/daisy
+//! This example was tested on the original Electro Smith Daisy Seed board with
+//! AK4556 codec https://www.electro-smith.com/daisy
+
 #![deny(warnings)]
 #![deny(unsafe_code)]
 #![no_main]
@@ -9,26 +10,25 @@
 mod utilities;
 
 use stm32h7xx_hal::time::Hertz;
-pub const AUDIO_SAMPLE_HZ: Hertz = Hertz(48_000);
+pub const AUDIO_SAMPLE_HZ: Hertz = Hertz::from_raw(48_000);
 // Using PLL3_P for SAI1 clock
 // The rate should be equal to sample rate * 256
 // But not less than so targetting 257
-const PLL3_P_HZ: Hertz = Hertz(AUDIO_SAMPLE_HZ.0 * 257);
+const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 
 #[rtic::app( device = stm32h7xx_hal::stm32, peripherals = true )]
 mod app {
     use cortex_m::asm::delay as delay_cycles;
     use cortex_m::asm::nop;
 
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::rec::Sai1ClkSel;
     use stm32h7xx_hal::sai::{
         self, I2SChanConfig, I2SDataSize, I2SDir, I2SSync, I2sUsers, Sai,
         SaiChannel, SaiI2sExt, I2S,
     };
+    use stm32h7xx_hal::stm32;
     use stm32h7xx_hal::traits::i2s::FullDuplex;
-    use stm32h7xx_hal::{stm32, time::U32Ext};
 
     use super::*;
     use log::info;
@@ -54,30 +54,30 @@ mod app {
             .device
             .RCC
             .constrain()
-            .use_hse(16.mhz())
-            .sys_ck(400.mhz())
+            .use_hse(16.MHz())
+            .sys_ck(400.MHz())
             .pll3_p_ck(PLL3_P_HZ)
             .freeze(vos, &ctx.device.SYSCFG);
 
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
         let sai1_pins = (
-            gpioe.pe2.into_alternate_af6(),       // MCLK_A
-            gpioe.pe5.into_alternate_af6(),       // SCK_A
-            gpioe.pe4.into_alternate_af6(),       // FS_A
-            gpioe.pe6.into_alternate_af6(),       // SD_A
-            Some(gpioe.pe3.into_alternate_af6()), // SD_B
+            gpioe.pe2.into_alternate(),       // MCLK_A
+            gpioe.pe5.into_alternate(),       // SCK_A
+            gpioe.pe4.into_alternate(),       // FS_A
+            gpioe.pe6.into_alternate(),       // SD_A
+            Some(gpioe.pe3.into_alternate()), // SD_B
         );
 
         // Reset the codec chip
         // Hold it low for ~1ms
         let mut codec = gpiob.pb11.into_push_pull_output();
-        codec.set_low().unwrap();
+        codec.set_low();
         delay_cycles(400_000);
-        codec.set_high().unwrap();
+        codec.set_high();
 
         // Use PLL3_P for the SAI1 clock
-        let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::PLL3_P);
+        let sai1_rec = ccdr.peripheral.SAI1.kernel_clk_mux(Sai1ClkSel::Pll3P);
         let master_config =
             I2SChanConfig::new(I2SDir::Tx).set_frame_sync_active_high(true);
         let slave_config = I2SChanConfig::new(I2SDir::Rx)

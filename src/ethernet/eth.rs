@@ -367,8 +367,8 @@ impl<const TD: usize, const RD: usize> Default for DesRing<TD, RD> {
 ///
 /// Ethernet DMA
 ///
-pub struct EthernetDMA<'a, const TD: usize, const RD: usize> {
-    ring: &'a mut DesRing<TD, RD>,
+pub struct EthernetDMA<const TD: usize, const RD: usize> {
+    ring: &'static mut DesRing<TD, RD>,
     eth_dma: stm32::ETHERNET_DMA,
 }
 
@@ -399,16 +399,17 @@ pub struct EthernetMAC {
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
-pub fn new<'a, const TD: usize, const RD: usize>(
+#[allow(clippy::too_many_arguments)]
+pub fn new<const TD: usize, const RD: usize>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,
-    pins: impl PinsRMII,
-    ring: &'a mut DesRing<TD, RD>,
+    mut pins: impl PinsRMII,
+    ring: &'static mut DesRing<TD, RD>,
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (EthernetDMA<'a, TD, RD>, EthernetMAC) {
+) -> (EthernetDMA<TD, RD>, EthernetMAC) {
     pins.set_speed(Speed::VeryHigh);
     unsafe {
         new_unchecked(eth_mac, eth_mtl, eth_dma, ring, mac_addr, prec, clocks)
@@ -437,15 +438,15 @@ pub fn new<'a, const TD: usize, const RD: usize>(
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
-pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
+pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
     eth_dma: stm32::ETHERNET_DMA,
-    ring: &'a mut DesRing<TD, RD>,
+    ring: &'static mut DesRing<TD, RD>,
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (EthernetDMA<'a, TD, RD>, EthernetMAC) {
+) -> (EthernetDMA<TD, RD>, EthernetMAC) {
     // RCC
     {
         let rcc = &*stm32::RCC::ptr();
@@ -609,14 +610,12 @@ pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
         // LPITRCIM as read-only, so svd2rust doens't generate bindings to
         // modify them. Instead, as a workaround, we manually manipulate the
         // bits
-        unsafe {
-            eth_mac
-                .mmc_tx_interrupt_mask
-                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
-            eth_mac
-                .mmc_rx_interrupt_mask
-                .modify(|r, w| w.bits(r.bits() | (1 << 27)));
-        }
+        eth_mac
+            .mmc_tx_interrupt_mask
+            .modify(|r, w| w.bits(r.bits() | (1 << 27)));
+        eth_mac
+            .mmc_rx_interrupt_mask
+            .modify(|r, w| w.bits(r.bits() | (1 << 27)));
 
         eth_mtl.mtlrx_qomr.modify(|_, w| {
             w
@@ -717,7 +716,7 @@ pub unsafe fn new_unchecked<'a, const TD: usize, const RD: usize>(
     // MAC layer
 
     // Set the MDC clock frequency in the range 1MHz - 2.5MHz
-    let hclk_mhz = clocks.hclk().0 / 1_000_000;
+    let hclk_mhz = clocks.hclk().raw() / 1_000_000;
     let csr_clock_range = match hclk_mhz {
         0..=34 => 2,    // Divide by 16
         35..=59 => 3,   // Divide by 26
@@ -800,14 +799,9 @@ impl StationManagement for EthernetMAC {
 pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
 
 impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
-    fn consume<R, F>(
-        self,
-        _timestamp: Instant,
-        len: usize,
-        f: F,
-    ) -> smoltcp::Result<R>
+    fn consume<R, F>(self, len: usize, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         assert!(len <= ETH_BUF_SIZE);
 
@@ -821,9 +815,9 @@ impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
 pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
 
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
-    fn consume<R, F>(self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
+    fn consume<R, F>(self, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         let result = f(unsafe { self.0.buf_as_slice_mut() });
         self.0.release();
@@ -832,11 +826,9 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
 }
 
 /// Implement the smoltcp Device interface
-impl<'a, const TD: usize, const RD: usize> phy::Device<'a>
-    for EthernetDMA<'_, TD, RD>
-{
-    type RxToken = RxToken<'a, RD>;
-    type TxToken = TxToken<'a, TD>;
+impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
+    type RxToken<'a> = RxToken<'a, RD>;
+    type TxToken<'a> = TxToken<'a, TD>;
 
     // Clippy false positive because DeviceCapabilities is non-exhaustive
     #[allow(clippy::field_reassign_with_default)]
@@ -849,7 +841,10 @@ impl<'a, const TD: usize, const RD: usize> phy::Device<'a>
         caps
     }
 
-    fn receive(&mut self) -> Option<(RxToken<RD>, TxToken<TD>)> {
+    fn receive(
+        &mut self,
+        _timestamp: Instant,
+    ) -> Option<(RxToken<RD>, TxToken<TD>)> {
         // Skip all queued packets with errors.
         while self.ring.rx.available() && !self.ring.rx.valid() {
             self.ring.rx.release()
@@ -862,7 +857,7 @@ impl<'a, const TD: usize, const RD: usize> phy::Device<'a>
         }
     }
 
-    fn transmit(&mut self) -> Option<TxToken<TD>> {
+    fn transmit(&mut self, _timestamp: Instant) -> Option<TxToken<TD>> {
         if self.ring.tx.available() {
             Some(TxToken(&mut self.ring.tx))
         } else {
@@ -871,7 +866,7 @@ impl<'a, const TD: usize, const RD: usize> phy::Device<'a>
     }
 }
 
-impl<const TD: usize, const RD: usize> EthernetDMA<'_, TD, RD> {
+impl<const TD: usize, const RD: usize> EthernetDMA<TD, RD> {
     /// Return the number of packets dropped since this method was
     /// last called
     pub fn number_packets_dropped(&self) -> u32 {
@@ -879,6 +874,11 @@ impl<const TD: usize, const RD: usize> EthernetDMA<'_, TD, RD> {
     }
 }
 
+/// Clears the Ethernet interrupt flag
+///
+/// # Safety
+///
+/// This method implements a single register write to DMACSR
 pub unsafe fn interrupt_handler() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
@@ -888,6 +888,15 @@ pub unsafe fn interrupt_handler() {
     let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
 
+/// Enables the Ethernet Interrupt. The following interrupts are enabled:
+///
+/// * Normal Interrupt `NIE`
+/// * Receive Interrupt `RIE`
+/// * Transmit Interript `TIE`
+///
+/// # Safety
+///
+/// This method implements a single RMW to DMACIER
 pub unsafe fn enable_interrupt() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma

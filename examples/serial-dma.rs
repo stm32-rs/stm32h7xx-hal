@@ -51,16 +51,16 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(200.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(200.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let tx = gpioc.pc10.into_alternate_af7();
-    let rx = gpioc.pc11.into_alternate_af7();
+    let tx = gpioc.pc10.into_alternate();
+    let rx = gpioc.pc11.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - Serial DMA");
@@ -80,7 +80,7 @@ fn main() -> ! {
     let (tx, _rx) = serial.split();
 
     // Initialise the source buffer, without taking any references to
-    // uninitialisated memory
+    // uninitialised memory
     let short_buffer: &'static mut [u8; 10] = {
         let buf: &mut [MaybeUninit<u8>; 10] =
             unsafe { mem::transmute(&mut SHORT_BUFFER) };

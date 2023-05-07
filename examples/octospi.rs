@@ -28,13 +28,13 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 48MHz
-    assert_eq!(ccdr.clocks.hclk().0, 48_000_000);
+    assert_eq!(ccdr.clocks.hclk().raw(), 48_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
-        OctospiClkSel::RCC_HCLK3
+        OctospiClkSel::RccHclk3
     );
 
     // Acquire the GPIO peripherals. This also enables the clock for
@@ -44,16 +44,16 @@ fn main() -> ! {
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
 
-    let _ncs = gpiog.pg6.into_alternate_af10();
-    let _clk = gpiof.pf10.into_alternate_af9();
-    let _io0 = gpiod.pd11.into_alternate_af9();
-    let _io1 = gpiod.pd12.into_alternate_af9();
-    let _io2 = gpioe.pe2.into_alternate_af9();
-    let _io3 = gpiod.pd13.into_alternate_af9();
-    let _io4 = gpiod.pd4.into_alternate_af10();
-    let _io5 = gpiod.pd5.into_alternate_af10();
-    let _io6 = gpiog.pg9.into_alternate_af9();
-    let _io7 = gpiod.pd7.into_alternate_af10();
+    let _ncs = gpiog.pg6.into_alternate::<10>();
+    let _clk = gpiof.pf10.into_alternate::<9>();
+    let _io0 = gpiod.pd11.into_alternate::<9>();
+    let _io1 = gpiod.pd12.into_alternate::<9>();
+    let _io2 = gpioe.pe2.into_alternate::<9>();
+    let _io3 = gpiod.pd13.into_alternate::<9>();
+    let _io4 = gpiod.pd4.into_alternate::<10>();
+    let _io5 = gpiod.pd5.into_alternate::<10>();
+    let _io6 = gpiog.pg9.into_alternate::<9>();
+    let _io7 = gpiod.pd7.into_alternate::<10>();
 
     info!("");
     info!("stm32h7xx-hal example - OCTOSPI");
@@ -61,7 +61,7 @@ fn main() -> ! {
 
     // Initialise the OCTOSPI peripheral.
     let mut octospi = dp.OCTOSPI1.octospi_unchecked(
-        12.mhz(),
+        12.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.OCTOSPI1,
     );
@@ -94,5 +94,7 @@ fn main() -> ! {
 
     info!("Read with instruction 0x9F60 : {:x?}", read);
 
-    loop {}
+    loop {
+        cortex_m::asm::nop()
+    }
 }

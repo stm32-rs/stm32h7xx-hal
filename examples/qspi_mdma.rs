@@ -36,7 +36,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(200.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(200.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals. This also enables the clock for
     // the GPIOs in the RCC register.
@@ -45,19 +45,19 @@ fn main() -> ! {
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
-    let _qspi_cs = gpiog.pg6.into_alternate_af10();
+    let _qspi_cs = gpiog.pg6.into_alternate::<10>();
 
-    let sck = gpiof.pf10.into_alternate_af9();
-    let io0 = gpiof.pf8.into_alternate_af10();
-    let io1 = gpiod.pd12.into_alternate_af9();
-    let io2 = gpioe.pe2.into_alternate_af9();
-    let io3 = gpiod.pd13.into_alternate_af9();
+    let sck = gpiof.pf10.into_alternate();
+    let io0 = gpiof.pf8.into_alternate();
+    let io1 = gpiod.pd12.into_alternate();
+    let io2 = gpioe.pe2.into_alternate();
+    let io3 = gpiod.pd13.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - QSPI with MDMA");
     info!("");
 
-    let config: xspi::Config = 1.mhz().into();
+    let config: xspi::Config = 1.MHz().into();
     // Threshold when half full
     let config = config.fifo_threshold(16);
 
@@ -80,9 +80,9 @@ fn main() -> ! {
     for i in 0..20 {
         let j = i * 4;
         let i = i as u8;
-        source_buffer[j + 0] |= ((i << 4) & 0x10) | ((i >> 1) & 1);
+        source_buffer[j] |= ((i << 4) & 0x10) | ((i >> 1) & 1);
         source_buffer[j + 1] |= ((i << 2) & 0x10) | ((i >> 3) & 1);
-        source_buffer[j + 2] |= ((i >> 0) & 0x10) | ((i >> 5) & 1);
+        source_buffer[j + 2] |= (i & 0x10) | ((i >> 5) & 1);
         source_buffer[j + 3] |= ((i >> 2) & 0x10) | ((i >> 7) & 1);
     }
 

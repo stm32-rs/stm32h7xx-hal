@@ -2,23 +2,10 @@
 //!
 //! See the parent module for documentation
 
-#[allow(unused)] // TODO remove
 use core::fmt;
 
 use crate::{
-    gpio::{
-        gpioa::{PA1, PA2, PA3, PA6, PA7},
-        gpiob::{PB0, PB1, PB10, PB12, PB13, PB2, PB6},
-        gpioc::{PC1, PC10, PC11, PC2, PC3, PC5, PC9},
-        gpiod::{PD11, PD12, PD13, PD4, PD5, PD6, PD7},
-        gpioe::{PE10, PE11, PE2, PE7, PE8, PE9},
-        gpiof::{
-            PF0, PF1, PF10, PF11, PF12, PF2, PF3, PF4, PF5, PF6, PF7, PF8, PF9,
-        },
-        gpiog::{PG0, PG1, PG10, PG11, PG12, PG14, PG15, PG6, PG7, PG9},
-        gpioh::{PH2, PH3},
-        Alternate, AF0, AF10, AF11, AF12, AF3, AF4, AF6, AF9,
-    },
+    gpio::{self, Alternate},
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
     time::{Hertz, MicroSeconds},
@@ -34,7 +21,7 @@ use super::{Config, Octospi, SamplingEdge};
 /// for your memory device.
 ///
 /// ```
-/// let config = HyperbusConfig::new(50.mhz())
+/// let config = HyperbusConfig::new(50.MHz())
 ///     .device_size_bytes(24) // 16 Mbyte
 ///     .refresh_interval(4.us())
 ///     .read_write_recovery(4);
@@ -63,11 +50,11 @@ impl HyperbusConfig {
     /// * Chip select high between transactions = 4
     /// * Read-write recovery = 4
     /// * Access initial latency = 6
-    pub fn new<T: Into<Hertz>>(frequency: T) -> Self {
+    pub fn new(frequency: Hertz) -> Self {
         HyperbusConfig {
-            frequency: frequency.into(),
+            frequency,
             size_order: 23, // 8 MByte
-            refresh_interval: MicroSeconds(4),
+            refresh_interval: MicroSeconds::from_ticks(4),
             chip_select_high: 4,       // 40ns @ 100MHz
             read_write_recovery: 4,    // 40ns @ 100MHz
             access_initial_latency: 6, // 60ns @ 100MHz
@@ -88,7 +75,7 @@ impl HyperbusConfig {
     pub fn device_size_bytes(mut self, size_order: u8) -> Self {
         debug_assert!(size_order > 4, "Memory size must be at least 32 bytes");
         debug_assert!(
-            size_order <= 26,
+            size_order <= 28,
             "Maximum memory size that can be mapped is 256 MBytes"
         );
 
@@ -270,126 +257,125 @@ macro_rules! pins {
     };
 }
 
-#[cfg(any(feature = "rm0468"))] // TODO
 pins! {
     OCTOSPI1:
         CLK: [
-            PA3<Alternate<AF12>>,
-            PB2<Alternate<AF9>>,
-            PF10<Alternate<AF9>>
+            gpio::PA3<Alternate<12>>,
+            gpio::PB2<Alternate<9>>,
+            gpio::PF10<Alternate<9>>
         ]
         NCLK: [
-            PB12<Alternate<AF3>>,
-            PF11<Alternate<AF9>>
+            gpio::PB12<Alternate<3>>,
+            gpio::PF11<Alternate<9>>
         ]
         DQS: [
-            PA1<Alternate<AF12>>,
-            PB2<Alternate<AF10>>,
-            PC5<Alternate<AF10>>
+            gpio::PA1<Alternate<12>>,
+            gpio::PB2<Alternate<10>>,
+            gpio::PC5<Alternate<10>>
         ]
         NCS: [
-            PB6<Alternate<AF10>>,
-            PB10<Alternate<AF9>>,
-            PC11<Alternate<AF9>>,
-            PE11<Alternate<AF11>>,
-            PG6<Alternate<AF10>>
+            gpio::PB6<Alternate<10>>,
+            gpio::PB10<Alternate<9>>,
+            gpio::PC11<Alternate<9>>,
+            gpio::PE11<Alternate<11>>,
+            gpio::PG6<Alternate<10>>
         ]
         IO0: [
-            PA2<Alternate<AF6>>,
-            PB1<Alternate<AF4>>,
-            PB12<Alternate<AF12>>,
-            PC3<Alternate<AF9>>,
-            PC3<Alternate<AF0>>,
-            PC9<Alternate<AF9>>,
-            PD11<Alternate<AF9>>,
-            PF8<Alternate<AF10>>
+            gpio::PA2<Alternate<6>>,
+            gpio::PB1<Alternate<4>>,
+            gpio::PB12<Alternate<12>>,
+            gpio::PC3<Alternate<9>>,
+            gpio::PC3<Alternate<0>>,
+            gpio::PC9<Alternate<9>>,
+            gpio::PD11<Alternate<9>>,
+            gpio::PF8<Alternate<10>>
         ]
         IO1: [
-            PB0<Alternate<AF4>>,
-            PC10<Alternate<AF9>>,
-            PD12<Alternate<AF9>>,
-            PF9<Alternate<AF10>>
+            gpio::PB0<Alternate<4>>,
+            gpio::PC10<Alternate<9>>,
+            gpio::PD12<Alternate<9>>,
+            gpio::PF9<Alternate<10>>
         ]
         IO2: [
-            PA3<Alternate<AF6>>,
-            PA7<Alternate<AF10>>,
-            PB13<Alternate<AF4>>,
-            PC2<Alternate<AF9>>,
-            PC2<Alternate<AF0>>,
-            PE2<Alternate<AF9>>,
-            PF7<Alternate<AF10>>
+            gpio::PA3<Alternate<6>>,
+            gpio::PA7<Alternate<10>>,
+            gpio::PB13<Alternate<4>>,
+            gpio::PC2<Alternate<9>>,
+            gpio::PC2<Alternate<0>>,
+            gpio::PE2<Alternate<9>>,
+            gpio::PF7<Alternate<10>>
         ]
         IO3: [
-            PA1<Alternate<AF9>>,
-            PA6<Alternate<AF6>>,
-            PD13<Alternate<AF9>>,
-            PF6<Alternate<AF10>>
+            gpio::PA1<Alternate<9>>,
+            gpio::PA6<Alternate<6>>,
+            gpio::PD13<Alternate<9>>,
+            gpio::PF6<Alternate<10>>
         ]
         IO4: [
-            PC1<Alternate<AF10>>,
-            PD4<Alternate<AF10>>,
-            PE7<Alternate<AF10>>,
-            PH2<Alternate<AF9>>
+            gpio::PC1<Alternate<10>>,
+            gpio::PD4<Alternate<10>>,
+            gpio::PE7<Alternate<10>>,
+            gpio::PH2<Alternate<9>>
         ]
         IO5: [
-            PC2<Alternate<AF4>>,
-            PC2<Alternate<AF0>>,
-            PD5<Alternate<AF10>>,
-            PE8<Alternate<AF10>>,
-            PH3<Alternate<AF9>>
+            gpio::PC2<Alternate<4>>,
+            gpio::PC2<Alternate<0>>,
+            gpio::PD5<Alternate<10>>,
+            gpio::PE8<Alternate<10>>,
+            gpio::PH3<Alternate<9>>
         ]
         IO6: [
-            PC3<Alternate<AF4>>,
-            PC3<Alternate<AF0>>,
-            PD6<Alternate<AF10>>,
-            PE9<Alternate<AF10>>,
-            PG9<Alternate<AF9>>
+            gpio::PC3<Alternate<4>>,
+            gpio::PC3<Alternate<0>>,
+            gpio::PD6<Alternate<10>>,
+            gpio::PE9<Alternate<10>>,
+            gpio::PG9<Alternate<9>>
         ]
         IO7: [
-            PD7<Alternate<AF10>>,
-            PE10<Alternate<AF10>>,
-            PG14<Alternate<AF9>>
+            gpio::PD7<Alternate<10>>,
+            gpio::PE10<Alternate<10>>,
+            gpio::PG14<Alternate<9>>
         ]
 }
 pins! {
     OCTOSPI2:
         CLK: [
-            PF4<Alternate<AF9>>
+            gpio::PF4<Alternate<9>>
         ]
         NCLK: [
-            PF5<Alternate<AF9>>
+            gpio::PF5<Alternate<9>>
         ]
         DQS: [
-            PF12<Alternate<AF9>>,
-            PG7<Alternate<AF9>>,
-            PG15<Alternate<AF9>>
+            gpio::PF12<Alternate<9>>,
+            gpio::PG7<Alternate<9>>,
+            gpio::PG15<Alternate<9>>
         ]
         NCS: [
-            PG12<Alternate<AF3>>
+            gpio::PG12<Alternate<3>>
         ]
         IO0: [
-            PF0<Alternate<AF9>>
+            gpio::PF0<Alternate<9>>
         ]
         IO1: [
-            PF1<Alternate<AF9>>
+            gpio::PF1<Alternate<9>>
         ]
         IO2: [
-            PF2<Alternate<AF9>>
+            gpio::PF2<Alternate<9>>
         ]
         IO3: [
-            PF3<Alternate<AF9>>
+            gpio::PF3<Alternate<9>>
         ]
         IO4: [
-            PG0<Alternate<AF9>>
+            gpio::PG0<Alternate<9>>
         ]
         IO5: [
-            PG1<Alternate<AF9>>
+            gpio::PG1<Alternate<9>>
         ]
         IO6: [
-            PG10<Alternate<AF3>>
+            gpio::PG10<Alternate<3>>
         ]
         IO7: [
-            PG11<Alternate<AF9>>
+            gpio::PG11<Alternate<9>>
         ]
 }
 
@@ -435,7 +421,7 @@ macro_rules! octospi_impl {
                 // Disable OCTOSPI before configuring it.
                 regs.cr.write(|w| w.en().clear_bit());
 
-                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
+                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
                 while regs.sr.read().busy().bit_is_set() {}
 
@@ -483,7 +469,7 @@ macro_rules! octospi_impl {
                 });
 
                 // Prescaler
-                let spi_frequency = config.frequency.0;
+                let spi_frequency = config.frequency.raw();
                 let divisor =
                     match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
                         divisor @ 1..=256 => divisor - 1,
@@ -530,17 +516,17 @@ macro_rules! octospi_impl {
                 // Disable OCTOSPI before configuring it.
                 regs.cr.write(|w| w.en().clear_bit());
 
-                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).0;
+                let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
                 // Configure clock
                 let hyperbus: HyperbusConfig = hyperbus.into();
-                let spi_frequency = hyperbus.frequency.0;
+                let spi_frequency = hyperbus.frequency.raw();
                 let divisor =
                     match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
                         divisor @ 1..=256 => divisor as u8,
                         _ => panic!("Invalid OCTOSPI frequency requested"),
                     };
-                let frequency = Hertz(spi_kernel_ck / divisor as u32);
+                let frequency = Hertz::from_raw(spi_kernel_ck / divisor as u32);
 
                 // Calculate the achieved clock period in ns
                 let period_ns = 1e9 * (divisor as f32) / (spi_kernel_ck as f32);
@@ -591,7 +577,7 @@ macro_rules! octospi_impl {
                 // Release nCS for refresh
                 let refresh_cycles = {
                     let interval_ns =
-                        (1000 * hyperbus.refresh_interval.0 as u32);
+                        (1000 * hyperbus.refresh_interval.ticks() as u32);
                     (interval_ns + period_ns - 1) / period_ns
                 };
                 regs.dcr4
@@ -704,7 +690,6 @@ macro_rules! octospi_impl {
     };
 }
 
-#[cfg(any(feature = "rm0468"))] // TODO feature = "rm0455"
 octospi_impl! {
     octospi1_unchecked,
     octospi1_hyperbus_unchecked,

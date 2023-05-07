@@ -1,5 +1,11 @@
 //! CDC-ACM serial port example using polling in a busy loop
 //!
+//! This example uses the USB1 peripheral. On parts that have multiple USB
+//! OTG_HS peripherals the USB1 D+/D- pins are located on PB14 and PB15. If your
+//! development board uses PA11 and PA12 instead, you should adapt the example
+//! to use the USB2 peripheral together with PA11 and PA12. This applies to the
+//! NUCLEO-H743ZI2 board.
+//!
 #![deny(warnings)]
 #![no_std]
 #![no_main]
@@ -11,7 +17,6 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioe::PE1;
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::OutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::rec::UsbClkSel;
     use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
@@ -41,11 +46,11 @@ mod app {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let mut ccdr = rcc.sys_ck(80.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
+        let mut ccdr = rcc.sys_ck(80.MHz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // 48MHz CLOCK
         let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
-        ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
+        ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::Hsi48);
 
         // If your hardware uses the internal USB voltage regulator in ON mode, you
         // should uncomment this block.
@@ -59,19 +64,13 @@ mod app {
         #[cfg(any(feature = "rm0433", feature = "rm0399"))]
         let (pin_dm, pin_dp) = {
             let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
-            (
-                gpiob.pb14.into_alternate_af12(),
-                gpiob.pb15.into_alternate_af12(),
-            )
+            (gpiob.pb14.into_alternate(), gpiob.pb15.into_alternate())
         };
 
         #[cfg(any(feature = "rm0455", feature = "rm0468"))]
         let (pin_dm, pin_dp) = {
             let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
-            (
-                gpioa.pa11.into_alternate_af10(),
-                gpioa.pa12.into_alternate_af10(),
-            )
+            (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
         };
 
         let led = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE).pe1;
@@ -112,11 +111,11 @@ mod app {
     #[task(binds = OTG_HS, local = [usb,led])]
     fn usb_event(mut ctx: usb_event::Context) {
         let (usb_dev, serial) = &mut ctx.local.usb;
-        ctx.local.led.set_high().ok();
+        ctx.local.led.set_high();
 
         loop {
             if !usb_dev.poll(&mut [serial]) {
-                ctx.local.led.set_low().ok();
+                ctx.local.led.set_low();
                 return;
             }
 

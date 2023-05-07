@@ -1,7 +1,5 @@
 //! USB OTG peripherals
 //!
-//! Requires the `usb_hs` feature.
-//!
 //! ## ULPI Transciever Delay
 //!
 //! Some ULPI PHYs like the Microchip USB334x series require a delay between the
@@ -20,22 +18,7 @@
 use crate::rcc;
 use crate::stm32;
 
-use crate::gpio::{
-    gpioa::{PA11, PA12, PA3, PA5},
-    gpiob::{PB0, PB1, PB10, PB11, PB12, PB13, PB5},
-    gpioc::{PC0, PC2, PC3},
-    gpioh::PH4,
-    Alternate, Speed, AF10,
-};
-
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::PI11;
-
-#[cfg(any(feature = "rm0433", feature = "rm0399"))]
-use crate::gpio::{
-    gpiob::{PB14, PB15},
-    AF12,
-};
+use crate::gpio::{self, Alternate, Speed};
 
 use crate::time::Hertz;
 
@@ -55,8 +38,8 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: PB14<Alternate<AF12>>,
-        _pin_dp: PB15<Alternate<AF12>>,
+        _pin_dm: gpio::PB14<Alternate<12>>,
+        _pin_dp: gpio::PB15<Alternate<12>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -67,8 +50,8 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: PA11<Alternate<AF10>>,
-        _pin_dp: PA12<Alternate<AF10>>,
+        _pin_dm: gpio::PA11<Alternate<10>>,
+        _pin_dp: gpio::PA12<Alternate<10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -105,8 +88,8 @@ impl USB2 {
         usb_global: stm32::OTG2_HS_GLOBAL,
         usb_device: stm32::OTG2_HS_DEVICE,
         usb_pwrclk: stm32::OTG2_HS_PWRCLK,
-        _pin_dm: PA11<Alternate<AF10>>,
-        _pin_dp: PA12<Alternate<AF10>>,
+        _pin_dm: gpio::PA11<Alternate<10>>,
+        _pin_dp: gpio::PA12<Alternate<10>>,
         prec: rcc::rec::Usb2Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
@@ -162,7 +145,7 @@ macro_rules! usb_peripheral {
                 // than 30MHz. See RM0433 Rev 7. Section 57.4.4. This is checked
                 // by the UsbBus implementation in synopsys-usb-otg.
 
-                self.hclk.0
+                self.hclk.raw()
             }
         }
     };
@@ -189,64 +172,64 @@ pub struct USB1_ULPI {
 }
 
 pub enum Usb1UlpiDirPin {
-    PC2(PC2<Alternate<AF10>>),
+    PC2(gpio::PC2<Alternate<10>>),
     #[cfg(not(feature = "rm0468"))]
-    PI11(PI11<Alternate<AF10>>),
+    PI11(gpio::PI11<Alternate<10>>),
 }
 
 impl Usb1UlpiDirPin {
-    fn set_speed(self, speed: Speed) -> Usb1UlpiDirPin {
+    fn set_speed(&mut self, speed: Speed) {
         match self {
             Usb1UlpiDirPin::PC2(pin) => {
-                Usb1UlpiDirPin::PC2(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
             #[cfg(not(feature = "rm0468"))]
             Usb1UlpiDirPin::PI11(pin) => {
-                Usb1UlpiDirPin::PI11(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
         }
     }
 }
 
 #[cfg(not(feature = "rm0468"))]
-impl From<PI11<Alternate<AF10>>> for Usb1UlpiDirPin {
-    fn from(v: PI11<Alternate<AF10>>) -> Self {
+impl From<gpio::PI11<Alternate<10>>> for Usb1UlpiDirPin {
+    fn from(v: gpio::PI11<Alternate<10>>) -> Self {
         Usb1UlpiDirPin::PI11(v)
     }
 }
 
-impl From<PC2<Alternate<AF10>>> for Usb1UlpiDirPin {
-    fn from(v: PC2<Alternate<AF10>>) -> Self {
+impl From<gpio::PC2<Alternate<10>>> for Usb1UlpiDirPin {
+    fn from(v: gpio::PC2<Alternate<10>>) -> Self {
         Usb1UlpiDirPin::PC2(v)
     }
 }
 
 pub enum Usb1UlpiNxtPin {
-    PC3(PC3<Alternate<AF10>>),
-    PH4(PH4<Alternate<AF10>>),
+    PC3(gpio::PC3<Alternate<10>>),
+    PH4(gpio::PH4<Alternate<10>>),
 }
 
 impl Usb1UlpiNxtPin {
-    fn set_speed(self, speed: Speed) -> Usb1UlpiNxtPin {
+    fn set_speed(&mut self, speed: Speed) {
         match self {
             Usb1UlpiNxtPin::PC3(pin) => {
-                Usb1UlpiNxtPin::PC3(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
             Usb1UlpiNxtPin::PH4(pin) => {
-                Usb1UlpiNxtPin::PH4(pin.set_speed(speed))
+                pin.set_speed(speed);
             }
         }
     }
 }
 
-impl From<PH4<Alternate<AF10>>> for Usb1UlpiNxtPin {
-    fn from(v: PH4<Alternate<AF10>>) -> Self {
+impl From<gpio::PH4<Alternate<10>>> for Usb1UlpiNxtPin {
+    fn from(v: gpio::PH4<Alternate<10>>) -> Self {
         Usb1UlpiNxtPin::PH4(v)
     }
 }
 
-impl From<PC3<Alternate<AF10>>> for Usb1UlpiNxtPin {
-    fn from(v: PC3<Alternate<AF10>>) -> Self {
+impl From<gpio::PC3<Alternate<10>>> for Usb1UlpiNxtPin {
+    fn from(v: gpio::PC3<Alternate<10>>) -> Self {
         Usb1UlpiNxtPin::PC3(v)
     }
 }
@@ -255,28 +238,31 @@ impl USB1_ULPI {
     /// Automatically sets all upli pins to gpio speed VeryHigh.
     /// If you wish to use another configuration,
     /// please see [new_unchecked](USB1_ULPI::new_unchecked).
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        ulpi_clk: PA5<Alternate<AF10>>,
+        mut ulpi_clk: gpio::PA5<Alternate<10>>,
         ulpi_dir: impl Into<Usb1UlpiDirPin>,
         ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
-        ulpi_stp: PC0<Alternate<AF10>>,
-        ulpi_d0: PA3<Alternate<AF10>>,
-        ulpi_d1: PB0<Alternate<AF10>>,
-        ulpi_d2: PB1<Alternate<AF10>>,
-        ulpi_d3: PB10<Alternate<AF10>>,
-        ulpi_d4: PB11<Alternate<AF10>>,
-        ulpi_d5: PB12<Alternate<AF10>>,
-        ulpi_d6: PB13<Alternate<AF10>>,
-        ulpi_d7: PB5<Alternate<AF10>>,
+        mut ulpi_stp: gpio::PC0<Alternate<10>>,
+        mut ulpi_d0: gpio::PA3<Alternate<10>>,
+        mut ulpi_d1: gpio::PB0<Alternate<10>>,
+        mut ulpi_d2: gpio::PB1<Alternate<10>>,
+        mut ulpi_d3: gpio::PB10<Alternate<10>>,
+        mut ulpi_d4: gpio::PB11<Alternate<10>>,
+        mut ulpi_d5: gpio::PB12<Alternate<10>>,
+        mut ulpi_d6: gpio::PB13<Alternate<10>>,
+        mut ulpi_d7: gpio::PB5<Alternate<10>>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
         ulpi_clk.set_speed(Speed::VeryHigh);
-        ulpi_dir.into().set_speed(Speed::VeryHigh);
-        ulpi_nxt.into().set_speed(Speed::VeryHigh);
+        let mut ulpi_dir = ulpi_dir.into();
+        ulpi_dir.set_speed(Speed::VeryHigh);
+        let mut ulpi_nxt = ulpi_nxt.into();
+        ulpi_nxt.set_speed(Speed::VeryHigh);
         ulpi_stp.set_speed(Speed::VeryHigh);
         ulpi_d0.set_speed(Speed::VeryHigh);
         ulpi_d1.set_speed(Speed::VeryHigh);
@@ -331,7 +317,7 @@ unsafe impl UsbPeripheral for USB1_ULPI {
     }
 
     fn ahb_frequency_hz(&self) -> u32 {
-        self.hclk.0
+        self.hclk.raw()
     }
 
     fn phy_type(&self) -> synopsys_usb_otg::PhyType {

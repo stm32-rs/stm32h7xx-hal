@@ -51,8 +51,8 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(200.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(200.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
@@ -60,10 +60,10 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let sck = gpioa.pa12.into_alternate_af5();
-    let miso = gpioc.pc2.into_alternate_af5();
-    let mosi = gpioc.pc3.into_alternate_af5();
-    let _nss = gpioa.pa11.into_alternate_af5(); // SS/CS not used in this example
+    let sck = gpioa.pa12.into_alternate();
+    let miso = gpioc.pc2.into_alternate();
+    let mosi = gpioc.pc3.into_alternate();
+    let _nss = gpioa.pa11.into_alternate::<5>(); // SS/CS not used in this example
 
     info!("");
     info!("stm32h7xx-hal example - SPI DMA");
@@ -73,7 +73,7 @@ fn main() -> ! {
     let spi: spi::Spi<_, _, u8> = dp.SPI2.spi(
         (sck, miso, mosi),
         spi::MODE_0,
-        1.mhz(),
+        1.MHz(),
         ccdr.peripheral.SPI2,
         &ccdr.clocks,
     );

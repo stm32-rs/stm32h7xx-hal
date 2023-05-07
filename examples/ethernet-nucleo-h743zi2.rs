@@ -1,3 +1,12 @@
+//! Ethernet demo for NUCLEO-H743ZI2 development board
+//!
+//! NUCLEO-H743ZI2: RMII TXD1 is on PB13
+//! NUCLEO-H745I-Q: RMII TXD1 is on PB13
+//!
+//! The ethernet ring buffers are placed in SRAM3, where they can be
+//! accessed by both the core and the Ethernet DMA.
+//!
+//! This demo doesn't use smoltcp - see the stm32h747i-disco-rtic demo
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -12,14 +21,13 @@ extern crate cortex_m;
 mod utilities;
 use log::info;
 
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ethernet, ethernet::PHY};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(syst: &mut stm32::SYST, clocks: CoreClocks) {
-    let c_ck_mhz = clocks.c_ck().0 / 1_000_000;
+    let c_ck_mhz = clocks.c_ck().to_MHz();
 
     let syst_calib = 0x3E8;
 
@@ -63,9 +71,9 @@ fn main() -> ! {
     // Initialise clocks...
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .hclk(200.mhz())
-        .pll1_r_ck(100.mhz()) // for TRACECK
+        .sys_ck(200.MHz())
+        .hclk(200.MHz())
+        .pll1_r_ck(100.MHz()) // for TRACECK
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Get the delay provider.
@@ -83,23 +91,23 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
     let mut link_led = gpiob.pb0.into_push_pull_output(); // LED1, green
-    link_led.set_high().ok();
+    link_led.set_high();
 
-    let rmii_ref_clk = gpioa.pa1.into_alternate_af11();
-    let rmii_mdio = gpioa.pa2.into_alternate_af11();
-    let rmii_mdc = gpioc.pc1.into_alternate_af11();
-    let rmii_crs_dv = gpioa.pa7.into_alternate_af11();
-    let rmii_rxd0 = gpioc.pc4.into_alternate_af11();
-    let rmii_rxd1 = gpioc.pc5.into_alternate_af11();
-    let rmii_tx_en = gpiog.pg11.into_alternate_af11();
-    let rmii_txd0 = gpiog.pg13.into_alternate_af11();
-    let rmii_txd1 = gpiob.pb13.into_alternate_af11();
+    let rmii_ref_clk = gpioa.pa1.into_alternate();
+    let rmii_mdio = gpioa.pa2.into_alternate();
+    let rmii_mdc = gpioc.pc1.into_alternate();
+    let rmii_crs_dv = gpioa.pa7.into_alternate();
+    let rmii_rxd0 = gpioc.pc4.into_alternate();
+    let rmii_rxd1 = gpioc.pc5.into_alternate();
+    let rmii_tx_en = gpiog.pg11.into_alternate();
+    let rmii_txd0 = gpiog.pg13.into_alternate();
+    let rmii_txd1 = gpiob.pb13.into_alternate();
 
     // Initialise ethernet...
-    assert_eq!(ccdr.clocks.hclk().0, 200_000_000); // HCLK 200MHz
-    assert_eq!(ccdr.clocks.pclk1().0, 100_000_000); // PCLK 100MHz
-    assert_eq!(ccdr.clocks.pclk2().0, 100_000_000); // PCLK 100MHz
-    assert_eq!(ccdr.clocks.pclk4().0, 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
+    assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000); // PCLK 100MHz
+    assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, eth_mac) = unsafe {
@@ -158,7 +166,6 @@ fn main() -> ! {
             true => link_led.set_low(),
             _ => link_led.set_high(),
         }
-        .ok();
 
         if eth_up != eth_last {
             // Interface state change

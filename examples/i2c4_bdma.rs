@@ -48,22 +48,22 @@ fn main() -> ! {
     // RCC
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(200.mhz())
+        .sys_ck(200.MHz())
         // D3 / SRD domain
-        .hclk(200.mhz()) // rcc_hclk4
-        .pclk4(50.mhz()) // rcc_pclk4
+        .hclk(200.MHz()) // rcc_hclk4
+        .pclk4(50.MHz()) // rcc_pclk4
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // GPIO
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
     // Configure the SCL and the SDA pin for our I2C bus
-    let scl = gpiod.pd12.into_alternate_af4().set_open_drain();
-    let sda = gpiod.pd13.into_alternate_af4().set_open_drain();
+    let scl = gpiod.pd12.into_alternate().set_open_drain();
+    let sda = gpiod.pd13.into_alternate().set_open_drain();
 
     let mut i2c = dp.I2C4.i2c(
         (scl, sda),
-        100.khz(),
+        100.kHz(),
         ccdr.peripheral.I2C4.low_power(LowPowerMode::Autonomous),
         &ccdr.clocks,
     );

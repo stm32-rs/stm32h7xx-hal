@@ -30,8 +30,8 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(100.mhz())
-        .pll2_p_ck(4.mhz()) // Default adc_ker_ck_input
+        .sys_ck(100.MHz())
+        .pll2_p_ck(4.MHz()) // Default adc_ker_ck_input
         .freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
@@ -44,16 +44,17 @@ fn main() -> ! {
     let (adc1, adc2) = adc::adc12(
         dp.ADC1,
         dp.ADC2,
+        4.MHz(),
         &mut delay,
         ccdr.peripheral.ADC12,
         &ccdr.clocks,
     );
 
     let mut adc1 = adc1.enable();
-    adc1.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc1.set_resolution(adc::Resolution::SixteenBit);
 
     let mut adc2 = adc2.enable();
-    adc2.set_resolution(adc::Resolution::SIXTEENBIT);
+    adc2.set_resolution(adc::Resolution::SixteenBit);
 
     // Setup GPIOC
     // NOTE: PC2 and PC3 are only pinned out on TFBGA packages!!

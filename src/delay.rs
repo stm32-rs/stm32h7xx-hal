@@ -25,7 +25,7 @@
 //! ```no_run
 //! let timer2 = device
 //!     .TIM2
-//!     .timer(100.ms(), device.peripheral.TIM2, &mut device.clocks);
+//!     .timer(1.kHz(), device.peripheral.TIM2, &mut device.clocks);
 //! let mut delay = DelayFromCountDownTimer::new(timer2);
 //!
 //! delay.delay_ms(500);
@@ -33,6 +33,10 @@
 //! // Release the timer from the delay
 //! let timer2 = delay.free();
 //! ```
+//!
+//! # Examples
+//!
+//! - [Blinky](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/blinky.rs)
 
 use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;
@@ -45,7 +49,8 @@ use void::Void;
 
 use crate::nb::block;
 use crate::rcc::CoreClocks;
-use crate::time::{Hertz, U32Ext};
+use crate::time::Hertz;
+use fugit::RateExtU32;
 
 pub trait DelayExt {
     fn delay(self, clocks: CoreClocks) -> Delay;
@@ -119,13 +124,13 @@ impl<'a> CountDown for Countdown<'a> {
 
         self.total_rvr = if cfg!(not(feature = "revision_v")) {
             // See errata ES0392 §2.2.3. Revision Y does not have the /8 divider
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000)
+            u64::from(us) * u64::from(self.clocks.c_ck().raw() / 1_000_000)
         } else if cfg!(feature = "cm4") {
             // CM4 dervived from HCLK
-            u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000)
+            u64::from(us) * u64::from(self.clocks.hclk().raw() / 8_000_000)
         } else {
             // Normally divide by 8
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000)
+            u64::from(us) * u64::from(self.clocks.c_ck().raw() / 8_000_000)
         };
 
         self.start_wait();
@@ -186,13 +191,13 @@ impl DelayUs<u32> for Delay {
 
         let mut total_rvr = if cfg!(not(feature = "revision_v")) {
             // See errata ES0392 §2.2.3. Revision Y does not have the /8 divider
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 1_000_000)
+            u64::from(us) * u64::from(self.clocks.c_ck().raw() / 1_000_000)
         } else if cfg!(feature = "cm4") {
             // CM4 derived from HCLK
-            u64::from(us) * u64::from(self.clocks.hclk().0 / 8_000_000)
+            u64::from(us) * u64::from(self.clocks.hclk().raw() / 8_000_000)
         } else {
             // Normally divide by 8
-            u64::from(us) * u64::from(self.clocks.c_ck().0 / 8_000_000)
+            u64::from(us) * u64::from(self.clocks.c_ck().raw() / 8_000_000)
         };
 
         while total_rvr != 0 {
@@ -261,7 +266,7 @@ macro_rules! impl_delay_from_count_down_timer  {
                     // or a frequency of ~57.2Hz. We use a 60Hz frequency for each
                     // loop step here to ensure that we stay within these bounds.
                     let looping_delay = $num / 60;
-                    let looping_delay_hz = Hertz($num / looping_delay);
+                    let looping_delay_hz = Hertz::from_raw($num / looping_delay);
 
                     self.0.start(looping_delay_hz);
                     while time_left > looping_delay {
@@ -270,7 +275,7 @@ macro_rules! impl_delay_from_count_down_timer  {
                     }
 
                     if time_left > 0 {
-                        self.0.start(($num / time_left).hz());
+                        self.0.start(($num / time_left).Hz());
                         block!(self.0.wait()).ok();
                     }
                 }

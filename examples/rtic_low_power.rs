@@ -28,10 +28,10 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioc::{PC2, PC3, PC4};
     use stm32h7xx_hal::gpio::{Edge, ExtiPin, Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::rcc::LowPowerMode;
     use stm32h7xx_hal::stm32::{LPTIM3, TIM1, TIM2};
+    use stm32h7xx_hal::time::MilliSeconds;
     use stm32h7xx_hal::timer::{Enabled, Event, LpTimer, Timer};
 
     use super::*;
@@ -68,13 +68,13 @@ mod app {
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
             // D3 / SRD domain
-            .hclk(16.mhz()) // rcc_hclk4
-            .pclk4(4.mhz()) // rcc_pclk4
+            .hclk(16.MHz()) // rcc_hclk4
+            .pclk4(4.MHz()) // rcc_pclk4
             .freeze(vos, &syscfg);
 
         // Timers
         let mut timer1 = ctx.device.TIM1.timer(
-            250.ms(),
+            MilliSeconds::from_ticks(250).into_rate(),
             // Run in CSleep, but not CStop
             ccdr.peripheral.TIM1.low_power(LowPowerMode::Enabled),
             &ccdr.clocks,
@@ -82,7 +82,7 @@ mod app {
         timer1.listen(Event::TimeOut);
 
         let mut timer2 = ctx.device.TIM2.timer(
-            500.ms(),
+            MilliSeconds::from_ticks(500).into_rate(),
             // Run in CSleep, but not CStop
             ccdr.peripheral.TIM2.low_power(LowPowerMode::Enabled),
             &ccdr.clocks,
@@ -93,7 +93,7 @@ mod app {
             .device
             .LPTIM3
             .timer(
-                1000.ms(),
+                MilliSeconds::from_ticks(1000).into_rate(),
                 // Run in LPTIM in D3 / SRD autonomous mode
                 ccdr.peripheral.LPTIM3.low_power(LowPowerMode::Autonomous),
                 &ccdr.clocks,
@@ -121,9 +121,9 @@ mod app {
         let mut led2 = gpioc.pc3.into_push_pull_output();
         let mut led3 = gpioc.pc4.into_push_pull_output();
 
-        led1.set_high().ok();
-        led2.set_high().ok();
-        led3.set_high().ok();
+        led1.set_high();
+        led2.set_high();
+        led3.set_high();
 
         (
             SharedResources {},
@@ -149,18 +149,18 @@ mod app {
     #[task(binds = TIM1_UP, local = [led1, timer1], priority = 2)]
     fn timer1_tick(ctx: timer1_tick::Context) {
         ctx.local.timer1.clear_irq();
-        ctx.local.led1.toggle().unwrap();
+        ctx.local.led1.toggle();
     }
 
     #[task(binds = TIM2, local = [led2, timer2], priority = 2)]
     fn timer2_tick(ctx: timer2_tick::Context) {
         ctx.local.timer2.clear_irq();
-        ctx.local.led2.toggle().unwrap();
+        ctx.local.led2.toggle();
     }
 
     #[task(binds = LPTIM3, local = [led3, timer3], priority = 2)]
     fn timer3_tick(ctx: timer3_tick::Context) {
         ctx.local.timer3.clear_irq();
-        ctx.local.led3.toggle().unwrap();
+        ctx.local.led3.toggle();
     }
 }

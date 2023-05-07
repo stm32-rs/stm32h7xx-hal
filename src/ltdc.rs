@@ -1,4 +1,8 @@
-//! HAL for LTDC
+//! LCD-TFT Display Controller
+//!
+//! # Examples
+//!
+//! - [External display using embedded-graphics library](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/embedded-graphics.rs)
 
 use core::marker::PhantomData;
 use core::ops::Deref;
@@ -76,8 +80,10 @@ impl Ltdc {
         core_clocks: &CoreClocks,
     ) -> Self {
         // See Errata ES0445 Rev 1 Section 2.6.1
-        let lcd_clock =
-            core_clocks.pll3_r_ck().expect("PLL3 R clock must run!").0;
+        let lcd_clock = core_clocks
+            .pll3_r_ck()
+            .expect("PLL3 R clock must run!")
+            .raw();
 
         // Enable peripheral
         ltdc_rec.enable().reset();
@@ -98,6 +104,16 @@ impl Ltdc {
     pub fn unpend() {
         // unsafe: clear write-one interrupt flag
         unsafe { (*LTDC::ptr()).icr.write(|w| w.crrif().set_bit()) };
+    }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &LTDC {
+        &self.ltdc
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut LTDC {
+        &mut self.ltdc
     }
 }
 
@@ -197,7 +213,7 @@ impl Ltdc {
         let window_y0 = 0;
         let window_y1 = config.active_height;
 
-        let layer1 = LtdcLayer1 {
+        LtdcLayer1 {
             layer: LAYER1 {
                 _marker: PhantomData,
             },
@@ -206,9 +222,7 @@ impl Ltdc {
             window_x1,
             window_y0,
             window_y1,
-        };
-
-        layer1
+        }
     }
 }
 

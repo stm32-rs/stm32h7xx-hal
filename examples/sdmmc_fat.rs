@@ -3,7 +3,7 @@
 
 use {
     embedded_sdmmc::{Controller, VolumeIdx},
-    log,
+    stm32h7xx_hal::sdmmc::{SdCard, Sdmmc},
     stm32h7xx_hal::{pac, prelude::*, rcc},
 };
 
@@ -43,9 +43,9 @@ unsafe fn main() -> ! {
     let ccdr = dp
         .RCC
         .constrain()
-        .sys_ck(480.mhz())
+        .sys_ck(200.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
-        .pll1_q_ck(100.mhz())
+        .pll1_q_ck(100.MHz())
         .pll2_strategy(rcc::PllConfigStrategy::Iterative)
         .pll3_strategy(rcc::PllConfigStrategy::Iterative)
         .freeze(pwrcfg, &dp.SYSCFG);
@@ -56,14 +56,14 @@ unsafe fn main() -> ! {
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
-    let mut sd = dp.SDMMC2.sdmmc(
+    let mut sd: Sdmmc<_, SdCard> = dp.SDMMC2.sdmmc(
         (
-            gpiod.pd6.into_alternate_af11(),
-            gpiod.pd7.into_alternate_af11(),
-            gpiob.pb14.into_alternate_af9(),
-            gpiob.pb15.into_alternate_af9(),
-            gpiob.pb3.into_alternate_af9(),
-            gpiob.pb4.into_alternate_af9(),
+            gpiod.pd6.into_alternate(),
+            gpiod.pd7.into_alternate(),
+            gpiob.pb14.into_alternate(),
+            gpiob.pb15.into_alternate(),
+            gpiob.pb3.into_alternate(),
+            gpiob.pb4.into_alternate(),
         ),
         ccdr.peripheral.SDMMC2,
         &ccdr.clocks,
@@ -74,7 +74,7 @@ unsafe fn main() -> ! {
         // On most development boards this can be increased up to 50MHz. We choose a
         // lower frequency here so that it should work even with flying leads
         // connected to a SD card breakout.
-        match sd.init_card(2.mhz()) {
+        match sd.init(2.MHz()) {
             Ok(_) => break,
             Err(err) => {
                 log::info!("Init err: {:?}", err);

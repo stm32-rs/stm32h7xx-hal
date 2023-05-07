@@ -1,16 +1,17 @@
-//! Power Configuration
+//! Power configuration
 //!
-//! This module configures the PWR unit to provide the core voltage
-//! `VCORE`. The voltage scaling mode is fixed at VOS1 (High
-//! Performance).
+//! This module configures the PWR unit to provide the core voltage `VCORE`. The
+//! voltage scaling mode is VOS1 (High Performance) by default, but VOS2, VOS3
+//! and [VOS0](#boost-mode-vos0) can also be selected.
 //!
 //! When the system starts up, it is in Run* mode. After the call to
 //! `freeze`, it will be in Run mode. See RM0433 Rev 7 Section 6.6.1
 //! "System/D3 domain modes".
 //!
-//! # Example
+//! # Examples
 //!
-//! You can also find a simple example [here](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs).
+//! - [Enable VOS0](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/vos0.rs)
+//! - [Enable USB regulator](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/usb_serial.rs)
 //!
 //! ```rust
 //!     let dp = pac::Peripherals::take().unwrap();
@@ -50,6 +51,24 @@
 //! POR, and this is enforced by hardware. If you add or change the
 //! power supply method, `freeze` will panic until you power on reset
 //! your board.
+//!
+//! # Boost Mode (VOS0)
+//!
+//! Some parts have a Boost Mode that allows higher clock speeds. This can be
+//! selected using the `.vos0(..)` builder method. The following parts are supported:
+//!
+//! | Parts | Reference Manual | Maximum Core Clock with VOS0 |
+//! | --- | --- | ---
+//! | stm32h742/743/753/750 | RM0433 | 480MHz [^revv]
+//! | stm32h745/747/755/757 | RM0399 | 480MHz
+//! | stm32h7a3/7b3/7b0 | RM0455 | VOS0 not supported
+//! | stm32h723/725/730/733/735 | RM0468 | 520MHz [^rm0468ecc]
+//!
+//! [^revv]: Revision V and later parts only
+//!
+//! [^rm0468ecc]: These parts allow up to 550MHz by setting an additional bit in
+//! User Register 18, but this is not supported through the HAL.
+//!
 
 use crate::rcc::backup::BackupREC;
 use crate::stm32::PWR;
@@ -78,15 +97,7 @@ impl PwrExt for PWR {
             rb: self,
             #[cfg(any(feature = "smps"))]
             supply_configuration: SupplyConfiguration::Default,
-            #[cfg(all(
-                feature = "revision_v",
-                any(
-                    feature = "rm0433",
-                    feature = "rm0399",
-                    feature = "rm0468"
-                )
-            ))]
-            enable_vos0: false,
+            target_vos: VoltageScale::Scale1,
             backup_regulator: false,
         }
     }
@@ -99,11 +110,7 @@ pub struct Pwr {
     pub(crate) rb: PWR,
     #[cfg(any(feature = "smps"))]
     supply_configuration: SupplyConfiguration,
-    #[cfg(all(
-        feature = "revision_v",
-        any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
-    ))]
-    enable_vos0: bool,
+    target_vos: VoltageScale,
     backup_regulator: bool,
 }
 
@@ -111,7 +118,7 @@ pub struct Pwr {
 ///
 /// Represents the voltage range feeding the CPU core. The maximum core
 /// clock frequency depends on this value.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum VoltageScale {
     /// VOS 0 range VCORE 1.26V - 1.40V
     Scale0,
@@ -163,6 +170,7 @@ macro_rules! supply_configuration_setter {
     ($($config:ident: $name:ident, $doc:expr,)*) => {
         $(
             #[doc=$doc]
+            #[must_use]
             pub fn $name(mut self) -> Self {
                 self.supply_configuration = SupplyConfiguration::$config;
                 self
@@ -207,6 +215,48 @@ macro_rules! d3cr {
     ($e:expr) => {
         $e.srdcr
     };
+}
+
+/// Returns the voltage scale at the current moment
+pub(crate) fn current_vos() -> VoltageScale {
+    // NOTE(unsafe): Read-only access
+    #[cfg(all(
+        feature = "revision_v",
+        any(feature = "rm0433", feature = "rm0399")
+    ))]
+    if unsafe { (*SYSCFG::ptr()).pwrcr.read().oden().bit_is_set() } {
+        return VoltageScale::Scale0;
+    }
+
+    // NOTE(unsafe): Read-only access
+    let d3cr = unsafe { d3cr!(*PWR::ptr()).read() };
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    match d3cr.vos().bits() {
+        // RM0433 Rev 7 6.8.6
+        0b01 => VoltageScale::Scale3,
+        0b10 => VoltageScale::Scale2,
+        0b11 => VoltageScale::Scale1,
+        _ => VoltageScale::Scale3,
+    }
+    #[cfg(feature = "rm0455")]
+    match d3cr.vos().bits() {
+        // RM0455 Rev 3 6.8.6
+        0b00 => VoltageScale::Scale3,
+        0b01 => VoltageScale::Scale2,
+        0b10 => VoltageScale::Scale1,
+        0b11 => VoltageScale::Scale0,
+        _ => unreachable!(),
+    }
+    #[cfg(feature = "rm0468")]
+    match d3cr.vos().bits() {
+        // RM0468 Rev 2 6.8.6
+        0b00 => VoltageScale::Scale0,
+        0b01 => VoltageScale::Scale3,
+        0b10 => VoltageScale::Scale2,
+        0b11 => VoltageScale::Scale1,
+        _ => unreachable!(),
+    }
 }
 
 /// Internal power methods
@@ -300,6 +350,16 @@ impl Pwr {
         });
         while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
     }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &PWR {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut PWR {
+        &mut self.rb
+    }
 }
 
 /// Builder methods
@@ -335,8 +395,27 @@ impl Pwr {
         feature = "revision_v",
         any(feature = "rm0433", feature = "rm0399", feature = "rm0468")
     ))]
+    #[must_use]
     pub fn vos0(mut self, _: &SYSCFG) -> Self {
-        self.enable_vos0 = true;
+        self.target_vos = VoltageScale::Scale0;
+        self
+    }
+    /// Configure Voltage Scale 1. This is the default configuration
+    #[must_use]
+    pub fn vos1(mut self) -> Self {
+        self.target_vos = VoltageScale::Scale1;
+        self
+    }
+    /// Configure Voltage Scale 2
+    #[must_use]
+    pub fn vos2(mut self) -> Self {
+        self.target_vos = VoltageScale::Scale2;
+        self
+    }
+    /// Configure Voltage Scale 3
+    #[must_use]
+    pub fn vos3(mut self) -> Self {
+        self.target_vos = VoltageScale::Scale3;
         self
     }
 
@@ -344,6 +423,7 @@ impl Pwr {
     ///
     /// The backup domain voltage regulator maintains the contents of backup SRAM
     /// in Standby and VBAT modes.
+    #[must_use]
     pub fn backup_regulator(mut self) -> Self {
         self.backup_regulator = true;
         self
@@ -405,11 +485,14 @@ impl Pwr {
 
         // We have now entered Run mode. See RM0433 Rev 7 Section 6.6.1
 
-        // go to VOS1 voltage scale for high performance
-        self.voltage_scaling_transition(VoltageScale::Scale1);
-
+        // Transition to configured voltage scale. VOS0 cannot be entered
+        // directly, instead transition to VOS1 initially and then VOS0 later
         #[allow(unused_mut)]
-        let mut vos = VoltageScale::Scale1;
+        let mut vos = match self.target_vos {
+            VoltageScale::Scale0 => VoltageScale::Scale1,
+            x => x,
+        };
+        self.voltage_scaling_transition(vos);
 
         // Enable overdrive for maximum clock
         // Syscfgen required to set enable overdrive
@@ -417,17 +500,12 @@ impl Pwr {
             feature = "revision_v",
             any(feature = "rm0433", feature = "rm0399")
         ))]
-        if self.enable_vos0 {
+        if matches!(self.target_vos, VoltageScale::Scale0) {
             unsafe {
                 &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
             };
-            #[cfg(any(feature = "smps"))]
             unsafe {
                 &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit())
-            };
-            #[cfg(not(any(feature = "smps")))]
-            unsafe {
-                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().bits(1))
             };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
@@ -435,7 +513,7 @@ impl Pwr {
 
         // RM0468 chips don't have the overdrive bit
         #[cfg(all(feature = "revision_v", feature = "rm0468"))]
-        if self.enable_vos0 {
+        if matches!(self.target_vos, VoltageScale::Scale0) {
             vos = VoltageScale::Scale0;
             self.voltage_scaling_transition(vos);
             // RM0468 section 6.8.6 says that before being able to use VOS0,

@@ -12,7 +12,7 @@ mod utilities;
 
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
-use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
+use stm32h7xx_hal::sdmmc::{SdCard, Sdmmc};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -33,18 +33,28 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .pll1_q_ck(100.mhz())
+        .sys_ck(200.MHz())
+        .pll1_q_ck(100.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
-
-    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-    gpiob.pb3.into_alternate_af0();
 
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
-    let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
 
-    let mut led = gpioi.pi12.into_push_pull_output();
+    // STM32H747I-DISCO development board
+    #[cfg(any(feature = "rm0399"))]
+    let mut led = {
+        let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
+
+        // Card detect pin
+        let _cd = gpioi.pi8.into_pull_up_input();
+
+        gpioi.pi12.into_push_pull_output()
+    };
+    #[cfg(not(feature = "rm0399"))]
+    let mut led = {
+        let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
+        gpioe.pe1.into_push_pull_output()
+    };
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
@@ -52,40 +62,37 @@ fn main() -> ! {
     // SDMMC pins
     let clk = gpioc
         .pc12
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(false)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let cmd = gpiod
         .pd2
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d0 = gpioc
         .pc8
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d1 = gpioc
         .pc9
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d2 = gpioc
         .pc10
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
+        .speed(Speed::VeryHigh);
     let d3 = gpioc
         .pc11
-        .into_alternate_af12()
+        .into_alternate()
         .internal_pull_up(true)
-        .set_speed(Speed::VeryHigh);
-
-    // Card detect pin
-    let _cd = gpioi.pi8.into_pull_up_input();
+        .speed(Speed::VeryHigh);
 
     // Create SDMMC
-    let mut sdmmc = dp.SDMMC1.sdmmc(
+    let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(
         (clk, cmd, d0, d1, d2, d3),
         ccdr.peripheral.SDMMC1,
         &ccdr.clocks,
@@ -94,11 +101,11 @@ fn main() -> ! {
     // On most development boards this can be increased up to 50MHz. We choose a
     // lower frequency here so that it should work even with flying leads
     // connected to a SD card breakout.
-    let bus_frequency = 2.mhz();
+    let bus_frequency = 2.MHz();
 
     // Loop until we have a card
     loop {
-        match sdmmc.init_card(bus_frequency) {
+        match sdmmc.init(bus_frequency) {
             Ok(_) => break,
             Err(err) => {
                 info!("Init err: {:?}", err);
@@ -108,7 +115,7 @@ fn main() -> ! {
         info!("Waiting for card...");
 
         delay.delay_ms(1000u32);
-        led.toggle().ok();
+        led.toggle();
     }
 
     // Print card information
@@ -149,13 +156,28 @@ fn main() -> ! {
     }
 
     let end = pac::DWT::cycle_count();
-    let duration = (end - start) as f32 / ccdr.clocks.c_ck().0 as f32;
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
 
-    info!("Read 100 blocks at {} bytes/s", 5120. / duration);
+    info!("Read 10 blocks at {} bytes/s", 5120. / duration);
     info!("");
 
-    // Write 10 blocks
     let write_buffer = [0x34; 512];
+    let start = pac::DWT::cycle_count();
+
+    for i in 0..10 {
+        if let Err(err) = sdmmc.write_block(i, &write_buffer) {
+            info!("Failed to write block {}: {:?}", i, err);
+        }
+    }
+
+    let end = pac::DWT::cycle_count();
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+
+    info!("Wrote 10 blocks at {} bytes/s", 5120. / duration);
+    info!("");
+
+    info!("Verification test...");
+    // Write 10 blocks
     for i in 0..10 {
         if let Err(err) = sdmmc.write_block(i, &write_buffer) {
             info!("Failed to write block {}: {:?}", i, err);
@@ -171,6 +193,8 @@ fn main() -> ! {
     for byte in buffer.iter() {
         assert_eq!(*byte, 0x34);
     }
+    info!("Verified 10 blocks");
+    info!("");
 
     info!("Done!");
 

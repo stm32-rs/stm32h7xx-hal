@@ -10,11 +10,8 @@
 #[macro_use]
 mod utilities;
 
-use core::mem::transmute;
-
 use cortex_m_rt::entry;
 use stm32h7xx_hal::gpio::Speed;
-use stm32h7xx_hal::hal::digital::v2::OutputPin;
 use stm32h7xx_hal::{
     pac, prelude::*, xspi::Qspi, xspi::QspiMode, xspi::QspiWord,
 };
@@ -44,7 +41,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
@@ -52,13 +49,13 @@ fn main() -> ! {
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
     // Even though it is not directly used, CS pin must be acquired and configured
-    let _qspi_cs = gpiog.pg6.into_alternate_af10().set_speed(Speed::VeryHigh);
+    let _qspi_cs = gpiog.pg6.into_alternate::<10>().speed(Speed::VeryHigh);
 
-    let sck = gpiof.pf10.into_alternate_af9().set_speed(Speed::VeryHigh);
-    let io0 = gpiof.pf8.into_alternate_af10().set_speed(Speed::VeryHigh);
-    let io1 = gpiof.pf9.into_alternate_af10().set_speed(Speed::VeryHigh);
-    let io2 = gpiof.pf7.into_alternate_af9().set_speed(Speed::VeryHigh);
-    let io3 = gpiof.pf6.into_alternate_af9().set_speed(Speed::VeryHigh);
+    let sck = gpiof.pf10.into_alternate().speed(Speed::VeryHigh);
+    let io0 = gpiof.pf8.into_alternate().speed(Speed::VeryHigh);
+    let io1 = gpiof.pf9.into_alternate().speed(Speed::VeryHigh);
+    let io2 = gpiof.pf7.into_alternate().speed(Speed::VeryHigh);
+    let io3 = gpiof.pf6.into_alternate().speed(Speed::VeryHigh);
 
     let mut led = gpioc.pc7.into_push_pull_output();
 
@@ -69,7 +66,7 @@ fn main() -> ! {
     // Initialise the QSPI peripheral
     let mut qspi = dp.QUADSPI.bank1(
         (sck, io0, io1, io2, io3),
-        3.mhz(),
+        3.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.QSPI,
     );
@@ -85,9 +82,9 @@ fn main() -> ! {
 
     // Based on the original value, enable or disable LED on the board
     if original % 2 == 0 {
-        led.set_low().unwrap();
+        led.set_low();
     } else {
-        led.set_high().unwrap();
+        led.set_high();
     }
 
     loop {
@@ -119,7 +116,7 @@ fn write_u32(qspi: &mut Qspi<pac::QUADSPI>, address: u32, value: u32) {
     .unwrap();
     wait_for_write_completition(qspi);
 
-    let bytes: [u8; 4] = unsafe { transmute(value.to_be()) };
+    let bytes: [u8; 4] = value.to_be_bytes();
     enable_write_operation(qspi);
     qspi.write_extended(
         QspiWord::U8(WRITE_CMD),

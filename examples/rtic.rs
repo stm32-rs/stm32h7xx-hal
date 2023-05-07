@@ -9,9 +9,8 @@ mod utilities;
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
     use stm32h7xx_hal::gpio::gpioc::{PC13, PC3};
-    use stm32h7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
+    use stm32h7xx_hal::gpio::{Edge, ExtiPin, Input};
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
     use stm32h7xx_hal::prelude::*;
 
     use super::*;
@@ -20,7 +19,7 @@ mod app {
     struct SharedResources {}
     #[local]
     struct LocalResources {
-        button: PC13<Input<Floating>>,
+        button: PC13<Input>,
         led: PC3<Output<PushPull>>,
     }
 
@@ -34,7 +33,7 @@ mod app {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
+        let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // GPIO
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
@@ -58,6 +57,6 @@ mod app {
     #[task(binds = EXTI15_10, local = [button, led])]
     fn button_click(ctx: button_click::Context) {
         ctx.local.button.clear_interrupt_pending_bit();
-        ctx.local.led.toggle().unwrap();
+        ctx.local.led.toggle();
     }
 }

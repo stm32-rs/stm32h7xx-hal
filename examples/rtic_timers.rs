@@ -11,9 +11,9 @@ mod utilities;
 mod app {
     use stm32h7xx_hal::gpio::gpioi::{PI12, PI13, PI14, PI15};
     use stm32h7xx_hal::gpio::{Output, PushPull};
-    use stm32h7xx_hal::hal::digital::v2::ToggleableOutputPin;
     use stm32h7xx_hal::prelude::*;
     use stm32h7xx_hal::stm32::{TIM1, TIM12, TIM17, TIM2};
+    use stm32h7xx_hal::time::MilliSeconds;
     use stm32h7xx_hal::timer::{Event, Timer};
 
     use super::*;
@@ -42,30 +42,32 @@ mod app {
 
         // RCC
         let rcc = ctx.device.RCC.constrain();
-        let ccdr = rcc.sys_ck(100.mhz()).freeze(pwrcfg, &ctx.device.SYSCFG);
+        let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Timers
-        let mut timer1 =
-            ctx.device
-                .TIM1
-                .timer(125.ms(), ccdr.peripheral.TIM1, &ccdr.clocks);
+        let mut timer1 = ctx.device.TIM1.timer(
+            MilliSeconds::from_ticks(125).into_rate(),
+            ccdr.peripheral.TIM1,
+            &ccdr.clocks,
+        );
         timer1.listen(Event::TimeOut);
 
-        let mut timer2 =
-            ctx.device
-                .TIM2
-                .timer(250.ms(), ccdr.peripheral.TIM2, &ccdr.clocks);
+        let mut timer2 = ctx.device.TIM2.timer(
+            MilliSeconds::from_ticks(250).into_rate(),
+            ccdr.peripheral.TIM2,
+            &ccdr.clocks,
+        );
         timer2.listen(Event::TimeOut);
 
         let mut timer3 = ctx.device.TIM12.timer(
-            500.ms(),
+            MilliSeconds::from_ticks(500).into_rate(),
             ccdr.peripheral.TIM12,
             &ccdr.clocks,
         );
         timer3.listen(Event::TimeOut);
 
         let mut timer4 = ctx.device.TIM17.timer(
-            1000.ms(),
+            MilliSeconds::from_ticks(1000).into_rate(),
             ccdr.peripheral.TIM17,
             &ccdr.clocks,
         );
@@ -93,24 +95,24 @@ mod app {
     #[task(binds = TIM1_UP, local = [led1, timer1])]
     fn timer1_tick(ctx: timer1_tick::Context) {
         ctx.local.timer1.clear_irq();
-        ctx.local.led1.toggle().unwrap();
+        ctx.local.led1.toggle();
     }
 
     #[task(binds = TIM2, local = [led2, timer2])]
     fn timer2_tick(ctx: timer2_tick::Context) {
         ctx.local.timer2.clear_irq();
-        ctx.local.led2.toggle().unwrap();
+        ctx.local.led2.toggle();
     }
 
     #[task(binds = TIM8_BRK_TIM12, local = [led3, timer3])]
     fn timer3_tick(ctx: timer3_tick::Context) {
         ctx.local.timer3.clear_irq();
-        ctx.local.led3.toggle().unwrap();
+        ctx.local.led3.toggle();
     }
 
     #[task(binds = TIM17, local = [led4, timer4])]
     fn timer4_tick(ctx: timer4_tick::Context) {
         ctx.local.timer4.clear_irq();
-        ctx.local.led4.toggle().unwrap();
+        ctx.local.led4.toggle();
     }
 }

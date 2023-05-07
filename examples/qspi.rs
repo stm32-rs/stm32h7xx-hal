@@ -21,7 +21,7 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(96.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(96.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIO peripherals. This also enables the clock for
     // the GPIOs in the RCC register.
@@ -30,13 +30,13 @@ fn main() -> ! {
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
     let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
 
-    let _qspi_cs = gpiog.pg6.into_alternate_af10();
+    let _qspi_cs = gpiog.pg6.into_alternate::<10>();
 
-    let sck = gpiob.pb2.into_alternate_af9();
-    let io0 = gpiod.pd11.into_alternate_af9();
-    let io1 = gpiod.pd12.into_alternate_af9();
-    let io2 = gpioe.pe2.into_alternate_af9();
-    let io3 = gpiod.pd13.into_alternate_af9();
+    let sck = gpiob.pb2.into_alternate();
+    let io0 = gpiod.pd11.into_alternate();
+    let io1 = gpiod.pd12.into_alternate();
+    let io2 = gpioe.pe2.into_alternate();
+    let io3 = gpiod.pd13.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - QSPI");
@@ -45,7 +45,7 @@ fn main() -> ! {
     // Initialise the QSPI peripheral.
     let mut qspi = dp.QUADSPI.bank1(
         (sck, io0, io1, io2, io3),
-        3.mhz(),
+        3.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.QSPI,
     );

@@ -25,7 +25,6 @@ static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
-    use embedded_hal::digital::v2::OutputPin;
     use hal::prelude::*;
     use stm32h7xx_hal as hal;
 
@@ -58,9 +57,9 @@ mod app {
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
         let ccdr = rcc
-            .sys_ck(200.mhz())
-            .hclk(200.mhz())
-            .pll1_q_ck(200.mhz())
+            .sys_ck(200.MHz())
+            .hclk(200.MHz())
+            .pll1_q_ck(200.MHz())
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
@@ -69,19 +68,19 @@ mod app {
         let spi = {
             let mosi = gpiob
                 .pb15
-                .into_alternate_af5()
-                .set_speed(hal::gpio::Speed::VeryHigh);
+                .into_alternate()
+                .speed(hal::gpio::Speed::VeryHigh);
             let sck = gpiob
                 .pb10
-                .into_alternate_af5()
-                .set_speed(hal::gpio::Speed::VeryHigh);
+                .into_alternate()
+                .speed(hal::gpio::Speed::VeryHigh);
             let config = hal::spi::Config::new(hal::spi::MODE_0)
                 .communication_mode(hal::spi::CommunicationMode::Transmitter);
 
             let spi: hal::spi::Spi<_, _, u8> = ctx.device.SPI2.spi(
                 (sck, hal::spi::NoMiso, mosi),
                 config,
-                3.mhz(),
+                3.MHz(),
                 ccdr.peripheral.SPI2,
                 &ccdr.clocks,
             );
@@ -92,8 +91,8 @@ mod app {
         let mut cs = gpiob
             .pb12
             .into_push_pull_output()
-            .set_speed(hal::gpio::Speed::VeryHigh);
-        cs.set_high().unwrap();
+            .speed(hal::gpio::Speed::VeryHigh);
+        cs.set_high();
 
         // Initialize our transmit buffer.
         let buffer: &'static mut [u8; BUFFER_SIZE] = {
@@ -149,7 +148,7 @@ mod app {
                 // At this point, the DMA transfer is done, but the data is still in the SPI output
                 // FIFO. Wait for it to complete before disabling CS.
                 while spi.inner().sr.read().txc().bit_is_clear() {}
-                cs.set_high().unwrap();
+                cs.set_high();
             });
         });
     }
@@ -160,7 +159,7 @@ mod app {
         (ctx.shared.transfer, ctx.shared.cs).lock(|transfer, cs| {
             transfer.start(|spi| {
                 // Set CS low for the transfer.
-                cs.set_low().unwrap();
+                cs.set_low();
 
                 // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
                 spi.enable_dma_tx();

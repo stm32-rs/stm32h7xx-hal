@@ -32,14 +32,14 @@ pub trait KerClk {
 impl KerClk for RNG {
     fn kernel_clk_unwrap(prec: rec::Rng, clocks: &CoreClocks) -> Hertz {
         match prec.get_kernel_clk_mux() {
-            RngClkSel::HSI48 => {
+            RngClkSel::Hsi48 => {
                 clocks.hsi48_ck().expect("RNG: HSI48 must be enabled")
             }
-            RngClkSel::PLL1_Q => {
+            RngClkSel::Pll1Q => {
                 clocks.pll1_q_ck().expect("RNG: PLL1_Q must be enabled")
             }
-            RngClkSel::LSE => unimplemented!(),
-            RngClkSel::LSI => {
+            RngClkSel::Lse => unimplemented!(),
+            RngClkSel::Lsi => {
                 clocks.lsi_ck().expect("RNG: LSI must be enabled")
             }
         }
@@ -59,7 +59,7 @@ impl RngExt for RNG {
 
         // Otherwise clock checker will always flag an error
         // See RM0433 Rev 6 Section 33.3.6
-        assert!(rng_clk.0 > hclk.0 / 32, "RNG: Clock too slow");
+        assert!(rng_clk > hclk / 32, "RNG: Clock too slow");
 
         self.cr.modify(|_, w| w.ced().enabled().rngen().enabled());
 
@@ -95,6 +95,16 @@ impl Rng {
 
     pub fn release(self) -> RNG {
         self.rb
+    }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &RNG {
+        &self.rb
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut RNG {
+        &mut self.rb
     }
 }
 
@@ -218,6 +228,7 @@ rng_core_large!(usize);
 
 // rand_core
 #[cfg(feature = "rand")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
 impl rand_core::RngCore for Rng {
     /// Generate a random u32
     /// Panics if RNG fails.
@@ -254,4 +265,5 @@ impl rand_core::RngCore for Rng {
 }
 
 #[cfg(feature = "rand")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
 impl rand_core::CryptoRng for Rng {}

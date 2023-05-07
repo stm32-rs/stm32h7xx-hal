@@ -52,7 +52,6 @@
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::hal::digital::v2::{InputPin, OutputPin};
 use stm32h7xx_hal::pwm::{FaultMonitor, Polarity};
 use stm32h7xx_hal::{pac, prelude::*};
 
@@ -71,7 +70,7 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(8.mhz()).hclk(4.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(8.MHz()).hclk(4.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOA-GPIOG peripherals. This also enables the clocks for
     // GPIOA-GPIOG in the RCC register.
@@ -97,28 +96,28 @@ fn main() -> ! {
         .TIM1
         .pwm_advanced(
             (
-                gpioe.pe14.into_alternate_af1(),
-                gpioe.pe11.into_alternate_af1(),
-                gpioe.pe9.into_alternate_af1(),
-                gpioe.pe13.into_alternate_af1(),
+                gpioe.pe14.into_alternate(),
+                gpioe.pe11.into_alternate(),
+                gpioe.pe9.into_alternate(),
+                gpioe.pe13.into_alternate(),
             ),
             ccdr.peripheral.TIM1,
             &ccdr.clocks,
         )
         .prescaler(39)
         .period(49_999)
-        .with_deadtime(1.ms())
-        .with_break_pin(gpioe.pe15.into_alternate_af1(), Polarity::ActiveLow)
+        .with_deadtime(1.millis())
+        .with_break_pin(gpioe.pe15.into_alternate(), Polarity::ActiveLow)
         .center_aligned();
 
     let (mut t1control, (t1c4, t1c2, t1c1, t1c3)) = t1builder.finalize();
 
-    let mut t1c1 = t1c1.into_complementary(gpioe.pe8.into_alternate_af1());
+    let mut t1c1 = t1c1.into_complementary(gpioe.pe8.into_alternate());
     let mut t1c2 = t1c2
-        .into_complementary(gpioe.pe10.into_alternate_af1())
+        .into_complementary(gpioe.pe10.into_alternate())
         .into_active_low();
     let mut t1c3 = t1c3
-        .into_complementary(gpioe.pe12.into_alternate_af1())
+        .into_complementary(gpioe.pe12.into_alternate())
         .into_comp_active_low();
     let mut t1c4 = t1c4.into_active_low();
 
@@ -139,10 +138,10 @@ fn main() -> ! {
         .TIM2
         .pwm_advanced(
             (
-                gpioa.pa1.into_alternate_af1(),
-                gpioa.pa0.into_alternate_af1(),
-                gpioa.pa2.into_alternate_af1(),
-                gpiob.pb11.into_alternate_af1(),
+                gpioa.pa1.into_alternate(),
+                gpioa.pa0.into_alternate(),
+                gpioa.pa2.into_alternate(),
+                gpiob.pb11.into_alternate(),
             ),
             ccdr.peripheral.TIM2,
             &ccdr.clocks,
@@ -170,14 +169,11 @@ fn main() -> ! {
     let (_t3control, (mut t3c3, mut t3c2)) = dp
         .TIM3
         .pwm_advanced(
-            (
-                gpiob.pb0.into_alternate_af2(),
-                gpiob.pb5.into_alternate_af2(),
-            ),
+            (gpiob.pb0.into_alternate(), gpiob.pb5.into_alternate()),
             ccdr.peripheral.TIM3,
             &ccdr.clocks,
         )
-        .frequency(1_000.hz())
+        .frequency(1_000.Hz())
         .center_aligned()
         .finalize();
 
@@ -193,11 +189,11 @@ fn main() -> ! {
     let (_t4control, t4c4) = dp
         .TIM4
         .pwm_advanced(
-            gpiod.pd15.into_alternate_af2(),
+            gpiod.pd15.into_alternate(),
             ccdr.peripheral.TIM4,
             &ccdr.clocks,
         )
-        .frequency(2.khz())
+        .frequency(2.kHz())
         .finalize();
 
     let mut t4c4 = t4c4.into_active_low();
@@ -212,11 +208,11 @@ fn main() -> ! {
     let t5builder = dp
         .TIM5
         .pwm_advanced(
-            gpioa.pa3.into_alternate_af2(),
+            gpioa.pa3.into_alternate(),
             ccdr.peripheral.TIM5,
             &ccdr.clocks,
         )
-        .frequency(2_500.hz())
+        .frequency(2_500.Hz())
         .center_aligned();
 
     let (_t5control, mut t5c4) = t5builder.finalize();
@@ -232,22 +228,22 @@ fn main() -> ! {
         .TIM8
         .pwm_advanced(
             (
-                gpioc.pc6.into_alternate_af3(),
-                gpioc.pc7.into_alternate_af3(),
-                gpioc.pc8.into_alternate_af3(),
-                gpioc.pc9.into_alternate_af3(),
+                gpioc.pc6.into_alternate(),
+                gpioc.pc7.into_alternate(),
+                gpioc.pc8.into_alternate(),
+                gpioc.pc9.into_alternate(),
             ),
             ccdr.peripheral.TIM8,
             &ccdr.clocks,
         )
-        .frequency(4.khz())
-        .with_deadtime(2.us())
-        .with_break_pin(gpiog.pg3.into_alternate_af3(), Polarity::ActiveHigh)
+        .frequency(4.kHz())
+        .with_deadtime(2.micros())
+        .with_break_pin(gpiog.pg3.into_alternate(), Polarity::ActiveHigh)
         .right_aligned()
         .finalize();
 
-    let mut t8c1 = t8c1.into_complementary(gpioa.pa5.into_alternate_af3());
-    let mut t8c3 = t8c3.into_complementary(gpiob.pb1.into_alternate_af3());
+    let mut t8c1 = t8c1.into_complementary(gpioa.pa5.into_alternate());
+    let mut t8c3 = t8c3.into_complementary(gpiob.pb1.into_alternate());
     let mut t8c4 = t8c4.into_active_low();
 
     // Output TIM8 PWM
@@ -264,11 +260,8 @@ fn main() -> ! {
 
     // Configure TIM12 PWM
     let (mut t12c2, t12c1) = dp.TIM12.pwm(
-        (
-            gpiob.pb15.into_alternate_af2(),
-            gpiob.pb14.into_alternate_af2(),
-        ),
-        5.khz(),
+        (gpiob.pb15.into_alternate(), gpiob.pb14.into_alternate()),
+        5.kHz(),
         ccdr.peripheral.TIM12,
         &ccdr.clocks,
     );
@@ -287,11 +280,11 @@ fn main() -> ! {
     let (_t13control, t13c1) = dp
         .TIM13
         .pwm_advanced(
-            gpiof.pf8.into_alternate_af9(),
+            gpiof.pf8.into_alternate(),
             ccdr.peripheral.TIM13,
             &ccdr.clocks,
         )
-        .frequency(6.khz())
+        .frequency(6.kHz())
         .finalize();
 
     let mut t13c1 = t13c1.into_active_low();
@@ -306,11 +299,11 @@ fn main() -> ! {
     let (_t14control, mut t14c1) = dp
         .TIM14
         .pwm_advanced(
-            gpioa.pa7.into_alternate_af9(),
+            gpioa.pa7.into_alternate(),
             ccdr.peripheral.TIM14,
             &ccdr.clocks,
         )
-        .frequency(7000.hz())
+        .frequency(7000.Hz())
         .finalize();
 
     // Output TIM14 PWM
@@ -323,20 +316,17 @@ fn main() -> ! {
     let (mut t15control, (t15c1, mut t15c2)) = dp
         .TIM15
         .pwm_advanced(
-            (
-                gpioe.pe5.into_alternate_af4(),
-                gpioe.pe6.into_alternate_af4(),
-            ),
+            (gpioe.pe5.into_alternate(), gpioe.pe6.into_alternate()),
             ccdr.peripheral.TIM15,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
-        .with_break_pin(gpioe.pe3.into_alternate_af4(), Polarity::ActiveLow)
+        .frequency(500.kHz())
+        .with_break_pin(gpioe.pe3.into_alternate(), Polarity::ActiveLow)
         .left_aligned()
         .finalize();
 
     let mut t15c1 = t15c1
-        .into_complementary(gpioe.pe4.into_alternate_af4())
+        .into_complementary(gpioe.pe4.into_alternate())
         .into_active_low()
         .into_comp_active_low();
 
@@ -352,12 +342,12 @@ fn main() -> ! {
     let (mut t16control, t16c1) = dp
         .TIM16
         .pwm_advanced(
-            gpiof.pf6.into_alternate_af1(),
+            gpiof.pf6.into_alternate(),
             ccdr.peripheral.TIM16,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
-        .with_break_pin(gpiof.pf10.into_alternate_af1(), Polarity::ActiveHigh)
+        .frequency(500.kHz())
+        .with_break_pin(gpiof.pf10.into_alternate(), Polarity::ActiveHigh)
         .finalize();
 
     let mut t16c1 = t16c1.into_active_low();
@@ -372,15 +362,15 @@ fn main() -> ! {
     let (_t17control, t17c1) = dp
         .TIM17
         .pwm_advanced(
-            gpiof.pf7.into_alternate_af1(),
+            gpiof.pf7.into_alternate(),
             ccdr.peripheral.TIM17,
             &ccdr.clocks,
         )
-        .frequency(500.khz())
-        .with_deadtime(250.ns())
+        .frequency(500.kHz())
+        .with_deadtime(250.nanos())
         .finalize();
 
-    let mut t17c1 = t17c1.into_complementary(gpiof.pf9.into_alternate_af1());
+    let mut t17c1 = t17c1.into_complementary(gpiof.pf9.into_alternate());
 
     // Output TIM16 PWM
     let period = t17c1.get_max_duty();
@@ -395,13 +385,13 @@ fn main() -> ! {
     loop {
         if t1control.is_fault_active() {
             // Fault is active, turn on LED
-            ld2.set_high().unwrap();
+            ld2.set_high();
         } else {
             // Fault is not active
-            ld2.set_low().unwrap();
+            ld2.set_low();
         }
 
-        if button.is_high().unwrap() {
+        if button.is_high() {
             t1control.clear_fault();
             t8control.clear_fault();
             t15control.clear_fault();

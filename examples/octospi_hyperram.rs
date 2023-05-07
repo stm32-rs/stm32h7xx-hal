@@ -29,13 +29,13 @@ fn main() -> ! {
 
     // Constrain and Freeze clock
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(320.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(320.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
-    assert_eq!(ccdr.clocks.hclk().0, 160_000_000);
+    assert_eq!(ccdr.clocks.hclk().raw(), 160_000_000);
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
-        OctospiClkSel::RCC_HCLK3
+        OctospiClkSel::RccHclk3
     );
 
     // Acquire the GPIO peripherals. This also enables the clock for
@@ -44,62 +44,62 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
 
-    let _tracweswo = gpiob.pb3.into_alternate_af0();
+    let _tracweswo = gpiob.pb3.into_alternate::<0>();
 
     let _ncs = gpiog
         .pg12
-        .into_alternate_af3()
-        .set_speed(High)
+        .into_alternate::<3>()
+        .speed(High)
         .internal_pull_up(true);
     let _dqs = gpiof
         .pf12
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _clk = gpiof
         .pf4
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io0 = gpiof
         .pf0
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io1 = gpiof
         .pf1
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io2 = gpiof
         .pf2
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io3 = gpiof
         .pf3
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io4 = gpiog
         .pg0
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io5 = gpiog
         .pg1
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
     let _io6 = gpiog
         .pg10
-        .into_alternate_af3()
-        .set_speed(High)
+        .into_alternate::<3>()
+        .speed(High)
         .internal_pull_up(true);
     let _io7 = gpiog
         .pg11
-        .into_alternate_af9()
-        .set_speed(High)
+        .into_alternate::<9>()
+        .speed(High)
         .internal_pull_up(true);
 
     info!("");
@@ -109,9 +109,9 @@ fn main() -> ! {
     // Initialise a HyperRAM on the OCTOSPI2 peripheral
     let ram_slice = unsafe {
         let hyperram_size = 16 * 1024 * 1024; // 16 MByte
-        let config = HyperbusConfig::new(80.mhz())
+        let config = HyperbusConfig::new(80.MHz())
             .device_size_bytes(24) // 16 Mbyte
-            .refresh_interval(4.us())
+            .refresh_interval(4.micros())
             .read_write_recovery(4) // 50ns
             .access_initial_latency(6);
 

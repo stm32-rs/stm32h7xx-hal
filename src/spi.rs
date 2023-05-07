@@ -14,7 +14,7 @@
 //! let dp = ...;                   // Device peripherals
 //! let (sck, miso, mosi) = ...;    // GPIO pins
 //!
-//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, miso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! The GPIO pins should be supplied as a
@@ -28,7 +28,7 @@
 //! filler types instead:
 //!
 //! ```
-//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let spi = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Word Sizes
@@ -40,7 +40,7 @@
 //!
 //! For example, an explict type annotation:
 //! ```
-//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.mhz(), ccdr.peripheral.SPI1, &ccdr.clocks);
+//! let _: spi:Spi<_, _, u8> = dp.SPI1.spi((sck, spi::NoMiso, mosi), spi::MODE_0, 1.MHz(), ccdr.peripheral.SPI1, &ccdr.clocks);
 //! ```
 //!
 //! ## Clocks
@@ -55,7 +55,10 @@
 //! # Examples
 //!
 //! - [Blocking SPI](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi.rs)
-//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs).
+//! - [SPI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma.rs)
+//! - [SPI with DMA (RTIC framework)](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi-dma-rtic.rs)
+//! - [SPI with Hardware Chip Select](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi_hardware_cs.rs)
+//! - [SPI with Frame Transactions](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/spi_send_frames.rs)
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
@@ -63,23 +66,7 @@ use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
 
-use crate::gpio::gpioa::{PA11, PA12, PA15, PA4, PA5, PA6, PA7, PA9};
-use crate::gpio::gpiob::{
-    PB10, PB12, PB13, PB14, PB15, PB2, PB3, PB4, PB5, PB9,
-};
-use crate::gpio::gpioc::{PC1, PC10, PC11, PC12, PC2, PC3};
-use crate::gpio::gpiod::{PD3, PD6, PD7};
-use crate::gpio::gpioe::{PE11, PE12, PE13, PE14, PE2, PE4, PE5, PE6};
-use crate::gpio::gpiof::{PF11, PF6, PF7, PF8, PF9};
-use crate::gpio::gpiog::{PG10, PG11, PG12, PG13, PG14, PG8, PG9};
-use crate::gpio::gpioh::{PH5, PH6, PH7};
-#[cfg(not(feature = "rm0468"))]
-use crate::gpio::gpioi::{PI0, PI1, PI2, PI3};
-#[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpioj::{PJ10, PJ11};
-#[cfg(not(feature = "stm32h7b0"))]
-use crate::gpio::gpiok::{PK0, PK1};
-use crate::gpio::{Alternate, AF5, AF6, AF7, AF8};
+use crate::gpio::{self, Alternate};
 use crate::hal;
 use crate::hal::spi::FullDuplex;
 pub use crate::hal::spi::{
@@ -114,6 +101,10 @@ pub enum Error {
     TransactionAlreadyStarted,
     /// A buffer is too big to be processed
     BufferTooBig { max_size: usize },
+    /// Duplex operation failed. This occours when a word was sent, but no
+    /// corresponding word was received. May be caused by hardware issues where
+    /// the SPI master fails to receive its own clock on the CLK pin
+    DuplexFailed,
 }
 
 /// Enabled SPI peripheral (type state)
@@ -211,6 +202,7 @@ impl Config {
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
     /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
+    #[must_use]
     pub fn swap_mosi_miso(mut self) -> Self {
         self.swap_miso_mosi = true;
         self
@@ -220,6 +212,7 @@ impl Config {
     ///
     /// This also affects the way data is sent using [HardwareCSMode].
     /// By default the hardware cs is disabled.
+    #[must_use]
     pub fn hardware_cs(mut self, hardware_cs: HardwareCS) -> Self {
         self.hardware_cs = hardware_cs;
         self
@@ -229,12 +222,14 @@ impl Config {
     ///
     /// Note:
     /// * This value is converted to a number of spi peripheral clock ticks and at most 15 of those.
+    #[must_use]
     pub fn inter_word_delay(mut self, inter_word_delay: f32) -> Self {
         self.inter_word_delay = inter_word_delay;
         self
     }
 
     /// Select the communication mode of the SPI bus.
+    #[must_use]
     pub fn communication_mode(mut self, mode: CommunicationMode) -> Self {
         self.communication_mode = mode;
         self
@@ -343,161 +338,181 @@ pins! {
     SPI1:
         SCK: [
             NoSck,
-            PA5<Alternate<AF5>>,
-            PB3<Alternate<AF5>>,
-            PG11<Alternate<AF5>>
+            gpio::PA5<Alternate<5>>,
+            gpio::PB3<Alternate<5>>,
+            gpio::PG11<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PA6<Alternate<AF5>>,
-            PB4<Alternate<AF5>>,
-            PG9<Alternate<AF5>>
+            gpio::PA6<Alternate<5>>,
+            gpio::PB4<Alternate<5>>,
+            gpio::PG9<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PA7<Alternate<AF5>>,
-            PB5<Alternate<AF5>>,
-            PD7<Alternate<AF5>>
+            gpio::PA7<Alternate<5>>,
+            gpio::PB5<Alternate<5>>,
+            gpio::PD7<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF5>>,
-            PA15<Alternate<AF5>>,
-            PG10<Alternate<AF5>>
+            gpio::PA4<Alternate<5>>,
+            gpio::PA15<Alternate<5>>,
+            gpio::PG10<Alternate<5>>
         ]
     SPI2:
         SCK: [
             NoSck,
-            PA9<Alternate<AF5>>,
-            PA12<Alternate<AF5>>,
-            PB10<Alternate<AF5>>,
-            PB13<Alternate<AF5>>,
-            PD3<Alternate<AF5>>,
+            gpio::PA9<Alternate<5>>,
+            gpio::PA12<Alternate<5>>,
+            gpio::PB10<Alternate<5>>,
+            gpio::PB13<Alternate<5>>,
+            gpio::PD3<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI1<Alternate<AF5>>
+            gpio::PI1<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PB14<Alternate<AF5>>,
-            PC2<Alternate<AF5>>,
+            gpio::PB14<Alternate<5>>,
+            gpio::PC2<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI2<Alternate<AF5>>
+            gpio::PI2<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PB15<Alternate<AF5>>,
-            PC1<Alternate<AF5>>,
-            PC3<Alternate<AF5>>,
+            gpio::PB15<Alternate<5>>,
+            gpio::PC1<Alternate<5>>,
+            gpio::PC3<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI3<Alternate<AF5>>
+            gpio::PI3<Alternate<5>>
         ]
         HCS: [
-            PA11<Alternate<AF5>>,
-            PB4<Alternate<AF7>>,
-            PB9<Alternate<AF5>>,
-            PB12<Alternate<AF5>>,
+            gpio::PA11<Alternate<5>>,
+            gpio::PB4<Alternate<7>>,
+            gpio::PB9<Alternate<5>>,
+            gpio::PB12<Alternate<5>>,
             #[cfg(not(feature = "rm0468"))]
-            PI0<Alternate<AF5>>
+            gpio::PI0<Alternate<5>>
         ]
     SPI3:
         SCK: [
             NoSck,
-            PB3<Alternate<AF6>>,
-            PC10<Alternate<AF6>>
+            gpio::PB3<Alternate<6>>,
+            gpio::PC10<Alternate<6>>
         ]
         MISO: [
             NoMiso,
-            PB4<Alternate<AF6>>,
-            PC11<Alternate<AF6>>
+            gpio::PB4<Alternate<6>>,
+            gpio::PC11<Alternate<6>>
         ]
         MOSI: [
             NoMosi,
-            PB2<Alternate<AF7>>,
-            PB5<Alternate<AF7>>,
-            PC12<Alternate<AF6>>,
-            PD6<Alternate<AF5>>
+            gpio::PB2<Alternate<7>>,
+            gpio::PB5<Alternate<7>>,
+            gpio::PC12<Alternate<6>>,
+            gpio::PD6<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF6>>,
-            PA15<Alternate<AF6>>
+            gpio::PA4<Alternate<6>>,
+            gpio::PA15<Alternate<6>>
         ]
     SPI4:
         SCK: [
             NoSck,
-            PE2<Alternate<AF5>>,
-            PE12<Alternate<AF5>>
+            gpio::PE2<Alternate<5>>,
+            gpio::PE12<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PE5<Alternate<AF5>>,
-            PE13<Alternate<AF5>>
+            gpio::PE5<Alternate<5>>,
+            gpio::PE13<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PE6<Alternate<AF5>>,
-            PE14<Alternate<AF5>>
+            gpio::PE6<Alternate<5>>,
+            gpio::PE14<Alternate<5>>
         ]
         HCS: [
-            PE4<Alternate<AF5>>,
-            PE11<Alternate<AF5>>
+            gpio::PE4<Alternate<5>>,
+            gpio::PE11<Alternate<5>>
         ]
     SPI5:
         SCK: [
             NoSck,
-            PF7<Alternate<AF5>>,
-            PH6<Alternate<AF5>>,
+            gpio::PF7<Alternate<5>>,
+            gpio::PH6<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK0<Alternate<AF5>>
+            gpio::PK0<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PF8<Alternate<AF5>>,
-            PH7<Alternate<AF5>>,
+            gpio::PF8<Alternate<5>>,
+            gpio::PH7<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ11<Alternate<AF5>>
+            gpio::PJ11<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PF9<Alternate<AF5>>,
-            PF11<Alternate<AF5>>,
+            gpio::PF9<Alternate<5>>,
+            gpio::PF11<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PJ10<Alternate<AF5>>
+            gpio::PJ10<Alternate<5>>
         ]
         HCS: [
-            PF6<Alternate<AF5>>,
-            PH5<Alternate<AF5>>,
+            gpio::PF6<Alternate<5>>,
+            gpio::PH5<Alternate<5>>,
             #[cfg(not(feature = "stm32h7b0"))]
-            PK1<Alternate<AF5>>
+            gpio::PK1<Alternate<5>>
         ]
     SPI6:
         SCK: [
             NoSck,
-            PA5<Alternate<AF8>>,
-            PB3<Alternate<AF8>>,
+            gpio::PA5<Alternate<8>>,
+            gpio::PB3<Alternate<8>>,
             #[cfg(feature = "rm0455")]
-            PC12<Alternate<AF5>>,
-            PG13<Alternate<AF5>>
+            gpio::PC12<Alternate<5>>,
+            gpio::PG13<Alternate<5>>
         ]
         MISO: [
             NoMiso,
-            PA6<Alternate<AF8>>,
-            PB4<Alternate<AF8>>,
-            PG12<Alternate<AF5>>
+            gpio::PA6<Alternate<8>>,
+            gpio::PB4<Alternate<8>>,
+            gpio::PG12<Alternate<5>>
         ]
         MOSI: [
             NoMosi,
-            PA7<Alternate<AF8>>,
-            PB5<Alternate<AF8>>,
-            PG14<Alternate<AF5>>
+            gpio::PA7<Alternate<8>>,
+            gpio::PB5<Alternate<8>>,
+            gpio::PG14<Alternate<5>>
         ]
         HCS: [
-            PA4<Alternate<AF8>>,
-            PA15<Alternate<AF7>>,
-            PG8<Alternate<AF5>>
+            gpio::PA4<Alternate<8>>,
+            gpio::PA15<Alternate<7>>,
+            gpio::PG8<Alternate<5>>
         ]
 }
 
+macro_rules! check_status_error {
+    ($spi:expr; $(  {$flag:ident, $variant:ident, $blk:block}  ),*) => {{
+        let sr = $spi.sr.read();
+
+        return Err(if sr.ovr().is_overrun() {
+            nb::Error::Other(Error::Overrun)
+        } else if sr.modf().is_fault() {
+            nb::Error::Other(Error::ModeFault)
+        } else if sr.crce().is_error() {
+            nb::Error::Other(Error::Crc)
+        }
+            $(
+                else if sr.$flag().$variant() { $blk }
+            )*
+        else {
+            nb::Error::WouldBlock
+        })
+    }}
+}
+
 /// Interrupt events
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Event {
     /// New data has been received
     Rxp,
@@ -518,28 +533,26 @@ pub struct Spi<SPI, ED, WORD = u8> {
 pub trait SpiExt<SPI, WORD>: Sized {
     type Rec: ResetEnable;
 
-    fn spi<PINS, T, CONFIG>(
+    fn spi<PINS, CONFIG>(
         self,
         _pins: PINS,
         config: CONFIG,
-        freq: T,
+        freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
         PINS: Pins<SPI>,
-        T: Into<Hertz>,
         CONFIG: Into<Config>;
 
-    fn spi_unchecked<T, CONFIG>(
+    fn spi_unchecked<CONFIG>(
         self,
         config: CONFIG,
-        freq: T,
+        freq: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Spi<SPI, Enabled, WORD>
     where
-        T: Into<Hertz>,
         CONFIG: Into<Config>;
 }
 
@@ -683,37 +696,35 @@ macro_rules! spi {
             $(
 
                 impl Spi<$SPIX, Enabled, $TY> {
-                    fn $spiX<T, CONFIG>(
+                    fn $spiX<CONFIG>(
                         spi: $SPIX,
                         config: CONFIG,
-                        freq: T,
+                        freq: Hertz,
                         prec: rec::$Rec,
                         clocks: &CoreClocks,
                     ) -> Self
                     where
-                        T: Into<Hertz>,
                         CONFIG: Into<Config>,
                     {
                         // Enable clock for SPI
-                        prec.enable();
+                        let _ = prec.enable(); // drop, can be recreated by free method
 
                         // Disable SS output
                         spi.cfg2.write(|w| w.ssoe().disabled());
 
                         let config: Config = config.into();
 
-                        let spi_freq = freq.into().0;
-	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).0;
-                        let mbr = match spi_ker_ck / spi_freq {
-                            0 => unreachable!(),
-                            1..=2 => MBR::DIV2,
-                            3..=5 => MBR::DIV4,
-                            6..=11 => MBR::DIV8,
-                            12..=23 => MBR::DIV16,
-                            24..=47 => MBR::DIV32,
-                            48..=95 => MBR::DIV64,
-                            96..=191 => MBR::DIV128,
-                            _ => MBR::DIV256,
+                        let spi_freq = freq.raw();
+	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).raw();
+                        let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
+                            1..=2 => MBR::Div2,
+                            3..=4 => MBR::Div4,
+                            5..=8 => MBR::Div8,
+                            9..=16 => MBR::Div16,
+                            17..=32 => MBR::Div32,
+                            33..=64 => MBR::Div64,
+                            65..=128 => MBR::Div128,
+                            _ => MBR::Div256,
                         };
                         spi.cfg1.modify(|_, w| {
                             w.mbr()
@@ -751,14 +762,14 @@ macro_rules! spi {
                         // The calculated cycle delay may not be more than 4 bits wide for the
                         // configuration register.
                         let communication_mode = match config.communication_mode {
-                            CommunicationMode::Transmitter => COMM::TRANSMITTER,
-                            CommunicationMode::Receiver => COMM::RECEIVER,
-                            CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
+                            CommunicationMode::Transmitter => COMM::Transmitter,
+                            CommunicationMode::Receiver => COMM::Receiver,
+                            CommunicationMode::FullDuplex => COMM::FullDuplex,
                         };
 
                         let cs_polarity = match config.hardware_cs.polarity() {
-                            Polarity::IdleHigh => SSIOP::ACTIVELOW,
-                            Polarity::IdleLow => SSIOP::ACTIVEHIGH,
+                            Polarity::IdleHigh => SSIOP::ActiveLow,
+                            Polarity::IdleLow => SSIOP::ActiveHigh,
                         };
 
                         // mstr: master configuration
@@ -916,7 +927,7 @@ macro_rules! spi {
                     type Word = $TY;
                     type Spi = $SPIX;
 
-                    /// Returns a mutable reference to the inner peripheral
+                    /// Returns a reference to the inner peripheral
                     fn inner(&self) -> &Self::Spi {
                         &self.spi
                     }
@@ -1016,15 +1027,14 @@ macro_rules! spi {
                 impl SpiExt<$SPIX, $TY> for $SPIX {
                     type Rec = rec::$Rec;
 
-	                fn spi<PINS, T, CONFIG>(self,
+	                fn spi<PINS, CONFIG>(self,
                                     _pins: PINS,
                                     config: CONFIG,
-                                    freq: T,
+                                    freq: Hertz,
                                     prec: rec::$Rec,
                                     clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
 	                    PINS: Pins<$SPIX>,
-	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
                         let config = config.into();
@@ -1036,13 +1046,12 @@ macro_rules! spi {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
 	                }
 
-	                fn spi_unchecked<T, CONFIG>(self,
+	                fn spi_unchecked<CONFIG>(self,
                                         config: CONFIG,
-                                        freq: T,
+                                        freq: Hertz,
                                         prec: rec::$Rec,
                                         clocks: &CoreClocks) -> Spi<$SPIX, Enabled, $TY>
 	                where
-	                    T: Into<Hertz>,
                         CONFIG: Into<Config>,
 	                {
 	                    Spi::<$SPIX, Enabled, $TY>::$spiX(self, config, freq, prec, clocks)
@@ -1053,70 +1062,120 @@ macro_rules! spi {
                     type Error = Error;
 
                     fn read(&mut self) -> nb::Result<$TY, Error> {
-                        let sr = self.spi.sr.read();
-
-                        Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.rxp().is_not_empty() {
-                            // NOTE(read_volatile) read only 1 byte (the
-                            // svd2rust API only allows reading a
-                            // half-word)
-                            return Ok(unsafe {
-                                ptr::read_volatile(
-                                    &self.spi.rxdr as *const _ as *const $TY,
-                                )
-                            });
-                        } else {
-                            nb::Error::WouldBlock
+                        check_status_error!(self.spi;
+                        {    // } else if sr.rxp().is_not_empty() {
+                            rxp, is_not_empty,
+                            {
+                                // NOTE(read_volatile) read only 1 word
+                                return Ok(unsafe {
+                                    ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    )
+                                });
+                            }
                         })
                     }
 
-                    fn send(&mut self, byte: $TY) -> nb::Result<(), Error> {
-                        let sr = self.spi.sr.read();
+                    fn send(&mut self, word: $TY) -> nb::Result<(), Error> {
+                        check_status_error!(self.spi;
+                        {    // } else if sr.txp().is_not_full() {
+                            txp, is_not_full,
+                            {
+                                // NOTE(write_volatile) see note above
+                                unsafe {
+                                    ptr::write_volatile(
+                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        word,
+                                    )
+                                }
+                                // write CSTART to start a transaction in
+                                // master mode
+                                self.spi.cr1.modify(|_, w| w.cstart().started());
 
-                        Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.txp().is_not_full() {
-                            // NOTE(write_volatile) see note above
-                            unsafe {
-                                ptr::write_volatile(
-                                    &self.spi.txdr as *const _ as *mut $TY,
-                                    byte,
-                                )
+                                return Ok(());
                             }
-                            // write CSTART to start a transaction in
-                            // master mode
-                            self.spi.cr1.modify(|_, w| w.cstart().started());
-
-                            return Ok(());
-                        } else {
-                            nb::Error::WouldBlock
                         })
                     }
                 }
 
                 impl Spi<$SPIX, Enabled, $TY>
                 {
-                    /// Internal implementation for blocking::spi::Transfer and
-                    /// blocking::spi::Write
-                    fn transfer_internal<'w>(&mut self,
+                    /// Internal implementation for exchanging a word
+                    ///
+                    /// * Assumes the transaction has started (CSTART handled externally)
+                    /// * Assumes at least one word has already been written to the Tx FIFO
+                    #[inline(always)]
+                    fn exchange_duplex_internal(&mut self, word: $TY) -> nb::Result<$TY, Error> {
+                        check_status_error!(self.spi;
+                        {    // else if sr.dxp().is_available() {
+                            dxp, is_available,
+                            {
+                                // NOTE(write_volatile/read_volatile) write/read only 1 word
+                                unsafe {
+                                    ptr::write_volatile(
+                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        word,
+                                    );
+                                    return Ok(ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    ));
+                                }
+                            }
+                        }, { // else if sr.txc().is_completed() {
+                            txc, is_completed,
+                            {
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
+                            }
+                        })
+                    }
+                    /// Internal implementation for reading a word
+                    ///
+                    /// * Assumes the transaction has started (CSTART handled externally)
+                    /// * Assumes at least one word has already been written to the Tx FIFO
+                    #[inline(always)]
+                    fn read_duplex_internal(&mut self) -> nb::Result<$TY, Error> {
+                        check_status_error!(self.spi;
+                        {    // else if sr.rxp().is_not_empty()
+                            rxp, is_not_empty,
+                            {
+                                // NOTE(read_volatile) read only 1 word
+                                return Ok(unsafe {
+                                    ptr::read_volatile(
+                                        &self.spi.rxdr as *const _ as *const $TY,
+                                    )
+                                });
+                            }
+                        }, { // else if sr.txc().is_completed()
+                            txc, is_completed,
+                            {
+                                let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+
+                                if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+                                    // The Tx FIFO completed, but no words were
+                                    // available in the Rx FIFO. This is a duplex failure
+                                    nb::Error::Other(Error::DuplexFailed)
+                                } else {
+                                    nb::Error::WouldBlock
+                                }
+                            }
+                        })
+                    }
+
+                    /// Internal implementation for blocking::spi::Write
+                    fn transfer_internal_w<'w>(&mut self,
                                              write_words: &'w [$TY],
-                                             read_words: Option<&'w mut [$TY]>
                     ) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         // both buffers are the same length
-                        if let Some(ref read) = read_words {
-                            debug_assert!(write_words.len() == read.len());
-                        }
                         if write_words.is_empty() {
                             return Ok(());
                         }
@@ -1139,7 +1198,7 @@ macro_rules! spi {
 
                         // Depth of FIFO to use. All current SPI implementations
                         // have a FIFO depth of at least 8 (see RM0433 Rev 7
-                        // Tabel 409.) but pick 4 as a conservative value.
+                        // Table 409.) but pick 4 as a conservative value.
                         const FIFO_WORDS: usize = 4;
 
                         // Fill the first half of the write FIFO
@@ -1149,29 +1208,75 @@ macro_rules! spi {
                             nb::block!(self.send(*write.next().unwrap()))?;
                         }
 
-                        if let Some(read) = read_words {
-                            let mut read = read.iter_mut();
+                        // Continue filling write FIFO and emptying read FIFO
+                        for word in write {
+                            let _ = nb::block!(
+                                self.exchange_duplex_internal(*word)
+                            )?;
+                        }
 
-                            // Continue filling write FIFO and emptying read FIFO
-                            for word in write {
-                                nb::block!(self.send(*word))?;
-                                *read.next().unwrap() = nb::block!(self.read())?;
+                        // Dummy read from the read FIFO
+                        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                            let _ = nb::block!(self.read_duplex_internal())?;
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            // Clean up
+                            self.end_transaction()?;
+                        }
+
+                        Ok(())
+                    }
+
+                    /// Internal implementation for blocking::spi::Transfer
+                    fn transfer_internal_rw<'w>(&mut self,
+                        words : &'w mut [$TY]
+                    ) -> Result<(), Error> {
+                        use hal::spi::FullDuplex;
+
+                        if words.is_empty() {
+                            return Ok(());
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            const MAX_WORDS: usize = 0xFFFF;
+
+                            // Can we send
+                            if words.len() > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
                             }
 
-                            // Finish emptying the read FIFO
-                            for word in read {
-                                *word = nb::block!(self.read())?;
-                            }
-                        } else {
-                            // Continue filling write FIFO and emptying read FIFO
-                            for word in write {
-                                nb::block!(self.send(*word))?;
-                                let _ = nb::block!(self.read())?;
-                            }
+                            // Setup that we're going to send this amount of bits
+                            // SAFETY: We already checked that `write_words` is not empty
+                            self.setup_transaction(unsafe {
+                                core::num::NonZeroU16::new_unchecked(words.len() as u16)
+                            })?;
+                        }
 
-                            // Dummy read from the read FIFO
-                            for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-                                let _ = nb::block!(self.read())?;
+                        // Depth of FIFO to use. All current SPI implementations
+                        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+                        // Table 409.) but pick 4 as a conservative value.
+                        const FIFO_WORDS: usize = 4;
+
+                        // Fill the first half of the write FIFO
+                        let len = words.len();
+                        for i in 0..core::cmp::min(FIFO_WORDS, len) {
+                            nb::block!(self.send(words[i]))?;
+                        }
+
+                        for i in FIFO_WORDS..len+FIFO_WORDS {
+                            if i < len {
+                                // Continue filling write FIFO and emptying read FIFO
+                                let read_value = nb::block!(
+                                    self.exchange_duplex_internal(words[i])
+                                )?;
+
+                                words[i - FIFO_WORDS] = read_value;
+                            } else {
+                                // Finish emptying the read FIFO
+                                words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
                             }
                         }
 
@@ -1184,16 +1289,13 @@ macro_rules! spi {
                         Ok(())
                     }
                 }
+
                 impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-                        // SAFETY: transfer_internal always writes out bytes
-                        // before modifying them
-                        let write = unsafe {
-                            core::slice::from_raw_parts(words.as_ptr(), words.len())
-                        };
-                        self.transfer_internal(write, Some(words))?;
+
+                        self.transfer_internal_rw(words)?;
 
                         Ok(words)
                     }
@@ -1202,7 +1304,7 @@ macro_rules! spi {
                     type Error = Error;
 
                     fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
-                        self.transfer_internal(words, None)
+                        self.transfer_internal_w(words)
                     }
                 }
             )+
@@ -1223,12 +1325,12 @@ macro_rules! spi123sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi123sel().variant() {
-                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => clocks.pll1_q_ck(),
-                        Some(ccip1r::SPI123SEL_A::PLL2_P) => clocks.pll2_p_ck(),
-                        Some(ccip1r::SPI123SEL_A::PLL3_P) => clocks.pll3_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll1Q) => clocks.pll1_q_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll2P) => clocks.pll2_p_ck(),
+                        Some(ccip1r::SPI123SEL_A::Pll3P) => clocks.pll3_p_ck(),
                         // Need a method of specifying pin clock
-                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Some(ccip1r::SPI123SEL_A::PER) => clocks.per_ck(),
+                        Some(ccip1r::SPI123SEL_A::I2sCkin) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::Per) => clocks.per_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1245,18 +1347,18 @@ macro_rules! spi123sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi123sel().variant() {
-                        Some(ccip1r::SPI123SEL_A::PLL1_Q) => {
+                        Some(ccip1r::SPI123SEL_A::Pll1Q) => {
                             clocks.pll1_q_ck().expect("SPI123: PLL1_Q must be enabled")
                         }
-                        Some(ccip1r::SPI123SEL_A::PLL2_P) => {
+                        Some(ccip1r::SPI123SEL_A::Pll2P) => {
                             clocks.pll2_p_ck().expect("SPI123: PLL2_P must be enabled")
                         }
-                        Some(ccip1r::SPI123SEL_A::PLL3_P) => {
+                        Some(ccip1r::SPI123SEL_A::Pll3P) => {
                             clocks.pll3_p_ck().expect("SPI123: PLL3_P must be enabled")
                         }
                         // Need a method of specifying pin clock
-                        Some(ccip1r::SPI123SEL_A::I2S_CKIN) => unimplemented!(),
-                        Some(ccip1r::SPI123SEL_A::PER) => {
+                        Some(ccip1r::SPI123SEL_A::I2sCkin) => unimplemented!(),
+                        Some(ccip1r::SPI123SEL_A::Per) => {
                             clocks.per_ck().expect("SPI123: PER clock must be enabled")
                         }
                         _ => unreachable!(),
@@ -1279,12 +1381,12 @@ macro_rules! spi45sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi45sel().variant() {
-                        Some(ccip1r::SPI45SEL_A::APB) => Some(clocks.pclk2()),
-                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Some(ccip1r::SPI45SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Some(ccip1r::SPI45SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Some(ccip1r::SPI45SEL_A::HSE) => clocks.hse_ck(),
+                        Some(ccip1r::SPI45SEL_A::Apb) => Some(clocks.pclk2()),
+                        Some(ccip1r::SPI45SEL_A::Pll2Q) => clocks.pll2_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::Pll3Q) => clocks.pll3_q_ck(),
+                        Some(ccip1r::SPI45SEL_A::HsiKer) => clocks.hsi_ck(),
+                        Some(ccip1r::SPI45SEL_A::CsiKer) => clocks.csi_ck(),
+                        Some(ccip1r::SPI45SEL_A::Hse) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1301,20 +1403,20 @@ macro_rules! spi45sel {
                     let ccip1r = unsafe { (*stm32::RCC::ptr()).cdccip1r.read() };
 
                     match ccip1r.spi45sel().variant() {
-                        Some(ccip1r::SPI45SEL_A::APB) => clocks.pclk2(),
-                        Some(ccip1r::SPI45SEL_A::PLL2_Q) => {
+                        Some(ccip1r::SPI45SEL_A::Apb) => clocks.pclk2(),
+                        Some(ccip1r::SPI45SEL_A::Pll2Q) => {
                             clocks.pll2_q_ck().expect("SPI45: PLL2_Q must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::PLL3_Q) => {
+                        Some(ccip1r::SPI45SEL_A::Pll3Q) => {
                             clocks.pll3_q_ck().expect("SPI45: PLL3_Q must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::HSI_KER) => {
+                        Some(ccip1r::SPI45SEL_A::HsiKer) => {
                             clocks.hsi_ck().expect("SPI45: HSI clock must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::CSI_KER) => {
+                        Some(ccip1r::SPI45SEL_A::CsiKer) => {
                             clocks.csi_ck().expect("SPI45: CSI clock must be enabled")
                         }
-                        Some(ccip1r::SPI45SEL_A::HSE) => {
+                        Some(ccip1r::SPI45SEL_A::Hse) => {
                             clocks.hse_ck().expect("SPI45: HSE clock must be enabled")
                         }
                         _ => unreachable!(),
@@ -1337,12 +1439,12 @@ macro_rules! spi6sel {
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
                     match srdccipr.spi6sel().variant() {
-                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => Some(clocks.pclk4()),
-                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => clocks.pll2_q_ck(),
-                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => clocks.pll3_q_ck(),
-                        Some(srdccipr::SPI6SEL_A::HSI_KER) => clocks.hsi_ck(),
-                        Some(srdccipr::SPI6SEL_A::CSI_KER) => clocks.csi_ck(),
-                        Some(srdccipr::SPI6SEL_A::HSE) => clocks.hse_ck(),
+                        Some(srdccipr::SPI6SEL_A::RccPclk4) => Some(clocks.pclk4()),
+                        Some(srdccipr::SPI6SEL_A::Pll2Q) => clocks.pll2_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::Pll3Q) => clocks.pll3_q_ck(),
+                        Some(srdccipr::SPI6SEL_A::HsiKer) => clocks.hsi_ck(),
+                        Some(srdccipr::SPI6SEL_A::CsiKer) => clocks.csi_ck(),
+                        Some(srdccipr::SPI6SEL_A::Hse) => clocks.hse_ck(),
                         _ => unreachable!(),
                     }
                 }
@@ -1355,20 +1457,20 @@ macro_rules! spi6sel {
                     let srdccipr = unsafe { (*stm32::RCC::ptr()).srdccipr.read() };
 
                     match srdccipr.spi6sel().variant() {
-                        Some(srdccipr::SPI6SEL_A::RCC_PCLK4) => clocks.pclk4(),
-                        Some(srdccipr::SPI6SEL_A::PLL2_Q) => {
+                        Some(srdccipr::SPI6SEL_A::RccPclk4) => clocks.pclk4(),
+                        Some(srdccipr::SPI6SEL_A::Pll2Q) => {
                             clocks.pll2_q_ck().expect("SPI6: PLL2_Q must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::PLL3_Q) => {
+                        Some(srdccipr::SPI6SEL_A::Pll3Q) => {
                             clocks.pll3_q_ck().expect("SPI6: PLL3_Q must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::HSI_KER) => {
+                        Some(srdccipr::SPI6SEL_A::HsiKer) => {
                             clocks.hsi_ck().expect("SPI6: HSI clock must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::CSI_KER) => {
+                        Some(srdccipr::SPI6SEL_A::CsiKer) => {
                             clocks.csi_ck().expect("SPI6: CSI clock must be enabled")
                         }
-                        Some(srdccipr::SPI6SEL_A::HSE) => {
+                        Some(srdccipr::SPI6SEL_A::Hse) => {
                             clocks.hse_ck().expect("SPI6: HSE clock must be enabled")
                         }
                         _ => unreachable!(),

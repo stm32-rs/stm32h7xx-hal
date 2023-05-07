@@ -1,4 +1,13 @@
 //! CDC-ACM serial port example using polling in a busy loop
+//!
+//! Tested with a NUCLEO-H723ZG
+//!
+//! This example uses the USB1 peripheral. On parts that have multiple USB
+//! OTG_HS peripherals the USB1 D+/D- pins are located on PB14 and PB15. If your
+//! development board uses PA11 and PA12 instead, you should adapt the example
+//! to use the USB2 peripheral together with PA11 and PA12. This applies to the
+//! NUCLEO-H743ZI2 board.
+//!
 #![no_std]
 #![no_main]
 
@@ -26,11 +35,11 @@ fn main() -> ! {
 
     // RCC
     let rcc = dp.RCC.constrain();
-    let mut ccdr = rcc.sys_ck(80.mhz()).freeze(vos, &dp.SYSCFG);
+    let mut ccdr = rcc.sys_ck(80.MHz()).freeze(vos, &dp.SYSCFG);
 
     // 48MHz CLOCK
     let _ = ccdr.clocks.hsi48_ck().expect("HSI48 must run");
-    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::HSI48);
+    ccdr.peripheral.kernel_usb_clk_mux(UsbClkSel::Hsi48);
 
     // If your hardware uses the internal USB voltage regulator in ON mode, you
     // should uncomment this block.
@@ -44,19 +53,13 @@ fn main() -> ! {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     let (pin_dm, pin_dp) = {
         let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
-        (
-            gpiob.pb14.into_alternate_af12(),
-            gpiob.pb15.into_alternate_af12(),
-        )
+        (gpiob.pb14.into_alternate(), gpiob.pb15.into_alternate())
     };
 
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     let (pin_dm, pin_dp) = {
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
-        (
-            gpioa.pa11.into_alternate_af10(),
-            gpioa.pa12.into_alternate_af10(),
-        )
+        (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
     };
 
     let usb = USB1::new(

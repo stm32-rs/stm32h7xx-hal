@@ -25,17 +25,17 @@ fn main() -> ! {
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(96.mhz())
-        .pll1_q_ck(48.mhz())
+        .sys_ck(96.MHz())
+        .pll1_q_ck(48.MHz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let sck = gpioc.pc10.into_alternate_af6();
-    let miso = gpioc.pc11.into_alternate_af6();
-    let mosi = gpioc.pc12.into_alternate_af6();
+    let sck = gpioc.pc10.into_alternate();
+    let miso = gpioc.pc11.into_alternate();
+    let mosi = gpioc.pc12.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - SPI");
@@ -45,7 +45,7 @@ fn main() -> ! {
     let mut spi = dp.SPI3.spi(
         (sck, miso, mosi),
         spi::MODE_0,
-        3.mhz(),
+        3.MHz(),
         ccdr.peripheral.SPI3,
         &ccdr.clocks,
     );

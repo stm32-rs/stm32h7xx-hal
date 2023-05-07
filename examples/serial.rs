@@ -1,3 +1,6 @@
+//! Creates a 19200 baud USART on pins PC10 and PC11. It prints "Hello, world!"
+//! and then echos any received bytes
+
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -26,14 +29,14 @@ fn main() -> ! {
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(160.mhz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(160.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOC peripheral. This also enables the clock for
     // GPIOC in the RCC register.
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    let tx = gpioc.pc10.into_alternate_af7();
-    let rx = gpioc.pc11.into_alternate_af7();
+    let tx = gpioc.pc10.into_alternate();
+    let rx = gpioc.pc11.into_alternate();
 
     info!("");
     info!("stm32h7xx-hal example - USART");
