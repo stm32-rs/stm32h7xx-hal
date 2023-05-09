@@ -237,6 +237,10 @@ name = "sdmmc_fat"
 required-features = ["sdmmc", "sdmmc-fatfs"]
 
 [[example]]
+name = "spi-dma"
+required-features = ["rm0433"]
+
+[[example]]
 name = "spi-dma-rtic"
 required-features = ["rt"]
 

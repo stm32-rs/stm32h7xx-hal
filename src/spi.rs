@@ -343,14 +343,11 @@ pub enum Event {
 }
 
 pub trait Instance:
-    crate::Sealed + core::ops::Deref<Target = pac::spi1::RegisterBlock>
+    crate::Sealed
+    + core::ops::Deref<Target = pac::spi1::RegisterBlock>
+    + gpio::alt::SpiCommon
 {
     type Rec: ResetEnable;
-
-    type Sck;
-    type Miso;
-    type Mosi;
-    type Nss;
 
     /// Returns the frequency of the current kernel clock
     fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz>;
@@ -1194,16 +1191,11 @@ impl<SPI: Instance, WORD> Spi<SPI, Enabled, WORD> {
 }
 
 macro_rules! spi123sel {
-	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
                 type Rec = rec::$Rec;
-
-                type Sck = gpio::alt::$spiX::Sck;
-                type Miso = gpio::alt::$spiX::Miso;
-                type Mosi = gpio::alt::$spiX::Mosi;
-                type Nss = gpio::alt::$spiX::Nss;
 
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
@@ -1250,16 +1242,11 @@ macro_rules! spi123sel {
     }
 }
 macro_rules! spi45sel {
-	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
                 type Rec = rec::$Rec;
-
-                type Sck = gpio::alt::$spiX::Sck;
-                type Miso = gpio::alt::$spiX::Miso;
-                type Mosi = gpio::alt::$spiX::Mosi;
-                type Nss = gpio::alt::$spiX::Nss;
 
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
@@ -1308,16 +1295,11 @@ macro_rules! spi45sel {
     }
 }
 macro_rules! spi6sel {
-	($($SPIX:ty: ($spiX:ident, $Rec:ident),)+) => {
+	($($SPIX:ty: ($Rec:ident),)+) => {
 	    $(
             impl crate::Sealed for $SPIX { }
             impl Instance for $SPIX {
                 type Rec = rec::$Rec;
-
-                type Sck = gpio::alt::$spiX::Sck;
-                type Miso = gpio::alt::$spiX::Miso;
-                type Mosi = gpio::alt::$spiX::Mosi;
-                type Nss = gpio::alt::$spiX::Nss;
 
                 fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz> {
                     #[cfg(not(feature = "rm0455"))]
@@ -1367,14 +1349,14 @@ macro_rules! spi6sel {
 }
 
 spi123sel! {
-    pac::SPI1: (spi1, Spi1),
-    pac::SPI2: (spi2, Spi2),
-    pac::SPI3: (spi3, Spi3),
+    pac::SPI1: (Spi1),
+    pac::SPI2: (Spi2),
+    pac::SPI3: (Spi3),
 }
 spi45sel! {
-    pac::SPI4: (spi4, Spi4),
-    pac::SPI5: (spi5, Spi5),
+    pac::SPI4: (Spi4),
+    pac::SPI5: (Spi5),
 }
 spi6sel! {
-    pac::SPI6: (spi6, Spi6),
+    pac::SPI6: (Spi6),
 }

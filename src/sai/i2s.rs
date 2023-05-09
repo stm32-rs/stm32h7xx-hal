@@ -9,6 +9,7 @@ use crate::rcc::CoreClocks;
 use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};
 use crate::stm32;
 use crate::time::Hertz;
+use gpio::alt::{SaiChannel as Sc, SaiChannels};
 
 use crate::device::sai1::ch::sr;
 type CH = stm32::sai1::CH;
@@ -105,16 +106,11 @@ pub trait I2SPinsChB<SAI> {
 }
 
 pub trait I2sInstance:
-    crate::Sealed + core::ops::Deref<Target = pac::sai1::RegisterBlock> + GetClkSAI
+    crate::Sealed
+    + core::ops::Deref<Target = pac::sai1::RegisterBlock>
+    + GetClkSAI
+    + SaiChannels
 {
-    type MclkA;
-    type MclkB;
-    type SckA;
-    type SckB;
-    type FsA;
-    type FsB;
-    type SdA;
-    type SdB;
 }
 
 /// Trait for valid combination of SAIxA pins
@@ -122,14 +118,19 @@ impl<SAI, MCLK, SCK, FS, SD1, SD2> I2SPinsChA<SAI>
     for (MCLK, SCK, FS, SD1, Option<SD2>)
 where
     SAI: I2sInstance,
-    MCLK: Into<SAI::MclkA>,
-    SCK: Into<SAI::SckA>,
-    FS: Into<SAI::FsA>,
-    SD1: Into<SAI::SdA>,
-    SD2: Into<SAI::SdB>,
+    MCLK: Into<<SAI::A as Sc>::Mclk>,
+    SCK: Into<<SAI::A as Sc>::Sck>,
+    FS: Into<<SAI::A as Sc>::Fs>,
+    SD1: Into<<SAI::A as Sc>::Sd>,
+    SD2: Into<<SAI::B as Sc>::Sd>,
 {
-    type AltPins =
-        (SAI::MclkA, SAI::SckA, SAI::FsA, SAI::SdA, Option<SAI::SdB>);
+    type AltPins = (
+        <SAI::A as Sc>::Mclk,
+        <SAI::A as Sc>::Sck,
+        <SAI::A as Sc>::Fs,
+        <SAI::A as Sc>::Sd,
+        Option<<SAI::B as Sc>::Sd>,
+    );
     fn convert(self) -> Self::AltPins {
         (
             self.0.into(),
@@ -146,14 +147,19 @@ impl<SAI, MCLK, SCK, FS, SD1, SD2> I2SPinsChB<SAI>
     for (MCLK, SCK, FS, SD1, Option<SD2>)
 where
     SAI: I2sInstance,
-    MCLK: Into<SAI::MclkB>,
-    SCK: Into<SAI::SckB>,
-    FS: Into<SAI::FsB>,
-    SD1: Into<SAI::SdB>,
-    SD2: Into<SAI::SdA>,
+    MCLK: Into<<SAI::B as Sc>::Mclk>,
+    SCK: Into<<SAI::B as Sc>::Sck>,
+    FS: Into<<SAI::B as Sc>::Fs>,
+    SD1: Into<<SAI::B as Sc>::Sd>,
+    SD2: Into<<SAI::A as Sc>::Sd>,
 {
-    type AltPins =
-        (SAI::MclkB, SAI::SckB, SAI::FsB, SAI::SdB, Option<SAI::SdA>);
+    type AltPins = (
+        <SAI::B as Sc>::Mclk,
+        <SAI::B as Sc>::Sck,
+        <SAI::B as Sc>::Fs,
+        <SAI::B as Sc>::Sd,
+        Option<<SAI::A as Sc>::Sd>,
+    );
     fn convert(self) -> Self::AltPins {
         (
             self.0.into(),
@@ -588,39 +594,30 @@ impl<SAI: I2sInstance> FullDuplex<u32> for Sai<SAI, I2S> {
 }
 
 macro_rules! i2s {
-    ( $($SAIX:ty, $sai:ident;)+ ) => {
+    ( $($SAIX:ty;)+ ) => {
         $(
             impl crate::Sealed for $SAIX { }
-            impl I2sInstance for $SAIX {
-                type MclkA = gpio::alt::$sai::MclkA;
-                type MclkB = gpio::alt::$sai::MclkB;
-                type SckA = gpio::alt::$sai::SckA;
-                type SckB = gpio::alt::$sai::SckB;
-                type FsA = gpio::alt::$sai::FsA;
-                type FsB = gpio::alt::$sai::FsB;
-                type SdA = gpio::alt::$sai::SdA;
-                type SdB = gpio::alt::$sai::SdB;
-            }
+            impl I2sInstance for $SAIX { }
         )+
     }
 }
 
 i2s! {
-    pac::SAI1, sai1;
+    pac::SAI1;
 }
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 i2s! {
-    pac::SAI2, sai2;
-    pac::SAI3, sai3;
-    pac::SAI4, sai4;
+    pac::SAI2;
+    pac::SAI3;
+    pac::SAI4;
 }
 #[cfg(feature = "rm0455")]
 i2s! {
-    pac::SAI2, sai2;
+    pac::SAI2;
 }
 #[cfg(feature = "rm0468")]
 i2s! {
-    pac::SAI4, sai4;
+    pac::SAI4;
 }
 
 fn i2s_config_channel(

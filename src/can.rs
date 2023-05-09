@@ -55,10 +55,7 @@ impl<FDCAN> Can<FDCAN> {
     }
 }
 
-pub trait Instance: crate::Sealed {
-    type Tx;
-    type Rx;
-}
+pub trait Instance: crate::Sealed + crate::gpio::alt::CanCommon {}
 
 /// Extension trait for CAN controller
 pub trait CanExt: Sized + Instance
@@ -151,14 +148,10 @@ macro_rules! message_ram_layout {
 
 mod fdcan1 {
     use super::{rec, Can, CanExt, ResetEnable};
-    use crate::gpio;
     use crate::stm32::FDCAN1;
 
     impl crate::Sealed for FDCAN1 {}
-    impl super::Instance for FDCAN1 {
-        type Tx = gpio::alt::fdcan1::Tx;
-        type Rx = gpio::alt::fdcan1::Rx;
-    }
+    impl super::Instance for FDCAN1 {}
 
     impl Can<FDCAN1> {
         pub fn fdcan1(
@@ -194,14 +187,10 @@ mod fdcan1 {
 
 mod fdcan2 {
     use super::{rec, Can, CanExt, ResetEnable};
-    use crate::gpio;
     use crate::stm32::FDCAN2;
 
     impl crate::Sealed for FDCAN2 {}
-    impl super::Instance for FDCAN2 {
-        type Tx = gpio::alt::fdcan2::Tx;
-        type Rx = gpio::alt::fdcan2::Rx;
-    }
+    impl super::Instance for FDCAN2 {}
 
     impl Can<FDCAN2> {
         pub fn fdcan2(

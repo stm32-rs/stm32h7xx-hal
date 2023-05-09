@@ -22,6 +22,7 @@ use pac::usart1::cr2::{
 use pac::usart1::cr3::HDSEL_A;
 
 use crate::gpio;
+use crate::gpio::PushPull;
 use crate::pac;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 #[cfg(feature = "rm0455")]
@@ -288,11 +289,11 @@ pub trait Pins<USART> {
 
 impl<USART, TX, RX> Pins<USART> for (TX, RX)
 where
-    USART: AsyncPins,
-    TX: Into<USART::Tx>,
-    RX: Into<USART::Rx>,
+    USART: SerialAsync,
+    TX: Into<USART::Tx<PushPull>>,
+    RX: Into<USART::Rx<PushPull>>,
 {
-    type AltPins = (USART::Tx, USART::Rx);
+    type AltPins = (USART::Tx<PushPull>, USART::Rx<PushPull>);
     fn convert(self) -> Self::AltPins {
         (self.0.into(), self.1.into())
     }
@@ -300,13 +301,13 @@ where
 
 impl<USART, TX, RX, CK> Pins<USART> for (TX, RX, CK)
 where
-    USART: AsyncPins + SyncPins,
-    TX: Into<USART::Tx>,
-    RX: Into<USART::Rx>,
+    USART: SerialAsync + SerialSync,
+    TX: Into<USART::Tx<PushPull>>,
+    RX: Into<USART::Rx<PushPull>>,
     CK: Into<USART::Ck>,
 {
     const SYNCHRONOUS: bool = true;
-    type AltPins = (USART::Tx, USART::Rx, USART::Ck);
+    type AltPins = (USART::Tx<PushPull>, USART::Rx<PushPull>, USART::Ck);
     fn convert(self) -> Self::AltPins {
         (self.0.into(), self.1.into(), self.2.into())
     }
@@ -319,17 +320,12 @@ pub use gpio::NoPin as NoRx;
 /// A filler type for when the Ck pin is unnecessary
 pub use gpio::NoPin as NoCk;
 
-pub trait AsyncPins: crate::Sealed {
-    type Tx;
-    type Rx;
-}
-
-pub trait SyncPins: crate::Sealed {
-    type Ck;
-}
+use gpio::alt::{SerialAsync, SerialSync};
 
 pub trait UartInstance:
-    crate::Sealed + core::ops::Deref<Target = pac::uart4::RegisterBlock> + AsyncPins
+    crate::Sealed
+    + core::ops::Deref<Target = pac::uart4::RegisterBlock>
+    + SerialAsync
 {
     /// Returns the frequency of the current kernel clock
     fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz>;
@@ -346,8 +342,8 @@ pub trait UartInstance:
 pub trait UsartInstance:
     crate::Sealed
     + core::ops::Deref<Target = pac::usart1::RegisterBlock>
-    + AsyncPins
-    + SyncPins
+    + SerialAsync
+    + SerialSync
 {
     /// Returns the frequency of the current kernel clock
     fn kernel_clk(clocks: &CoreClocks) -> Option<Hertz>;
@@ -1013,15 +1009,6 @@ macro_rules! usart_sel {
      $($USARTX:ty: $Instance:ident, $usartX:ident, $doc:expr $(, $Ck:ident)?;)+) => {
 	    $(
             impl crate::Sealed for $USARTX {}
-            impl AsyncPins for $USARTX {
-                type Tx = gpio::alt::$usartX::Tx;
-                type Rx = gpio::alt::$usartX::Rx;
-            }
-            $(
-                impl SyncPins for $USARTX {
-                    type $Ck = gpio::alt::$usartX::$Ck;
-                }
-            )?
             impl $Instance for $USARTX {
                 /// Returns the frequency of the current kernel clock for
                 #[doc=$doc]

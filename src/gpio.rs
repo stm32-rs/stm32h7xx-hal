@@ -84,9 +84,14 @@ pub use embedded_hal::digital::v2::PinState;
 use core::fmt;
 
 /// A filler pin type
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct NoPin;
+pub struct NoPin<Otype = PushPull>(PhantomData<Otype>);
+impl<Otype> NoPin<Otype> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
 
 /// Extension trait to split a GPIO peripheral into independent pins and
 /// registers
@@ -160,6 +165,8 @@ pub enum Pull {
 }
 
 /// Open drain input or output (type state)
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct OpenDrain;
 
 /// Output mode (type state)
@@ -168,6 +175,8 @@ pub struct Output<MODE = PushPull> {
 }
 
 /// Push pull output (type state)
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PushPull;
 
 /// Analog mode (type state)
@@ -310,6 +319,38 @@ impl<const P: char, const N: u8, MODE> PinExt for Pin<P, N, MODE> {
     }
 }
 
+pub trait PinSpeed: Sized {
+    /// Set pin speed
+    fn set_speed(&mut self, speed: Speed);
+
+    #[inline(always)]
+    fn speed(mut self, speed: Speed) -> Self {
+        self.set_speed(speed);
+        self
+    }
+}
+
+pub trait PinPull: Sized {
+    /// Set the internal pull-up and pull-down resistor
+    fn set_internal_resistor(&mut self, resistor: Pull);
+
+    #[inline(always)]
+    fn internal_resistor(mut self, resistor: Pull) -> Self {
+        self.set_internal_resistor(resistor);
+        self
+    }
+}
+
+impl<const P: char, const N: u8, MODE> PinSpeed for Pin<P, N, MODE>
+where
+    MODE: marker::OutputSpeed,
+{
+    #[inline(always)]
+    fn set_speed(&mut self, speed: Speed) {
+        self.set_speed(speed)
+    }
+}
+
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
     MODE: marker::OutputSpeed,
@@ -331,6 +372,16 @@ where
     pub fn speed(mut self, speed: Speed) -> Self {
         self.set_speed(speed);
         self
+    }
+}
+
+impl<const P: char, const N: u8, MODE> PinPull for Pin<P, N, MODE>
+where
+    MODE: marker::Active,
+{
+    #[inline(always)]
+    fn set_internal_resistor(&mut self, resistor: Pull) {
+        self.set_internal_resistor(resistor)
     }
 }
 
@@ -500,6 +551,24 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
         } else {
             self.set_low()
         }
+    }
+}
+
+pub trait ReadPin {
+    #[inline(always)]
+    fn is_high(&self) -> bool {
+        !self.is_low()
+    }
+    fn is_low(&self) -> bool;
+}
+
+impl<const P: char, const N: u8, MODE> ReadPin for Pin<P, N, MODE>
+where
+    MODE: marker::Readable,
+{
+    #[inline(always)]
+    fn is_low(&self) -> bool {
+        self.is_low()
     }
 }
 

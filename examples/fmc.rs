@@ -15,20 +15,19 @@ mod utilities;
 extern crate cortex_m;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::Speed;
+use stm32h7xx_hal::gpio::{alt::fmc as alt, Speed};
 use stm32h7xx_hal::{pac, prelude::*};
 
 use stm32_fmc::devices::is42s32800g_6;
 
 /// Configre a pin for the FMC controller
 macro_rules! fmc_pins {
-    ($($pin:expr),*) => {
+    ($($alt:ty: $pin:expr),*) => {
         (
             $(
-                $pin.into_push_pull_output()
+                <$alt>::from($pin.into_alternate()
                     .speed(Speed::VeryHigh)
-                    .into_alternate::<12>()
-                    .internal_pull_up(true)
+                    .internal_pull_up(true))
             ),*
         )
     };
@@ -156,28 +155,40 @@ fn main() -> ! {
     // Initialise SDRAM...
     let sdram_pins = fmc_pins! {
         // A0-A11
-        gpiof.pf0, gpiof.pf1, gpiof.pf2, gpiof.pf3,
-        gpiof.pf4, gpiof.pf5, gpiof.pf12, gpiof.pf13,
-        gpiof.pf14, gpiof.pf15, gpiog.pg0, gpiog.pg1,
+        alt::A0: gpiof.pf0,  alt::A1: gpiof.pf1,
+        alt::A2: gpiof.pf2,  alt::A3: gpiof.pf3,
+        alt::A4: gpiof.pf4,  alt::A5: gpiof.pf5,
+        alt::A6: gpiof.pf12, alt::A7: gpiof.pf13,
+        alt::A8: gpiof.pf14, alt::A9: gpiof.pf15,
+        alt::A10: gpiog.pg0, alt::A11: gpiog.pg1,
         // BA0-BA1
-        gpiog.pg4, gpiog.pg5,
+        alt::Ba0: gpiog.pg4, alt::Ba1: gpiog.pg5,
         // D0-D31
-        gpiod.pd14, gpiod.pd15, gpiod.pd0, gpiod.pd1,
-        gpioe.pe7, gpioe.pe8, gpioe.pe9, gpioe.pe10,
-        gpioe.pe11, gpioe.pe12, gpioe.pe13, gpioe.pe14,
-        gpioe.pe15, gpiod.pd8, gpiod.pd9, gpiod.pd10,
-        gpioh.ph8, gpioh.ph9, gpioh.ph10, gpioh.ph11,
-        gpioh.ph12, gpioh.ph13, gpioh.ph14, gpioh.ph15,
-        gpioi.pi0, gpioi.pi1, gpioi.pi2, gpioi.pi3,
-        gpioi.pi6, gpioi.pi7, gpioi.pi9, gpioi.pi10,
+        alt::D0: gpiod.pd14,  alt::D1: gpiod.pd15,
+        alt::D2: gpiod.pd0,   alt::D3: gpiod.pd1,
+        alt::D4: gpioe.pe7,   alt::D5: gpioe.pe8,
+        alt::D6: gpioe.pe9,   alt::D7: gpioe.pe10,
+        alt::D8: gpioe.pe11,  alt::D9: gpioe.pe12,
+        alt::D10: gpioe.pe13, alt::D11: gpioe.pe14,
+        alt::D12: gpioe.pe15, alt::D13: gpiod.pd8,
+        alt::D14: gpiod.pd9,  alt::D15: gpiod.pd10,
+        alt::D16: gpioh.ph8,  alt::D17: gpioh.ph9,
+        alt::D18: gpioh.ph10, alt::D19: gpioh.ph11,
+        alt::D20: gpioh.ph12, alt::D21: gpioh.ph13,
+        alt::D22: gpioh.ph14, alt::D23: gpioh.ph15,
+        alt::D24: gpioi.pi0,  alt::D25: gpioi.pi1,
+        alt::D26: gpioi.pi2,  alt::D27: gpioi.pi3,
+        alt::D28: gpioi.pi6,  alt::D29: gpioi.pi7,
+        alt::D30: gpioi.pi9,  alt::D31: gpioi.pi10,
         // NBL0 - NBL3
-        gpioe.pe0, gpioe.pe1, gpioi.pi4, gpioi.pi5,
-        gpioh.ph7,              // SDCKE1
-        gpiog.pg8,              // SDCLK
-        gpiog.pg15,             // SDNCAS
-        gpioh.ph6,              // SDNE1 (!CS)
-        gpiof.pf11,             // SDRAS
-        gpioh.ph5               // SDNWE
+        alt::Nbl0: gpioe.pe0, alt::Nbl1: gpioe.pe1,
+        alt::Nbl2: gpioi.pi4, alt::Nbl3: gpioi.pi5,
+        alt::Sdcke1: gpioh.ph7,
+        alt::Sdclk: gpiog.pg8,
+        alt::Sdncas: gpiog.pg15,
+        alt::Sdne1: gpioh.ph6,
+        alt::Sdnras: gpiof.pf11,             // SDRAS
+        alt::Sdnwe: gpioh.ph5               // SDNWE
     };
 
     let mut sdram = dp.FMC.sdram(

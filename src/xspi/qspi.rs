@@ -3,91 +3,87 @@
 //! See the parent module for documentation
 
 use crate::{
-    gpio::{self, alt::quadspi as alt, Alternate},
+    gpio::{
+        self, alt::quadspi as alt, alt::QuadSpiBank as QB, PinSpeed, Speed,
+    },
     rcc::{rec, CoreClocks, ResetEnable},
     stm32,
 };
+use alt::{Bank1, Bank2};
 
 use super::{Bank, Config, Qspi, SamplingEdge};
+
+pub trait SingleBank {
+    const BANK: Bank;
+}
+
+impl SingleBank for Bank1 {
+    const BANK: Bank = Bank::One;
+}
+
+impl SingleBank for Bank2 {
+    const BANK: Bank = Bank::Two;
+}
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
 pub use gpio::NoPin as NoIo;
 
-/// Indicates a set of pins can be used for the QSPI interface on bank 1.
-pub trait PinsBank1 {
-    type AltPins;
-    fn convert(self) -> Self::AltPins;
-}
-
-/// Indicates a set of pins can be used for the QSPI interface on bank 2.
-pub trait PinsBank2 {
-    type AltPins;
-    fn convert(self) -> Self::AltPins;
-}
-
-impl<SCK, IO0, IO1, IO2, IO3> PinsBank1 for (SCK, IO0, IO1, IO2, IO3)
-where
-    SCK: Into<alt::Clk>,
-    IO0: Into<alt::Bk1Io0>,
-    IO1: Into<alt::Bk1Io1>,
-    IO2: Into<alt::Bk1Io2>,
-    IO3: Into<alt::Bk1Io3>,
-{
-    type AltPins =
-        (alt::Clk, alt::Bk1Io0, alt::Bk1Io1, alt::Bk1Io2, alt::Bk1Io3);
-    fn convert(self) -> Self::AltPins {
-        (
-            self.0.into(),
-            self.1.into(),
-            self.2.into(),
-            self.3.into(),
-            self.4.into(),
-        )
-    }
-}
-
-impl<SCK, IO0, IO1, IO2, IO3> PinsBank2 for (SCK, IO0, IO1, IO2, IO3)
-where
-    SCK: Into<alt::Clk>,
-    IO0: Into<alt::Bk2Io0>,
-    IO1: Into<alt::Bk2Io1>,
-    IO2: Into<alt::Bk2Io2>,
-    IO3: Into<alt::Bk2Io3>,
-{
-    type AltPins =
-        (alt::Clk, alt::Bk2Io0, alt::Bk2Io1, alt::Bk2Io2, alt::Bk2Io3);
-    fn convert(self) -> Self::AltPins {
-        (
-            self.0.into(),
-            self.1.into(),
-            self.2.into(),
-            self.3.into(),
-            self.4.into(),
-        )
-    }
-}
-
 pub trait QspiExt: Sized {
     fn bank1(
         self,
-        pins: impl PinsBank1,
+        pins: (
+            impl Into<alt::Clk>,
+            impl Into<<Bank1 as QB>::Io0>,
+            impl Into<<Bank1 as QB>::Io1>,
+            impl Into<<Bank1 as QB>::Io2>,
+            impl Into<<Bank1 as QB>::Io3>,
+            Option<impl Into<<Bank1 as QB>::Ncs>>,
+        ),
         config: impl Into<Config>,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi<stm32::QUADSPI> {
-        let _pins = pins.convert();
-        Self::qspi_unchecked(self, config, Bank::One, clocks, prec)
+        Self::single_bank::<Bank1>(self, pins, config, clocks, prec)
     }
-
     fn bank2(
         self,
-        pins: impl PinsBank2,
+        pins: (
+            impl Into<alt::Clk>,
+            impl Into<<Bank2 as QB>::Io0>,
+            impl Into<<Bank2 as QB>::Io1>,
+            impl Into<<Bank2 as QB>::Io2>,
+            impl Into<<Bank2 as QB>::Io3>,
+            Option<impl Into<<Bank2 as QB>::Ncs>>,
+        ),
         config: impl Into<Config>,
         clocks: &CoreClocks,
         prec: rec::Qspi,
     ) -> Qspi<stm32::QUADSPI> {
-        let _pins = pins.convert();
-        Self::qspi_unchecked(self, config, Bank::Two, clocks, prec)
+        Self::single_bank::<Bank2>(self, pins, config, clocks, prec)
+    }
+    fn single_bank<B: QB + SingleBank>(
+        self,
+        pins: (
+            impl Into<alt::Clk>,
+            impl Into<B::Io0>,
+            impl Into<B::Io1>,
+            impl Into<B::Io2>,
+            impl Into<B::Io3>,
+            Option<impl Into<B::Ncs>>,
+        ),
+        config: impl Into<Config>,
+        clocks: &CoreClocks,
+        prec: rec::Qspi,
+    ) -> Qspi<stm32::QUADSPI> {
+        let _pins = (
+            pins.0.into().speed(Speed::VeryHigh),
+            pins.1.into().speed(Speed::VeryHigh),
+            pins.2.into().speed(Speed::VeryHigh),
+            pins.3.into().speed(Speed::VeryHigh),
+            pins.4.into().speed(Speed::VeryHigh),
+            pins.5.map(|p| p.into().speed(Speed::VeryHigh)),
+        );
+        Self::qspi_unchecked(self, config, B::BANK, clocks, prec)
     }
 
     fn qspi_unchecked(

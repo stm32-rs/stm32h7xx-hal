@@ -26,13 +26,11 @@ use crate::gpio;
 use crate::time::Hertz;
 
 pub trait PdmInstance:
-    crate::Sealed + core::ops::Deref<Target = pac::sai1::RegisterBlock> + GetClkSAI
+    crate::Sealed
+    + core::ops::Deref<Target = pac::sai1::RegisterBlock>
+    + GetClkSAI
+    + gpio::alt::SaiPdm
 {
-    type D1;
-    type D2;
-    type D3;
-    type Ck1;
-    type Ck2;
 }
 
 /// Trait for a valid combination of SAI PDM pins
@@ -232,24 +230,6 @@ impl<SAI: PdmInstance> Sai<SAI, Pdm> {
     }
 }
 
-macro_rules! hal {
-    ($($SAIX:ty, $sai:ident, $Rec:ident: ($pdm_saiX:ident)),+) => {
-        $(
-            impl PdmInstance for $SAIX {
-                type D1 = gpio::alt::$sai::D1;
-                type D2 = gpio::alt::$sai::D2;
-                type D3 = gpio::alt::$sai::D3;
-                type Ck1 = gpio::alt::$sai::Ck1;
-                type Ck2 = gpio::alt::$sai::Ck2;
-            }
-        )+
-    }
-}
-
-hal! {
-    pac::SAI1, sai1, Sai1: (pdm_sai1)
-}
+impl PdmInstance for pac::SAI1 {}
 #[cfg(not(feature = "rm0455"))]
-hal! {
-    pac::SAI4, sai4, Sai4: (pdm_sai4)
-}
+impl PdmInstance for pac::SAI4 {}

@@ -1,7 +1,9 @@
 //! # Quadrature Encoder Interface
+pub use crate::gpio::alt::TimCPin as CPin;
+use crate::gpio::PushPull;
 use crate::hal::{self, Direction};
 use crate::pac;
-use crate::pwm::{PinCh, C1, C2};
+use crate::pwm::{C1, C2};
 use crate::rcc::{rec, ResetEnable};
 
 /// Hardware quadrature encoder interface peripheral
@@ -9,19 +11,21 @@ pub struct Qei<TIM> {
     tim: TIM,
 }
 
-pub trait QeiExt: Sized + PinCh<C1> + PinCh<C2> {
+pub trait QeiExt: Sized + CPin<C1> + CPin<C2> {
     type Rec: ResetEnable;
 
     fn qei(
         self,
         pins: (
-            impl Into<<Self as PinCh<C1>>::Ch>,
-            impl Into<<Self as PinCh<C2>>::Ch>,
+            impl Into<<Self as CPin<0>>::Ch<PushPull>>,
+            impl Into<<Self as CPin<1>>::Ch<PushPull>>,
         ),
         prec: Self::Rec,
     ) -> Qei<Self> {
-        let _pins: (<Self as PinCh<C1>>::Ch, <Self as PinCh<C2>>::Ch) =
-            (pins.0.into(), pins.1.into());
+        let _pins: (
+            <Self as CPin<C1>>::Ch<PushPull>,
+            <Self as CPin<C2>>::Ch<PushPull>,
+        ) = (pins.0.into(), pins.1.into());
         Self::qei_unchecked(self, prec)
     }
 

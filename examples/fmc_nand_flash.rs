@@ -15,7 +15,7 @@ use log::info;
 extern crate cortex_m;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::Speed;
+use stm32h7xx_hal::gpio::{alt::fmc as alt, Speed};
 use stm32h7xx_hal::{pac, prelude::*, rcc::rec};
 
 use stm32_fmc::devices::s34ml08g3_4kb;
@@ -23,13 +23,12 @@ use stm32_fmc::nand_device::Status;
 
 /// Configre a pin for the FMC controller
 macro_rules! fmc_pins {
-    ($($pin:expr),*) => {
+    ($($alt:ty: $pin:expr),*) => {
         (
             $(
-                $pin.into_push_pull_output()
+                <$alt>::from($pin.into_alternate()
                     .speed(Speed::VeryHigh)
-                    .into_alternate::<12>()
-                    .internal_pull_up(true)
+                    .internal_pull_up(true))
             ),*
         )
     };
@@ -71,21 +70,22 @@ fn main() -> ! {
     // Initialise NAND Flash...
     let nand_flash_pins = fmc_pins! {
         // A17/ALE; A16/CLE
-        gpiod.pd12, gpiod.pd11,
+        alt::A17: gpiod.pd12,
+        alt::A16: gpiod.pd11,
         // D0-D7
-        gpiod.pd14,
-        gpiod.pd15,
-        gpiod.pd0,
-        gpiod.pd1,
-        gpioe.pe7,
-        gpioe.pe8,
-        gpioe.pe9,
-        gpioe.pe10,
+        alt::D0: gpiod.pd14,
+        alt::D1: gpiod.pd15,
+        alt::D2: gpiod.pd0,
+        alt::D3: gpiod.pd1,
+        alt::D4: gpioe.pe7,
+        alt::D5: gpioe.pe8,
+        alt::D6: gpioe.pe9,
+        alt::D7: gpioe.pe10,
         //
-        gpiog.pg9,              // NCE
-        gpiod.pd4,              // NOE
-        gpiod.pd5,              // NWE
-        gpiod.pd6               // NWAIT
+        alt::Nce: gpiog.pg9,
+        alt::Noe: gpiod.pd4,
+        alt::Nwe: gpiod.pd5,
+        alt::Nwait: gpiod.pd6
     };
     gpioe.pe2.into_push_pull_output().set_high(); // unprotect
 

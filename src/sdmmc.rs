@@ -370,21 +370,12 @@ impl<SDMMC, P: SdmmcPeripheral> fmt::Debug for Sdmmc<SDMMC, P> {
 }
 
 pub trait Instance:
-    crate::Sealed + core::ops::Deref<Target = pac::sdmmc1::RegisterBlock>
+    crate::Sealed
+    + core::ops::Deref<Target = pac::sdmmc1::RegisterBlock>
+    + gpio::alt::SdmmcCommon
 {
     /// The `ResetEnable` singleton for this peripheral
     type Rec: ResetEnable + SdmmcClkSelGetter;
-
-    type Ck;
-    type Cmd;
-    type D0;
-    type D1;
-    type D2;
-    type D3;
-    type D4;
-    type D5;
-    type D6;
-    type D7;
 }
 
 /// Extension trait for SDMMC peripherals
@@ -1444,30 +1435,19 @@ impl<SDMMC: Instance> Sdmmc<SDMMC, Emmc> {
 }
 
 macro_rules! sdmmc {
-    ($($SDMMCX:ty: ($sdmmcX:ident, $Rec:ident),)+) => {
+    ($($SDMMCX:ty: ($Rec:ident),)+) => {
         $(
             impl crate::Sealed for $SDMMCX { }
             impl Instance for $SDMMCX {
                 type Rec = rec::$Rec;
-
-                type Ck = gpio::alt::$sdmmcX::Ck;
-                type Cmd = gpio::alt::$sdmmcX::Cmd;
-                type D0 = gpio::alt::$sdmmcX::D0;
-                type D1 = gpio::alt::$sdmmcX::D1;
-                type D2 = gpio::alt::$sdmmcX::D2;
-                type D3 = gpio::alt::$sdmmcX::D3;
-                type D4 = gpio::alt::$sdmmcX::D4;
-                type D5 = gpio::alt::$sdmmcX::D5;
-                type D6 = gpio::alt::$sdmmcX::D6;
-                type D7 = gpio::alt::$sdmmcX::D7;
             }
         )+
     };
 }
 
 sdmmc! {
-    pac::SDMMC1: (sdmmc1, Sdmmc1),
-    pac::SDMMC2: (sdmmc2, Sdmmc2),
+    pac::SDMMC1: (Sdmmc1),
+    pac::SDMMC2: (Sdmmc2),
 }
 
 impl SdmmcPeripheral for SdCard {

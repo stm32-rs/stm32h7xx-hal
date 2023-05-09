@@ -107,18 +107,14 @@ fn main() -> ! {
         .prescaler(39)
         .period(49_999)
         .with_deadtime(1.millis())
-        .with_break_pin(gpioe.pe15.into_alternate(), Polarity::ActiveLow)
+        .with_break_pin(gpioe.pe15, Polarity::ActiveLow)
         .center_aligned();
 
     let (mut t1control, (t1c4, t1c2, t1c1, t1c3)) = t1builder.finalize();
 
-    let mut t1c1 = t1c1.into_complementary(gpioe.pe8.into_alternate());
-    let mut t1c2 = t1c2
-        .into_complementary(gpioe.pe10.into_alternate())
-        .into_active_low();
-    let mut t1c3 = t1c3
-        .into_complementary(gpioe.pe12.into_alternate())
-        .into_comp_active_low();
+    let mut t1c1 = t1c1.into_complementary(gpioe.pe8);
+    let mut t1c2 = t1c2.into_complementary(gpioe.pe10).into_active_low();
+    let mut t1c3 = t1c3.into_complementary(gpioe.pe12).into_comp_active_low();
     let mut t1c4 = t1c4.into_active_low();
 
     // Output TIM1 PWM
@@ -238,12 +234,12 @@ fn main() -> ! {
         )
         .frequency(4.kHz())
         .with_deadtime(2.micros())
-        .with_break_pin(gpiog.pg3.into_alternate(), Polarity::ActiveHigh)
+        .with_break_pin2(gpiog.pg3, Polarity::ActiveHigh)
         .right_aligned()
         .finalize();
 
-    let mut t8c1 = t8c1.into_complementary(gpioa.pa5.into_alternate());
-    let mut t8c3 = t8c3.into_complementary(gpiob.pb1.into_alternate());
+    let mut t8c1 = t8c1.into_complementary(gpioa.pa5);
+    let mut t8c3 = t8c3.into_complementary(gpiob.pb1);
     let mut t8c4 = t8c4.into_active_low();
 
     // Output TIM8 PWM
@@ -321,12 +317,12 @@ fn main() -> ! {
             &ccdr.clocks,
         )
         .frequency(500.kHz())
-        .with_break_pin(gpioe.pe3.into_alternate(), Polarity::ActiveLow)
+        .with_break_pin(gpioe.pe3, Polarity::ActiveLow)
         .left_aligned()
         .finalize();
 
     let mut t15c1 = t15c1
-        .into_complementary(gpioe.pe4.into_alternate())
+        .into_complementary(gpioe.pe4)
         .into_active_low()
         .into_comp_active_low();
 
@@ -347,7 +343,7 @@ fn main() -> ! {
             &ccdr.clocks,
         )
         .frequency(500.kHz())
-        .with_break_pin(gpiof.pf10.into_alternate(), Polarity::ActiveHigh)
+        .with_break_pin(gpiof.pf10, Polarity::ActiveHigh)
         .finalize();
 
     let mut t16c1 = t16c1.into_active_low();
@@ -370,7 +366,7 @@ fn main() -> ! {
         .with_deadtime(250.nanos())
         .finalize();
 
-    let mut t17c1 = t17c1.into_complementary(gpiof.pf9.into_alternate());
+    let mut t17c1 = t17c1.into_complementary(gpiof.pf9);
 
     // Output TIM16 PWM
     let period = t17c1.get_max_duty();

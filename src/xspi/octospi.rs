@@ -199,24 +199,12 @@ pub trait Instance:
     crate::Sealed
     + core::ops::Deref<Target = pac::octospi1::RegisterBlock>
     + super::common::GetClk
+    + gpio::alt::OctospiPort
 {
     const MEMADDR: u32;
 
     /// The `ResetEnable` singleton for this peripheral
     type Rec: ResetEnable;
-
-    type Clk;
-    type Nclk;
-    type Dqs;
-    type Ncs;
-    type Io0;
-    type Io1;
-    type Io2;
-    type Io3;
-    type Io4;
-    type Io5;
-    type Io6;
-    type Io7;
 }
 
 pub trait OctospiExt: Sized + Instance {
@@ -479,34 +467,21 @@ impl<OCTO: Instance> Hyperbus<OCTO> {
 }
 
 macro_rules! octospi_impl {
-    ($peripheral:ty, $octo:ident, $rec:ty, $memaddr:literal) => {
+    ($peripheral:ty, $rec:ty, $memaddr:literal) => {
         impl crate::Sealed for $peripheral {}
         impl Instance for $peripheral {
             const MEMADDR: u32 = $memaddr;
 
             /// The `ResetEnable` singleton for this peripheral
             type Rec = $rec;
-
-            type Clk = gpio::alt::$octo::Clk;
-            type Nclk = gpio::alt::$octo::Nclk;
-            type Dqs = gpio::alt::$octo::Dqs;
-            type Ncs = gpio::alt::$octo::Ncs;
-            type Io0 = gpio::alt::$octo::Io0;
-            type Io1 = gpio::alt::$octo::Io1;
-            type Io2 = gpio::alt::$octo::Io2;
-            type Io3 = gpio::alt::$octo::Io3;
-            type Io4 = gpio::alt::$octo::Io4;
-            type Io5 = gpio::alt::$octo::Io5;
-            type Io6 = gpio::alt::$octo::Io6;
-            type Io7 = gpio::alt::$octo::Io7;
         }
     };
 }
 
 octospi_impl! {
-    pac::OCTOSPI1, octospi1, rec::Octospi1, 0x9000_0000
+    pac::OCTOSPI1, rec::Octospi1, 0x9000_0000
 }
 
 octospi_impl! {
-    pac::OCTOSPI2, octospi2, rec::Octospi2, 0x7000_0000
+    pac::OCTOSPI2, rec::Octospi2, 0x7000_0000
 }

@@ -64,13 +64,11 @@ pub enum Error {
 }
 
 pub trait Instance:
-    crate::Sealed + core::ops::Deref<Target = pac::i2c1::RegisterBlock>
+    crate::Sealed
+    + core::ops::Deref<Target = pac::i2c1::RegisterBlock>
+    + gpio::alt::I2cCommon
 {
     type Rec: ResetEnable;
-
-    type Scl;
-    type Sda;
-    type Smba;
 
     fn get_frequency(clocks: &CoreClocks) -> Hertz;
 }
@@ -254,15 +252,11 @@ macro_rules! i2c_timing {
 }
 
 macro_rules! i2c {
-    ($($I2CX:ty: ($i2cX:ident, $Rec:ident, $pclkX:ident),)+) => {
+    ($($I2CX:ty: ($Rec:ident, $pclkX:ident),)+) => {
         $(
             impl crate::Sealed for $I2CX { }
             impl Instance for $I2CX {
                 type Rec = rec::$Rec;
-
-                type Scl = gpio::alt::$i2cX::Scl;
-                type Sda = gpio::alt::$i2cX::Sda;
-                type Smba = gpio::alt::$i2cX::Smba;
 
                 fn get_frequency(clocks: &CoreClocks) -> Hertz {
                     clocks.$pclkX()
@@ -669,18 +663,15 @@ impl<I2C: Instance> Read for I2c<I2C> {
 
 #[cfg(not(feature = "rm0455"))]
 i2c!(
-    pac::I2C1: (i2c1, I2c1, pclk1),
-    pac::I2C2: (i2c2, I2c2, pclk1),
-    pac::I2C3: (i2c3, I2c3, pclk1),
-    pac::I2C4: (i2c4, I2c4, pclk4),
+    pac::I2C1: (I2c1, pclk1),
+    pac::I2C2: (I2c2, pclk1),
+    pac::I2C3: (I2c3, pclk1),
+    pac::I2C4: (I2c4, pclk4),
 );
 
 // TODO: fix derive SPI3 from SPI1 in SVD
 #[cfg(feature = "rm0455")]
-i2c!(
-    pac::I2C1: (i2c1, I2c1, pclk1),
-    pac::I2C2: (i2c2, I2c2, pclk1),
-);
+i2c!(pac::I2C1: (I2c1, pclk1), pac::I2C2: (I2c2, pclk1),);
 #[cfg(feature = "rm0455")]
 impl I2c<pac::I2C3> {
     /// Returns a reference to the inner peripheral

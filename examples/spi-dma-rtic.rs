@@ -78,7 +78,7 @@ mod app {
                 .communication_mode(hal::spi::CommunicationMode::Transmitter);
 
             let spi: hal::spi::Spi<_, _, u8> = ctx.device.SPI2.spi(
-                (sck, hal::spi::NoMiso, mosi),
+                (sck, hal::spi::NoMiso::new(), mosi),
                 config,
                 3.MHz(),
                 ccdr.peripheral.SPI2,
