@@ -15,7 +15,7 @@ use log::info;
 extern crate cortex_m;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::{alt::fmc as alt, Speed};
+use stm32h7xx_hal::gpio::alt::fmc as alt;
 use stm32h7xx_hal::{pac, prelude::*, rcc::rec};
 
 use stm32_fmc::devices::s34ml08g3_4kb;
@@ -27,7 +27,6 @@ macro_rules! fmc_pins {
         (
             $(
                 <$alt>::from($pin.into_alternate()
-                    .speed(Speed::VeryHigh)
                     .internal_pull_up(true))
             ),*
         )

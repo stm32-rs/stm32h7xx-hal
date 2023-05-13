@@ -26,7 +26,6 @@ macro_rules! fmc_pins {
         (
             $(
                 <$alt>::from($pin.into_alternate()
-                    .speed(Speed::VeryHigh)
                     .internal_pull_up(true))
             ),*
         )

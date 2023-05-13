@@ -3,7 +3,7 @@ pub use h7::*;
 
 macro_rules! pin {
     ( $($(#[$docs:meta])* <$name:ident, $Otype:ident> for $(no: $NoPin:ident,)? [$(
-        $(#[$attr:meta])* $PX:ident<$A:literal>,
+        $(#[$attr:meta])* $PX:ident<$A:literal $(, Speed::$Speed:ident)?>,
     )*],)*) => {
         $(
             #[derive(Debug)]
@@ -75,14 +75,14 @@ macro_rules! pin {
                     MODE: $crate::gpio::marker::NotAlt + $crate::gpio::PinMode
                 {
                     fn from(p: gpio::$PX<MODE>) -> Self {
-                        Self::$PX(p.into_mode())
+                        Self::$PX(p.into_mode() $(.speed($crate::gpio::Speed::$Speed))?)
                     }
                 }
 
                 $(#[$attr])*
                 impl From<gpio::$PX<$crate::gpio::Alternate<$A, $Otype>>> for $name {
                     fn from(p: gpio::$PX<$crate::gpio::Alternate<$A, $Otype>>) -> Self {
-                        Self::$PX(p)
+                        Self::$PX(p $(.speed($crate::gpio::Speed::$Speed))?)
                     }
                 }
 
@@ -108,7 +108,7 @@ macro_rules! pin {
     };
 
     ( $($(#[$docs:meta])* <$name:ident> default:$DefaultOtype:ident for $(no: $NoPin:ident,)? [$(
-            $(#[$attr:meta])* $PX:ident<$A:literal>,
+            $(#[$attr:meta])* $PX:ident<$A:literal $(, Speed::$Speed:ident)?>,
     )*],)*) => {
         $(
             #[derive(Debug)]
@@ -181,14 +181,14 @@ macro_rules! pin {
                     $crate::gpio::Alternate<$A, Otype>: $crate::gpio::PinMode,
                 {
                     fn from(p: gpio::$PX<MODE>) -> Self {
-                        Self::$PX(p.into_mode())
+                        Self::$PX(p.into_mode() $(.speed($crate::gpio::Speed::$Speed))?)
                     }
                 }
 
                 $(#[$attr])*
                 impl<Otype> From<gpio::$PX<$crate::gpio::Alternate<$A, Otype>>> for $name<Otype> {
                     fn from(p: gpio::$PX<$crate::gpio::Alternate<$A, Otype>>) -> Self {
-                        Self::$PX(p)
+                        Self::$PX(p $(.speed($crate::gpio::Speed::$Speed))?)
                     }
                 }
 

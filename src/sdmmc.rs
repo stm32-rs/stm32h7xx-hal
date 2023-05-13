@@ -11,13 +11,8 @@
 //!
 //! ## IO Setup
 //!
-//! For high speed signaling (bus clock > 16MHz), the IO speed needs to be
-//! increased from the default.
+//! By default, the IO speed is set to `Speed::VeryHigh`.
 //!
-//! ```
-//! use stm32h7xx_hal::gpio::Speed;
-//!
-//! let d0 = d0.set_speed(Speed::VeryHigh);
 //! ```
 //!
 //! ## Usage
@@ -120,7 +115,7 @@ pub trait Pins<SDMMC> {
 impl<SDMMC, CLK, CMD, D0, D1, D2, D3, D4, D5, D6, D7> Pins<SDMMC>
     for (CLK, CMD, D0, D1, D2, D3, D4, D5, D6, D7)
 where
-    SDMMC: Instance,
+    SDMMC: gpio::alt::SdmmcCommon,
     CLK: Into<SDMMC::Ck>,
     CMD: Into<SDMMC::Cmd>,
     D0: Into<SDMMC::D0>,
@@ -164,7 +159,7 @@ where
 
 impl<SDMMC, CLK, CMD, D0, D1, D2, D3> Pins<SDMMC> for (CLK, CMD, D0, D1, D2, D3)
 where
-    SDMMC: Instance,
+    SDMMC: gpio::alt::SdmmcCommon,
     CLK: Into<SDMMC::Ck>,
     CMD: Into<SDMMC::Cmd>,
     D0: Into<SDMMC::D0>,
@@ -196,7 +191,7 @@ where
 
 impl<SDMMC, CLK, CMD, D0> Pins<SDMMC> for (CLK, CMD, D0)
 where
-    SDMMC: Instance,
+    SDMMC: gpio::alt::SdmmcCommon,
     CLK: Into<SDMMC::Ck>,
     CMD: Into<SDMMC::Cmd>,
     D0: Into<SDMMC::D0>,

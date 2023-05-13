@@ -52,8 +52,8 @@ fn main() -> ! {
         dp.OTG1_HS_GLOBAL,
         dp.OTG1_HS_DEVICE,
         dp.OTG1_HS_PWRCLK,
-        gpiob.pb14.into_alternate(),
-        gpiob.pb15.into_alternate(),
+        gpiob.pb14,
+        gpiob.pb15,
         ccdr.peripheral.USB1OTG,
         &ccdr.clocks,
     );
@@ -62,8 +62,8 @@ fn main() -> ! {
         dp.OTG2_HS_GLOBAL,
         dp.OTG2_HS_DEVICE,
         dp.OTG2_HS_PWRCLK,
-        gpioa.pa11.into_alternate(),
-        gpioa.pa12.into_alternate(),
+        gpioa.pa11,
+        gpioa.pa12,
         ccdr.peripheral.USB2OTG,
         &ccdr.clocks,
     );

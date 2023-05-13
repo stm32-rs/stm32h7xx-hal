@@ -18,7 +18,7 @@
 use crate::rcc;
 use crate::stm32;
 
-use crate::gpio::{self, Alternate, Speed};
+use crate::gpio::{self, alt::otg_hs as alt};
 
 use crate::time::Hertz;
 
@@ -38,11 +38,13 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: gpio::PB14<Alternate<12>>,
-        _pin_dp: gpio::PB15<Alternate<12>>,
+        pin_dm: impl Into<alt::Dm>,
+        pin_dp: impl Into<alt::Dp>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
+        let _ = pin_dm.into();
+        let _ = pin_dp.into();
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
@@ -50,11 +52,13 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: gpio::PA11<Alternate<10>>,
-        _pin_dp: gpio::PA12<Alternate<10>>,
+        pin_dm: impl Into<gpio::alt::otg_fs::Dm>,
+        pin_dp: impl Into<gpio::alt::otg_fs::Dp>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
+        let _ = pin_dm.into();
+        let _ = pin_dp.into();
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
@@ -88,11 +92,13 @@ impl USB2 {
         usb_global: stm32::OTG2_HS_GLOBAL,
         usb_device: stm32::OTG2_HS_DEVICE,
         usb_pwrclk: stm32::OTG2_HS_PWRCLK,
-        _pin_dm: gpio::PA11<Alternate<10>>,
-        _pin_dp: gpio::PA12<Alternate<10>>,
+        pin_dm: impl Into<gpio::alt::otg_fs::Dm>,
+        pin_dp: impl Into<gpio::alt::otg_fs::Dp>,
         prec: rcc::rec::Usb2Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
+        let _ = pin_dm.into();
+        let _ = pin_dp.into();
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(
@@ -171,69 +177,6 @@ pub struct USB1_ULPI {
     pub hclk: Hertz,
 }
 
-pub enum Usb1UlpiDirPin {
-    PC2(gpio::PC2<Alternate<10>>),
-    #[cfg(not(feature = "rm0468"))]
-    PI11(gpio::PI11<Alternate<10>>),
-}
-
-impl Usb1UlpiDirPin {
-    fn set_speed(&mut self, speed: Speed) {
-        match self {
-            Usb1UlpiDirPin::PC2(pin) => {
-                pin.set_speed(speed);
-            }
-            #[cfg(not(feature = "rm0468"))]
-            Usb1UlpiDirPin::PI11(pin) => {
-                pin.set_speed(speed);
-            }
-        }
-    }
-}
-
-#[cfg(not(feature = "rm0468"))]
-impl From<gpio::PI11<Alternate<10>>> for Usb1UlpiDirPin {
-    fn from(v: gpio::PI11<Alternate<10>>) -> Self {
-        Usb1UlpiDirPin::PI11(v)
-    }
-}
-
-impl From<gpio::PC2<Alternate<10>>> for Usb1UlpiDirPin {
-    fn from(v: gpio::PC2<Alternate<10>>) -> Self {
-        Usb1UlpiDirPin::PC2(v)
-    }
-}
-
-pub enum Usb1UlpiNxtPin {
-    PC3(gpio::PC3<Alternate<10>>),
-    PH4(gpio::PH4<Alternate<10>>),
-}
-
-impl Usb1UlpiNxtPin {
-    fn set_speed(&mut self, speed: Speed) {
-        match self {
-            Usb1UlpiNxtPin::PC3(pin) => {
-                pin.set_speed(speed);
-            }
-            Usb1UlpiNxtPin::PH4(pin) => {
-                pin.set_speed(speed);
-            }
-        }
-    }
-}
-
-impl From<gpio::PH4<Alternate<10>>> for Usb1UlpiNxtPin {
-    fn from(v: gpio::PH4<Alternate<10>>) -> Self {
-        Usb1UlpiNxtPin::PH4(v)
-    }
-}
-
-impl From<gpio::PC3<Alternate<10>>> for Usb1UlpiNxtPin {
-    fn from(v: gpio::PC3<Alternate<10>>) -> Self {
-        Usb1UlpiNxtPin::PC3(v)
-    }
-}
-
 impl USB1_ULPI {
     /// Automatically sets all upli pins to gpio speed VeryHigh.
     /// If you wish to use another configuration,
@@ -243,35 +186,33 @@ impl USB1_ULPI {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        mut ulpi_clk: gpio::PA5<Alternate<10>>,
-        ulpi_dir: impl Into<Usb1UlpiDirPin>,
-        ulpi_nxt: impl Into<Usb1UlpiNxtPin>,
-        mut ulpi_stp: gpio::PC0<Alternate<10>>,
-        mut ulpi_d0: gpio::PA3<Alternate<10>>,
-        mut ulpi_d1: gpio::PB0<Alternate<10>>,
-        mut ulpi_d2: gpio::PB1<Alternate<10>>,
-        mut ulpi_d3: gpio::PB10<Alternate<10>>,
-        mut ulpi_d4: gpio::PB11<Alternate<10>>,
-        mut ulpi_d5: gpio::PB12<Alternate<10>>,
-        mut ulpi_d6: gpio::PB13<Alternate<10>>,
-        mut ulpi_d7: gpio::PB5<Alternate<10>>,
+        ulpi_clk: impl Into<alt::UlpiCk>,
+        ulpi_dir: impl Into<alt::UlpiDir>,
+        ulpi_nxt: impl Into<alt::UlpiNxt>,
+        ulpi_stp: impl Into<alt::UlpiStp>,
+        ulpi_d0: impl Into<alt::UlpiD0>,
+        ulpi_d1: impl Into<alt::UlpiD1>,
+        ulpi_d2: impl Into<alt::UlpiD2>,
+        ulpi_d3: impl Into<alt::UlpiD3>,
+        ulpi_d4: impl Into<alt::UlpiD4>,
+        ulpi_d5: impl Into<alt::UlpiD5>,
+        ulpi_d6: impl Into<alt::UlpiD6>,
+        ulpi_d7: impl Into<alt::UlpiD7>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {
-        ulpi_clk.set_speed(Speed::VeryHigh);
-        let mut ulpi_dir = ulpi_dir.into();
-        ulpi_dir.set_speed(Speed::VeryHigh);
-        let mut ulpi_nxt = ulpi_nxt.into();
-        ulpi_nxt.set_speed(Speed::VeryHigh);
-        ulpi_stp.set_speed(Speed::VeryHigh);
-        ulpi_d0.set_speed(Speed::VeryHigh);
-        ulpi_d1.set_speed(Speed::VeryHigh);
-        ulpi_d2.set_speed(Speed::VeryHigh);
-        ulpi_d3.set_speed(Speed::VeryHigh);
-        ulpi_d4.set_speed(Speed::VeryHigh);
-        ulpi_d5.set_speed(Speed::VeryHigh);
-        ulpi_d6.set_speed(Speed::VeryHigh);
-        ulpi_d7.set_speed(Speed::VeryHigh);
+        let _ = ulpi_clk.into();
+        let _ = ulpi_dir.into();
+        let _ = ulpi_nxt.into();
+        let _ = ulpi_stp.into();
+        let _ = ulpi_d0.into();
+        let _ = ulpi_d1.into();
+        let _ = ulpi_d2.into();
+        let _ = ulpi_d3.into();
+        let _ = ulpi_d4.into();
+        let _ = ulpi_d5.into();
+        let _ = ulpi_d6.into();
+        let _ = ulpi_d7.into();
         Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
     }
     pub fn new_unchecked(

@@ -714,495 +714,495 @@ pub mod fmc {
 
     pin! {
         <A0, PushPull> for [
-            PF0<12>,
+            PF0<12, Speed::VeryHigh>,
         ],
 
         <A1, PushPull> for [
-            PF1<12>,
+            PF1<12, Speed::VeryHigh>,
+        ],
+
+        <A2, PushPull> for [
+            PF2<12, Speed::VeryHigh>,
+        ],
+
+        <A3, PushPull> for [
+            PF3<12, Speed::VeryHigh>,
+        ],
+
+        <A4, PushPull> for [
+            PF4<12, Speed::VeryHigh>,
+        ],
+
+        <A5, PushPull> for [
+            PF5<12, Speed::VeryHigh>,
+        ],
+
+        <A6, PushPull> for [
+            PF12<12, Speed::VeryHigh>,
+        ],
+
+        <A7, PushPull> for [
+            PF13<12, Speed::VeryHigh>,
+        ],
+
+        <A8, PushPull> for [
+            PF14<12, Speed::VeryHigh>,
+        ],
+
+        <A9, PushPull> for [
+            PF15<12, Speed::VeryHigh>,
         ],
 
         <A10, PushPull> for [
-            PG0<12>,
+            PG0<12, Speed::VeryHigh>,
         ],
 
         <A11, PushPull> for [
-            PG1<12>,
+            PG1<12, Speed::VeryHigh>,
         ],
 
         <A12, PushPull> for [
-            PG2<12>,
+            PG2<12, Speed::VeryHigh>,
         ],
 
         <A13, PushPull> for [
-            PG3<12>,
+            PG3<12, Speed::VeryHigh>,
         ],
 
         <A14, PushPull> for [
-            PG4<12>,
+            PG4<12, Speed::VeryHigh>,
         ],
 
         <A15, PushPull> for [
-            PG5<12>,
+            PG5<12, Speed::VeryHigh>,
         ],
 
         <A16, PushPull> for [
-            PD11<12>,
+            PD11<12, Speed::VeryHigh>,
         ],
 
         <A17, PushPull> for [
-            PD12<12>,
+            PD12<12, Speed::VeryHigh>,
         ],
 
         <A18, PushPull> for [
-            PD13<12>,
+            PD13<12, Speed::VeryHigh>,
         ],
 
         <A19, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA0<12>,
+            PA0<12, Speed::VeryHigh>,
 
-            PE3<12>,
-        ],
-
-        <A2, PushPull> for [
-            PF2<12>,
+            PE3<12, Speed::VeryHigh>,
         ],
 
         <A20, PushPull> for [
-            PE4<12>,
+            PE4<12, Speed::VeryHigh>,
         ],
 
         <A21, PushPull> for [
-            PE5<12>,
+            PE5<12, Speed::VeryHigh>,
         ],
 
         <A22, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PC4<1>,
+            PC4<1, Speed::VeryHigh>,
 
-            PE6<12>,
+            PE6<12, Speed::VeryHigh>,
         ],
 
         <A23, PushPull> for [
-            PE2<12>,
+            PE2<12, Speed::VeryHigh>,
         ],
 
         <A24, PushPull> for [
-            PG13<12>,
+            PG13<12, Speed::VeryHigh>,
         ],
 
         <A25, PushPull> for [
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PC0<9>,
+            PC0<9, Speed::VeryHigh>,
 
-            PG14<12>,
-        ],
-
-        <A3, PushPull> for [
-            PF3<12>,
-        ],
-
-        <A4, PushPull> for [
-            PF4<12>,
-        ],
-
-        <A5, PushPull> for [
-            PF5<12>,
-        ],
-
-        <A6, PushPull> for [
-            PF12<12>,
-        ],
-
-        <A7, PushPull> for [
-            PF13<12>,
-        ],
-
-        <A8, PushPull> for [
-            PF14<12>,
-        ],
-
-        <A9, PushPull> for [
-            PF15<12>,
+            PG14<12, Speed::VeryHigh>,
         ],
 
         <Ba0, PushPull> for [
-            PG4<12>,
+            PG4<12, Speed::VeryHigh>,
         ],
 
         <Ba1, PushPull> for [
-            PG5<12>,
+            PG5<12, Speed::VeryHigh>,
         ],
 
         <Clk, PushPull> for [
-            PD3<12>,
+            PD3<12, Speed::VeryHigh>,
         ],
 
         <D0, PushPull> for [
-            PD14<12>,
+            PD14<12, Speed::VeryHigh>,
         ],
 
         <D1, PushPull> for [
-            PD15<12>,
+            PD15<12, Speed::VeryHigh>,
         ],
 
         <D2, PushPull> for [
-            PD0<12>,
+            PD0<12, Speed::VeryHigh>,
         ],
 
         <D3, PushPull> for [
-            PD1<12>,
-        ],
-
-        <D10, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PB14<12>,
-
-            PE13<12>,
-        ],
-
-        <D11, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PB15<12>,
-
-            PE14<12>,
-        ],
-
-        <D12, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PC0<1>,
-
-            PE15<12>,
-        ],
-
-        <D13, PushPull> for [
-            PD8<12>,
-        ],
-
-        <D14, PushPull> for [
-            PD9<12>,
-        ],
-
-        <D15, PushPull> for [
-            PD10<12>,
-        ],
-
-        <D16, PushPull> for [
-            PH8<12>,
-        ],
-
-        <D17, PushPull> for [
-            PH9<12>,
-        ],
-
-        <D18, PushPull> for [
-            PH10<12>,
-        ],
-
-        <D19, PushPull> for [
-            PH11<12>,
-        ],
-
-        <D20, PushPull> for [
-            PH12<12>,
-        ],
-
-        <D21, PushPull> for [
-            PH13<12>,
-        ],
-
-        <D22, PushPull> for [
-            PH14<12>,
-        ],
-
-        <D23, PushPull> for [
-            PH15<12>,
+            PD1<12, Speed::VeryHigh>,
         ],
 
         <D4, PushPull> for [
-            PE7<12>,
+            PE7<12, Speed::VeryHigh>,
         ],
 
         <D5, PushPull> for [
-            PE8<12>,
+            PE8<12, Speed::VeryHigh>,
         ],
 
         <D6, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PC12<1>,
+            PC12<1, Speed::VeryHigh>,
 
-            PE9<12>,
+            PE9<12, Speed::VeryHigh>,
         ],
 
         <D7, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PD2<1>,
+            PD2<1, Speed::VeryHigh>,
 
-            PE10<12>,
+            PE10<12, Speed::VeryHigh>,
         ],
 
         <D8, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA4<12>,
+            PA4<12, Speed::VeryHigh>,
 
-            PE11<12>,
+            PE11<12, Speed::VeryHigh>,
         ],
 
         <D9, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA5<12>,
+            PA5<12, Speed::VeryHigh>,
 
-            PE12<12>,
+            PE12<12, Speed::VeryHigh>,
+        ],
+
+        <D10, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PB14<12, Speed::VeryHigh>,
+
+            PE13<12, Speed::VeryHigh>,
+        ],
+
+        <D11, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PB15<12, Speed::VeryHigh>,
+
+            PE14<12, Speed::VeryHigh>,
+        ],
+
+        <D12, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PC0<1, Speed::VeryHigh>,
+
+            PE15<12, Speed::VeryHigh>,
+        ],
+
+        <D13, PushPull> for [
+            PD8<12, Speed::VeryHigh>,
+        ],
+
+        <D14, PushPull> for [
+            PD9<12, Speed::VeryHigh>,
+        ],
+
+        <D15, PushPull> for [
+            PD10<12, Speed::VeryHigh>,
+        ],
+
+        <D16, PushPull> for [
+            PH8<12, Speed::VeryHigh>,
+        ],
+
+        <D17, PushPull> for [
+            PH9<12, Speed::VeryHigh>,
+        ],
+
+        <D18, PushPull> for [
+            PH10<12, Speed::VeryHigh>,
+        ],
+
+        <D19, PushPull> for [
+            PH11<12, Speed::VeryHigh>,
+        ],
+
+        <D20, PushPull> for [
+            PH12<12, Speed::VeryHigh>,
+        ],
+
+        <D21, PushPull> for [
+            PH13<12, Speed::VeryHigh>,
+        ],
+
+        <D22, PushPull> for [
+            PH14<12, Speed::VeryHigh>,
+        ],
+
+        <D23, PushPull> for [
+            PH15<12, Speed::VeryHigh>,
         ],
 
         <Da0, PushPull> for [
-            PD14<12>,
+            PD14<12, Speed::VeryHigh>,
         ],
 
         <Da1, PushPull> for [
-            PD15<12>,
-        ],
-
-        <Da10, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PB14<12>,
-
-            PE13<12>,
-        ],
-
-        <Da11, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PB15<12>,
-
-            PE14<12>,
-        ],
-
-        <Da12, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
-            PC0<1>,
-
-            PE15<12>,
-        ],
-
-        <Da13, PushPull> for [
-            PD8<12>,
-        ],
-
-        <Da14, PushPull> for [
-            PD9<12>,
-        ],
-
-        <Da15, PushPull> for [
-            PD10<12>,
+            PD15<12, Speed::VeryHigh>,
         ],
 
         <Da2, PushPull> for [
-            PD0<12>,
+            PD0<12, Speed::VeryHigh>,
         ],
 
         <Da3, PushPull> for [
-            PD1<12>,
+            PD1<12, Speed::VeryHigh>,
         ],
 
         <Da4, PushPull> for [
-            PE7<12>,
+            PE7<12, Speed::VeryHigh>,
         ],
 
         <Da5, PushPull> for [
-            PE8<12>,
+            PE8<12, Speed::VeryHigh>,
         ],
 
         <Da6, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PC12<1>,
+            PC12<1, Speed::VeryHigh>,
 
-            PE9<12>,
+            PE9<12, Speed::VeryHigh>,
         ],
 
         <Da7, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PD2<1>,
+            PD2<1, Speed::VeryHigh>,
 
-            PE10<12>,
+            PE10<12, Speed::VeryHigh>,
         ],
 
         <Da8, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA4<12>,
+            PA4<12, Speed::VeryHigh>,
 
-            PE11<12>,
+            PE11<12, Speed::VeryHigh>,
         ],
 
         <Da9, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA5<12>,
+            PA5<12, Speed::VeryHigh>,
 
-            PE12<12>,
+            PE12<12, Speed::VeryHigh>,
+        ],
+
+        <Da10, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PB14<12, Speed::VeryHigh>,
+
+            PE13<12, Speed::VeryHigh>,
+        ],
+
+        <Da11, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PB15<12, Speed::VeryHigh>,
+
+            PE14<12, Speed::VeryHigh>,
+        ],
+
+        <Da12, PushPull> for [
+            #[cfg(feature = "gpio-h72")]
+            PC0<1, Speed::VeryHigh>,
+
+            PE15<12, Speed::VeryHigh>,
+        ],
+
+        <Da13, PushPull> for [
+            PD8<12, Speed::VeryHigh>,
+        ],
+
+        <Da14, PushPull> for [
+            PD9<12, Speed::VeryHigh>,
+        ],
+
+        <Da15, PushPull> for [
+            PD10<12, Speed::VeryHigh>,
         ],
 
         <Int, PushPull> for [
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PC8<10>,
+            PC8<10, Speed::VeryHigh>,
 
-            PG7<12>,
+            PG7<12, Speed::VeryHigh>,
         ],
 
         <Nbl0, PushPull> for [
-            PE0<12>,
+            PE0<12, Speed::VeryHigh>,
         ],
 
         <Nbl1, PushPull> for [
-            PE1<12>,
+            PE1<12, Speed::VeryHigh>,
         ],
 
         <Nce, PushPull> for [
-            PC8<9>,
+            PC8<9, Speed::VeryHigh>,
 
-            PG9<12>,
+            PG9<12, Speed::VeryHigh>,
         ],
 
         <Ne1, PushPull> for [
-            PC7<9>,
+            PC7<9, Speed::VeryHigh>,
 
-            PD7<12>,
+            PD7<12, Speed::VeryHigh>,
         ],
 
         <Ne2, PushPull> for [
-            PC8<9>,
+            PC8<9, Speed::VeryHigh>,
 
-            PG9<12>,
+            PG9<12, Speed::VeryHigh>,
         ],
 
         <Ne3, PushPull> for [
-            PG6<12>,
+            PG6<12, Speed::VeryHigh>,
 
-            PG10<12>,
+            PG10<12, Speed::VeryHigh>,
         ],
 
         <Ne4, PushPull> for [
-            PG12<12>,
+            PG12<12, Speed::VeryHigh>,
         ],
 
         <Nl, PushPull> for [
-            PB7<12>,
+            PB7<12, Speed::VeryHigh>,
         ],
 
         <Noe, PushPull> for [
-            PD4<12>,
+            PD4<12, Speed::VeryHigh>,
         ],
 
         <Nwait, PushPull> for [
-            PC6<9>,
+            PC6<9, Speed::VeryHigh>,
 
-            PD6<12>,
+            PD6<12, Speed::VeryHigh>,
         ],
 
         <Nwe, PushPull> for [
-            PD5<12>,
+            PD5<12, Speed::VeryHigh>,
         ],
 
         <Sdcke0, PushPull> for [
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
-            PC3<12>,
+            PC3<12, Speed::VeryHigh>,
 
-            PC5<12>,
+            PC5<12, Speed::VeryHigh>,
 
-            PH2<12>,
+            PH2<12, Speed::VeryHigh>,
         ],
 
         <Sdcke1, PushPull> for [
-            PB5<12>,
+            PB5<12, Speed::VeryHigh>,
 
-            PH7<12>,
+            PH7<12, Speed::VeryHigh>,
         ],
 
         <Sdclk, PushPull> for [
-            PG8<12>,
+            PG8<12, Speed::VeryHigh>,
         ],
 
         <Sdncas, PushPull> for [
-            PG15<12>,
+            PG15<12, Speed::VeryHigh>,
         ],
 
         <Sdne0, PushPull> for [
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
-            PC2<12>,
+            PC2<12, Speed::VeryHigh>,
 
-            PC4<12>,
+            PC4<12, Speed::VeryHigh>,
 
-            PH3<12>,
+            PH3<12, Speed::VeryHigh>,
         ],
 
         <Sdne1, PushPull> for [
-            PB6<12>,
+            PB6<12, Speed::VeryHigh>,
 
-            PH6<12>,
+            PH6<12, Speed::VeryHigh>,
         ],
 
         <Sdnras, PushPull> for [
-            PF11<12>,
+            PF11<12, Speed::VeryHigh>,
         ],
 
         <Sdnwe, PushPull> for [
-            PA7<12>,
+            PA7<12, Speed::VeryHigh>,
 
-            PC0<12>,
+            PC0<12, Speed::VeryHigh>,
 
-            PH5<12>,
+            PH5<12, Speed::VeryHigh>,
         ],
     }
 
     #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
     pin! {
         <Ale, PushPull> for [
-            PD12<12>,
+            PD12<12, Speed::VeryHigh>,
         ],
 
         <Cle, PushPull> for [
-            PD11<12>,
+            PD11<12, Speed::VeryHigh>,
         ],
     }
 
     #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
     pin! {
         <D24, PushPull> for [
-            PI0<12>,
+            PI0<12, Speed::VeryHigh>,
         ],
 
         <D25, PushPull> for [
-            PI1<12>,
+            PI1<12, Speed::VeryHigh>,
         ],
 
         <D26, PushPull> for [
-            PI2<12>,
+            PI2<12, Speed::VeryHigh>,
         ],
 
         <D27, PushPull> for [
-            PI3<12>,
+            PI3<12, Speed::VeryHigh>,
         ],
 
         <D28, PushPull> for [
-            PI6<12>,
+            PI6<12, Speed::VeryHigh>,
         ],
 
         <D29, PushPull> for [
-            PI7<12>,
+            PI7<12, Speed::VeryHigh>,
         ],
 
         <D30, PushPull> for [
-            PI9<12>,
+            PI9<12, Speed::VeryHigh>,
         ],
 
         <D31, PushPull> for [
-            PI10<12>,
+            PI10<12, Speed::VeryHigh>,
         ],
 
         <Nbl2, PushPull> for [
-            PI4<12>,
+            PI4<12, Speed::VeryHigh>,
         ],
 
         <Nbl3, PushPull> for [
-            PI5<12>,
+            PI5<12, Speed::VeryHigh>,
         ],
     }
 }
@@ -1212,44 +1212,44 @@ pub mod hrtim {
     use super::*;
 
     pin! {
-        <Cha1, PushPull> for [ // High speed
-            PC6<1>,
+        <Cha1, PushPull> for [
+            PC6<1, Speed::VeryHigh>,
         ],
 
         <Cha2, PushPull> for [
-            PC7<1>,
+            PC7<1, Speed::VeryHigh>,
         ],
 
         <Chb1, PushPull> for [
-            PC8<1>,
+            PC8<1, Speed::VeryHigh>,
         ],
 
         <Chb2, PushPull> for [
-            PA8<2>,
+            PA8<2, Speed::VeryHigh>,
         ],
 
         <Chc1, PushPull> for [
-            PA9<2>,
+            PA9<2, Speed::VeryHigh>,
         ],
 
         <Chc2, PushPull> for [
-            PA10<2>,
+            PA10<2, Speed::VeryHigh>,
         ],
 
         <Chd1, PushPull> for [
-            PA11<2>,
+            PA11<2, Speed::VeryHigh>,
         ],
 
         <Chd2, PushPull> for [
-            PA12<2>,
+            PA12<2, Speed::VeryHigh>,
         ],
 
         <Che1, PushPull> for [
-            PG6<2>,
+            PG6<2, Speed::VeryHigh>,
         ],
 
         <Che2, PushPull> for [
-            PG7<2>,
+            PG7<2, Speed::VeryHigh>,
         ],
 
         <Eev1, PushPull> for [ // Low speed
@@ -1321,9 +1321,9 @@ pub mod hrtim {
 
     pin! {
         <Scout> default:PushPull for [ // High speed
-            PB10<2>,
+            PB10<2, Speed::VeryHigh>,
 
-            PE1<3>,
+            PE1<3, Speed::VeryHigh>,
         ],
     }
 }
@@ -2215,238 +2215,238 @@ pub mod octospim {
     use super::*;
 
     pin! {
-        <P1Clk, PushPull> for [ // High speed
+        <P1Clk, PushPull> for [
             #[cfg(feature = "gpio-h7a2")]
-            PA3<3>,
+            PA3<3, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h72")]
-            PA3<12>,
+            PA3<12, Speed::VeryHigh>,
 
-            PB2<9>,
+            PB2<9, Speed::VeryHigh>,
 
-            PF10<9>,
+            PF10<9, Speed::VeryHigh>,
         ],
 
         <P1Dqs, PushPull> for [
             #[cfg(feature = "gpio-h7a2")]
-            PA1<11>,
+            PA1<11, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h72")]
-            PA1<12>,
+            PA1<12, Speed::VeryHigh>,
 
-            PB2<10>,
+            PB2<10, Speed::VeryHigh>,
 
-            PC5<10>,
+            PC5<10, Speed::VeryHigh>,
         ],
 
         <P1Io0, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA2<6>,
+            PA2<6, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h72")]
-            PB1<4>,
+            PB1<4, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PB1<11>,
+            PB1<11, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h72")]
-            PB12<12>,
+            PB12<12, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PC3<9>,
+            PC3<9, Speed::VeryHigh>,
 
-            PC9<9>,
+            PC9<9, Speed::VeryHigh>,
 
-            PD11<9>,
+            PD11<9, Speed::VeryHigh>,
 
-            PF8<10>,
+            PF8<10, Speed::VeryHigh>,
         ],
 
         <P1Io1, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PB0<4>,
+            PB0<4, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PB0<11>,
+            PB0<11, Speed::VeryHigh>,
 
-            PC10<9>,
+            PC10<9, Speed::VeryHigh>,
 
-            PD12<9>,
+            PD12<9, Speed::VeryHigh>,
 
-            PF9<10>,
+            PF9<10, Speed::VeryHigh>,
         ],
 
         <P1Io2, PushPull> for [
             #[cfg(feature = "gpio-h72")]
-            PA3<6>,
+            PA3<6, Speed::VeryHigh>,
 
-            PA7<10>,
+            PA7<10, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h72")]
-            PB13<4>,
+            PB13<4, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PC2<9>,
+            PC2<9, Speed::VeryHigh>,
 
-            PE2<9>,
+            PE2<9, Speed::VeryHigh>,
 
-            PF7<10>,
+            PF7<10, Speed::VeryHigh>,
         ],
 
         <P1Io3, PushPull> for [
-            PA1<9>,
+            PA1<9, Speed::VeryHigh>,
 
-            PA6<6>,
+            PA6<6, Speed::VeryHigh>,
 
-            PD13<9>,
+            PD13<9, Speed::VeryHigh>,
 
-            PF6<10>,
+            PF6<10, Speed::VeryHigh>,
         ],
 
         <P1Io4, PushPull> for [
-            PC1<10>,
+            PC1<10, Speed::VeryHigh>,
 
-            PD4<10>,
+            PD4<10, Speed::VeryHigh>,
 
-            PE7<10>,
+            PE7<10, Speed::VeryHigh>,
 
-            PH2<9>,
+            PH2<9, Speed::VeryHigh>,
         ],
 
         <P1Io5, PushPull> for [
             #[cfg(feature = "gpio-h7a2")]
-            PC2<11>,
+            PC2<11, Speed::VeryHigh>,
 
-            PD5<10>,
+            PD5<10, Speed::VeryHigh>,
 
-            PE8<10>,
+            PE8<10, Speed::VeryHigh>,
 
-            PH3<9>,
+            PH3<9, Speed::VeryHigh>,
         ],
 
         <P1Io6, PushPull> for [
             #[cfg(feature = "gpio-h7a2")]
-            PC3<11>,
+            PC3<11, Speed::VeryHigh>,
 
-            PD6<10>,
+            PD6<10, Speed::VeryHigh>,
 
-            PE9<10>,
+            PE9<10, Speed::VeryHigh>,
 
-            PG9<9>,
+            PG9<9, Speed::VeryHigh>,
         ],
 
         <P1Io7, PushPull> for [
-            PD7<10>,
+            PD7<10, Speed::VeryHigh>,
 
-            PE10<10>,
+            PE10<10, Speed::VeryHigh>,
 
-            PG14<9>,
+            PG14<9, Speed::VeryHigh>,
         ],
 
         <P1Nclk, PushPull> for [
-            PB12<3>,
+            PB12<3, Speed::VeryHigh>,
 
-            PF11<9>,
+            PF11<9, Speed::VeryHigh>,
         ],
 
         <P1Ncs, PushPull> for [
-            PB6<10>,
+            PB6<10, Speed::VeryHigh>,
 
-            PB10<9>,
+            PB10<9, Speed::VeryHigh>,
 
-            PC11<9>,
+            PC11<9, Speed::VeryHigh>,
 
-            PE11<11>,
+            PE11<11, Speed::VeryHigh>,
 
-            PG6<10>,
+            PG6<10, Speed::VeryHigh>,
         ],
 
         <P2Clk, PushPull> for [
-            PF4<9>,
+            PF4<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI13<3>,
+            PI13<3, Speed::VeryHigh>,
         ],
 
         <P2Dqs, PushPull> for [
-            PF12<9>,
+            PF12<9, Speed::VeryHigh>,
 
-            PG7<9>,
+            PG7<9, Speed::VeryHigh>,
 
-            PG15<9>,
+            PG15<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PK6<3>,
+            PK6<3, Speed::VeryHigh>,
         ],
 
         <P2Io0, PushPull> for [
-            PF0<9>,
+            PF0<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI9<3>,
+            PI9<3, Speed::VeryHigh>,
         ],
 
         <P2Io1, PushPull> for [
-            PF1<9>,
+            PF1<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI10<3>,
+            PI10<3, Speed::VeryHigh>,
         ],
 
         <P2Io2, PushPull> for [
-            PF2<9>,
+            PF2<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI11<3>,
+            PI11<3, Speed::VeryHigh>,
         ],
 
         <P2Io3, PushPull> for [
-            PF3<9>,
+            PF3<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI12<3>,
+            PI12<3, Speed::VeryHigh>,
         ],
 
         <P2Io4, PushPull> for [
-            PG0<9>,
+            PG0<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PJ1<3>,
+            PJ1<3, Speed::VeryHigh>,
         ],
 
         <P2Io5, PushPull> for [
-            PG1<9>,
+            PG1<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PJ2<3>,
+            PJ2<3, Speed::VeryHigh>,
         ],
 
         <P2Io6, PushPull> for [
-            PG10<3>,
+            PG10<3, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PK3<3>,
+            PK3<3, Speed::VeryHigh>,
         ],
 
         <P2Io7, PushPull> for [
-            PG11<9>,
+            PG11<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PK4<3>,
+            PK4<3, Speed::VeryHigh>,
         ],
 
         <P2Nclk, PushPull> for [
-            PF5<9>,
+            PF5<9, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PI14<3>,
+            PI14<3, Speed::VeryHigh>,
         ],
 
         <P2Ncs, PushPull> for [
-            PG12<3>,
+            PG12<3, Speed::VeryHigh>,
 
             #[cfg(feature = "gpio-h7a2")]
-            PK5<3>,
+            PK5<3, Speed::VeryHigh>,
         ],
     }
 
@@ -3228,62 +3228,62 @@ pub mod sdmmc1 {
 
     pin! {
         <Cdir, PushPull> for [
-            PB9<7>,
+            PB9<7, Speed::VeryHigh>,
         ],
 
         <Ck, PushPull> for [
-            PC12<12>,
+            PC12<12, Speed::VeryHigh>,
         ],
 
         <Ckin, PushPull> for [
-            PB8<7>,
+            PB8<7, Speed::VeryHigh>,
         ],
 
         <Cmd, PushPull> for [
-            PD2<12>,
+            PD2<12, Speed::VeryHigh>,
         ],
 
         <D0, PushPull> for [
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PB13<12>,
+            PB13<12, Speed::VeryHigh>,
 
-            PC8<12>,
+            PC8<12, Speed::VeryHigh>,
         ],
 
         <D0Dir, PushPull> for [
-            PC6<8>,
+            PC6<8, Speed::VeryHigh>,
         ],
 
         <D1, PushPull> for [
-            PC9<12>,
+            PC9<12, Speed::VeryHigh>,
         ],
 
         <D123Dir, PushPull> for [
-            PC7<8>,
+            PC7<8, Speed::VeryHigh>,
         ],
 
         <D2, PushPull> for [
-            PC10<12>,
+            PC10<12, Speed::VeryHigh>,
         ],
 
         <D3, PushPull> for [
-            PC11<12>,
+            PC11<12, Speed::VeryHigh>,
         ],
 
         <D4, PushPull> for [
-            PB8<12>,
+            PB8<12, Speed::VeryHigh>,
         ],
 
         <D5, PushPull> for [
-            PB9<12>,
+            PB9<12, Speed::VeryHigh>,
         ],
 
         <D6, PushPull> for [
-            PC6<12>,
+            PC6<12, Speed::VeryHigh>,
         ],
 
         <D7, PushPull> for [
-            PC7<12>,
+            PC7<12, Speed::VeryHigh>,
         ],
     }
 
@@ -3308,70 +3308,70 @@ pub mod sdmmc2 {
     #[cfg(feature = "gpio-h72")]
     pin! {
         <Ckin, PushPull> for [
-            PC4<10>,
+            PC4<10, Speed::VeryHigh>,
         ],
     }
 
     pin! {
         <Ck, PushPull> for [
-            PC1<9>,
+            PC1<9, Speed::VeryHigh>,
 
-            PD6<11>,
+            PD6<11, Speed::VeryHigh>,
         ],
 
         <Cmd, PushPull> for [
-            PA0<9>,
+            PA0<9, Speed::VeryHigh>,
 
-            PD7<11>,
+            PD7<11, Speed::VeryHigh>,
         ],
 
         <D0, PushPull> for [
-            PB14<9>,
+            PB14<9, Speed::VeryHigh>,
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PG9<11>,
+            PG9<11, Speed::VeryHigh>,
         ],
 
         <D1, PushPull> for [
-            PB15<9>,
+            PB15<9, Speed::VeryHigh>,
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PG10<11>,
+            PG10<11, Speed::VeryHigh>,
         ],
 
         <D2, PushPull> for [
-            PB3<9>,
+            PB3<9, Speed::VeryHigh>,
 
-            PG11<10>,
+            PG11<10, Speed::VeryHigh>,
         ],
 
         <D3, PushPull> for [
-            PB4<9>,
+            PB4<9, Speed::VeryHigh>,
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PG12<10>,
+            PG12<10, Speed::VeryHigh>,
         ],
 
         <D4, PushPull> for [
-            PB8<10>,
+            PB8<10, Speed::VeryHigh>,
         ],
 
         <D5, PushPull> for [
-            PB9<10>,
+            PB9<10, Speed::VeryHigh>,
         ],
 
         <D6, PushPull> for [
-            PC6<10>,
+            PC6<10, Speed::VeryHigh>,
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PG13<10>,
+            PG13<10, Speed::VeryHigh>,
         ],
 
         <D7, PushPull> for [
-            PC7<10>,
+            PC7<10, Speed::VeryHigh>,
 
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
-            PG14<10>,
+            PG14<10, Speed::VeryHigh>,
         ],
     }
 
@@ -5335,59 +5335,59 @@ pub mod otg_hs {
         ],
 
         <UlpiCk, PushPull> for [
-            PA5<10>,
+            PA5<10, Speed::VeryHigh>,
         ],
 
         <UlpiD0, PushPull> for [
-            PA3<10>,
+            PA3<10, Speed::VeryHigh>,
         ],
 
         <UlpiD1, PushPull> for [
-            PB0<10>,
+            PB0<10, Speed::VeryHigh>,
         ],
 
         <UlpiD2, PushPull> for [
-            PB1<10>,
+            PB1<10, Speed::VeryHigh>,
         ],
 
         <UlpiD3, PushPull> for [
-            PB10<10>,
+            PB10<10, Speed::VeryHigh>,
         ],
 
         <UlpiD4, PushPull> for [
-            PB11<10>,
+            PB11<10, Speed::VeryHigh>,
         ],
 
         <UlpiD5, PushPull> for [
-            PB12<10>,
+            PB12<10, Speed::VeryHigh>,
         ],
 
         <UlpiD6, PushPull> for [
-            PB13<10>,
+            PB13<10, Speed::VeryHigh>,
         ],
 
         <UlpiD7, PushPull> for [
-            PB5<10>,
+            PB5<10, Speed::VeryHigh>,
         ],
 
         <UlpiNxt, PushPull> for [
             #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
-            PC3<10>,
+            PC3<10, Speed::VeryHigh>,
 
-            PH4<10>,
+            PH4<10, Speed::VeryHigh>,
         ],
 
         <UlpiStp, PushPull> for [
-            PC0<10>,
+            PC0<10, Speed::VeryHigh>,
         ],
     }
 
     #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
     pin! {
         <UlpiDir, PushPull> for [
-            PC2<10>,
+            PC2<10, Speed::VeryHigh>,
 
-            PI11<10>,
+            PI11<10, Speed::VeryHigh>,
         ],
     }
 }
