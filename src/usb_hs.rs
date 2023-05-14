@@ -33,27 +33,12 @@ pub struct USB1 {
     pub hclk: Hertz,
 }
 impl USB1 {
-    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     pub fn new(
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
         pin_dm: impl Into<alt::Dm>,
         pin_dp: impl Into<alt::Dp>,
-        prec: rcc::rec::Usb1Otg,
-        clocks: &rcc::CoreClocks,
-    ) -> Self {
-        let _ = pin_dm.into();
-        let _ = pin_dp.into();
-        Self::new_unchecked(usb_global, usb_device, usb_pwrclk, prec, clocks)
-    }
-    #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-    pub fn new(
-        usb_global: stm32::OTG1_HS_GLOBAL,
-        usb_device: stm32::OTG1_HS_DEVICE,
-        usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        pin_dm: impl Into<gpio::alt::otg_fs::Dm>,
-        pin_dp: impl Into<gpio::alt::otg_fs::Dp>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {

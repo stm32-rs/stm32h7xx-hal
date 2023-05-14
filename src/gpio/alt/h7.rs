@@ -608,7 +608,11 @@ pub mod eth {
         <TxClk, PushPull> for [
             PC3<11>,
         ],
+    }
 
+    // TODO: check
+    //#[cfg(feature = "gpio-h747")]
+    pin! {
         <Txd2, PushPull> for [
             PC2<11>,
         ],
@@ -5317,6 +5321,18 @@ pub mod otg_hs {
         ],
     }
 
+    // TODO: check this, absent in Cube-MX
+    #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
+    pin! {
+        <Dm, PushPull> for [
+            PA11<10>,
+        ],
+
+        <Dp, PushPull> for [
+            PA12<10>,
+        ],
+    }
+
     pin! {
         <Id, PushPull> for [
             #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
@@ -5382,11 +5398,13 @@ pub mod otg_hs {
         ],
     }
 
-    #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
+    //#[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
     pin! {
         <UlpiDir, PushPull> for [
+            // TODO: check
             PC2<10, Speed::VeryHigh>,
 
+            #[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
             PI11<10, Speed::VeryHigh>,
         ],
     }

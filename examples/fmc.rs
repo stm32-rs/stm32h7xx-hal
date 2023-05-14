@@ -15,7 +15,7 @@ mod utilities;
 extern crate cortex_m;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::{alt::fmc as alt, Speed};
+use stm32h7xx_hal::gpio::alt::fmc as alt;
 use stm32h7xx_hal::{pac, prelude::*};
 
 use stm32_fmc::devices::is42s32800g_6;
