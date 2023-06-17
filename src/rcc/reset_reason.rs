@@ -40,7 +40,7 @@ pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
         (false, false, false, false, false, false, false, false, false, true) => {
             ResetReason::CpuReset
         }
-        (false, true, false, false, false, true, false, false, false, true) => {
+        (false, true, false, false, false, false, false, false, false, false) | (false, true, false, false, false, true, false, false, false, true) => {
             ResetReason::WindowWatchdogReset
         }
         (false, false, true, false, false, true, false, false, false, true) => {
