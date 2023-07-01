@@ -272,22 +272,18 @@ pub mod config {
     /// the same software priority level, the stream with the lower number takes
     /// priority over the stream with the higher number. For example, Stream 2
     /// takes priority over Stream 4.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Default, Debug, Clone, Copy)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Priority {
         /// Low priority.
         Low,
         /// Medium priority.
+        #[default]
         Medium,
         /// High priority.
         High,
         /// Very high priority.
         VeryHigh,
-    }
-    impl Default for Priority {
-        fn default() -> Self {
-            Priority::Medium
-        }
     }
 
     impl Bits<u8> for Priority {
