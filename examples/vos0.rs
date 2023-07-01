@@ -1,3 +1,6 @@
+//! Example that demonstrates the use of VOS0
+//!
+//! 7b3/7a3/7b0 support tested on a NUCLEO-H7A3ZI-Q board
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -20,12 +23,17 @@ fn main() -> ! {
     let pwrcfg = example_power!(pwr).vos0(&dp.SYSCFG).freeze();
 
     // Constrain and Freeze clock
-    // The PllConfigStrategy::Normal strategy uses the medium range VCO which has a maximum of 420 Mhz
-    // Switching to PllConfigStrategy::Iterative sets the VCO to wide range to allow this clock to reach 480 Mhz
+    //
+    // The PllConfigStrategy::Normal strategy uses the medium range VCO which
+    // has a maximum of 420 MHz.  Switching to PllConfigStrategy::Iterative sets
+    // the VCO to wide range to allow this clock to reach 480 MHz
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
+    #[cfg(not(feature = "rm0455"))]
+    let rcc = rcc.sys_ck(480.MHz());
+    #[cfg(feature = "rm0455")] // 7b3/7a3/7b0 parts are limited to 280MHz
+    let rcc = rcc.sys_ck(280.MHz());
     let ccdr = rcc
-        .sys_ck(480.MHz())
         .pll1_strategy(rcc::PllConfigStrategy::Iterative)
         .freeze(pwrcfg, &dp.SYSCFG);
 
@@ -35,11 +43,17 @@ fn main() -> ! {
 
     // HCLK
     info!("hclk = {} MHz", ccdr.clocks.hclk().raw() as f32 / 1e6);
+    #[cfg(not(feature = "rm0455"))]
     assert_eq!(ccdr.clocks.hclk().raw(), 240_000_000);
+    #[cfg(feature = "rm0455")] // 7b3/7a3/7b0 parts
+    assert_eq!(ccdr.clocks.hclk().raw(), 280_000_000);
 
     // SYS_CK
     info!("sys_ck = {} MHz", ccdr.clocks.sys_ck().raw() as f32 / 1e6);
+    #[cfg(not(feature = "rm0455"))]
     assert_eq!(ccdr.clocks.sys_ck().raw(), 480_000_000);
+    #[cfg(feature = "rm0455")] // 7b3/7a3/7b0 parts
+    assert_eq!(ccdr.clocks.sys_ck().raw(), 280_000_000);
 
     loop {
         cortex_m::asm::nop()
