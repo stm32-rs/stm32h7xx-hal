@@ -57,7 +57,6 @@ pub struct NetStorageStatic<'a> {
     socket_storage: [SocketStorage<'a>; 8],
 }
 static mut STORE: NetStorageStatic = NetStorageStatic {
-    // Garbage
     socket_storage: [SocketStorage::EMPTY; 8],
 };
 
@@ -71,11 +70,10 @@ impl<'a> Net<'a> {
         store: &'a mut NetStorageStatic<'a>,
         mut ethdev: ethernet::EthernetDMA<4, 4>,
         ethernet_addr: HardwareAddress,
+        now: Instant,
     ) -> Self {
-        let mut config = Config::new();
-        config.hardware_addr = Some(ethernet_addr);
-
-        let mut iface = Interface::new(config, &mut ethdev);
+        let config = Config::new(ethernet_addr);
+        let mut iface = Interface::new(config, &mut ethdev, now);
         // Set IP address
         iface.update_ip_addrs(|addrs| {
             let _ = addrs.push(IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0));
@@ -199,7 +197,13 @@ mod app {
 
         // unsafe: mutable reference to static storage, we only do this once
         let store = unsafe { &mut STORE };
-        let net = Net::new(store, eth_dma, mac_addr.into());
+
+        // if you use a link_section attribute to relocate STORE to another
+        // memory it will *NOT* be initialised by the cortex-m
+        // prelude. Therefore it would need to be initialised here
+        store.socket_storage = [SocketStorage::EMPTY; 8];
+
+        let net = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
 
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);
