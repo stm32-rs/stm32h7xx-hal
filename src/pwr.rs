@@ -510,11 +510,9 @@ impl Pwr {
         ))]
         if matches!(self.target_vos, VoltageScale::Scale0) {
             unsafe {
-                &(*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
+                (*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
             };
-            unsafe {
-                &(*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit())
-            };
+            unsafe { (*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit()) };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
         }
