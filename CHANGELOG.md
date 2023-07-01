@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* bors bot replaced with GH merge queue
 * Update `smoltcp` dependency to `0.9.0`
 * MSRV increased to 1.65.0
 
