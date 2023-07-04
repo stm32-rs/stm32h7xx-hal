@@ -15,6 +15,8 @@
 #[allow(unused)]
 mod utilities;
 
+use core::mem::MaybeUninit;
+use core::ptr::addr_of_mut;
 use core::sync::atomic::AtomicU32;
 
 use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
@@ -45,13 +47,13 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 #[link_section = ".axisram.eth"]
 static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
-/// Net storage with static initialisation - another global singleton
+// This data will be held by Net through a mutable reference
 pub struct NetStorageStatic<'a> {
     socket_storage: [SocketStorage<'a>; 8],
 }
-static mut STORE: NetStorageStatic = NetStorageStatic {
-    socket_storage: [SocketStorage::EMPTY; 8],
-};
+// MaybeUninit allows us write code that is correct even if STORE is not
+// initialised by the runtime
+static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
 
 pub struct Net<'a> {
     iface: Interface,
@@ -186,12 +188,19 @@ mod app {
         unsafe { ethernet::enable_interrupt() };
 
         // unsafe: mutable reference to static storage, we only do this once
-        let store = unsafe { &mut STORE };
+        let store = unsafe {
+            let store_ptr = STORE.as_mut_ptr();
 
-        // if you use a link_section attribute to relocate STORE to another
-        // memory it will *NOT* be initialised by the cortex-m
-        // prelude. Therefore it would need to be initialised here
-        store.socket_storage = [SocketStorage::EMPTY; 8];
+            // Initialise the socket_storage field. Using `write` instead of
+            // assignment via `=` to not call `drop` on the old, uninitialised
+            // value
+            addr_of_mut!((*store_ptr).socket_storage)
+                .write([SocketStorage::EMPTY; 8]);
+
+            // Now that all fields are initialised we can safely use
+            // assume_init_mut to return a mutable reference to STORE
+            STORE.assume_init_mut()
+        };
 
         let net = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
 
