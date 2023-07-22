@@ -148,25 +148,9 @@ debug = true # symbols are nice and they don't increase the size in flash
 lto = true # better optimizations
 opt-level = "s" # optimize for binary size
 
-[[example]]
-name = "rtic"
-required-features = ["rt"]
-
-[[example]]
-name = "rtic_timers"
-required-features = ["rt", "rm0433"]
-
-[[example]]
-name = "vos0"
-required-features = ["revision_v"]
-
-[[example]]
-name = "fmc"
-required-features = ["fmc", "rm0399"]
-
-[[example]]
-name = "fmc_nand_flash"
-required-features = ["fmc"]
+# The following examples do not build for all feature flag combinations. The
+# `required-features` field specifies the hal features and/or the hardware
+# configuration required by the example.
 
 [[example]]
 name = "can-echo"
@@ -177,32 +161,8 @@ name = "can-fd"
 required-features = ["can"]
 
 [[example]]
-name = "qspi"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "qspi_mdma"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "qspi_flash_memory"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "octospi"
-required-features = ["xspi", "rm0468"]
-
-[[example]]
-name = "octospi_hyperram"
-required-features = ["xspi", "rm0468"]
-
-[[example]]
-name = "sdmmc"
-required-features = ["sdmmc"]
-
-[[example]]
-name = "sdmmc_fat"
-required-features = ["sdmmc", "sdmmc-fatfs"]
+name = "crc"
+required-features = ["crc"]
 
 [[example]]
 name = "embedded-graphics"
@@ -225,6 +185,58 @@ name = "ethernet-nucleo-h743zi2"
 required-features = ["rt", "revision_v", "stm32h743v", "ethernet"]
 
 [[example]]
+name = "fmc"
+required-features = ["fmc", "rm0399"]
+
+[[example]]
+name = "fmc_nand_flash"
+required-features = ["fmc"]
+
+[[example]]
+name = "octospi"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
+name = "octospi_hyperram"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
+name = "qspi"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_mdma"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_flash_memory"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "rtc"
+required-features = ["rt", "rtc"]
+
+[[example]]
+name = "rtic"
+required-features = ["rt"]
+
+[[example]]
+name = "rtic_timers"
+required-features = ["rt", "rm0433"]
+
+[[example]]
+name = "sdmmc"
+required-features = ["sdmmc"]
+
+[[example]]
+name = "sdmmc_fat"
+required-features = ["sdmmc", "sdmmc-fatfs"]
+
+[[example]]
+name = "spi-dma-rtic"
+required-features = ["rt"]
+
+[[example]]
 name = "tick_timer"
 required-features = ["rt"]
 
@@ -245,17 +257,5 @@ name = "usb_phy_serial_interrupt"
 required-features = ["rt", "usb_hs", "rm0433"]
 
 [[example]]
-name = "rtc"
-required-features = ["rt", "rtc"]
-
-[[example]]
-name = "sai_dma_passthru"
-required-features = ["rm0433"]
-
-[[example]]
-name = "spi-dma-rtic"
-required-features = ["rm0433","rt"]
-
-[[example]]
-name = "crc"
-required-features = ["crc", "rt"]
+name = "vos0"
+required-features = ["revision_v"]

@@ -1,9 +1,8 @@
-//! This example was tested on the original Electro Smith Daisy Seed board with
+//! This example was tested on the original Electro Smith Daisy Seed board (STM32H750) with
 //! AK4556 codec https://www.electro-smith.com/daisy
 
 #![allow(unused_macros)]
 #![deny(warnings)]
-// #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
