@@ -1,6 +1,69 @@
 mod h7;
 pub use h7::*;
 
+macro_rules! extipin {
+    ($( $(#[$attr:meta])* $PX:ident,)*) => {
+        fn make_interrupt_source(&mut self, _syscfg: &mut $crate::pac::SYSCFG) {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.make_interrupt_source(_syscfg),
+                )*
+                _ => {},
+            }
+
+        }
+
+        fn trigger_on_edge(&mut self, _exti: &mut $crate::pac::EXTI, _level: $crate::gpio::Edge) {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.trigger_on_edge(_exti, _level),
+                )*
+                _ => {},
+            }
+        }
+
+        fn enable_interrupt(&mut self, _exti: &mut $crate::pac::EXTI) {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.enable_interrupt(_exti),
+                )*
+                _ => {},
+            }
+        }
+        fn disable_interrupt(&mut self, _exti: &mut $crate::pac::EXTI) {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.disable_interrupt(_exti),
+                )*
+                _ => {},
+            }
+        }
+        fn clear_interrupt_pending_bit(&mut self) {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.clear_interrupt_pending_bit(),
+                )*
+                _ => {},
+            }
+        }
+        fn check_interrupt(&self) -> bool {
+            match self {
+                $(
+                    $(#[$attr])*
+                    Self::$PX(p) => p.check_interrupt(),
+                )*
+                _ => false,
+            }
+        }
+    };
+}
+use extipin;
+
 macro_rules! pin {
     ( $($(#[$docs:meta])* <$name:ident, $Otype:ident> for $(no: $NoPin:ident,)? [$(
         $(#[$attr:meta])* $PX:ident<$A:literal $(, Speed::$Speed:ident)?>,
@@ -60,6 +123,11 @@ macro_rules! pin {
                 }
             }
 
+            #[allow(unreachable_patterns)]
+            impl $crate::gpio::ExtiPin for $name {
+                extipin! { $( $(#[$attr])* $PX, )* }
+            }
+
             $(
                 impl From<$NoPin<$Otype>> for $name {
                     fn from(p: $NoPin<$Otype>) -> Self {
@@ -108,7 +176,7 @@ macro_rules! pin {
     };
 
     ( $($(#[$docs:meta])* <$name:ident> default:$DefaultOtype:ident for $(no: $NoPin:ident,)? [$(
-            $(#[$attr:meta])* $PX:ident<$A:literal $(, Speed::$Speed:ident)?>,
+        $(#[$attr:meta])* $PX:ident<$A:literal $(, Speed::$Speed:ident)?>,
     )*],)*) => {
         $(
             #[derive(Debug)]
@@ -163,6 +231,11 @@ macro_rules! pin {
                         _ => {}
                     }
                 }
+            }
+
+            #[allow(unreachable_patterns)]
+            impl<Otype> $crate::gpio::ExtiPin for $name<Otype> {
+                extipin! { $( $(#[$attr])* $PX, )* }
             }
 
             $(
@@ -274,7 +347,7 @@ pub trait I2cCommon {
 
 // I2S pins
 pub trait I2sCommon {
-    type Ck;
+    type Ck: crate::gpio::PinSpeed;
     type Sd;
     type Ws: crate::gpio::ReadPin + crate::gpio::ExtiPin;
 }
@@ -286,6 +359,13 @@ pub trait I2sExtPin {
 }
 
 // QuadSPI pins
+
+#[cfg(feature = "gpio-h747")]
+pub trait QuadSpiBanks {
+    type Bank1;
+    type Bank2;
+}
+#[cfg(feature = "gpio-h747")]
 pub trait QuadSpiBank {
     type Io0: crate::gpio::PinSpeed;
     type Io1: crate::gpio::PinSpeed;
@@ -294,6 +374,7 @@ pub trait QuadSpiBank {
     type Ncs: crate::gpio::PinSpeed;
 }
 
+#[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
 pub trait OctospiPort {
     type Clk;
     type Nclk;
@@ -330,7 +411,6 @@ pub trait SaiPdm {
 }
 
 // SPDIFRX pins
-
 pub trait SPdifIn<const C: u8> {
     type In;
 }
@@ -364,8 +444,7 @@ pub trait TimCPin<const C: u8> {
     type Ch<Otype>;
 }
 
-/// This trait marks which GPIO pins may be used as complementary PWM channels; it should not be directly used.
-/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
+/// Complementary output channel `C`
 pub trait TimNCPin<const C: u8> {
     type ChN<Otype>;
 }

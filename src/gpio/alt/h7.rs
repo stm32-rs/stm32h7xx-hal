@@ -3394,52 +3394,6 @@ pub mod sdmmc2 {
     }
 }
 
-#[cfg(feature = "gpio-h7a2")]
-pub mod spdifrx {
-    use super::*;
-
-    pin! {
-        <In1, PushPull> for [
-            PD7<9>,
-
-            PG11<8>,
-        ],
-
-        <In2, PushPull> for [
-            PD8<9>,
-
-            PG12<8>,
-        ],
-
-        <In3, PushPull> for [
-            PC4<9>,
-
-            PG8<8>,
-        ],
-
-        <In4, PushPull> for [
-            PC5<9>,
-
-            PG9<8>,
-        ],
-    }
-
-    use crate::pac::SPDIFRX;
-    impl SPdifIn<1> for SPDIFRX {
-        type In = In1;
-    }
-    impl SPdifIn<2> for SPDIFRX {
-        type In = In2;
-    }
-    impl SPdifIn<3> for SPDIFRX {
-        type In = In3;
-    }
-    impl SPdifIn<4> for SPDIFRX {
-        type In = In4;
-    }
-}
-
-#[cfg(any(feature = "gpio-h72", feature = "gpio-h747"))]
 pub mod spdifrx1 {
     use super::*;
 
@@ -3454,13 +3408,13 @@ pub mod spdifrx1 {
 
     pin! {
         <In1, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PD7<9>,
 
             #[cfg(feature = "gpio-h747")]
             PD8<9>,
 
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PG11<8>,
 
             #[cfg(feature = "gpio-h747")]
@@ -3471,24 +3425,24 @@ pub mod spdifrx1 {
             #[cfg(feature = "gpio-h747")]
             PC4<9>,
 
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PD8<9>,
 
             #[cfg(feature = "gpio-h747")]
             PG8<8>,
 
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PG12<8>,
         ],
 
         <In3, PushPull> for [
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PC4<9>,
 
             #[cfg(feature = "gpio-h747")]
             PC5<9>,
 
-            #[cfg(feature = "gpio-h72")]
+            #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
             PG8<8>,
 
             #[cfg(feature = "gpio-h747")]
@@ -3496,7 +3450,7 @@ pub mod spdifrx1 {
         ],
     }
 
-    #[cfg(feature = "gpio-h72")]
+    #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
     pin! {
         <In4, PushPull> for [
             PC5<9>,
@@ -3519,7 +3473,7 @@ pub mod spdifrx1 {
     impl SPdifIn<3> for SPDIFRX {
         type In = In3;
     }
-    #[cfg(feature = "gpio-h72")]
+    #[cfg(any(feature = "gpio-h72", feature = "gpio-h7a2"))]
     impl SPdifIn<4> for SPDIFRX {
         type In = In4;
     }
