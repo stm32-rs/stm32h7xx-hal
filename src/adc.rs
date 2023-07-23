@@ -861,6 +861,66 @@ macro_rules! adc_hal {
                     self.start_conversion_common(chan);
                 }
 
+                pub fn start_conversion_dma_circ(&mut self, chans: &[u8])
+                {
+                    for chan in chans.iter() {
+                      assert!(*chan <= 19);
+                    }
+
+                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) }); // set resolution
+                    self.rb.cfgr.modify(|_, w| w.dmngt().bits(0b11)); // circular mode enabled
+                    self.rb.cfgr.modify(|_, w| w.cont().set_bit().discen().clear_bit() ); // set continuous mode, unset discontinuous mode
+                    self.rb.cfgr.modify(|_, w| w.ovrmod().overwrite()); // overwrite on overrun
+                    self.check_conversion_conditions();
+                    self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value())); // set LSHIFT[3:0]
+
+                    // preselect channels
+                    for chan in chans.iter() {
+                      self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
+                      self.set_chan_smp(*chan);
+                    }
+
+                    // set sequence order and length
+                    let mut seq_len = 0;
+                    for (i, ch) in chans.iter().enumerate() {
+                        self.set_sequence(*ch, i as u8 + 1);
+                        seq_len += 1;
+                    }
+                    self.set_sequence_len(seq_len);
+
+                    self.rb.cr.modify(|_, w| w.adstart().set_bit()); // start circ conversions
+                }
+
+                /// Select a sequence to sample, by inputting a single channel and position.
+                pub fn set_sequence(&mut self, chan: u8, position: u8) {
+                    match position {
+                        1 => self.rb.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) }),
+                        2 => self.rb.sqr1.modify(|_, w| unsafe { w.sq2().bits(chan) }),
+                        3 => self.rb.sqr1.modify(|_, w| unsafe { w.sq3().bits(chan) }),
+                        4 => self.rb.sqr1.modify(|_, w| unsafe { w.sq4().bits(chan) }),
+                        5 => self.rb.sqr2.modify(|_, w| unsafe { w.sq5().bits(chan) }),
+                        6 => self.rb.sqr2.modify(|_, w| unsafe { w.sq6().bits(chan) }),
+                        7 => self.rb.sqr2.modify(|_, w| unsafe { w.sq7().bits(chan) }),
+                        8 => self.rb.sqr2.modify(|_, w| unsafe { w.sq8().bits(chan) }),
+                        9 => self.rb.sqr2.modify(|_, w| unsafe { w.sq9().bits(chan) }),
+                        10 => self.rb.sqr3.modify(|_, w| unsafe { w.sq10().bits(chan) }),
+                        11 => self.rb.sqr3.modify(|_, w| unsafe { w.sq11().bits(chan) }),
+                        12 => self.rb.sqr3.modify(|_, w| unsafe { w.sq12().bits(chan) }),
+                        13 => self.rb.sqr3.modify(|_, w| unsafe { w.sq13().bits(chan) }),
+                        14 => self.rb.sqr3.modify(|_, w| unsafe { w.sq14().bits(chan) }),
+                        15 => self.rb.sqr4.modify(|_, w| unsafe { w.sq15().bits(chan) }),
+                        16 => self.rb.sqr4.modify(|_, w| unsafe { w.sq16().bits(chan) }),
+                        _ => panic!("Sequence out of bounds. Only 16 positions are available."),
+                    }
+                }
+
+                pub fn set_sequence_len(&mut self, len: u8) {
+                    if len > 16 {
+                        panic!("ADC sequence length must be in 1..=16")
+                    }
+
+                    self.rb.sqr1.modify(|_, w| w.l().bits(len - 1));
+                }
 
                 /// Read sample
                 ///
