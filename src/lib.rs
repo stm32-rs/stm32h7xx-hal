@@ -143,6 +143,9 @@ pub use crate::stm32 as device;
 pub use crate::stm32::interrupt;
 
 #[cfg(feature = "device-selected")]
+pub mod ptp;
+
+#[cfg(feature = "device-selected")]
 pub mod adc;
 #[cfg(all(feature = "device-selected", feature = "can"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "can")))]

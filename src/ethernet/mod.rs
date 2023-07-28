@@ -32,6 +32,13 @@ pub trait PHY {
 
 mod ksz8081r;
 mod lan8742a;
+pub(crate) mod raw_descriptor;
+
+mod rx;
+pub use rx::{RxDescriptor, RxDescriptorRing, RxError, RxPacket};
+
+mod tx;
+pub use tx::{TxDescriptor, TxDescriptorRing, TxError};
 
 /// Some common implementations of the [PHY trait](PHY)
 pub mod phy {
@@ -39,15 +46,25 @@ pub mod phy {
     pub use super::lan8742a::*;
 }
 
+mod packet_id;
+pub use packet_id::PacketId;
+
+mod cache;
+pub(crate) use cache::Cache;
+
 mod eth;
-pub use eth::{enable_interrupt, interrupt_handler, new, new_unchecked};
-pub use eth::{DesRing, EthernetDMA, EthernetMAC};
+pub use eth::{eth_interrupt_handler, new, new_unchecked};
+pub use eth::{EthernetDMA, EthernetMAC};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)
 pub trait PinsRMII {
     fn set_speed(&mut self, speed: Speed);
 }
+
+// ***VERIFY THIS!!!!!***
+/// From the datasheet: *VLAN Frame maxsize = 1522*
+pub const MTU: usize = 1522;
 
 // Two lanes
 impl<REF_CLK, MDIO, MDC, CRS_DV, RXD0, RXD1, TX_EN, TXD0, TXD1> PinsRMII

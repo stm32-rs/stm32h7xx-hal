@@ -1,15 +1,17 @@
 [package]
 name = "stm32h7xx-hal"
 version = "0.14.0"
-authors = ["Andrew Straw <strawman@astraw.com>",
-           "Richard Meadows <richard@richard.fish>",
-           "Henrik Böving <hargonix@gmail.com>",
-           "Jan Adä <jan.adae@outlook.de>",
-           "Robert Jördens <rj@quartiq.de>",
-           "Ryan Summers <ryan.summers@vertigo-designs.com>",
-           "Matthew Meyer <mtthw.meyer@gmail.com>",
-           "Florian Jung <flo@windfisch.org>",
-           "Matt Ickstadt <mattico8@gmail.com>"]
+authors = [
+    "Andrew Straw <strawman@astraw.com>",
+    "Richard Meadows <richard@richard.fish>",
+    "Henrik Böving <hargonix@gmail.com>",
+    "Jan Adä <jan.adae@outlook.de>",
+    "Robert Jördens <rj@quartiq.de>",
+    "Ryan Summers <ryan.summers@vertigo-designs.com>",
+    "Matthew Meyer <mtthw.meyer@gmail.com>",
+    "Florian Jung <flo@windfisch.org>",
+    "Matt Ickstadt <mattico8@gmail.com>",
+]
 edition = "2021"
 rust-version = "1.65"
 categories = ["embedded", "hardware-support", "no-std"]
@@ -22,7 +24,24 @@ readme = "README.md"
 exclude = [".gitignore"]
 
 [package.metadata.docs.rs]
-features = ["stm32h743v", "rt", "xspi", "sdmmc", "sdmmc-fatfs", "fmc", "usb_hs", "rtc", "ethernet", "ltdc", "crc", "rand", "can", "defmt", "log", "fugit/defmt"]
+features = [
+    "stm32h743v",
+    "rt",
+    "xspi",
+    "sdmmc",
+    "sdmmc-fatfs",
+    "fmc",
+    "usb_hs",
+    "rtc",
+    "ethernet",
+    "ltdc",
+    "crc",
+    "rand",
+    "can",
+    "defmt",
+    "log",
+    "fugit/defmt",
+]
 targets = ["thumbv7em-none-eabihf"]
 rustdoc-args = ["--cfg", "docsrs"]
 
@@ -41,9 +60,12 @@ bare-metal = "1.0.0"
 sdio-host = { version = "0.9", optional = true }
 embedded-sdmmc = { version = "0.5", optional = true }
 stm32-fmc = { version = "0.3", optional = true }
-synopsys-usb-otg = { version = "^0.3.0", features = ["cortex-m"], optional = true }
+volatile-register = "0.2"
+synopsys-usb-otg = { version = "^0.3.0", features = [
+    "cortex-m",
+], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
-log = { version = "0.4.14", optional = true} # see also the dev-dependencies section
+log = { version = "0.4.14", optional = true } # see also the dev-dependencies section
 fdcan = { version = "0.2", optional = true }
 bitflags = { version = "2.0.0" }
 embedded-storage = "0.3"
@@ -73,7 +95,11 @@ panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }
 cfg-if = "1.0.0"
 rtt-target = "0.4.0"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-cortex-m-log = { version = "0.8.0", features = ["itm", "semihosting", "log-integration"] }
+cortex-m-log = { version = "0.8.0", features = [
+    "itm",
+    "semihosting",
+    "log-integration",
+] }
 cortex-m-semihosting = "0.5.0"
 panic-itm = { version = "~0.4.1" }
 panic-semihosting = "0.6"
@@ -89,13 +115,13 @@ default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
-default = ["rt"]
+default = ["rt", "device-selected", "stm32h743v", "ethernet"]
 device-selected = []
 revision_v = []
-rm0433 = ["gpio-h747"]          # aka. "single core" devices
-rm0399 = ["gpio-h747"] # TODO: fix gpio  # aka. "dual core" devices
-rm0455 = ["gpio-h7a2"]          # aka. "high memory integration" devices
-rm0468 = ["gpio-h72"]           # aka. "high speed" devices
+rm0433 = ["gpio-h747"]                                        # aka. "single core" devices
+rm0399 = ["gpio-h747"]                                        # TODO: fix gpio  # aka. "dual core" devices
+rm0455 = ["gpio-h7a2"]                                        # aka. "high memory integration" devices
+rm0468 = ["gpio-h72"]                                         # aka. "high speed" devices
 
 gpio-h72 = []
 gpio-h747 = []
@@ -125,11 +151,43 @@ stm32h742v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
 stm32h743v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
 stm32h753v = ["stm32h7/stm32h753v", "device-selected", "revision_v", "rm0433"]
 stm32h750v = ["stm32h7/stm32h743v", "device-selected", "revision_v", "rm0433"]
-stm32h747cm7 = ["stm32h7/stm32h747cm7", "device-selected", "revision_v", "rm0399", "cm7", "dsi", "smps"]
-stm32h7b3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
-stm32h7b0 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
-stm32h7a3 = ["stm32h7/stm32h7b3", "device-selected", "revision_v", "rm0455", "smps"]
-stm32h735 = ["stm32h7/stm32h735", "device-selected", "revision_v", "rm0468", "smps"]  # Also applies to 723,725,730,733
+stm32h747cm7 = [
+    "stm32h7/stm32h747cm7",
+    "device-selected",
+    "revision_v",
+    "rm0399",
+    "cm7",
+    "dsi",
+    "smps",
+]
+stm32h7b3 = [
+    "stm32h7/stm32h7b3",
+    "device-selected",
+    "revision_v",
+    "rm0455",
+    "smps",
+]
+stm32h7b0 = [
+    "stm32h7/stm32h7b3",
+    "device-selected",
+    "revision_v",
+    "rm0455",
+    "smps",
+]
+stm32h7a3 = [
+    "stm32h7/stm32h7b3",
+    "device-selected",
+    "revision_v",
+    "rm0455",
+    "smps",
+]
+stm32h735 = [
+    "stm32h7/stm32h735",
+    "device-selected",
+    "revision_v",
+    "rm0468",
+    "smps",
+] # Also applies to 723,725,730,733
 # Flags for examples
 log-itm = []
 log-rtt = []
@@ -138,15 +196,15 @@ example-smps = []
 example-ldo = []
 
 [profile.dev]
-codegen-units = 1 # better optimizations
-debug = true # symbols are nice and they don't increase the size in flash
+codegen-units = 1   # better optimizations
+debug = true        # symbols are nice and they don't increase the size in flash
 incremental = false
 
 [profile.release]
 codegen-units = 1 # better optimizations
-debug = true # symbols are nice and they don't increase the size in flash
-lto = true # better optimizations
-opt-level = "s" # optimize for binary size
+debug = true      # symbols are nice and they don't increase the size in flash
+lto = true        # better optimizations
+opt-level = "s"   # optimize for binary size
 
 # The following examples do not build for all feature flag combinations. The
 # `required-features` field specifies the hal features and/or the hardware
