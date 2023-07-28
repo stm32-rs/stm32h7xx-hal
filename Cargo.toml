@@ -115,13 +115,13 @@ default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
-default = ["rt", "device-selected", "stm32h743v", "ethernet"]
+default = ["rt"]
 device-selected = []
 revision_v = []
-rm0433 = ["gpio-h747"]                                        # aka. "single core" devices
-rm0399 = ["gpio-h747"]                                        # TODO: fix gpio  # aka. "dual core" devices
-rm0455 = ["gpio-h7a2"]                                        # aka. "high memory integration" devices
-rm0468 = ["gpio-h72"]                                         # aka. "high speed" devices
+rm0433 = ["gpio-h747"] # aka. "single core" devices
+rm0399 = ["gpio-h747"] # TODO: fix gpio  # aka. "dual core" devices
+rm0455 = ["gpio-h7a2"] # aka. "high memory integration" devices
+rm0468 = ["gpio-h72"]  # aka. "high speed" devices
 
 gpio-h72 = []
 gpio-h747 = []
