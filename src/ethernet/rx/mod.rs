@@ -7,7 +7,7 @@ use crate::stm32::ETHERNET_DMA;
 mod descriptor;
 
 #[cfg(feature = "ptp")]
-use crate::{dma::PacketIdNotFound, ptp::Timestamp};
+use crate::{ethernet::eth::PacketIdNotFound, ptp::Timestamp};
 
 #[cfg(feature = "async-await")]
 use core::task::Poll;

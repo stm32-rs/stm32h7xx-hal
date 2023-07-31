@@ -2,7 +2,8 @@ use super::{raw_descriptor::DescriptorRing, PacketId};
 use crate::stm32::ETHERNET_DMA;
 
 #[cfg(feature = "ptp")]
-use super::{PacketIdNotFound, Timestamp};
+use super::eth::PacketIdNotFound;
+use crate::ptp::Timestamp;
 
 #[path = "./h_descriptor.rs"]
 mod descriptor;

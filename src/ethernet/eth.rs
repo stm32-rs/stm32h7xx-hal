@@ -22,6 +22,9 @@
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
+use core::task::Poll;
+
+use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::{Interrupt, ETHERNET_DMA, ETHERNET_MTL, NVIC};
@@ -827,6 +830,9 @@ pub struct InterruptReason {
 #[cfg(feature = "device-selected")]
 pub fn eth_interrupt_handler() -> InterruptReason {
     let dma = EthernetDMA::interrupt_handler();
+
+    #[cfg(feature = "ptp")]
+    let is_time_trigger = EthernetPTP::interrupt_handler();
 
     InterruptReason {
         rx: dma.is_rx,

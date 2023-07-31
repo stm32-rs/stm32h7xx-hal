@@ -63,14 +63,16 @@ impl Subseconds {
             return None;
         }
 
-        let subseconds = ((nanos as u64 * SUBS_PER_S) + (NS_PER_S / 2)) / NS_PER_S;
+        let subseconds =
+            ((nanos as u64 * SUBS_PER_S) + (NS_PER_S / 2)) / NS_PER_S;
 
         Some(Subseconds::new_unchecked(subseconds as u32))
     }
 
     /// Convert this [`Subseconds`] to nanoseconds, using a round-to-nearest method.
     pub const fn nanos(&self) -> u32 {
-        let nanos = ((self.0 as u64 * NS_PER_S) + (SUBS_PER_S / 2)) / SUBS_PER_S;
+        let nanos =
+            ((self.0 as u64 * NS_PER_S) + (SUBS_PER_S / 2)) / SUBS_PER_S;
 
         nanos as u32
     }
@@ -80,13 +82,16 @@ impl Subseconds {
         self.0
     }
 
+    #[allow(unused)]
     /// Convert this [`Subseconds`] to Hertz
     pub(crate) const fn hertz(&self) -> u32 {
         SUBSECONDS_PER_SECOND as u32 / self.0
     }
 
+    #[allow(unused)]
     pub(crate) const fn nearest_increment(input_clk_hz: u32) -> Subseconds {
-        let hclk_half_subs = (SUBSECONDS_PER_SECOND as u32 + (input_clk_hz / 2)) / input_clk_hz;
+        let hclk_half_subs =
+            (SUBSECONDS_PER_SECOND as u32 + (input_clk_hz / 2)) / input_clk_hz;
 
         Self::new_unchecked(hclk_half_subs)
     }
