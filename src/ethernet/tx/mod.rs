@@ -298,8 +298,15 @@ impl TxRing<'_> {
 
         if self.entry_available(entry) {
             #[cfg(feature = "defmt")]
+            let time = self.entry_timestamp(entry);
             defmt::info!("Entry: {} available", entry);
-            Poll::Ready(Ok(self.entry_timestamp(entry)))
+            if let Some(ts) = time {
+                #[cfg(feature = "defmt")]
+                defmt::info!("Timestamp: {}", ts.total_nanos())
+            } else {
+                defmt::info!("No ts");
+            }
+            Poll::Ready(Ok(ts))
         } else {
             #[cfg(feature = "defmt")]
             defmt::info!("Entry: {} not available", entry);
