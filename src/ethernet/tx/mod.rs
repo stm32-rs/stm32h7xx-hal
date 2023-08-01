@@ -259,7 +259,7 @@ impl TxRing<'_> {
                 defmt::info!("Entry: {} for packet id: {}", id.0, idx);
                 Some(idx)
             } else {
-                defmt::info!("No entry for packet id: {}", id.0);
+                // defmt::info!("No entry for packet id: {}", id.0);
                 None
             }
         })
