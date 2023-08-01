@@ -256,9 +256,11 @@ impl TxRing<'_> {
     fn entry_for_id(&self, id: &PacketId) -> Option<usize> {
         self.ring.descriptors().enumerate().find_map(|(idx, e)| {
             if e.has_packet_id(id) {
+                #[cfg(feature = "defmt")]
                 defmt::info!("Entry: {} for packet id: {}", id.0, idx);
                 Some(idx)
             } else {
+                // #[cfg(feature = "defmt")]
                 // defmt::info!("No entry for packet id: {}", id.0);
                 None
             }
