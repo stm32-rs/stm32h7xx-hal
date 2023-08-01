@@ -54,7 +54,7 @@ pub(crate) use cache::Cache;
 
 mod eth;
 pub use eth::{eth_interrupt_handler, new, new_unchecked};
-pub use eth::{EthernetDMA, EthernetMAC};
+pub use eth::{EthernetDMA, EthernetMAC, Parts};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)
