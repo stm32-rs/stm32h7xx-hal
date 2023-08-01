@@ -429,6 +429,17 @@ pub struct EthernetMAC {
     clock_range: u8,
 }
 
+/// Access to all configured parts of the ethernet peripheral.
+pub struct Parts<'rx, 'tx> {
+    /// Access to and control over the ethernet MAC.
+    pub mac: EthernetMAC,
+    /// Access to and control over the ethernet DMA.
+    pub dma: EthernetDMA<'rx, 'tx>,
+    /// Access to and control over the ethernet PTP module.
+    #[cfg(feature = "ptp")]
+    pub ptp: EthernetPTP,
+}
+
 /// Create and initialise the ethernet driver.
 ///
 /// You must move in ETH_MAC, ETH_MTL, ETH_DMA.
@@ -458,7 +469,7 @@ pub fn new<'rx, 'tx>(
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (EthernetDMA<'rx, 'tx>, EthernetMAC) {
+) -> (Parts<'rx, 'tx>) {
     pins.set_speed(Speed::VeryHigh);
     unsafe {
         new_unchecked(
@@ -499,7 +510,7 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (EthernetDMA<'rx, 'tx>, EthernetMAC) {
+) -> (Parts<'rx, 'tx>) {
     // RCC
     {
         let rcc = &*stm32::RCC::ptr();
@@ -804,7 +815,16 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
     dma.rx_ring.start(&dma.eth_dma);
     dma.tx_ring.start(&dma.eth_dma);
 
-    (dma, mac)
+    // Configure the ethernet PTP
+    #[cfg(feature = "ptp")]
+    let ptp = EthernetPTP::new(*clocks, &dma);
+
+    Parts {
+        mac,
+        dma,
+        #[cfg(feature = "ptp")]
+        ptp,
+    }
 }
 
 /// A summary of the reasons for the occurence of an
