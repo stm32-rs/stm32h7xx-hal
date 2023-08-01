@@ -257,7 +257,7 @@ impl TxRing<'_> {
         self.ring.descriptors().enumerate().find_map(|(idx, e)| {
             if e.has_packet_id(id) {
                 #[cfg(feature = "defmt")]
-                defmt::info!("Entry: {} for packet id: {}", id.0, idx);
+                defmt::info!("Entry: {} for packet id: {}", idx, id.0);
                 Some(idx)
             } else {
                 // #[cfg(feature = "defmt")]
