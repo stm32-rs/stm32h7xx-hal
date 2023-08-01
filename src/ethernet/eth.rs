@@ -479,6 +479,8 @@ pub fn new<'rx, 'tx>(
     }
 }
 
+//TODO remove EthernetPTP but keep the timestamping functionality
+
 /// Create and initialise the ethernet driver.
 ///
 /// You must move in ETH_MAC, ETH_MTL, ETH_DMA.
