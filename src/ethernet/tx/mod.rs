@@ -297,8 +297,10 @@ impl TxRing<'_> {
         };
 
         if self.entry_available(entry) {
+            defmt::info!("Entry: {} available", entry);
             Poll::Ready(Ok(self.entry_timestamp(entry)))
         } else {
+            defmt::info!("Entry: {} not available", entry);
             Poll::Pending
         }
     }
