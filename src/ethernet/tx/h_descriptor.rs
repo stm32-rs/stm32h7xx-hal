@@ -121,7 +121,8 @@ pub use consts::*;
 #[repr(C, align(4))]
 #[derive(Clone, Copy)]
 pub struct TxDescriptor {
-    inner_raw: RawDescriptor,
+    // TODO remove pub
+    pub inner_raw: RawDescriptor,
     cache: Cache,
 }
 
