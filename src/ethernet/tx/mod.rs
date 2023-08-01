@@ -300,19 +300,20 @@ impl TxRing<'_> {
         };
 
         if self.entry_available(entry) {
-            #[cfg(feature = "defmt")]
             let time = self.entry_timestamp(entry);
-            defmt::info!("Entry: {} available", entry);
+            // #[cfg(feature = "defmt")]
+            // defmt::info!("Entry: {} available", entry);
             if let Some(ts) = time {
                 #[cfg(feature = "defmt")]
                 defmt::info!("Timestamp: {}", ts.total_nanos())
             } else {
+                #[cfg(feature = "defmt")]
                 defmt::info!("No ts"); // THERE IS NO TIMESTAMPS APPLIED TO THE ENTRY!!!
             }
             Poll::Ready(Ok(time))
         } else {
-            #[cfg(feature = "defmt")]
-            defmt::info!("Entry: {} not available", entry);
+            // #[cfg(feature = "defmt")]
+            // defmt::info!("Entry: {} not available", entry);
             Poll::Pending
         }
     }
