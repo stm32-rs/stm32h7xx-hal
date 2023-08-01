@@ -306,7 +306,7 @@ impl TxRing<'_> {
             } else {
                 defmt::info!("No ts");
             }
-            Poll::Ready(Ok(ts))
+            Poll::Ready(Ok(time))
         } else {
             #[cfg(feature = "defmt")]
             defmt::info!("Entry: {} not available", entry);
