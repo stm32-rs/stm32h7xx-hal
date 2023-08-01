@@ -268,7 +268,7 @@ impl TxRing<'_> {
     }
 
     fn entry_timestamp(&self, index: usize) -> Option<Timestamp> {
-        let t = self.ring.descriptor(index);
+        // let t = self.ring.descriptor(index);
         // #[cfg(feature = "defmt")]
         // defmt::info!("Descriptor for index: {}", t.inner_raw.desc);
         self.ring.descriptor(index).timestamp()
