@@ -268,6 +268,9 @@ impl TxRing<'_> {
     }
 
     fn entry_timestamp(&self, index: usize) -> Option<Timestamp> {
+        let t = self.ring.descriptor(index);
+        #[cfg(feature = "defmt")]
+        defmt::info!("Descriptor for index: {}", t);
         self.ring.descriptor(index).timestamp()
     }
 
@@ -304,7 +307,7 @@ impl TxRing<'_> {
                 #[cfg(feature = "defmt")]
                 defmt::info!("Timestamp: {}", ts.total_nanos())
             } else {
-                defmt::info!("No ts");
+                defmt::info!("No ts"); // THERE IS NO TIMESTAMPS APPLIED TO THE ENTRY!!!
             }
             Poll::Ready(Ok(time))
         } else {
