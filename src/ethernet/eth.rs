@@ -695,24 +695,25 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
 
         // operation mode register
         eth_dma.dmamr.modify(|_, w| {
-            w.intm()
-                .bits(0b00) //May not need
+            w
+                // .intm()
+                //     .bits(0b00) //May not need
                 // Rx Tx priority ratio 2:1
                 .pr()
                 .variant(0b001) // Modified
-                .txpr()
-                .clear_bit() //May not need
-                .da()
-                .clear_bit() //May not need
+                                // .txpr()
+                                // .clear_bit() //May not need
+                                // .da()
+                                // .clear_bit() //May not need
         });
         // bus mode register
         eth_dma.dmasbmr.modify(|_, w| {
             // Address-aligned beats
             w.aal() //Match
                 .set_bit()
-                // Fixed burst
-                .fb() //May not need
-                .set_bit()
+            // Fixed burst
+            // .fb() //May not need
+            // .set_bit()
         });
         eth_dma.dmaccr.modify(|_, w| {
             w.dsl() //Modified
@@ -723,8 +724,8 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
                 // Tx DMA PBL
                 .txpbl() //Match
                 .bits(32)
-                .tse() //May not need
-                .clear_bit()
+                // .tse() //May not need
+                // .clear_bit()
                 // Operate on second frame
                 .osf() //Match
                 .clear_bit()
@@ -738,9 +739,9 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
                 // Rx DMA PBL
                 .rxpbl() //Match
                 .bits(32)
-                // Disable flushing of received frames
-                .rpf()
-                .clear_bit() //May not need
+            // Disable flushing of received frames
+            // .rpf()
+            // .clear_bit() //May not need
         });
 
         // Initialise DMA descriptors
@@ -760,8 +761,8 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
         eth_mtl.mtltx_qomr.modify(|_, w| w.ftq().set_bit());
 
         // Manage DMA transmission and reception
-        eth_dma.dmactx_cr.modify(|_, w| w.st().set_bit()); //May not need
-        eth_dma.dmacrx_cr.modify(|_, w| w.sr().set_bit()); //May not need
+        // eth_dma.dmactx_cr.modify(|_, w| w.st().set_bit()); //May not need
+        // eth_dma.dmacrx_cr.modify(|_, w| w.sr().set_bit()); //May not need
 
         eth_dma
             .dmacsr
