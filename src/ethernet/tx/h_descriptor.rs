@@ -240,15 +240,6 @@ impl TxDescriptor {
     pub(super) fn timestamp(&self) -> Option<Timestamp> {
         let contains_timestamp =
             (self.inner_raw.read(3) & TXDESC_3_TTSS) == TXDESC_3_TTSS;
-        if contains_timestamp {
-            #[cfg(feature = "defmt")]
-            defmt::info!(
-                "Is owned: {}, contains ts: {}, is last {}",
-                self.is_owned(),
-                contains_timestamp,
-                self.is_last()
-            );
-        }
         if !self.is_owned() && contains_timestamp && self.is_last() {
             let (low, high) = (self.inner_raw.read(0), self.inner_raw.read(1));
             Some(Timestamp::from_parts(high, low))

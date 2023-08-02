@@ -256,21 +256,14 @@ impl TxRing<'_> {
     fn entry_for_id(&self, id: &PacketId) -> Option<usize> {
         self.ring.descriptors().enumerate().find_map(|(idx, e)| {
             if e.has_packet_id(id) {
-                // #[cfg(feature = "defmt")]
-                // defmt::info!("Entry: {} for packet id: {}", idx, id.0);
                 Some(idx)
             } else {
-                // #[cfg(feature = "defmt")]
-                // defmt::info!("No entry for packet id: {}", id.0);
                 None
             }
         })
     }
 
     fn entry_timestamp(&self, index: usize) -> Option<Timestamp> {
-        // let t = self.ring.descriptor(index);
-        // #[cfg(feature = "defmt")]
-        // defmt::info!("Descriptor for index: {}", t.inner_raw.desc);
         self.ring.descriptor(index).timestamp()
     }
 
@@ -301,19 +294,8 @@ impl TxRing<'_> {
 
         if self.entry_available(entry) {
             let time = self.entry_timestamp(entry);
-            // #[cfg(feature = "defmt")]
-            // defmt::info!("Entry: {} available", entry);
-            if let Some(ts) = time {
-                // #[cfg(feature = "defmt")]
-                // defmt::info!("Timestamp: {}", ts.total_nanos())
-            } else {
-                // #[cfg(feature = "defmt")]
-                // defmt::info!("No ts"); // THERE IS NO TIMESTAMPS APPLIED TO THE ENTRY!!!
-            }
             Poll::Ready(Ok(time))
         } else {
-            // #[cfg(feature = "defmt")]
-            // defmt::info!("Entry: {} not available", entry);
             Poll::Pending
         }
     }
