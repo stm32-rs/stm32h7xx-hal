@@ -1,4 +1,4 @@
-//! Demo for STM32H735G-DK eval board using the Real Time for the Masses
+//! Demo for Nucleo-H723ZG eval board using the Real Time for the Masses
 //! (RTIC) framework.
 //!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
