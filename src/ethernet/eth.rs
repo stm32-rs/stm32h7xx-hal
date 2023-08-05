@@ -471,7 +471,6 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
             .modify(|_, w| w.eth1txen().set_bit().eth1rxen().set_bit());
 
         syscfg.pmcr.modify(|_, w| w.epis().bits(0b100)); // RMII
-
     }
 
     // reset ETH_MAC - write 1 then 0
@@ -479,7 +478,6 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
     //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().clear_bit());
 
     cortex_m::interrupt::free(|_cs| {
-
         // 200 MHz
         eth_mac
             .mac1ustcr

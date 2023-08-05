@@ -7,9 +7,9 @@
 //!
 //! The ethernet ring buffers are placed in AXI SRAM, where they can be
 //! accessed by both the core and the Ethernet DMA.
-//! 
+//!
 //! Run like
-//! 
+//!
 //! `cargo flash --example ethernet-rtic-nucleo-h723zg --features=ethernet,stm32h735 --chip=STM32H723ZGTx`
 #![deny(warnings)]
 #![no_main]
@@ -120,7 +120,7 @@ mod app {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
-        let pwrcfg = pwr.ldo().freeze();  // nucleo-h723zg board doesn't have SMPS
+        let pwrcfg = pwr.ldo().freeze(); // nucleo-h723zg board doesn't have SMPS
 
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
