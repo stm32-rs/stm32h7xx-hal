@@ -107,9 +107,9 @@ impl Timestamp {
     /// let timestamp_neg = Timestamp::new(true, 500, Subseconds::new_from_nanos(500_000).unwrap());
     /// assert_eq!(timestamp_neg.total_nanos(), -1 * (500 * 1_000_000_000 + 500_000));
     /// ```
-    pub const fn total_nanos(&self) -> i128 {
-        let nanos = self.seconds() as i128 * NANOS_PER_SECOND as i128
-            + self.nanos() as i128;
+    pub const fn total_nanos(&self) -> u64 {
+        let nanos = self.seconds() as u64 * NANOS_PER_SECOND as u64
+            + self.nanos() as u64;
 
         if self.is_positive() {
             nanos
