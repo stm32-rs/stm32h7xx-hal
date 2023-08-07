@@ -107,15 +107,8 @@ impl Timestamp {
     /// let timestamp_neg = Timestamp::new(true, 500, Subseconds::new_from_nanos(500_000).unwrap());
     /// assert_eq!(timestamp_neg.total_nanos(), -1 * (500 * 1_000_000_000 + 500_000));
     /// ```
-    pub const fn total_nanos(&self) -> u64 {
-        let nanos = self.seconds() as u64 * NANOS_PER_SECOND as u64
-            + self.nanos() as u64;
-
-        if self.is_positive() {
-            nanos
-        } else {
-            -nanos
-        }
+    pub const fn total_abs_nanos(&self) -> u64 {
+        self.seconds() as u64 * NANOS_PER_SECOND as u64 + self.nanos() as u64
     }
 
     /// Create a new timestamp from the provided register values.
