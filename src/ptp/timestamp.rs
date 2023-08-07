@@ -124,7 +124,7 @@ impl core::ops::Add<Timestamp> for Timestamp {
     type Output = Self;
 
     fn add(self, rhs: Timestamp) -> Self::Output {
-        Self(self.0 + rhs.0)
+        Self(self.0.saturating_add(rhs.0))
     }
 }
 
@@ -138,7 +138,7 @@ impl core::ops::Sub<Timestamp> for Timestamp {
     type Output = Self;
 
     fn sub(self, rhs: Timestamp) -> Self::Output {
-        Self(self.0 - rhs.0)
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
