@@ -21,7 +21,11 @@ impl Timestamp {
     const SIGN_BIT: u32 = 0x8000_0000;
 
     /// Create a new [`Timestamp`]
-    pub const fn new(negative: bool, seconds: u32, subseconds: Subseconds) -> Self {
+    pub const fn new(
+        negative: bool,
+        seconds: u32,
+        subseconds: Subseconds,
+    ) -> Self {
         Self::new_unchecked(negative, seconds, subseconds.raw())
     }
 
@@ -45,7 +49,11 @@ impl Timestamp {
         !self.is_negative()
     }
 
-    pub(crate) const fn new_unchecked(negative: bool, seconds: u32, subseconds: u32) -> Self {
+    pub(crate) const fn new_unchecked(
+        negative: bool,
+        seconds: u32,
+        subseconds: u32,
+    ) -> Self {
         let seconds: i64 = (seconds as i64) << 31;
         let subseconds: i64 = subseconds as i64;
 
@@ -99,8 +107,9 @@ impl Timestamp {
     /// let timestamp_neg = Timestamp::new(true, 500, Subseconds::new_from_nanos(500_000).unwrap());
     /// assert_eq!(timestamp_neg.total_nanos(), -1 * (500 * 1_000_000_000 + 500_000));
     /// ```
-    pub const fn total_nanos(&self) -> i64 {
-        let nanos = self.seconds() as i64 * NANOS_PER_SECOND as i64 + self.nanos() as i64;
+    pub const fn total_nanos(&self) -> i128 {
+        let nanos = self.seconds() as i128 * NANOS_PER_SECOND as i128
+            + self.nanos() as i128;
 
         if self.is_positive() {
             nanos
@@ -164,7 +173,8 @@ mod test {
         let three = Timestamp::new(false, 3, subs(3));
 
         let one_neg = Timestamp::new(true, 1, subs(1));
-        let one_big_neg = Timestamp::new(true, 1, subs(SUBSECONDS_PER_SECOND - 1));
+        let one_big_neg =
+            Timestamp::new(true, 1, subs(SUBSECONDS_PER_SECOND - 1));
         let two_neg = Timestamp::new(true, 2, subs(2));
         let three_neg = Timestamp::new(true, 3, subs(3));
 
@@ -206,7 +216,8 @@ mod test {
         let three_neg = Timestamp::new(true, 3, subs(3));
 
         let one_minus_two = Timestamp::new(true, 1, subs(1));
-        let one_minus_one_big = Timestamp::new(true, 0, subs(SUBSECONDS_PER_SECOND - 2));
+        let one_minus_one_big =
+            Timestamp::new(true, 0, subs(SUBSECONDS_PER_SECOND - 2));
 
         assert_eq!(one - one_big, one_minus_one_big);
 
