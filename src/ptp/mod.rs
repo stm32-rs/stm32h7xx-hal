@@ -115,7 +115,7 @@ impl EthernetPTP {
         };
 
         me.set_addend(tsa);
-        me.set_time(Timestamp::new_unchecked(false, 0, 0));
+        me.set_time(0, 0);
 
         me
     }
@@ -154,13 +154,7 @@ impl EthernetPTP {
     }
 
     /// Set the current time.
-    pub fn set_time(&mut self, time: Timestamp) {
-        let seconds = time.seconds();
-        // TODO(stm32h7): figure out if the time being signed
-        // means that we have a two's complement number or not
-        // (the RM makes it read as though it may be).
-        let subseconds = time.subseconds_signed();
-
+    pub fn set_time(&mut self, seconds: u32, nanoseconds: u32) {
         {
             // SAFETY: we only write to `mactscr` (timestamp control register), `macstsur`
             // (timestamp update seconds register) and `macstnur` (timestmap update subsecond/nanosecond
@@ -171,7 +165,7 @@ impl EthernetPTP {
             };
 
             macstsur.write(|w| unsafe { w.bits(seconds) });
-            macstnur.write(|w| unsafe { w.bits(subseconds) });
+            macstnur.write(|w| unsafe { w.bits(nanoseconds) });
 
             while mactscr.read().tsinit().bit_is_set() {}
             mactscr.modify(|_, w| w.tsinit().set_bit());
