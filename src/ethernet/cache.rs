@@ -4,7 +4,7 @@ use crate::ptp::Timestamp;
 use super::PacketId;
 
 /// A cache for timestamping information,
-/// used to keep the size of Descriptors down.
+/// used to lessen the size of Descriptors.
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct Cache {
