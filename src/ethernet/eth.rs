@@ -28,11 +28,12 @@ use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::{Interrupt, ETHERNET_DMA, ETHERNET_MTL, NVIC};
+use futures::task::AtomicWaker;
 
 use smoltcp::{
     self,
     phy::{
-        self, ChecksumCapabilities, Device, DeviceCapabilities, PacketMeta,
+        self, ChecksumCapabilities, DeviceCapabilities, PacketMeta,
         RxToken, TxToken,
     },
     time::Instant,
@@ -43,14 +44,14 @@ use super::rx::{
     self, RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing,
 };
 use super::tx::{
-    self, RunningState, TxDescriptor, TxDescriptorRing, TxError, TxRing,
+    self, TxDescriptor, TxDescriptorRing, TxPacket, TxError, TxRing,
 };
 
 use super::packet_id::PacketId;
 
-use crate::ethernet::raw_descriptor::DESC_SIZE;
+use crate::ethernet::raw_descriptor;
 use crate::{
-    ethernet::{PinsRMII, StationManagement, MTU},
+    ethernet::{self, PinsRMII, StationManagement},
     gpio::Speed,
 };
 
@@ -66,7 +67,7 @@ const _ASSERT_DESCRIPTOR_SIZES: () = assert!(_RXDESC_SIZE == _TXDESC_SIZE);
 const _ASSERT_DESCRIPTOR_ALIGN: () = assert!(_RXDESC_SIZE % 4 == 0);
 
 const DESC_WORD_SKIP: u8 =
-    ((_RXDESC_SIZE / 4) - super::raw_descriptor::DESC_SIZE) as u8;
+    ((_RXDESC_SIZE / 4) - raw_descriptor::DESC_SIZE) as u8;
 
 const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 
@@ -91,324 +92,12 @@ mod emac_consts {
 }
 use self::emac_consts::*;
 
-// /// Transmit Descriptor representation
-// ///
-// /// * tdes0: transmit buffer address
-// /// * tdes1:
-// /// * tdes2: buffer lengths
-// /// * tdes3: control and payload/frame length
-// ///
-// /// Note that Copy and Clone are derived to support initialising an
-// /// array of TDes, but you may not move a TDes after its address has
-// /// been given to the ETH_DMA engine.
-// #[derive(Copy, Clone)]
-// #[repr(C, packed)]
-// struct TDes {
-//     tdes0: u32,
-//     tdes1: u32,
-//     tdes2: u32,
-//     tdes3: u32,
-// }
-
-// impl TDes {
-//     /// Initialises this TDes to point at the given buffer.
-//     pub fn init(&mut self) {
-//         self.tdes0 = 0;
-//         self.tdes1 = 0;
-//         self.tdes2 = 0;
-//         self.tdes3 = 0; // Owned by us
-//     }
-
-//     /// Return true if this TDes is not currently owned by the DMA
-//     pub fn available(&self) -> bool {
-//         self.tdes3 & EMAC_DES3_OWN == 0
-//     }
-// }
-
-// /// Store a ring of TDes and associated buffers
-// #[repr(C, packed)]
-// struct TDesRing<const TD: usize> {
-//     td: [TDes; TD],
-//     tbuf: [[u32; ETH_BUF_SIZE / 4]; TD],
-//     tdidx: usize,
-// }
-
-// impl<const TD: usize> TDesRing<TD> {
-//     const fn new() -> Self {
-//         Self {
-//             td: [TDes {
-//                 tdes0: 0,
-//                 tdes1: 0,
-//                 tdes2: 0,
-//                 tdes3: 0,
-//             }; TD],
-//             tbuf: [[0; ETH_BUF_SIZE / 4]; TD],
-//             tdidx: 0,
-//         }
-//     }
-
-//     /// Initialise this TDesRing. Assume TDesRing is corrupt
-//     ///
-//     /// The current memory address of the buffers inside this TDesRing
-//     /// will be stored in the descriptors, so ensure the TDesRing is
-//     /// not moved after initialisation.
-//     pub fn init(&mut self) {
-//         for x in 0..TD {
-//             self.td[x].init();
-//         }
-//         self.tdidx = 0;
-
-//         // Initialise pointers in the DMA engine. (There will be a memory barrier later
-//         // before the DMA engine is enabled.)
-//         unsafe {
-//             let dma = &*stm32::ETHERNET_DMA::ptr();
-//             dma.dmactx_dlar
-//                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
-//             dma.dmactx_rlr.write(|w| w.tdrl().bits(TD as u16 - 1));
-//             dma.dmactx_dtpr
-//                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
-//         }
-//     }
-
-//     /// Return true if a TDes is available for use
-//     pub fn available(&self) -> bool {
-//         self.td[self.tdidx].available()
-//     }
-
-//     /// Release the next TDes to the DMA engine for transmission
-//     pub fn release(&mut self) {
-//         let x = self.tdidx;
-//         assert!(self.td[x].tdes3 & EMAC_DES3_OWN == 0); // Owned by us
-
-//         let address = ptr::addr_of!(self.tbuf[x]) as u32;
-
-//         // Read format
-//         self.td[x].tdes0 = address; // Buffer 1
-//         self.td[x].tdes1 = 0; // Not used
-//         assert!(self.td[x].tdes2 & !EMAC_TDES2_B1L == 0); // Not used
-//         assert!(self.td[x].tdes2 & EMAC_TDES2_B1L > 0); // Length must be valid
-//         self.td[x].tdes3 = 0;
-//         self.td[x].tdes3 |= EMAC_DES3_FD; // FD: Contains first buffer of packet
-//         self.td[x].tdes3 |= EMAC_DES3_LD; // LD: Contains last buffer of packet
-//         self.td[x].tdes3 |= EMAC_DES3_OWN; // Give the DMA engine ownership
-
-//         // Ensure changes to the descriptor are committed before
-//         // DMA engine sees tail pointer store
-//         cortex_m::asm::dsb();
-
-//         // Move the tail pointer (TPR) to the next descriptor
-//         let x = (x + 1) % TD;
-//         unsafe {
-//             let dma = &*stm32::ETHERNET_DMA::ptr();
-//             dma.dmactx_dtpr
-//                 .write(|w| w.bits(&(self.td[x]) as *const _ as u32));
-//         }
-
-//         self.tdidx = x;
-//     }
-
-//     /// Access the buffer pointed to by the next TDes
-//     pub unsafe fn buf_as_slice_mut(&mut self, length: usize) -> &mut [u8] {
-//         let x = self.tdidx;
-
-//         // Set address in descriptor
-//         self.td[x].tdes0 = ptr::addr_of!(self.tbuf[x]) as u32; // Buffer 1
-
-//         // Set length in descriptor
-//         let len = core::cmp::min(length, ETH_BUF_SIZE);
-//         self.td[x].tdes2 = (length as u32) & EMAC_TDES2_B1L;
-
-//         // Create a raw pointer in place without an intermediate reference. Use
-//         // this to return a slice from the packed buffer
-//         let addr = ptr::addr_of_mut!(self.tbuf[x]) as *mut _;
-//         core::slice::from_raw_parts_mut(addr, len)
-//     }
-// }
-
-// /// Receive Descriptor representation
-// ///
-// /// * rdes0: recieve buffer address
-// /// * rdes1:
-// /// * rdes2:
-// /// * rdes3: OWN and Status
-// ///
-// /// Note that Copy and Clone are derived to support initialising an
-// /// array of RDes, but you may not move a RDes after its address has
-// /// been given to the ETH_DMA engine.
-// #[derive(Copy, Clone)]
-// #[repr(C, packed)]
-// struct RDes {
-//     rdes0: u32,
-//     rdes1: u32,
-//     rdes2: u32,
-//     rdes3: u32,
-// }
-
-// impl RDes {
-//     /// Initialises RDes
-//     pub fn init(&mut self) {
-//         self.rdes0 = 0;
-//         self.rdes1 = 0;
-//         self.rdes2 = 0;
-//         self.rdes3 = 0; // Owned by us
-//     }
-
-//     /// Return true if this RDes is acceptable to us
-//     pub fn valid(&self) -> bool {
-//         // Write-back descriptor is valid if:
-//         //
-//         // Contains first buffer of packet AND contains last buf of
-//         // packet AND no errors AND not a contex descriptor
-//         self.rdes3
-//             & (EMAC_DES3_FD | EMAC_DES3_LD | EMAC_DES3_ES | EMAC_DES3_CTXT)
-//             == (EMAC_DES3_FD | EMAC_DES3_LD)
-//     }
-
-//     /// Return true if this RDes is not currently owned by the DMA
-//     pub fn available(&self) -> bool {
-//         self.rdes3 & EMAC_DES3_OWN == 0 // Owned by us
-//     }
-// }
-
-// /// Store a ring of RDes and associated buffers
-// #[repr(C, packed)]
-// struct RDesRing<const RD: usize> {
-//     rd: [RDes; RD],
-//     rbuf: [[u32; ETH_BUF_SIZE / 4]; RD],
-//     rdidx: usize,
-// }
-
-// impl<const RD: usize> RDesRing<RD> {
-//     const fn new() -> Self {
-//         Self {
-//             rd: [RDes {
-//                 rdes0: 0,
-//                 rdes1: 0,
-//                 rdes2: 0,
-//                 rdes3: 0,
-//             }; RD],
-//             rbuf: [[0; ETH_BUF_SIZE / 4]; RD],
-//             rdidx: 0,
-//         }
-//     }
-
-//     /// Initialise this RDesRing. Assume RDesRing is corrupt
-//     ///
-//     /// The current memory address of the buffers inside this RDesRing
-//     /// will be stored in the descriptors, so ensure the RDesRing is
-//     /// not moved after initialisation.
-//     pub fn init(&mut self) {
-//         for x in 0..RD {
-//             self.rd[x].init();
-//         }
-//         self.rdidx = 0;
-
-//         // Initialise pointers in the DMA engine
-//         unsafe {
-//             let dma = &*stm32::ETHERNET_DMA::ptr();
-//             dma.dmacrx_dlar
-//                 .write(|w| w.bits(&self.rd[0] as *const _ as u32));
-//             dma.dmacrx_rlr.write(|w| w.rdrl().bits(RD as u16 - 1));
-//         }
-
-//         // Release descriptors to the DMA engine
-//         while self.available() {
-//             self.release()
-//         }
-//     }
-
-//     /// Return true if a RDes is available for use
-//     pub fn available(&self) -> bool {
-//         self.rd[self.rdidx].available()
-//     }
-
-//     /// Return true if current RDes is valid
-//     pub fn valid(&self) -> bool {
-//         self.rd[self.rdidx].valid()
-//     }
-
-//     /// Release the next RDes to the DMA engine
-//     pub fn release(&mut self) {
-//         let x = self.rdidx;
-//         assert!(self.rd[x].rdes3 & EMAC_DES3_OWN == 0); // Owned by us
-
-//         let address = ptr::addr_of!(self.rbuf[x]) as u32;
-
-//         // Read format
-//         self.rd[x].rdes0 = address; // Buffer 1
-//         self.rd[x].rdes1 = 0; // Reserved
-//         self.rd[x].rdes2 = 0; // Marked as invalid
-//         self.rd[x].rdes3 = 0;
-//         self.rd[x].rdes3 |= EMAC_DES3_OWN; // Give the DMA engine ownership
-// self.rd[x].rdes3 |= EMAC_RDES3_BUF1V; // BUF1V: 1st buffer address is valid
-//         self.rd[x].rdes3 |= EMAC_RDES3_IOC; // IOC: Interrupt on complete
-
-//         // Ensure changes to the descriptor are committed before
-//         // DMA engine sees tail pointer store
-//         cortex_m::asm::dsb();
-
-//         // Move the tail pointer (TPR) to this descriptor
-//         unsafe {
-//             let dma = &*stm32::ETHERNET_DMA::ptr();
-//             dma.dmacrx_dtpr
-//                 .write(|w| w.bits(&(self.rd[x]) as *const _ as u32));
-//         }
-
-//         // Update active descriptor
-//         self.rdidx = (x + 1) % RD;
-//     }
-
-//     /// Access the buffer pointed to by the next RDes
-//     ///
-//     /// # Safety
-//     ///
-//     /// Ensure that release() is called between subsequent calls to this
-//     /// function.
-//     #[allow(clippy::mut_from_ref)]
-//     pub unsafe fn buf_as_slice_mut(&self) -> &mut [u8] {
-//         let x = self.rdidx;
-
-//         // Write-back format
-//         let addr = ptr::addr_of!(self.rbuf[x]) as *mut u8;
-//         let len = (self.rd[x].rdes3 & EMAC_RDES3_PL) as usize;
-
-//         let len = core::cmp::min(len, ETH_BUF_SIZE);
-//         core::slice::from_raw_parts_mut(addr, len)
-//     }
-// }
-
-//TODO Check this
-// pub struct DesRing<const TD: usize, const RD: usize> {
-//     tx: TDesRing<TD>,
-//     rx: RDesRing<RD>,
-// }
-// impl<const TD: usize, const RD: usize> DesRing<TD, RD> {
-//     pub const fn new() -> Self {
-//         DesRing {
-//             tx: TDesRing::new(),
-//             rx: RDesRing::new(),
-//         }
-//     }
-// }
-// impl<const TD: usize, const RD: usize> Default for DesRing<TD, RD> {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 /// This struct is returned if a packet ID is not associated
 /// with any TX or RX descriptors.
 pub struct PacketIdNotFound;
 
-///
-/// Ethernet DMA
-///
-// pub struct EthernetDMA<const TD: usize, const RD: usize> {
-//     ring: &'static mut DesRing<TD, RD>,
-//     eth_dma: stm32::ETHERNET_DMA,
-// }
 /// Ethernet DMA.
 pub struct EthernetDMA<'rx, 'tx> {
     eth_dma: ETHERNET_DMA,
@@ -420,9 +109,7 @@ pub struct EthernetDMA<'rx, 'tx> {
     packet_id_counter: u32,
 }
 
-///
 /// Ethernet MAC
-///
 pub struct EthernetMAC {
     eth_mac: stm32::ETHERNET_MAC,
     eth_phy_addr: u8,
@@ -479,8 +166,6 @@ pub fn new<'rx, 'tx>(
     }
 }
 
-//TODO remove EthernetPTP but keep the timestamping functionality
-
 /// Create and initialise the ethernet driver.
 ///
 /// You must move in ETH_MAC, ETH_MTL, ETH_DMA.
@@ -512,7 +197,7 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (Parts<'rx, 'tx>) {
+) -> Parts<'rx, 'tx> {
     // RCC
     {
         let rcc = &*stm32::RCC::ptr();
@@ -533,14 +218,10 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
         syscfg.pmcr.modify(|_, w| w.epis().bits(0b100)); // RMII
     }
 
-    // reset ETH_MAC - write 1 then 0
-    //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().set_bit());
-    //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().clear_bit());
-
     cortex_m::interrupt::free(|_cs| {
         // reset ETH_DMA - write 1 and wait for 0
-        eth_dma.dmamr.modify(|_, w| w.swr().set_bit()); //Match
-        while eth_dma.dmamr.read().swr().bit_is_set() {} //Match
+        eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
+        while eth_dma.dmamr.read().swr().bit_is_set() {}
 
         // 200 MHz
         eth_mac
@@ -709,57 +390,39 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
         // operation mode register
         eth_dma.dmamr.modify(|_, w| {
             w
-                // .intm()
-                //     .bits(0b00) //May not need
                 // Rx Tx priority ratio 2:1
                 .pr()
-                .variant(0b001) // Modified
-                                // .txpr()
-                                // .clear_bit() //May not need
-                                // .da()
-                                // .clear_bit() //May not need
+                .variant(0b001) 
         });
         // bus mode register
         eth_dma.dmasbmr.modify(|_, w| {
             // Address-aligned beats
-            w.aal() //Match
+            w.aal() 
                 .set_bit()
-            // Fixed burst
-            // .fb() //May not need
-            // .set_bit()
         });
         eth_dma.dmaccr.modify(|_, w| {
-            w.dsl() //Modified
+            w.dsl()
                 .variant(DESC_WORD_SKIP)
         });
         eth_dma.dmactx_cr.modify(|_, w| {
             w
                 // Tx DMA PBL
-                .txpbl() //Match
+                .txpbl() 
                 .bits(32)
-                // .tse() //May not need
-                // .clear_bit()
                 // Operate on second frame
-                .osf() //Match
+                .osf() 
                 .clear_bit()
         });
 
         eth_dma.dmacrx_cr.modify(|_, w| {
             w
                 // receive buffer size
-                .rbsz() //Modified
+                .rbsz()
                 .variant(rx_buffer.first_buffer().len() as u16)
                 // Rx DMA PBL
-                .rxpbl() //Match
+                .rxpbl() 
                 .bits(32)
-            // Disable flushing of received frames
-            // .rpf()
-            // .clear_bit() //May not need
         });
-
-        // Initialise DMA descriptors
-        // ring.tx.init();
-        // ring.rx.init();
 
         // Ensure the DMA descriptors are committed
         cortex_m::asm::dsb();
@@ -772,10 +435,6 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
                 .bit(true) // Transmiter Enable
         });
         eth_mtl.mtltx_qomr.modify(|_, w| w.ftq().set_bit());
-
-        // Manage DMA transmission and reception
-        // eth_dma.dmactx_cr.modify(|_, w| w.st().set_bit()); //May not need
-        // eth_dma.dmacrx_cr.modify(|_, w| w.sr().set_bit()); //May not need
 
         eth_dma
             .dmacsr
@@ -920,36 +579,6 @@ impl StationManagement for EthernetMAC {
     }
 }
 
-/// Define TxToken type and implement consume method
-// pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
-
-// impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
-//     fn consume<R, F>(self, len: usize, f: F) -> R
-//     where
-//         F: FnOnce(&mut [u8]) -> R,
-//     {
-//         assert!(len <= ETH_BUF_SIZE);
-
-//         let result = f(unsafe { self.0.buf_as_slice_mut(len) });
-//         self.0.release();
-//         result
-//     }
-// }
-
-// /// Define RxToken type and implement consume method
-// pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
-
-// impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
-//     fn consume<R, F>(self, f: F) -> R
-//     where
-//         F: FnOnce(&mut [u8]) -> R,
-//     {
-//         let result = f(unsafe { self.0.buf_as_slice_mut() });
-//         self.0.release();
-//         result
-//     }
-// }
-
 /// An Ethernet RX token that can be consumed in order to receive
 /// an ethernet packet.
 pub struct EthRxToken<'a, 'rx> {
@@ -1009,51 +638,10 @@ impl<'dma, 'tx> TxToken for EthTxToken<'dma, 'tx> {
     }
 
     #[cfg(feature = "ptp")]
-    fn set_meta(&mut self, meta: smoltcp::phy::PacketMeta) {
+    fn set_meta(&mut self, meta: PacketMeta) {
         self.meta = Some(meta.into());
     }
 }
-
-/// Implement the smoltcp Device interface
-// impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
-//     type RxToken<'a> = RxToken<'a, RD>;
-//     type TxToken<'a> = TxToken<'a, TD>;
-
-//     // Clippy false positive because DeviceCapabilities is non-exhaustive
-//     #[allow(clippy::field_reassign_with_default)]
-//     fn capabilities(&self) -> DeviceCapabilities {
-//         let mut caps = DeviceCapabilities::default();
-//         // ethernet frame type II (6 smac, 6 dmac, 2 ethertype),
-//         // sans CRC (4), 1500 IP MTU
-//         caps.max_transmission_unit = 1514;
-//         caps.max_burst_size = Some(core::cmp::min(TD, RD));
-//         caps
-//     }
-
-//     fn receive(
-//         &mut self,
-//         _timestamp: Instant,
-//     ) -> Option<(RxToken<RD>, TxToken<TD>)> {
-//         // Skip all queued packets with errors.
-//         while self.ring.rx.available() && !self.ring.rx.valid() {
-//             self.ring.rx.release()
-//         }
-
-//         if self.ring.rx.available() && self.ring.tx.available() {
-//             Some((RxToken(&mut self.ring.rx), TxToken(&mut self.ring.tx)))
-//         } else {
-//             None
-//         }
-//     }
-
-//     fn transmit(&mut self, _timestamp: Instant) -> Option<TxToken<TD>> {
-//         if self.ring.tx.available() {
-//             Some(TxToken(&mut self.ring.tx))
-//         } else {
-//             None
-//         }
-//     }
-// }
 
 /// Use this Ethernet driver with [smoltcp](https://github.com/smoltcp-rs/smoltcp)
 impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
@@ -1062,7 +650,7 @@ impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
-        caps.max_transmission_unit = crate::ethernet::MTU;
+        caps.max_transmission_unit = ethernet::MTU;
         caps.max_burst_size = Some(1);
         caps.checksum = ChecksumCapabilities::ignored();
         caps
@@ -1435,84 +1023,3 @@ pub struct InterruptReasonSummary {
     pub is_error: bool,
 }
 
-// /// Clears the Ethernet interrupt flag
-// ///
-// /// # Safety
-// ///
-// /// This method implements a single register write to DMACSR
-// pub fn eth_interrupt_handler_impl(
-//     eth_dma: &ETHERNET_DMA,
-// ) -> InterruptReasonSummary {
-//     let (is_rx, is_tx, is_error) = {
-//         // Read register
-//         let status = eth_dma.dmacsr.read();
-
-//         // Reset bits
-//         eth_dma.dmacsr.write(|w| {
-//             w.nis()
-//                 .set_bit()
-//                 .ais()
-//                 .set_bit()
-//                 .ti()
-//                 .set_bit()
-//                 .ri()
-//                 .set_bit()
-//                 .rbu()
-//                 .set_bit()
-//                 .tbu()
-//                 .set_bit()
-//         });
-
-//         (
-//             status.ri().bit_is_set(),
-//             status.ti().bit_is_set(),
-//             status.ais().bit_is_set(),
-//         )
-//     };
-
-//     let status = InterruptReasonSummary {
-//         is_rx,
-//         is_tx,
-//         is_error,
-//     };
-
-//     status
-// }
-
-// / Enables the Ethernet Interrupt. The following interrupts are enabled:
-// /
-// / * Normal Interrupt `NIE`
-// / * Receive Interrupt `RIE`
-// / * Transmit Interript `TIE`
-// /
-// / # Safety
-// /
-// / This method implements a single RMW to DMACIER
-// pub unsafe fn enable_interrupt() {
-//     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
-//     eth_dma.dmacier.modify(|_, w| {
-//         w
-//             // Normal interrupt summary enable
-//             .nie()
-//             .set_bit()
-//             // Receive Interrupt Enable
-//             .rie()
-//             .set_bit()
-//             // Transmit Interrupt Enable
-//             .tie()
-//             .set_bit()
-//             // Abnormal Interrupt Summary enable
-//             .aie()
-//             .set_bit()
-//             // Receive Buffer Unavailable
-//             .rbue()
-//             .set_bit()
-//             // Transmit Buffer Unavailable
-//             .tbue()
-//             .set_bit()
-//     });
-//     // Enable ethernet interrupts
-//     unsafe {
-//         NVIC::unmask(Interrupt::ETH);
-//     }
-// }

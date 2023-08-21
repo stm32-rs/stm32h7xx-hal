@@ -5,7 +5,6 @@ use crate::stm32::ETHERNET_DMA;
 use super::eth::PacketIdNotFound;
 use crate::ptp::Timestamp;
 
-#[path = "./h_descriptor.rs"]
 mod descriptor;
 
 pub use descriptor::TxDescriptor;
@@ -170,7 +169,7 @@ impl<'ring> TxRing<'ring> {
         let entry = core::future::poll_fn(|ctx| match self.send_next_impl() {
             Ok(packet) => Poll::Ready(packet),
             Err(_) => {
-                crate::dma::EthernetDMA::tx_waker().register(ctx.waker());
+                super::EthernetDMA::tx_waker().register(ctx.waker());
                 Poll::Pending
             }
         })
@@ -309,7 +308,7 @@ impl TxRing<'_> {
         core::future::poll_fn(move |ctx| {
             let res = self.poll_timestamp(packet_id);
             if res.is_pending() {
-                crate::dma::EthernetDMA::tx_waker().register(ctx.waker());
+                super::EthernetDMA::tx_waker().register(ctx.waker());
             }
             res
         })

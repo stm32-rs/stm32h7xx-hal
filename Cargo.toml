@@ -69,6 +69,7 @@ log = { version = "0.4.14", optional = true } # see also the dev-dependencies se
 fdcan = { version = "0.2", optional = true }
 bitflags = { version = "2.0.0" }
 embedded-storage = "0.3"
+futures = { version = "0.3", default-features = false, features = ["async-await"], optional = true }
 
 [dependencies.smoltcp]
 version = "0.10.0"
@@ -115,7 +116,9 @@ default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
-default = ["rt"]
+default = ["rt", "stm32h743v",
+  "ethernet",
+  "device-selected", "ptp", "async-await"]
 device-selected = []
 revision_v = []
 rm0433 = ["gpio-h747"] # aka. "single core" devices
@@ -127,6 +130,7 @@ gpio-h72 = []
 gpio-h747 = []
 gpio-h7a2 = []
 
+async-await = ["dep:futures"]
 ptp = ["smoltcp/packetmeta-id"]
 dsi = []
 cm4 = []

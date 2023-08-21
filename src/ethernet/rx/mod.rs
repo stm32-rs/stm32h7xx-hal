@@ -3,7 +3,6 @@ pub use descriptor::RxDescriptor;
 use super::{raw_descriptor::DescriptorRing, PacketId};
 use crate::stm32::ETHERNET_DMA;
 
-#[path = "./h_descriptor.rs"]
 mod descriptor;
 
 #[cfg(feature = "ptp")]
@@ -275,7 +274,7 @@ impl<'a> RxRing<'a> {
             match res {
                 Ok(value) => Poll::Ready(value),
                 Err(_) => {
-                    crate::dma::EthernetDMA::rx_waker().register(ctx.waker());
+                    super::EthernetDMA::rx_waker().register(ctx.waker());
                     Poll::Pending
                 }
             }
