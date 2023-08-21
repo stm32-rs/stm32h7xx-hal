@@ -39,17 +39,16 @@ nb = "1.0.0"
 paste = "1.0.1"
 bare-metal = "1.0.0"
 sdio-host = { version = "0.9", optional = true }
-embedded-sdmmc = { version = "0.4", optional = true }
+embedded-sdmmc = { version = "0.5", optional = true }
 stm32-fmc = { version = "0.3", optional = true }
 synopsys-usb-otg = { version = "^0.3.0", features = ["cortex-m"], optional = true }
 embedded-display-controller = { version = "^0.1.0", optional = true }
 log = { version = "0.4.14", optional = true} # see also the dev-dependencies section
-fdcan = { version = "0.1", optional = true }
-bitflags = { version = "2.0.0" }
+fdcan = { version = "0.2", optional = true }
 embedded-storage = "0.3"
 
 [dependencies.smoltcp]
-version = "0.9.0"
+version = "0.10.0"
 default-features = false
 features = ["medium-ethernet", "proto-ipv4", "socket-raw"]
 optional = true
@@ -80,11 +79,11 @@ panic-semihosting = "0.6"
 usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 numtoa = "0.2.3"
-tinybmp = "0.4"
-embedded-graphics = "0.7"
+tinybmp = "0.5"
+embedded-graphics = "0.8"
 
 [dev-dependencies.smoltcp]
-version = "0.9.0"
+version = "0.10.0"
 default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
@@ -92,10 +91,15 @@ features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 default = ["rt"]
 device-selected = []
 revision_v = []
-rm0433 = []                     # aka. "single core" devices
-rm0399 = []                     # aka. "dual core" devices
-rm0455 = []                     # aka. "high memory integration" devices
-rm0468 = []                     # aka. "high speed" devices
+rm0433 = ["gpio-h747"]          # aka. "single core" devices
+rm0399 = ["gpio-h747"] # TODO: fix gpio  # aka. "dual core" devices
+rm0455 = ["gpio-h7a2"]          # aka. "high memory integration" devices
+rm0468 = ["gpio-h72"]           # aka. "high speed" devices
+
+gpio-h72 = []
+gpio-h747 = []
+gpio-h7a2 = []
+
 dsi = []
 cm4 = []
 cm7 = []
@@ -143,25 +147,9 @@ debug = true # symbols are nice and they don't increase the size in flash
 lto = true # better optimizations
 opt-level = "s" # optimize for binary size
 
-[[example]]
-name = "rtic"
-required-features = ["rt"]
-
-[[example]]
-name = "rtic_timers"
-required-features = ["rt", "rm0433"]
-
-[[example]]
-name = "vos0"
-required-features = ["revision_v", "rm0433"]
-
-[[example]]
-name = "fmc"
-required-features = ["fmc", "rm0399"]
-
-[[example]]
-name = "fmc_nand_flash"
-required-features = ["fmc"]
+# The following examples do not build for all feature flag combinations. The
+# `required-features` field specifies the hal features and/or the hardware
+# configuration required by the example.
 
 [[example]]
 name = "can-echo"
@@ -172,32 +160,8 @@ name = "can-fd"
 required-features = ["can"]
 
 [[example]]
-name = "qspi"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "qspi_mdma"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "qspi_flash_memory"
-required-features = ["xspi", "rm0433"]
-
-[[example]]
-name = "octospi"
-required-features = ["xspi", "rm0468"]
-
-[[example]]
-name = "octospi_hyperram"
-required-features = ["xspi", "rm0468"]
-
-[[example]]
-name = "sdmmc"
-required-features = ["sdmmc"]
-
-[[example]]
-name = "sdmmc_fat"
-required-features = ["sdmmc", "sdmmc-fatfs"]
+name = "crc"
+required-features = ["crc"]
 
 [[example]]
 name = "embedded-graphics"
@@ -224,12 +188,64 @@ name = "ethernet-nucleo-h743zi2"
 required-features = ["rt", "revision_v", "stm32h743v", "ethernet"]
 
 [[example]]
+name = "fmc"
+required-features = ["fmc", "rm0399"]
+
+[[example]]
+name = "fmc_nand_flash"
+required-features = ["fmc"]
+
+[[example]]
+name = "octospi"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
+name = "octospi_hyperram"
+required-features = ["xspi", "rm0468"]
+
+[[example]]
+name = "qspi"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_mdma"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "qspi_flash_memory"
+required-features = ["xspi", "rm0433"]
+
+[[example]]
+name = "rtc"
+required-features = ["rt", "rtc"]
+
+[[example]]
+name = "rtic"
+required-features = ["rt"]
+
+[[example]]
+name = "rtic_timers"
+required-features = ["rt", "rm0433"]
+
+[[example]]
+name = "sdmmc"
+required-features = ["sdmmc"]
+
+[[example]]
+name = "sdmmc_fat"
+required-features = ["sdmmc", "sdmmc-fatfs"]
+
+[[example]]
+name = "spi-dma-rtic"
+required-features = ["rt"]
+
+[[example]]
 name = "tick_timer"
 required-features = ["rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["usb_hs"]
+required-features = ["usb_hs", "gpio-h747"]
 
 [[example]]
 name = "usb_rtic"
@@ -244,17 +260,5 @@ name = "usb_phy_serial_interrupt"
 required-features = ["rt", "usb_hs", "rm0433"]
 
 [[example]]
-name = "rtc"
-required-features = ["rt", "rtc"]
-
-[[example]]
-name = "sai_dma_passthru"
-required-features = ["rm0433"]
-
-[[example]]
-name = "spi-dma-rtic"
-required-features = ["rm0433","rt"]
-
-[[example]]
-name = "crc"
-required-features = ["crc", "rt"]
+name = "vos0"
+required-features = ["revision_v"]

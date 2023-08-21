@@ -92,21 +92,17 @@ pub trait ResetEnable {
 /// The clock gating state of a peripheral in low-power mode
 ///
 /// See RM0433 rev 7. Section 8.5.11
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
 pub enum LowPowerMode {
     /// Kernel and bus interface clocks are not provided in low-power modes.
     Off,
     /// Kernel and bus interface clocks are provided in CSleep mode.
+    #[default]
     Enabled,
     /// Kernel and bus interface clocks are provided in both CSleep and CStop
     /// modes. Only applies to peripherals in the D3 / SRD. If the peripheral is
     /// not in the D3 / SRD then this has the same effect as `Enabled`.
     Autonomous,
-}
-impl Default for LowPowerMode {
-    fn default() -> Self {
-        LowPowerMode::Enabled
-    }
 }
 
 impl Rcc {

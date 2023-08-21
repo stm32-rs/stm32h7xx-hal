@@ -288,7 +288,7 @@ macro_rules! sai_hal {
                 /// e.g. for SAI1 1-3 are valid and 0 is invalid
                 pub fn set_sync_input(&mut self, selection: u8) {
                     assert!(selection < 0b1_00);
-                    unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
+                    unsafe { self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
                 }
 
                 /// Synchronization output for other SAI blocks

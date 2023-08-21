@@ -6,7 +6,8 @@
 //! The ethernet ring buffers are placed in SRAM3, where they can be
 //! accessed by both the core and the Ethernet DMA.
 //!
-//! This demo doesn't use smoltcp - see the stm32h747i-disco-rtic demo
+//! This demo does not use smoltcp - see the ethernet-rtic-stm32h747i-disco demo
+//! for an example of smoltcp
 #![deny(warnings)]
 #![no_main]
 #![no_std]

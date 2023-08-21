@@ -1170,9 +1170,7 @@ macro_rules! spi {
                     }
 
                     /// Internal implementation for blocking::spi::Write
-                    fn transfer_internal_w<'w>(&mut self,
-                                             write_words: &'w [$TY],
-                    ) -> Result<(), Error> {
+                    fn transfer_internal_w(&mut self, write_words: &[$TY]) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         // both buffers are the same length
@@ -1230,9 +1228,7 @@ macro_rules! spi {
                     }
 
                     /// Internal implementation for blocking::spi::Transfer
-                    fn transfer_internal_rw<'w>(&mut self,
-                        words : &'w mut [$TY]
-                    ) -> Result<(), Error> {
+                    fn transfer_internal_rw(&mut self, words : &mut [$TY]) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         if words.is_empty() {

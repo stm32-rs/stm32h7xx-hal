@@ -22,6 +22,8 @@
 #[allow(unused)]
 mod utilities;
 
+use core::mem::MaybeUninit;
+use core::ptr::addr_of_mut;
 use core::sync::atomic::AtomicU32;
 
 use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
@@ -52,14 +54,13 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 #[link_section = ".sram3.eth"]
 static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
-/// Net storage with static initialisation - another global singleton
+// This data will be held by Net through a mutable reference
 pub struct NetStorageStatic<'a> {
     socket_storage: [SocketStorage<'a>; 8],
 }
-static mut STORE: NetStorageStatic = NetStorageStatic {
-    // Garbage
-    socket_storage: [SocketStorage::EMPTY; 8],
-};
+// MaybeUninit allows us write code that is correct even if STORE is not
+// initialised by the runtime
+static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
 
 pub struct Net<'a> {
     iface: Interface,
@@ -71,11 +72,10 @@ impl<'a> Net<'a> {
         store: &'a mut NetStorageStatic<'a>,
         mut ethdev: ethernet::EthernetDMA<4, 4>,
         ethernet_addr: HardwareAddress,
+        now: Instant,
     ) -> Self {
-        let mut config = Config::new();
-        config.hardware_addr = Some(ethernet_addr);
-
-        let mut iface = Interface::new(config, &mut ethdev);
+        let config = Config::new(ethernet_addr);
+        let mut iface = Interface::new(config, &mut ethdev, now);
         // Set IP address
         iface.update_ip_addrs(|addrs| {
             let _ = addrs.push(IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0));
@@ -198,8 +198,21 @@ mod app {
         unsafe { ethernet::enable_interrupt() };
 
         // unsafe: mutable reference to static storage, we only do this once
-        let store = unsafe { &mut STORE };
-        let net = Net::new(store, eth_dma, mac_addr.into());
+        let store = unsafe {
+            let store_ptr = STORE.as_mut_ptr();
+
+            // Initialise the socket_storage field. Using `write` instead of
+            // assignment via `=` to not call `drop` on the old, uninitialised
+            // value
+            addr_of_mut!((*store_ptr).socket_storage)
+                .write([SocketStorage::EMPTY; 8]);
+
+            // Now that all fields are initialised we can safely use
+            // assume_init_mut to return a mutable reference to STORE
+            STORE.assume_init_mut()
+        };
+
+        let net = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
 
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);

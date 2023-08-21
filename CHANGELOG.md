@@ -1,8 +1,12 @@
 # Changelog
 
 ## Unreleased
+
+* remove unused `bitflags` dependency
+* bors bot replaced with GH merge queue
 * Update `smoltcp` dependency to `0.9.0`
 * MSRV increased to 1.65.0
+* add `IntoAf` trait to restrict `into_alternate` [#346]
 
 ## [v0.14.0] 2023-03-22
 
@@ -335,6 +339,7 @@
 [#341]: https://github.com/stm32-rs/stm32h7xx-hal/pull/341
 [#344]: https://github.com/stm32-rs/stm32h7xx-hal/pull/344
 [#345]: https://github.com/stm32-rs/stm32h7xx-hal/pull/345
+[#346]: https://github.com/stm32-rs/stm32h7xx-hal/pull/346
 [#347]: https://github.com/stm32-rs/stm32h7xx-hal/pull/347
 [#350]: https://github.com/stm32-rs/stm32h7xx-hal/pull/350
 [#354]: https://github.com/stm32-rs/stm32h7xx-hal/pull/354

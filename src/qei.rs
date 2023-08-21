@@ -126,7 +126,7 @@ pins! {
             gpio::PI6<Alternate<3>>,
             #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
             gpio::PJ6<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
+            #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
             gpio::PJ7<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             gpio::PJ10<Alternate<3>>,
