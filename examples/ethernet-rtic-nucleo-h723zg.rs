@@ -69,10 +69,9 @@ impl<'a> Net<'a> {
         mut ethdev: ethernet::EthernetDMA<4, 4>,
         ethernet_addr: HardwareAddress,
     ) -> Self {
-        let mut config = Config::new();
-        config.hardware_addr = Some(ethernet_addr);
+        let config = Config::new(ethernet_addr);
 
-        let mut iface = Interface::new(config, &mut ethdev);
+        let mut iface = Interface::new(config, &mut ethdev, Instant::ZERO);
         // Set IP address
         iface.update_ip_addrs(|addrs| {
             let _ = addrs.push(IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0));
