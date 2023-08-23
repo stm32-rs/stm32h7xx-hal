@@ -53,8 +53,8 @@ static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 pub struct NetStorageStatic<'a> {
     socket_storage: [SocketStorage<'a>; 8],
 }
+
 static mut STORE: NetStorageStatic = NetStorageStatic {
-    // Garbage
     socket_storage: [SocketStorage::EMPTY; 8],
 };
 
