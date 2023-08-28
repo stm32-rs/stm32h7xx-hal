@@ -703,11 +703,13 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         if self.tx_available() {
+            let tx_packet_id = self.next_packet_id();
+
             let EthernetDMA { tx_ring, .. } = self;
             Some(EthTxToken {
                 tx_ring,
                 #[cfg(feature = "ptp")]
-                meta: None,
+                meta: Some(tx_packet_id),
             })
         } else {
             None
