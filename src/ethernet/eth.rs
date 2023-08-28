@@ -642,6 +642,9 @@ impl<'dma, 'tx> TxToken for EthTxToken<'dma, 'tx> {
 }
 
 impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
+    type RxToken<'token> = EthRxToken<'token, 'rx> where Self: 'token;
+    type TxToken<'token> = EthTxToken<'token, 'tx> where Self: 'token;
+
     fn capabilities(&self) -> DeviceCapabilities {
         (*self).capabilities()
     }
