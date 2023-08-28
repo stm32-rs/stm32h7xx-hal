@@ -33,8 +33,8 @@ use futures::task::AtomicWaker;
 use smoltcp::{
     self,
     phy::{
-        self, ChecksumCapabilities, DeviceCapabilities, PacketMeta,
-        RxToken, TxToken,
+        self, ChecksumCapabilities, DeviceCapabilities, PacketMeta, RxToken,
+        TxToken,
     },
     time::Instant,
     wire::EthernetAddress,
@@ -44,7 +44,7 @@ use super::rx::{
     self, RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing,
 };
 use super::tx::{
-    self, TxDescriptor, TxDescriptorRing, TxPacket, TxError, TxRing,
+    self, TxDescriptor, TxDescriptorRing, TxError, TxPacket, TxRing,
 };
 
 use super::packet_id::PacketId;
@@ -392,25 +392,23 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
             w
                 // Rx Tx priority ratio 2:1
                 .pr()
-                .variant(0b001) 
+                .variant(0b001)
         });
         // bus mode register
         eth_dma.dmasbmr.modify(|_, w| {
             // Address-aligned beats
-            w.aal() 
-                .set_bit()
+            w.aal().set_bit()
         });
-        eth_dma.dmaccr.modify(|_, w| {
-            w.dsl()
-                .variant(DESC_WORD_SKIP)
-        });
+        eth_dma
+            .dmaccr
+            .modify(|_, w| w.dsl().variant(DESC_WORD_SKIP));
         eth_dma.dmactx_cr.modify(|_, w| {
             w
                 // Tx DMA PBL
-                .txpbl() 
+                .txpbl()
                 .bits(32)
                 // Operate on second frame
-                .osf() 
+                .osf()
                 .clear_bit()
         });
 
@@ -420,7 +418,7 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
                 .rbsz()
                 .variant(rx_buffer.first_buffer().len() as u16)
                 // Rx DMA PBL
-                .rxpbl() 
+                .rxpbl()
                 .bits(32)
         });
 
@@ -643,8 +641,23 @@ impl<'dma, 'tx> TxToken for EthTxToken<'dma, 'tx> {
     }
 }
 
-/// Use this Ethernet driver with [smoltcp](https://github.com/smoltcp-rs/smoltcp)
 impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
+    fn capabilities(&self) -> DeviceCapabilities {
+        (*self).capabilities()
+    }
+    fn receive(
+        &mut self,
+        timestamp: Instant,
+    ) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
+        (*self).receive(timestamp)
+    }
+    fn transmit(&mut self, timestamp: Instant) -> Option<Self::TxToken<'_>> {
+        (*self).transmit(timestamp)
+    }
+}
+
+/// Use this Ethernet driver with [smoltcp](https://github.com/smoltcp-rs/smoltcp)
+impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
     type RxToken<'token> = EthRxToken<'token, 'rx> where Self: 'token;
     type TxToken<'token> = EthTxToken<'token, 'tx> where Self: 'token;
 
@@ -1022,4 +1035,3 @@ pub struct InterruptReasonSummary {
     /// The interrupt was caused by an error event.
     pub is_error: bool,
 }
-
