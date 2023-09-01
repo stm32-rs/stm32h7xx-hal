@@ -8,7 +8,7 @@ use crate::{
     stm32,
 };
 
-use super::{Bank, Config, Qspi, SamplingEdge};
+use super::{common::BankSelect, Bank, Config, Qspi, SamplingEdge};
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
 pub struct NoIo {}
@@ -27,6 +27,9 @@ pub trait PinIo0Bank2 {}
 pub trait PinIo1Bank2 {}
 pub trait PinIo2Bank2 {}
 pub trait PinIo3Bank2 {}
+
+/// Indicates a set of pins can be used for the QSPI interface on bank 1 and 2.
+pub trait PinsBank1And2 {}
 
 pub trait PinSck {}
 
@@ -47,6 +50,41 @@ where
     IO1: PinIo1Bank2,
     IO2: PinIo2Bank2,
     IO3: PinIo3Bank2,
+{
+}
+
+impl<
+        SCK,
+        BK1_IO0,
+        BK1_IO1,
+        BK1_IO2,
+        BK1_IO3,
+        BK2_IO0,
+        BK2_IO1,
+        BK2_IO2,
+        BK2_IO3,
+    > PinsBank1And2
+    for (
+        SCK,
+        BK1_IO0,
+        BK1_IO1,
+        BK1_IO2,
+        BK1_IO3,
+        BK2_IO0,
+        BK2_IO1,
+        BK2_IO2,
+        BK2_IO3,
+    )
+where
+    SCK: PinSck,
+    BK1_IO0: PinIo0Bank1,
+    BK1_IO1: PinIo1Bank1,
+    BK1_IO2: PinIo2Bank1,
+    BK1_IO3: PinIo3Bank1,
+    BK2_IO0: PinIo0Bank2,
+    BK2_IO1: PinIo1Bank2,
+    BK2_IO2: PinIo2Bank2,
+    BK2_IO3: PinIo3Bank2,
 {
 }
 
@@ -167,6 +205,18 @@ pub trait QspiExt {
         CONFIG: Into<Config>,
         PINS: PinsBank2;
 
+    fn bank_switch<CONFIG, PINS>(
+        self,
+        _pins: PINS,
+        initial_bank: BankSelect,
+        config: CONFIG,
+        clocks: &CoreClocks,
+        prec: rec::Qspi,
+    ) -> Qspi<stm32::QUADSPI>
+    where
+        CONFIG: Into<Config>,
+        PINS: PinsBank1And2;
+
     fn qspi_unchecked<CONFIG>(
         self,
         config: CONFIG,
@@ -179,11 +229,11 @@ pub trait QspiExt {
 }
 
 impl Qspi<stm32::QUADSPI> {
-    pub fn change_bank(&mut self, bank: Bank) {
+    pub fn change_bank(&mut self, bank: BankSelect) {
+        self.rb.cr.modify(|_, w| w.dfm().clear_bit());
         match bank {
-            Bank::One => self.rb.cr.modify(|_, w| w.fsel().clear_bit()),
-            Bank::Two => self.rb.cr.modify(|_, w| w.fsel().set_bit()),
-            Bank::Dual => self.rb.cr.modify(|_, w| w.dfm().set_bit()),
+            BankSelect::One => self.rb.cr.modify(|_, w| w.fsel().clear_bit()),
+            BankSelect::Two => self.rb.cr.modify(|_, w| w.fsel().set_bit()),
         }
     }
 
@@ -309,6 +359,21 @@ impl QspiExt for stm32::QUADSPI {
         PINS: PinsBank2,
     {
         Qspi::qspi_unchecked(self, config, Bank::Two, clocks, prec)
+    }
+
+    fn bank_switch<CONFIG, PINS>(
+        self,
+        _pins: PINS,
+        initial_bank: BankSelect,
+        config: CONFIG,
+        clocks: &CoreClocks,
+        prec: rec::Qspi,
+    ) -> Qspi<stm32::QUADSPI>
+    where
+        CONFIG: Into<Config>,
+        PINS: PinsBank1And2,
+    {
+        Qspi::qspi_unchecked(self, config, initial_bank.into(), clocks, prec)
     }
 
     fn qspi_unchecked<CONFIG>(

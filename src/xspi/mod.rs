@@ -248,7 +248,7 @@ mod common {
         Error,
     }
 
-    /// Indicates a specific QUADSPI bank to use
+    /// Indicates a specific QUADSPI bank to use.
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -259,6 +259,45 @@ mod common {
     }
     // Banks are not supported by the Octospi peripheral (there's two Octospi
     // peripherals instead)
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    pub enum BankError {
+        DualModeNotSupported,
+    }
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    impl TryFrom<Bank> for BankSelect {
+        type Error = BankError;
+
+        fn try_from(value: Bank) -> Result<Self, Self::Error> {
+            match value {
+                Bank::One => Ok(BankSelect::One),
+                Bank::Two => Ok(BankSelect::Two),
+                Bank::Dual => Err(BankError::DualModeNotSupported),
+            }
+        }
+    }
+
+    /// Indicates one of the two existing QUADSPI bank.
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    pub enum BankSelect {
+        One,
+        Two,
+    }
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    impl From<BankSelect> for Bank {
+        fn from(val: BankSelect) -> Self {
+            match val {
+                BankSelect::One => Bank::One,
+                BankSelect::Two => Bank::Two,
+            }
+        }
+    }
 
     /// A structure for specifying the XSPI configuration.
     ///
