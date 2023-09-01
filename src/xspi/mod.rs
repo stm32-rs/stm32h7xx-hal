@@ -116,8 +116,8 @@
 mod qspi;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use common::{
-    Bank, Xspi as Qspi, XspiError as QspiError, XspiMode as QspiMode,
-    XspiWord as QspiWord,
+    Bank, BankError, BankSelect, Xspi as Qspi, XspiError as QspiError,
+    XspiMode as QspiMode, XspiWord as QspiWord,
 };
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use qspi::QspiExt as XspiExt;
