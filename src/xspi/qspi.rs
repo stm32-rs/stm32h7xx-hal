@@ -179,6 +179,14 @@ pub trait QspiExt {
 }
 
 impl Qspi<stm32::QUADSPI> {
+    pub fn change_bank(&mut self, bank: Bank) {
+        match bank {
+            Bank::One => self.rb.cr.modify(|_, w| w.fsel().clear_bit()),
+            Bank::Two => self.rb.cr.modify(|_, w| w.fsel().set_bit()),
+            Bank::Dual => self.rb.cr.modify(|_, w| w.dfm().set_bit()),
+        }
+    }
+
     pub fn qspi_unchecked<CONFIG>(
         regs: stm32::QUADSPI,
         config: CONFIG,
