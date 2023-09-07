@@ -532,6 +532,14 @@ impl EthernetMAC {
             clock_range: self.clock_range,
         }
     }
+
+    pub fn set_all_multicast(&mut self, enable: bool) {
+        cortex_m::interrupt::free(|_cs| {
+            eth_mac.macpfr.modify(|_, w| {
+                w.pm().bit(enable)
+            });
+        });
+    }
 }
 
 /// PHY Operations
