@@ -143,6 +143,7 @@ mod common {
         stm32,
         time::Hertz,
     };
+    use core::cell::UnsafeCell;
     use core::{marker::PhantomData, ptr};
 
     /// Represents operation modes of the XSPI interface.
@@ -641,7 +642,9 @@ mod common {
                 // Write data to the FIFO in a byte-wise manner.
                 unsafe {
                     for byte in data {
-                        ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
+                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+
+                        ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 
@@ -723,7 +726,9 @@ mod common {
                 // Transaction starts here
                 unsafe {
                     for byte in data {
-                        ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
+                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+
+                        ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 
