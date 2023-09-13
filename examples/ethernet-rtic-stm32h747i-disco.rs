@@ -30,7 +30,11 @@ use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
-use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
+use stm32h7xx_hal::{
+    ethernet::{self, TwoLanesPins},
+    rcc::CoreClocks,
+    stm32,
+};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
@@ -149,15 +153,15 @@ mod app {
         let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
         link_led.set_high();
 
-        let rmii_ref_clk = gpioa.pa1.into_alternate();
-        let rmii_mdio = gpioa.pa2.into_alternate();
-        let rmii_mdc = gpioc.pc1.into_alternate();
-        let rmii_crs_dv = gpioa.pa7.into_alternate();
-        let rmii_rxd0 = gpioc.pc4.into_alternate();
-        let rmii_rxd1 = gpioc.pc5.into_alternate();
-        let rmii_tx_en = gpiog.pg11.into_alternate();
-        let rmii_txd0 = gpiog.pg13.into_alternate();
-        let rmii_txd1 = gpiog.pg12.into_alternate(); // STM32H747I-DISCO
+        let rmii_ref_clk = gpioa.pa1;
+        let rmii_mdio = gpioa.pa2;
+        let rmii_mdc = gpioc.pc1;
+        let rmii_crs_dv = gpioa.pa7;
+        let rmii_rxd0 = gpioc.pc4;
+        let rmii_rxd1 = gpioc.pc5;
+        let rmii_tx_en = gpiog.pg11;
+        let rmii_txd0 = gpiog.pg13;
+        let rmii_txd1 = gpiog.pg12; // STM32H747I-DISCO
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
@@ -171,7 +175,7 @@ mod app {
                 ctx.device.ETHERNET_MAC,
                 ctx.device.ETHERNET_MTL,
                 ctx.device.ETHERNET_DMA,
-                (
+                TwoLanesPins::new(
                     rmii_ref_clk,
                     rmii_mdio,
                     rmii_mdc,

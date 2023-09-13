@@ -22,8 +22,8 @@ extern crate cortex_m;
 mod utilities;
 use log::info;
 
+use stm32h7xx_hal::ethernet::{self, TwoLanesPins, PHY};
 use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::PHY};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
@@ -94,15 +94,15 @@ fn main() -> ! {
     let mut link_led = gpiob.pb0.into_push_pull_output(); // LED1, green
     link_led.set_high();
 
-    let rmii_ref_clk = gpioa.pa1.into_alternate();
-    let rmii_mdio = gpioa.pa2.into_alternate();
-    let rmii_mdc = gpioc.pc1.into_alternate();
-    let rmii_crs_dv = gpioa.pa7.into_alternate();
-    let rmii_rxd0 = gpioc.pc4.into_alternate();
-    let rmii_rxd1 = gpioc.pc5.into_alternate();
-    let rmii_tx_en = gpiog.pg11.into_alternate();
-    let rmii_txd0 = gpiog.pg13.into_alternate();
-    let rmii_txd1 = gpiob.pb13.into_alternate();
+    let rmii_ref_clk = gpioa.pa1;
+    let rmii_mdio = gpioa.pa2;
+    let rmii_mdc = gpioc.pc1;
+    let rmii_crs_dv = gpioa.pa7;
+    let rmii_rxd0 = gpioc.pc4;
+    let rmii_rxd1 = gpioc.pc5;
+    let rmii_tx_en = gpiog.pg11;
+    let rmii_txd0 = gpiog.pg13;
+    let rmii_txd1 = gpiob.pb13;
 
     // Initialise ethernet...
     assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
@@ -116,7 +116,7 @@ fn main() -> ! {
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
             dp.ETHERNET_DMA,
-            (
+            TwoLanesPins::new(
                 rmii_ref_clk,
                 rmii_mdio,
                 rmii_mdc,

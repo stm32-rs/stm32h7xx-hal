@@ -11,7 +11,6 @@
 mod utilities;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::{
     pac, prelude::*, xspi::Qspi, xspi::QspiMode, xspi::QspiWord,
 };
@@ -49,13 +48,13 @@ fn main() -> ! {
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
     // Even though it is not directly used, CS pin must be acquired and configured
-    let _qspi_cs = gpiog.pg6.into_alternate::<10>().speed(Speed::VeryHigh);
+    let qspi_cs = gpiog.pg6;
 
-    let sck = gpiof.pf10.into_alternate().speed(Speed::VeryHigh);
-    let io0 = gpiof.pf8.into_alternate().speed(Speed::VeryHigh);
-    let io1 = gpiof.pf9.into_alternate().speed(Speed::VeryHigh);
-    let io2 = gpiof.pf7.into_alternate().speed(Speed::VeryHigh);
-    let io3 = gpiof.pf6.into_alternate().speed(Speed::VeryHigh);
+    let sck = gpiof.pf10;
+    let io0 = gpiof.pf8;
+    let io1 = gpiof.pf9;
+    let io2 = gpiof.pf7;
+    let io3 = gpiof.pf6;
 
     let mut led = gpioc.pc7.into_push_pull_output();
 
@@ -65,7 +64,7 @@ fn main() -> ! {
 
     // Initialise the QSPI peripheral
     let mut qspi = dp.QUADSPI.bank1(
-        (sck, io0, io1, io2, io3),
+        (sck, io0, io1, io2, io3, Some(qspi_cs)),
         3.MHz(),
         &ccdr.clocks,
         ccdr.peripheral.QSPI,

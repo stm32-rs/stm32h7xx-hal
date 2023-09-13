@@ -17,10 +17,10 @@
 //! ```rust
 //! let gpioa = ..; // Set up and split GPIOA
 //! let pins = (
-//!     gpioa.pa8.into_alternate_af1(),
-//!     gpioa.pa9.into_alternate_af1(),
-//!     gpioa.pa10.into_alternate_af1(),
-//!     gpioa.pa11.into_alternate_af1(),
+//!     gpioa.pa8.into_alternate(),
+//!     gpioa.pa9.into_alternate(),
+//!     gpioa.pa10.into_alternate(),
+//!     gpioa.pa11.into_alternate(),
 //! );
 //! ```
 //!
@@ -56,10 +56,10 @@
 //! ```rust
 //! let gpioa = ..; // Set up and split GPIOA
 //! let pins = (
-//!     gpioa.pa8.into_alternate_af1(),
-//!     gpioa.pa9.into_alternate_af1(),
-//!     gpioa.pa10.into_alternate_af1(),
-//!     gpioa.pa11.into_alternate_af1(),
+//!     gpioa.pa8.into_alternate(),
+//!     gpioa.pa9.into_alternate(),
+//!     gpioa.pa10.into_alternate(),
+//!     gpioa.pa11.into_alternate(),
 //! );
 //! ```
 //!
@@ -180,7 +180,8 @@ use crate::time::{Hertz, NanoSeconds};
 use crate::timer::GetClk;
 use fugit::ExtU32;
 
-use crate::gpio::{self, Alternate};
+use crate::gpio::alt::{TimBkin as Bkin, TimBkin2 as Bkin2, TimNCPin as NCPin};
+use crate::gpio::{self, Alternate, PushPull};
 
 // This trait marks that a GPIO pin can be used with a specific timer channel
 // TIM is the timer being used
@@ -191,16 +192,6 @@ use crate::gpio::{self, Alternate};
 pub trait Pins<TIM, CHANNEL, COMP> {
     type Channel;
     fn split() -> Self::Channel;
-}
-
-/// NPins is a trait that marks which GPIO pins may be used as complementary PWM channels; it should not be directly used.
-/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
-pub trait NPins<TIM, CHANNEL> {}
-
-/// FaultPins is a trait that marks which GPIO pins may be used as PWM fault inputs; it should not be directly used.
-/// See the device datasheet 'Pin descriptions' chapter for which pins can be used with which timer PWM channels (or look at Implementors)
-pub trait FaultPins<TIM> {
-    const INPUT: BreakInput;
 }
 
 /// Channel wrapper
@@ -234,13 +225,6 @@ pub struct ComplementaryEnabled;
 pub enum Polarity {
     ActiveHigh,
     ActiveLow,
-}
-
-/// Configuration enum to keep track of which break input corresponds with which FaultPins
-#[derive(PartialEq, Eq)]
-pub enum BreakInput {
-    BreakIn,
-    BreakIn2,
 }
 
 /// Internal enum that keeps track of the count settings before PWM is finalized
@@ -447,10 +431,6 @@ macro_rules! pins {
     ($($TIMX:ty:
         CH1($COMP1:ty): [$($( #[ $pmeta1:meta ] )* $CH1:ty),*]
         CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
-        CH1N: [$($( #[ $pmeta3:meta ] )* $CH1N:ty),*]
-        CH2N: [$($( #[ $pmeta4:meta ] )* $CH2N:ty),*]
-        BRK:  [$($( #[ $pmeta5:meta ] )* $BRK:ty),*]
-        BRK2: [$($( #[ $pmeta6:meta ] )* $BRK2:ty),*]
     )+) => {
         $(
             $(
@@ -471,26 +451,6 @@ macro_rules! pins {
                     }
                 }
             )*
-            $(
-                $( #[ $pmeta3 ] )*
-                impl NPins<$TIMX, Ch<C1>> for $CH1N {}
-            )*
-            $(
-                $( #[ $pmeta4 ] )*
-                impl NPins<$TIMX, Ch<C2>> for $CH2N {}
-            )*
-            $(
-                $( #[ $pmeta5 ] )*
-                impl FaultPins<$TIMX,> for $BRK {
-                    const INPUT: BreakInput = BreakInput::BreakIn;
-                }
-            )*
-            $(
-                $( #[ $pmeta6 ] )*
-                impl FaultPins<$TIMX> for $BRK2 {
-                    const INPUT: BreakInput = BreakInput::BreakIn2;
-                }
-            )*
         )+
     };
     // Quad channel timers
@@ -499,12 +459,6 @@ macro_rules! pins {
        CH2($COMP2:ty): [$($( #[ $pmeta2:meta ] )* $CH2:ty),*]
        CH3($COMP3:ty): [$($( #[ $pmeta3:meta ] )* $CH3:ty),*]
        CH4($COMP4:ty): [$($( #[ $pmeta4:meta ] )* $CH4:ty),*]
-       CH1N: [$($( #[ $pmeta5:meta ] )* $CH1N:ty),*]
-       CH2N: [$($( #[ $pmeta6:meta ] )* $CH2N:ty),*]
-       CH3N: [$($( #[ $pmeta7:meta ] )* $CH3N:ty),*]
-       CH4N: [$($( #[ $pmeta8:meta ] )* $CH4N:ty),*]
-       BRK:  [$($( #[ $pmeta9:meta ] )* $BRK:ty),*]
-       BRK2: [$($( #[ $pmeta10:meta ] )* $BRK2:ty),*]
     )+) => {
         $(
             $(
@@ -541,34 +495,6 @@ macro_rules! pins {
                     fn split() -> Self::Channel {
                         Pwm::new()
                     }
-                }
-            )*
-            $(
-                $( #[ $pmeta5 ] )*
-                impl NPins<$TIMX, Ch<C1>> for $CH1N {}
-            )*
-            $(
-                $( #[ $pmeta6 ] )*
-                impl NPins<$TIMX, Ch<C2>> for $CH2N {}
-            )*
-            $(
-                $( #[ $pmeta7 ] )*
-                impl NPins<$TIMX, Ch<C3>> for $CH3N {}
-            )*
-            $(
-                $( #[ $pmeta8 ] )*
-                impl NPins<$TIMX, Ch<C4>> for $CH4N {}
-            )*
-            $(
-                $( #[ $pmeta9 ] )*
-                impl FaultPins<$TIMX> for $BRK {
-                    const INPUT: BreakInput = BreakInput::BreakIn;
-                }
-            )*
-            $(
-                $( #[ $pmeta10 ] )*
-                impl FaultPins<$TIMX> for $BRK2 {
-                    const INPUT: BreakInput = BreakInput::BreakIn2;
                 }
             )*
         )+
@@ -612,30 +538,18 @@ pins! {
             gpio::PB15<Alternate<2>>,
             gpio::PH9<Alternate<2>>
         ]
-        CH1N: []
-        CH2N: []
-        BRK: []
-        BRK2: []
     pac::TIM13:
         CH1(ComplementaryImpossible): [
             gpio::PA6<Alternate<9>>,
             gpio::PF8<Alternate<9>>
         ]
         CH2(ComplementaryImpossible): []
-        CH1N: []
-        CH2N: []
-        BRK: []
-        BRK2: []
     pac::TIM14:
         CH1(ComplementaryImpossible): [
             gpio::PA7<Alternate<9>>,
             gpio::PF9<Alternate<9>>
         ]
         CH2(ComplementaryImpossible): []
-        CH1N: []
-        CH2N: []
-        BRK: []
-        BRK2: []
     pac::TIM15:
         CH1(ComplementaryDisabled): [
             gpio::PA2<Alternate<4>>,
@@ -647,50 +561,18 @@ pins! {
             gpio::PA3<Alternate<4>>,
             gpio::PE6<Alternate<4>>
         ]
-        CH1N: [
-            gpio::PA1<Alternate<4>>,
-            gpio::PE4<Alternate<4>>
-        ]
-        CH2N: []
-        BRK: [
-            gpio::PA0<Alternate<4>>,
-            #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-            gpio::PD2<Alternate<4>>,
-            gpio::PE3<Alternate<4>>
-        ]
-        BRK2: []
     pac::TIM16:
         CH1(ComplementaryDisabled): [
             gpio::PB8<Alternate<1>>,
             gpio::PF6<Alternate<1>>
         ]
         CH2(ComplementaryImpossible): []
-        CH1N: [
-            gpio::PB6<Alternate<1>>,
-            gpio::PF8<Alternate<1>>
-        ]
-        CH2N: []
-        BRK: [
-            gpio::PB4<Alternate<1>>,
-            gpio::PF10<Alternate<1>>
-        ]
-        BRK2: []
     pac::TIM17:
         CH1(ComplementaryDisabled): [
             gpio::PB9<Alternate<1>>,
             gpio::PF7<Alternate<1>>
         ]
         CH2(ComplementaryImpossible): []
-        CH1N: [
-            gpio::PB7<Alternate<1>>,
-            gpio::PF9<Alternate<1>>
-        ]
-        CH2N: []
-        BRK: [
-            gpio::PB5<Alternate<1>>,
-            gpio::PG6<Alternate<1>>
-        ]
-        BRK2: []
 }
 // Quad channel timers
 pins! {
@@ -717,39 +599,6 @@ pins! {
             gpio::PA11<Alternate<1>>,
             gpio::PE14<Alternate<1>>
         ]
-        CH1N: [
-            gpio::PA7<Alternate<1>>,
-            gpio::PB13<Alternate<1>>,
-            gpio::PE8<Alternate<1>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PK0<Alternate<1>>
-        ]
-        CH2N: [
-            gpio::PB0<Alternate<1>>,
-            gpio::PB14<Alternate<1>>,
-            gpio::PE10<Alternate<1>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ10<Alternate<1>>
-        ]
-        CH3N: [
-            gpio::PB1<Alternate<1>>,
-            gpio::PB15<Alternate<1>>,
-            gpio::PE12<Alternate<1>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ8<Alternate<1>>
-        ]
-        CH4N: []
-        BRK: [
-            gpio::PA6<Alternate<1>>,
-            gpio::PB12<Alternate<1>>,
-            gpio::PE15<Alternate<1>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PK2<Alternate<1>>
-        ]
-        BRK2: [
-            gpio::PE6<Alternate<1>>,
-            gpio::PG4<Alternate<1>>
-        ]
     pac::TIM2:
         CH1(ComplementaryImpossible): [
             gpio::PA0<Alternate<1>>,
@@ -768,12 +617,6 @@ pins! {
             gpio::PA3<Alternate<1>>,
             gpio::PB11<Alternate<1>>
         ]
-        CH1N: []
-        CH2N: []
-        CH3N: []
-        CH4N: []
-        BRK: []
-        BRK2: []
     pac::TIM3:
         CH1(ComplementaryImpossible): [
             gpio::PA6<Alternate<2>>,
@@ -793,12 +636,6 @@ pins! {
             gpio::PB1<Alternate<2>>,
             gpio::PC9<Alternate<2>>
         ]
-        CH1N: []
-        CH2N: []
-        CH3N: []
-        CH4N: []
-        BRK: []
-        BRK2: []
     pac::TIM4:
         CH1(ComplementaryImpossible): [
             gpio::PB6<Alternate<2>>,
@@ -816,12 +653,6 @@ pins! {
             gpio::PB9<Alternate<2>>,
             gpio::PD15<Alternate<2>>
         ]
-        CH1N: []
-        CH2N: []
-        CH3N: []
-        CH4N: []
-        BRK: []
-        BRK2: []
     pac::TIM5:
         CH1(ComplementaryImpossible): [
             gpio::PA0<Alternate<2>>,
@@ -840,12 +671,6 @@ pins! {
             #[cfg(not(feature = "rm0468"))]
             gpio::PI0<Alternate<2>>
         ]
-        CH1N: []
-        CH2N: []
-        CH3N: []
-        CH4N: []
-        BRK: []
-        BRK2: []
     pac::TIM8:
         CH1(ComplementaryDisabled): [
             gpio::PC6<Alternate<3>>,
@@ -874,44 +699,6 @@ pins! {
             gpio::PC9<Alternate<3>>,
             #[cfg(not(feature = "rm0468"))]
             gpio::PI2<Alternate<3>>
-        ]
-        CH1N: [
-            gpio::PA5<Alternate<3>>,
-            gpio::PA7<Alternate<3>>,
-            gpio::PH13<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ9<Alternate<3>>
-        ]
-        CH2N: [
-            gpio::PB0<Alternate<3>>,
-            gpio::PB14<Alternate<3>>,
-            gpio::PH14<Alternate<3>>,
-            #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
-            gpio::PJ7<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PJ11<Alternate<3>>
-        ]
-        CH3N: [
-            gpio::PB1<Alternate<3>>,
-            gpio::PB15<Alternate<3>>,
-            gpio::PH15<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PK1<Alternate<3>>
-        ]
-        CH4N: []
-        BRK: [
-            gpio::PA6<Alternate<3>>,
-            gpio::PG2<Alternate<3>>,
-            #[cfg(not(feature = "rm0468"))]
-            gpio::PI4<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
-            gpio::PK2<Alternate<3>>
-        ]
-        BRK2: [
-            gpio::PA8<Alternate<3>>,
-            gpio::PG3<Alternate<3>>,
-            #[cfg(not(feature = "rm0468"))]
-            gpio::PI1<Alternate<3>>
         ]
 }
 
@@ -1320,23 +1107,6 @@ macro_rules! tim_hal {
 
             // Timers with break/fault, dead time, and complimentary capabilities
             $(
-                impl<PINS, CHANNEL, COMP> PwmBuilder<$TIMX, PINS, CHANNEL, FaultDisabled, COMP, $typ> {
-                    /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
-                    /// Note: not all timers have fault inputs; `FaultPins<TIM>` is only implemented for valid pins/timers.
-                    pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
-                        PwmBuilder {
-                            _markers: PhantomData,
-                            alignment: self.alignment,
-                            base_freq: self.base_freq,
-                            count: self.count,
-                            bkin_enabled: self.bkin_enabled || P::INPUT == BreakInput::BreakIn,
-                            bkin2_enabled: self.bkin2_enabled || P::INPUT == BreakInput::BreakIn2,
-                            fault_polarity: polarity,
-                            deadtime: self.deadtime,
-                        }
-                    }
-                }
-
                 impl FaultMonitor for PwmControl<$TIMX, FaultEnabled> {
                     fn is_fault_active(&self) -> bool {
                         let tim = unsafe { &*<$TIMX>::ptr() };
@@ -1358,6 +1128,58 @@ macro_rules! tim_hal {
                 }
             )?
         )+
+    }
+}
+
+impl<TIM, PINS, CHANNEL, COMP, WIDTH>
+    PwmBuilder<TIM, PINS, CHANNEL, FaultDisabled, COMP, WIDTH>
+where
+    TIM: Bkin,
+{
+    /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
+    /// Note: not all timers have fault inputs; `Bkin` is only implemented for valid pins/timers.
+    pub fn with_break_pin(
+        self,
+        pin: impl Into<TIM::Bkin>,
+        polarity: Polarity,
+    ) -> PwmBuilder<TIM, PINS, CHANNEL, FaultEnabled, COMP, WIDTH> {
+        let _pin = pin.into();
+        PwmBuilder {
+            _markers: PhantomData,
+            alignment: self.alignment,
+            base_freq: self.base_freq,
+            count: self.count,
+            bkin_enabled: true,
+            bkin2_enabled: self.bkin2_enabled,
+            fault_polarity: polarity,
+            deadtime: self.deadtime,
+        }
+    }
+}
+
+impl<TIM, PINS, CHANNEL, COMP, WIDTH>
+    PwmBuilder<TIM, PINS, CHANNEL, FaultDisabled, COMP, WIDTH>
+where
+    TIM: Bkin2,
+{
+    /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
+    /// Note: not all timers have fault inputs; `Bkin2` is only implemented for valid pins/timers.
+    pub fn with_break_pin2(
+        self,
+        pin: impl Into<TIM::Bkin2>,
+        polarity: Polarity,
+    ) -> PwmBuilder<TIM, PINS, CHANNEL, FaultEnabled, COMP, WIDTH> {
+        let _pin = pin.into();
+        PwmBuilder {
+            _markers: PhantomData,
+            alignment: self.alignment,
+            base_freq: self.base_freq,
+            count: self.count,
+            bkin_enabled: self.bkin_enabled,
+            bkin2_enabled: true,
+            fault_polarity: polarity,
+            deadtime: self.deadtime,
+        }
     }
 }
 
@@ -1518,9 +1340,9 @@ macro_rules! tim_pin_hal {
             }
         }
 
-        impl<const C: u8> Pwm<$TIMX, C, ComplementaryDisabled> {
-            pub fn into_complementary<NPIN>(self, _npin: NPIN) -> Pwm<$TIMX, C, ComplementaryEnabled>
-                where NPIN: NPins<$TIMX, Ch<C>> {
+        impl<const C: u8> Pwm<$TIMX, C, ComplementaryDisabled> where $TIMX: NCPin<C> {
+            pub fn into_complementary(self, npin: impl Into<<$TIMX as NCPin<C>>::ChN<PushPull>>) -> Pwm<$TIMX, C, ComplementaryEnabled> {
+                let _npin = npin.into();
                 // Make sure we aren't switching to complementary after we enable the channel
                 let tim = unsafe { &*<$TIMX>::ptr() };
 

@@ -45,13 +45,13 @@ fn main() -> ! {
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
 
-    let _qspi_cs = gpiog.pg6.into_alternate::<10>();
+    let qspi_cs = gpiog.pg6;
 
-    let sck = gpiof.pf10.into_alternate();
-    let io0 = gpiof.pf8.into_alternate();
-    let io1 = gpiod.pd12.into_alternate();
-    let io2 = gpioe.pe2.into_alternate();
-    let io3 = gpiod.pd13.into_alternate();
+    let sck = gpiof.pf10;
+    let io0 = gpiof.pf8;
+    let io1 = gpiod.pd12;
+    let io2 = gpioe.pe2;
+    let io3 = gpiod.pd13;
 
     info!("");
     info!("stm32h7xx-hal example - QSPI with MDMA");
@@ -63,7 +63,7 @@ fn main() -> ! {
 
     // Initialise the QSPI peripheral.
     let mut qspi = dp.QUADSPI.bank1(
-        (sck, io0, io1, io2, io3),
+        (sck, io0, io1, io2, io3, Some(qspi_cs)),
         config,
         &ccdr.clocks,
         ccdr.peripheral.QSPI,

@@ -12,7 +12,7 @@
 //! - [Ethernet example for the STM32H747I-DISCO using RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-rtic-stm32h747i-disco.rs)
 //! - [Ethernet example for the STM32H735G-DK using RTIC](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-rtic-stm32h735g-dk.rs)
 
-use crate::gpio::Speed;
+use crate::gpio::{alt::eth as alt, PinSpeed, Speed};
 
 /// Station Management Interface (SMI) on an ethernet PHY
 pub trait StationManagement {
@@ -50,201 +50,123 @@ pub trait PinsRMII {
 }
 
 // Two lanes
-impl<REF_CLK, MDIO, MDC, CRS_DV, RXD0, RXD1, TX_EN, TXD0, TXD1> PinsRMII
-    for (REF_CLK, MDIO, MDC, CRS_DV, RXD0, RXD1, TX_EN, TXD0, TXD1)
-where
-    REF_CLK: RefClk,
-    MDIO: Mdio,
-    MDC: Mdc,
-    CRS_DV: CrsDv,
-    RXD0: Rxd0,
-    RXD1: Rxd1,
-    TX_EN: TxEn,
-    TXD0: Txd0,
-    TXD1: Txd1,
-{
-    // RMII
+pub struct TwoLanesPins {
+    pub ref_clk: alt::RefClk,
+    pub mdio: alt::Mdio,
+    pub mdc: alt::Mdc,
+    pub crs_dv: alt::CrsDv,
+    pub rxd0: alt::Rxd0,
+    pub rxd1: alt::Rxd1,
+    pub tx_en: alt::TxEn,
+    pub txd0: alt::Txd0,
+    pub txd1: alt::Txd1,
+}
+
+impl TwoLanesPins {
+    pub fn new(
+        ref_clk: impl Into<alt::RefClk>,
+        mdio: impl Into<alt::Mdio>,
+        mdc: impl Into<alt::Mdc>,
+        crs_dv: impl Into<alt::CrsDv>,
+        rxd0: impl Into<alt::Rxd0>,
+        rxd1: impl Into<alt::Rxd1>,
+        tx_en: impl Into<alt::TxEn>,
+        txd0: impl Into<alt::Txd0>,
+        txd1: impl Into<alt::Txd1>,
+    ) -> Self {
+        Self {
+            ref_clk: ref_clk.into(),
+            mdio: mdio.into(),
+            mdc: mdc.into(),
+            crs_dv: crs_dv.into(),
+            rxd0: rxd0.into(),
+            rxd1: rxd1.into(),
+            tx_en: tx_en.into(),
+            txd0: txd0.into(),
+            txd1: txd1.into(),
+        }
+    }
+}
+
+impl PinsRMII for TwoLanesPins {
     fn set_speed(&mut self, speed: Speed) {
-        self.0.set_speed(speed);
-        self.1.set_speed(speed);
-        self.2.set_speed(speed);
-        self.3.set_speed(speed);
-        self.4.set_speed(speed);
-        self.5.set_speed(speed);
-        self.6.set_speed(speed);
-        self.7.set_speed(speed);
-        self.8.set_speed(speed);
+        self.ref_clk.set_speed(speed);
+        self.mdio.set_speed(speed);
+        self.mdc.set_speed(speed);
+        self.crs_dv.set_speed(speed);
+        self.rxd0.set_speed(speed);
+        self.rxd1.set_speed(speed);
+        self.tx_en.set_speed(speed);
+        self.txd0.set_speed(speed);
+        self.txd1.set_speed(speed);
     }
 }
 
 // Four lanes
-impl<
-        REF_CLK,
-        MDIO,
-        MDC,
-        CRS_DV,
-        RXD0,
-        RXD1,
-        RXD2,
-        RXD3,
-        TX_EN,
-        TXD0,
-        TXD1,
-        TXD2,
-        TXD3,
-    > PinsRMII
-    for (
-        REF_CLK,
-        MDIO,
-        MDC,
-        CRS_DV,
-        RXD0,
-        RXD1,
-        RXD2,
-        RXD3,
-        TX_EN,
-        TXD0,
-        TXD1,
-        TXD2,
-        TXD3,
-    )
-where
-    REF_CLK: RefClk,
-    MDIO: Mdio,
-    MDC: Mdc,
-    CRS_DV: CrsDv,
-    RXD0: Rxd0,
-    RXD1: Rxd1,
-    RXD2: Rxd2,
-    RXD3: Rxd3,
-    TX_EN: TxEn,
-    TXD0: Txd0,
-    TXD1: Txd1,
-    TXD2: Txd2,
-    TXD3: Txd3,
-{
-    // RMII
-    fn set_speed(&mut self, speed: Speed) {
-        self.0.set_speed(speed);
-        self.1.set_speed(speed);
-        self.2.set_speed(speed);
-        self.3.set_speed(speed);
-        self.4.set_speed(speed);
-        self.5.set_speed(speed);
-        self.6.set_speed(speed);
-        self.7.set_speed(speed);
-        self.8.set_speed(speed);
-        self.9.set_speed(speed);
-        self.10.set_speed(speed);
-        self.11.set_speed(speed);
-        self.12.set_speed(speed);
+pub struct FourLanesPins {
+    pub ref_clk: alt::RefClk,
+    pub mdio: alt::Mdio,
+    pub mdc: alt::Mdc,
+    pub crs_dv: alt::CrsDv,
+    pub rxd0: alt::Rxd0,
+    pub rxd1: alt::Rxd1,
+    pub rxd2: alt::Rxd2,
+    pub rxd3: alt::Rxd3,
+    pub tx_en: alt::TxEn,
+    pub txd0: alt::Txd0,
+    pub txd1: alt::Txd1,
+    pub txd2: alt::Txd2,
+    pub txd3: alt::Txd3,
+}
+
+impl FourLanesPins {
+    pub fn new(
+        ref_clk: impl Into<alt::RefClk>,
+        mdio: impl Into<alt::Mdio>,
+        mdc: impl Into<alt::Mdc>,
+        crs_dv: impl Into<alt::CrsDv>,
+        rxd0: impl Into<alt::Rxd0>,
+        rxd1: impl Into<alt::Rxd1>,
+        rxd2: impl Into<alt::Rxd2>,
+        rxd3: impl Into<alt::Rxd3>,
+        tx_en: impl Into<alt::TxEn>,
+        txd0: impl Into<alt::Txd0>,
+        txd1: impl Into<alt::Txd1>,
+        txd2: impl Into<alt::Txd2>,
+        txd3: impl Into<alt::Txd3>,
+    ) -> Self {
+        Self {
+            ref_clk: ref_clk.into(),
+            mdio: mdio.into(),
+            mdc: mdc.into(),
+            crs_dv: crs_dv.into(),
+            rxd0: rxd0.into(),
+            rxd1: rxd1.into(),
+            rxd2: rxd2.into(),
+            rxd3: rxd3.into(),
+            tx_en: tx_en.into(),
+            txd0: txd0.into(),
+            txd1: txd1.into(),
+            txd2: txd2.into(),
+            txd3: txd3.into(),
+        }
     }
 }
 
-/// Marks a type as a REF_CLK pin
-pub trait RefClk {
-    fn set_speed(&mut self, speed: Speed);
+impl PinsRMII for FourLanesPins {
+    fn set_speed(&mut self, speed: Speed) {
+        self.ref_clk.set_speed(speed);
+        self.mdio.set_speed(speed);
+        self.mdc.set_speed(speed);
+        self.crs_dv.set_speed(speed);
+        self.rxd0.set_speed(speed);
+        self.rxd1.set_speed(speed);
+        self.rxd2.set_speed(speed);
+        self.rxd3.set_speed(speed);
+        self.tx_en.set_speed(speed);
+        self.txd0.set_speed(speed);
+        self.txd1.set_speed(speed);
+        self.txd2.set_speed(speed);
+        self.txd3.set_speed(speed);
+    }
 }
-/// Marks a type as a TX_CLK pin
-pub trait TxClk {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a MDIO pin
-pub trait Mdio {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a MDC pin
-pub trait Mdc {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a COL pin
-pub trait Col {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a CRS pin
-pub trait Crs {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a CRS_DV pin
-pub trait CrsDv {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a PPS_OUT pin
-pub trait PpsOut {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a RX_ER pin
-pub trait RxEr {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a TX_EN pin
-pub trait TxEn {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a RXD0 pin
-pub trait Rxd0 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a RXD1 pin
-pub trait Rxd1 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a RXD2 pin
-pub trait Rxd2 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a RXD3 pin
-pub trait Rxd3 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a TXD0 pin
-pub trait Txd0 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a TXD1 pin
-pub trait Txd1 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a TXD2 pin
-pub trait Txd2 {
-    fn set_speed(&mut self, speed: Speed);
-}
-/// Marks a type as a TXD3 pin
-pub trait Txd3 {
-    fn set_speed(&mut self, speed: Speed);
-}
-
-use crate::gpio::{self, Alternate};
-
-macro_rules! impl_set_speed {
-    ($TRAIT:ty, [$($PIN:ty),*]) => {
-        $(
-            impl $TRAIT for $PIN {
-                fn set_speed(&mut self, speed: Speed) {
-                    self.set_speed(speed);
-                }
-            }
-        )*
-    };
-}
-
-impl_set_speed!(RefClk, [gpio::PA1<Alternate<11>>]);
-impl_set_speed!(TxClk, [gpio::PC3<Alternate<11>>]);
-impl_set_speed!(Mdio, [gpio::PA2<Alternate<11>>]);
-impl_set_speed!(Mdc, [gpio::PC1<Alternate<11>>]);
-impl_set_speed!(Col, [gpio::PA3<Alternate<11>>, gpio::PH3<Alternate<11>>]);
-impl_set_speed!(Crs, [gpio::PA0<Alternate<11>>, gpio::PH2<Alternate<11>>]);
-impl_set_speed!(CrsDv, [gpio::PA7<Alternate<11>>]);
-impl_set_speed!(PpsOut, [gpio::PB5<Alternate<11>>, gpio::PG8<Alternate<11>>]);
-impl_set_speed!(RxEr, [gpio::PB10<Alternate<11>>]);
-#[cfg(not(feature = "rm0468"))]
-impl_set_speed!(RxEr, [gpio::PI10<Alternate<11>>]);
-impl_set_speed!(TxEn, [gpio::PB11<Alternate<11>>, gpio::PG11<Alternate<11>>]);
-impl_set_speed!(Rxd0, [gpio::PC4<Alternate<11>>]);
-impl_set_speed!(Rxd1, [gpio::PC5<Alternate<11>>]);
-impl_set_speed!(Rxd2, [gpio::PB0<Alternate<11>>, gpio::PH6<Alternate<11>>]);
-impl_set_speed!(Rxd3, [gpio::PB1<Alternate<11>>, gpio::PH7<Alternate<11>>]);
-impl_set_speed!(Txd0, [gpio::PB12<Alternate<11>>, gpio::PG13<Alternate<11>>]);
-impl_set_speed!(Txd1, [gpio::PB13<Alternate<11>>, gpio::PG12<Alternate<11>>, gpio::PG14<Alternate<11>>]);
-impl_set_speed!(Txd2, [gpio::PC2<Alternate<11>>]);
-impl_set_speed!(Txd3, [gpio::PB8<Alternate<11>>, gpio::PE2<Alternate<11>>]);

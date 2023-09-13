@@ -41,7 +41,7 @@ use crate::rcc::{rec, rec::ResetEnable, CoreClocks};
 use crate::stm32;
 use crate::time::Hertz;
 
-use crate::gpio::{self, Alternate};
+use crate::gpio::alt::fmc as alt;
 
 /// Storage type for Flexible Memory Controller and its clocks
 ///
@@ -179,161 +179,106 @@ unsafe impl FmcPeripheral for FMC {
     }
 }
 
-macro_rules! pins {
-    (FMC: $($pin:ident: [$( $( #[ $pmeta:meta ] )* $inst:ty),*])+) => {
-        $(
-            $(
-                $( #[ $pmeta ] )*
-                impl stm32_fmc::$pin for $inst {}
-            )*
-        )+
-    }
-}
+impl stm32_fmc::A0 for alt::A0 {}
+impl stm32_fmc::A1 for alt::A1 {}
+impl stm32_fmc::A2 for alt::A2 {}
+impl stm32_fmc::A3 for alt::A3 {}
+impl stm32_fmc::A4 for alt::A4 {}
+impl stm32_fmc::A5 for alt::A5 {}
+impl stm32_fmc::A6 for alt::A6 {}
+impl stm32_fmc::A7 for alt::A7 {}
+impl stm32_fmc::A8 for alt::A8 {}
+impl stm32_fmc::A9 for alt::A9 {}
+impl stm32_fmc::A10 for alt::A10 {}
+impl stm32_fmc::A11 for alt::A11 {}
+impl stm32_fmc::A12 for alt::A12 {}
+impl stm32_fmc::A13 for alt::A13 {}
+impl stm32_fmc::A14 for alt::A14 {}
+impl stm32_fmc::A15 for alt::A15 {}
+impl stm32_fmc::A16 for alt::A16 {}
+impl stm32_fmc::A17 for alt::A17 {}
+impl stm32_fmc::A18 for alt::A18 {}
+impl stm32_fmc::A19 for alt::A19 {}
+impl stm32_fmc::A20 for alt::A20 {}
+impl stm32_fmc::A21 for alt::A21 {}
+impl stm32_fmc::A22 for alt::A22 {}
+impl stm32_fmc::A23 for alt::A23 {}
+impl stm32_fmc::A24 for alt::A24 {}
+impl stm32_fmc::BA0 for alt::Ba0 {}
+impl stm32_fmc::BA1 for alt::Ba1 {}
+impl stm32_fmc::CLK for alt::Clk {}
+impl stm32_fmc::D0 for alt::D0 {}
+impl stm32_fmc::D1 for alt::D1 {}
+impl stm32_fmc::D2 for alt::D2 {}
+impl stm32_fmc::D3 for alt::D3 {}
+impl stm32_fmc::D4 for alt::D4 {}
+impl stm32_fmc::D5 for alt::D5 {}
+impl stm32_fmc::D6 for alt::D6 {}
+impl stm32_fmc::D7 for alt::D7 {}
+impl stm32_fmc::D8 for alt::D8 {}
+impl stm32_fmc::D9 for alt::D9 {}
+impl stm32_fmc::D10 for alt::D10 {}
+impl stm32_fmc::D11 for alt::D11 {}
+impl stm32_fmc::D12 for alt::D12 {}
+impl stm32_fmc::D13 for alt::D13 {}
+impl stm32_fmc::D14 for alt::D14 {}
+impl stm32_fmc::D15 for alt::D15 {}
+impl stm32_fmc::D16 for alt::D16 {}
+impl stm32_fmc::D17 for alt::D17 {}
+impl stm32_fmc::D18 for alt::D18 {}
+impl stm32_fmc::D19 for alt::D19 {}
+impl stm32_fmc::D20 for alt::D20 {}
+impl stm32_fmc::D21 for alt::D21 {}
+impl stm32_fmc::D22 for alt::D22 {}
+impl stm32_fmc::D23 for alt::D23 {}
+impl stm32_fmc::DA0 for alt::Da0 {}
+impl stm32_fmc::DA1 for alt::Da1 {}
+impl stm32_fmc::DA2 for alt::Da2 {}
+impl stm32_fmc::DA3 for alt::Da3 {}
+impl stm32_fmc::DA4 for alt::Da4 {}
+impl stm32_fmc::DA5 for alt::Da5 {}
+impl stm32_fmc::DA6 for alt::Da6 {}
+impl stm32_fmc::DA7 for alt::Da7 {}
+impl stm32_fmc::DA8 for alt::Da8 {}
+impl stm32_fmc::DA9 for alt::Da9 {}
+impl stm32_fmc::DA10 for alt::Da10 {}
+impl stm32_fmc::DA11 for alt::Da11 {}
+impl stm32_fmc::DA12 for alt::Da12 {}
+impl stm32_fmc::DA13 for alt::Da13 {}
+impl stm32_fmc::DA14 for alt::Da14 {}
+impl stm32_fmc::DA15 for alt::Da15 {}
+impl stm32_fmc::INT for alt::Int {}
+impl stm32_fmc::NBL0 for alt::Nbl0 {}
+impl stm32_fmc::NBL1 for alt::Nbl1 {}
+impl stm32_fmc::NCE for alt::Nce {}
+impl stm32_fmc::NE1 for alt::Ne1 {}
+impl stm32_fmc::NE2 for alt::Ne2 {}
+impl stm32_fmc::NE3 for alt::Ne3 {}
+impl stm32_fmc::NE4 for alt::Ne4 {}
+impl stm32_fmc::NL for alt::Nl {}
+impl stm32_fmc::NOE for alt::Noe {}
+impl stm32_fmc::NWAIT for alt::Nwait {}
+impl stm32_fmc::NWE for alt::Nwe {}
+impl stm32_fmc::SDCKE0 for alt::Sdcke0 {}
+impl stm32_fmc::SDCKE1 for alt::Sdcke1 {}
+impl stm32_fmc::SDCLK for alt::Sdclk {}
+impl stm32_fmc::SDNCAS for alt::Sdncas {}
+impl stm32_fmc::SDNE0 for alt::Sdne0 {}
+impl stm32_fmc::SDNE1 for alt::Sdne1 {}
+impl stm32_fmc::SDNRAS for alt::Sdnras {}
+impl stm32_fmc::SDNWE for alt::Sdnwe {}
 
-pins! {
-    FMC:
-        A0: [ gpio::PF0<Alternate<12>> ]
-        A1: [ gpio::PF1<Alternate<12>> ]
-        A2: [ gpio::PF2<Alternate<12>> ]
-        A3: [ gpio::PF3<Alternate<12>> ]
-        A4: [ gpio::PF4<Alternate<12>> ]
-        A5: [ gpio::PF5<Alternate<12>> ]
-        A6: [ gpio::PF12<Alternate<12>> ]
-        A7: [ gpio::PF13<Alternate<12>> ]
-        A8: [ gpio::PF14<Alternate<12>> ]
-        A9: [ gpio::PF15<Alternate<12>> ]
-        A10: [ gpio::PG0<Alternate<12>> ]
-        A11: [ gpio::PG1<Alternate<12>> ]
-        A12: [ gpio::PG2<Alternate<12>> ]
-        A13: [ gpio::PG3<Alternate<12>> ]
-        A14: [ gpio::PG4<Alternate<12>> ]
-        A15: [ gpio::PG5<Alternate<12>> ]
-        A16: [ gpio::PD11<Alternate<12>> ]
-        A17: [ gpio::PD12<Alternate<12>> ]
-        A18: [ gpio::PD13<Alternate<12>> ]
-        A19: [ gpio::PE3<Alternate<12>> ]
-        A20: [ gpio::PE4<Alternate<12>> ]
-        A21: [ gpio::PE5<Alternate<12>> ]
-        A22: [ gpio::PE6<Alternate<12>> ]
-        A23: [ gpio::PE2<Alternate<12>> ]
-        A24: [ gpio::PG13<Alternate<12>> ]
-        A25: [ gpio::PG14<Alternate<12>> ]
-
-        BA0: [ gpio::PG4<Alternate<12>> ]
-        BA1: [ gpio::PG5<Alternate<12>> ]
-
-        CLK: [ gpio::PD3<Alternate<12>> ]
-
-        D0: [ gpio::PD14<Alternate<12>> ]
-        D1: [ gpio::PD15<Alternate<12>> ]
-        D2: [ gpio::PD0<Alternate<12>> ]
-        D3: [ gpio::PD1<Alternate<12>> ]
-        D4: [ gpio::PE7<Alternate<12>> ]
-        D5: [ gpio::PE8<Alternate<12>> ]
-        D6: [ gpio::PE9<Alternate<12>> ]
-        D7: [ gpio::PE10<Alternate<12>> ]
-        D8: [ gpio::PE11<Alternate<12>> ]
-        D9: [ gpio::PE12<Alternate<12>> ]
-        D10: [ gpio::PE13<Alternate<12>> ]
-        D11: [ gpio::PE14<Alternate<12>> ]
-        D12: [ gpio::PE15<Alternate<12>> ]
-        D13: [ gpio::PD8<Alternate<12>> ]
-        D14: [ gpio::PD9<Alternate<12>> ]
-        D15: [ gpio::PD10<Alternate<12>> ]
-        D16: [ gpio::PH8<Alternate<12>> ]
-        D17: [ gpio::PH9<Alternate<12>> ]
-        D18: [ gpio::PH10<Alternate<12>> ]
-        D19: [ gpio::PH11<Alternate<12>> ]
-        D20: [ gpio::PH12<Alternate<12>> ]
-        D21: [ gpio::PH13<Alternate<12>> ]
-        D22: [ gpio::PH14<Alternate<12>> ]
-        D23: [ gpio::PH15<Alternate<12>> ]
-        D24: [ #[cfg(not(feature = "rm0468"))] gpio::PI0<Alternate<12>> ]
-        D25: [ #[cfg(not(feature = "rm0468"))] gpio::PI1<Alternate<12>> ]
-        D26: [ #[cfg(not(feature = "rm0468"))] gpio::PI2<Alternate<12>> ]
-        D27: [ #[cfg(not(feature = "rm0468"))] gpio::PI3<Alternate<12>> ]
-        D28: [ #[cfg(not(feature = "rm0468"))] gpio::PI6<Alternate<12>> ]
-        D29: [ #[cfg(not(feature = "rm0468"))] gpio::PI7<Alternate<12>> ]
-        D30: [ #[cfg(not(feature = "rm0468"))] gpio::PI9<Alternate<12>> ]
-        D31: [ #[cfg(not(feature = "rm0468"))] gpio::PI10<Alternate<12>> ]
-
-        DA0: [ gpio::PD14<Alternate<12>> ]
-        DA1: [ gpio::PD15<Alternate<12>> ]
-        DA2: [ gpio::PD0<Alternate<12>> ]
-        DA3: [ gpio::PD1<Alternate<12>> ]
-        DA4: [ gpio::PE7<Alternate<12>> ]
-        DA5: [ gpio::PE8<Alternate<12>> ]
-        DA6: [ gpio::PE9<Alternate<12>> ]
-        DA7: [ gpio::PE10<Alternate<12>> ]
-        DA8: [ gpio::PE11<Alternate<12>> ]
-        DA9: [ gpio::PE12<Alternate<12>> ]
-        DA10: [ gpio::PE13<Alternate<12>> ]
-        DA11: [ gpio::PE14<Alternate<12>> ]
-        DA12: [ gpio::PE15<Alternate<12>> ]
-        DA13: [ gpio::PD8<Alternate<12>> ]
-        DA14: [ gpio::PD9<Alternate<12>> ]
-        DA15: [ gpio::PD10<Alternate<12>> ]
-
-        INT: [ gpio::PG7<Alternate<12>> ]
-
-        NBL0: [ gpio::PE0<Alternate<12>> ]
-        NBL1: [ gpio::PE1<Alternate<12>> ]
-        NBL2: [ #[cfg(not(feature = "rm0468"))] gpio::PI4<Alternate<12>> ]
-        NBL3: [ #[cfg(not(feature = "rm0468"))] gpio::PI5<Alternate<12>> ]
-
-        // NAND
-        NCE: [
-            gpio::PC8<Alternate<9>>,
-            gpio::PG9<Alternate<12>>
-        ]
-        NE1: [
-            gpio::PC7<Alternate<9>>,
-            gpio::PD7<Alternate<12>>
-        ]
-        NE2: [
-            gpio::PC8<Alternate<9>>,
-            gpio::PG9<Alternate<12>>
-        ]
-        NE3: [
-            gpio::PG6<Alternate<12>>,
-            gpio::PG10<Alternate<12>>
-        ]
-        NE4: [
-            gpio::PG12<Alternate<12>>
-        ]
-        NL: [ gpio::PB7<Alternate<12>> ]
-        NOE: [ gpio::PD4<Alternate<12>> ]
-        NWAIT: [
-            gpio::PC6<Alternate<9>>,
-            gpio::PD6<Alternate<12>>
-        ]
-        NWE: [ gpio::PD5<Alternate<12>> ]
-
-        // SDRAM
-        SDCKE0: [
-            gpio::PC3<Alternate<12>>,
-            gpio::PC5<Alternate<12>>,
-            gpio::PH2<Alternate<12>>
-        ]
-        SDCKE1: [
-            gpio::PB5<Alternate<12>>,
-            gpio::PH7<Alternate<12>>
-        ]
-        SDCLK: [ gpio::PG8<Alternate<12>> ]
-        SDNCAS: [ gpio::PG15<Alternate<12>> ]
-        SDNE0: [
-            gpio::PC2<Alternate<12>>,
-            gpio::PC4<Alternate<12>>,
-            gpio::PH3<Alternate<12>>
-        ]
-        SDNE1: [
-            gpio::PB6<Alternate<12>>,
-            gpio::PH6<Alternate<12>>
-        ]
-        SDNRAS: [ gpio::PF11<Alternate<12>> ]
-        SDNWE: [
-            gpio::PA7<Alternate<12>>,
-            gpio::PC0<Alternate<12>>,
-            gpio::PH5<Alternate<12>>
-        ]
+#[cfg(any(feature = "gpio-h747", feature = "gpio-h7a2"))]
+mod advanced {
+    use crate::gpio::alt::fmc as alt;
+    impl stm32_fmc::D24 for alt::D24 {}
+    impl stm32_fmc::D25 for alt::D25 {}
+    impl stm32_fmc::D26 for alt::D26 {}
+    impl stm32_fmc::D27 for alt::D27 {}
+    impl stm32_fmc::D28 for alt::D28 {}
+    impl stm32_fmc::D29 for alt::D29 {}
+    impl stm32_fmc::D30 for alt::D30 {}
+    impl stm32_fmc::D31 for alt::D31 {}
+    impl stm32_fmc::NBL2 for alt::Nbl2 {}
+    impl stm32_fmc::NBL3 for alt::Nbl3 {}
 }

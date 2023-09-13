@@ -8,10 +8,10 @@
 use core::cmp;
 use core::marker::PhantomData;
 
-use crate::gpio::{self, Alternate, OpenDrain};
+use crate::gpio;
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::pac;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
 use cast::u16;
 
@@ -63,20 +63,14 @@ pub enum Error {
     // Alert, // SMBUS mode only
 }
 
-/// A trait to represent the SCL Pin of an I2C Port
-pub trait PinScl<I2C> {}
-
-/// A trait to represent the SDL Pin of an I2C Port
-pub trait PinSda<I2C> {}
-
-/// A trait to represent the collection of pins required for an I2C port
-pub trait Pins<I2C> {}
-
-impl<I2C, SCL, SDA> Pins<I2C> for (SCL, SDA)
-where
-    SCL: PinScl<I2C>,
-    SDA: PinSda<I2C>,
+pub trait Instance:
+    crate::Sealed
+    + core::ops::Deref<Target = pac::i2c1::RegisterBlock>
+    + gpio::alt::I2cCommon
 {
+    type Rec: ResetEnable;
+
+    fn get_frequency(clocks: &CoreClocks) -> Hertz;
 }
 
 #[derive(Debug)]
@@ -85,25 +79,21 @@ pub struct I2c<I2C> {
     i2c: I2C,
 }
 
-pub trait I2cExt<I2C>: Sized {
-    type Rec: ResetEnable;
-
-    fn i2c<PINS>(
+pub trait I2cExt: Sized + Instance {
+    fn i2c(
         self,
-        _pins: PINS,
+        pins: (impl Into<Self::Scl>, impl Into<Self::Sda>),
         frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> I2c<I2C>
-    where
-        PINS: Pins<I2C>;
+    ) -> I2c<Self>;
 
     fn i2c_unchecked(
         self,
         frequency: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> I2c<I2C>;
+    ) -> I2c<Self>;
 }
 
 // Sequence to flush the TXDR register. This resets the TXIS and TXE
@@ -262,488 +252,450 @@ macro_rules! i2c_timing {
 }
 
 macro_rules! i2c {
-    ($($I2CX:ident: ($i2cX:ident, $Rec:ident, $pclkX:ident),)+) => {
+    ($($I2CX:ty: ($Rec:ident, $pclkX:ident),)+) => {
         $(
-            impl I2c<$I2CX> {
-                /// Create and initialise a new I2C peripheral.
-                ///
-                /// The frequency of the I2C bus clock is specified by `frequency`.
-                ///
-                /// # Panics
-                ///
-                /// Panics if the ratio between `frequency` and the i2c_ker_ck
-                /// is out of bounds. The acceptable range is [4, 8192].
-                ///
-                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                pub fn $i2cX (
-                    i2c: $I2CX,
-                    frequency: Hertz,
-                    prec: rec::$Rec,
-                    clocks: &CoreClocks
-                ) -> Self {
-                    let _ = prec.enable().reset(); // drop, can be recreated by free method
+            impl crate::Sealed for $I2CX { }
+            impl Instance for $I2CX {
+                type Rec = rec::$Rec;
 
-                    let freq: u32 = frequency.raw();
-
-                    // Maximum f_SCL for Fast-mode Plus (Fm+)
-                    assert!(freq <= 1_000_000);
-
-                    let i2c_clk: u32 = clocks.$pclkX().raw();
-
-                    // Clear PE bit in I2C_CR1
-                    i2c.cr1.modify(|_, w| w.pe().clear_bit());
-
-                    // Enable the Analog Noise Filter by setting
-                    // ANFOFF (Analog Noise Filter OFF) to 0.  This is
-                    // usually enabled by default
-                    i2c.cr1.modify(|_, w| w.anfoff().clear_bit());
-
-                    // Configure timing
-                    let (presc_reg, scll, sclh, sdadel, scldel) = i2c_timing!(i2c_clk, freq);
-                    i2c.timingr.write(|w|
-                        w.presc()
-                            .bits(presc_reg)
-                            .scll()
-                            .bits(scll)
-                            .sclh()
-                            .bits(sclh)
-                            .sdadel()
-                            .bits(sdadel)
-                            .scldel()
-                            .bits(scldel)
-                    );
-
-                    // Enable the peripheral
-                    i2c.cr1.write(|w| w.pe().set_bit());
-
-                    I2c { i2c }
+                fn get_frequency(clocks: &CoreClocks) -> Hertz {
+                    clocks.$pclkX()
                 }
+            }
 
-                /// Returns a reference to the inner peripheral
-                pub fn inner(&self) -> &$I2CX {
-                    &self.i2c
-                }
-
-                /// Returns a mutable reference to the inner peripheral
-                pub fn inner_mut(&mut self) -> &mut $I2CX {
-                    &mut self.i2c
-                }
-
-                /// Enable or disable the DMA mode for reception
-                pub fn rx_dma(&mut self, enable: bool) {
-                    self.i2c.cr1.modify(|_,w| w.rxdmaen().bit(enable));
-                }
-
-                /// Enable or disable the DMA mode for transmission
-                pub fn tx_dma(&mut self, enable: bool) {
-                    self.i2c.cr1.modify(|_,w| w.txdmaen().bit(enable));
-                }
-
-                /// Start listening for `event`
-                pub fn listen(&mut self, event: Event) {
-                    self.i2c.cr1.modify(|_,w| {
-                        match event {
-                            Event::Transmit => w.txie().set_bit(),
-                            Event::Receive => w.rxie().set_bit(),
-                            Event::TransferComplete => w.tcie().set_bit(),
-                            Event::Stop => w.stopie().set_bit(),
-                            Event::Errors => w.errie().set_bit(),
-                            Event::NotAcknowledge => w.nackie().set_bit(),
-                        }
-                    });
-                }
-
-                /// Stop listening for `event`
-                pub fn unlisten(&mut self, event: Event) {
-                    self.i2c.cr1.modify(|_,w| {
-                        match event {
-                            Event::Transmit => w.txie().clear_bit(),
-                            Event::Receive => w.rxie().clear_bit(),
-                            Event::TransferComplete => w.tcie().clear_bit(),
-                            Event::Stop => w.stopie().clear_bit(),
-                            Event::Errors => w.errie().clear_bit(),
-                            Event::NotAcknowledge => w.nackie().clear_bit(),
-                        }
-                    });
-                    let _ = self.i2c.cr1.read();
-                    let _ = self.i2c.cr1.read(); // Delay 2 peripheral clocks
-                }
-
-                /// Clears interrupt flag for `event`
-                pub fn clear_irq(&mut self, event: Event) {
-                    self.i2c.icr.write(|w| {
-                        match event {
-                            Event::Stop => w.stopcf().set_bit(),
-                            Event::Errors => w
-                                .berrcf().set_bit()
-                                .arlocf().set_bit()
-                                .ovrcf().set_bit(),
-                            Event::NotAcknowledge => w.nackcf().set_bit(),
-                            _ => w
-                        }
-                    });
-                    let _ = self.i2c.isr.read();
-                    let _ = self.i2c.isr.read(); // Delay 2 peripheral clocks
-                }
-
+            impl I2c<$I2CX> where $I2CX: Instance {
                 /// Releases the I2C peripheral
                 pub fn free(self) -> ($I2CX, rec::$Rec) {
                     (self.i2c, rec::$Rec { _marker: PhantomData })
-                }
-            }
-
-            /// Master controller methods
-            ///
-            /// These infallible methods are used to begin or end parts of
-            /// transactions, but do __not__ read or write the data
-            /// registers. If you want to perform an entire transcation see the
-            /// [Read](I2c#impl-Read) and [Write](I2c#impl-Write)
-            /// implementations.
-            ///
-            /// If a previous transcation is still in progress, then these
-            /// methods will block until that transcation is complete. A
-            /// previous transaction can still be "in progress" up to 50% of a
-            /// bus cycle after a ACK/NACK event. Otherwise these methods return
-            /// immediately.
-            impl I2c<$I2CX> {
-                /// Master read
-                ///
-                /// Perform an I2C start and prepare to receive `length` bytes.
-                ///
-                /// ```
-                /// Master: ST SAD+R  ...  (SP)
-                /// Slave:            ...
-                /// ```
-                pub fn master_read(&mut self, addr: u8, length: usize, stop: Stop) {
-                    assert!(length < 256 && length > 0);
-
-                    // Wait for any previous address sequence to end
-                    // automatically. This could be up to 50% of a bus
-                    // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
-
-                    // Set START and prepare to receive bytes into
-                    // `buffer`. The START bit can be set even if the bus
-                    // is BUSY or I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
-                        w.sadd()
-                            .bits((addr << 1 | 0) as u16)
-                            .rd_wrn()
-                            .read()
-                            .nbytes()
-                            .bits(length as u8)
-                            .start()
-                            .set_bit()
-                            .autoend()
-                            .bit(stop == Stop::Automatic)
-                    });
-                }
-                /// Master write
-                ///
-                /// Perform an I2C start and prepare to send `length` bytes.
-                ///
-                /// ```
-                /// Master: ST SAD+W  ...  (SP)
-                /// Slave:            ...
-                /// ```
-                pub fn master_write(&mut self, addr: u8, length: usize, stop: Stop) {
-                    assert!(length < 256 && length > 0);
-
-                    // Wait for any previous address sequence to end
-                    // automatically. This could be up to 50% of a bus
-                    // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
-
-                    // Set START and prepare to send `bytes`. The
-                    // START bit can be set even if the bus is BUSY or
-                    // I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
-                        w.start()
-                            .set_bit()
-                            .sadd()
-                            .bits(u16(addr << 1 | 0))
-                            .add10().clear_bit()
-                            .rd_wrn()
-                            .write()
-                            .nbytes()
-                            .bits(length as u8)
-                            .autoend()
-                            .bit(stop == Stop::Automatic)
-                    });
-                }
-
-                /// Master restart
-                ///
-                /// Performs an I2C restart following a write phase and prepare
-                /// to receive `length` bytes. The I2C peripheral is configured
-                /// to provide an automatic stop.
-                ///
-                /// ```
-                /// Master: ...  SR  SAD+R  ...  (SP)
-                /// Slave:  ...             ...
-                /// ```
-                pub fn master_re_start(&mut self, addr: u8, length: usize, stop: Stop) {
-                    assert!(length < 256 && length > 0);
-
-                    self.i2c.cr2.write(|w| {
-                        w.sadd()
-                            .bits(u16(addr << 1 | 1))
-                            .add10().clear_bit()
-                            .rd_wrn()
-                            .read()
-                            .nbytes()
-                            .bits(length as u8)
-                            .start()
-                            .set_bit()
-                            .autoend()
-                            .bit(stop == Stop::Automatic)
-                    });
-                }
-
-                /// Master stop
-                ///
-                /// Generate a stop condition.
-                ///
-                /// ```
-                /// Master: ...  SP
-                /// Slave:  ...
-                /// ```
-                pub fn master_stop(&mut self) {
-                    self.i2c.cr2.write(|w| w.stop().set_bit());
-                }
-            }
-
-            impl I2cExt<$I2CX> for $I2CX {
-                type Rec = rec::$Rec;
-
-                /// Create and initialise a new I2C peripheral.
-                ///
-                /// A tuple of pins `(scl, sda)` for this I2C peripheral should
-                /// be passed as `pins`. This function sets each pin to
-                /// open-drain mode.
-                ///
-                /// The frequency of the I2C bus clock is specified by `frequency`.
-                ///
-                /// # Panics
-                ///
-                /// Panics if the ratio between `frequency` and the i2c_ker_ck
-                /// is out of bounds. The acceptable range is [4, 8192].
-                ///
-                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c<PINS>(self, _pins: PINS, frequency: Hertz,
-                                prec: rec::$Rec,
-                                clocks: &CoreClocks) -> I2c<$I2CX>
-                where
-                    PINS: Pins<$I2CX> {
-
-                    I2c::$i2cX(self, frequency, prec, clocks)
-                }
-
-                /// Create and initialise a new I2C peripheral. No pin types are
-                /// required.
-                ///
-                /// The frequency of the I2C bus clock is specified by `frequency`.
-                ///
-                /// # Panics
-                ///
-                /// Panics if the ratio between `frequency` and the i2c_ker_ck
-                /// is out of bounds. The acceptable range is [4, 8192].
-                ///
-                /// Panics if the `frequency` is too fast. The maximum is 1MHz.
-                fn i2c_unchecked(self, frequency: Hertz,
-                                    prec: rec::$Rec,
-                                    clocks: &CoreClocks) -> I2c<$I2CX> {
-                    I2c::$i2cX(self, frequency, prec, clocks)
-                }
-            }
-
-            impl Write for I2c<$I2CX> {
-                type Error = Error;
-
-                fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-                    // TODO support transfers of more than 255 bytes
-                    assert!(bytes.len() < 256 && bytes.len() > 0);
-
-                    // I2C start
-                    //
-                    // ST SAD+W
-                    self.master_write(addr, bytes.len(), Stop::Software);
-
-                    for byte in bytes {
-                        // Wait until we are allowed to send data
-                        // (START has been ACKed or last byte when
-                        // through)
-                        busy_wait!(self.i2c, txis, is_empty);
-
-                        // Put byte on the wire
-                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
-                    }
-
-                    // Wait until the write finishes
-                    busy_wait!(self.i2c, tc, is_complete);
-
-                    // Stop
-                    self.master_stop();
-
-                    // Wait for stop
-                    busy_wait!(self.i2c, busy, is_not_busy);
-
-                    Ok(())
-                }
-            }
-
-            impl WriteRead for I2c<$I2CX> {
-                type Error = Error;
-
-                fn write_read(
-                    &mut self,
-                    addr: u8,
-                    bytes: &[u8],
-                    buffer: &mut [u8],
-                ) -> Result<(), Error> {
-                    // TODO support transfers of more than 255 bytes
-                    assert!(bytes.len() < 256 && bytes.len() > 0);
-                    assert!(buffer.len() < 256 && buffer.len() > 0);
-
-                    // I2C start
-                    //
-                    // ST SAD+W
-                    self.master_write(addr, bytes.len(), Stop::Software);
-
-                    for byte in bytes {
-                        // Wait until we are allowed to send data
-                        // (START has been ACKed or last byte went through)
-                        busy_wait!(self.i2c, txis, is_empty);
-
-                        // Put byte on the wire
-                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
-                    }
-
-                    // Wait until the write finishes before beginning to read.
-                    busy_wait!(self.i2c, tc, is_complete);
-
-                    // I2C re-start
-                    //
-                    // SR  SAD+R
-                    self.master_re_start(addr, buffer.len(), Stop::Automatic);
-
-                    for byte in buffer {
-                        // Wait until we have received something
-                        busy_wait!(self.i2c, rxne, is_not_empty);
-
-                        *byte = self.i2c.rxdr.read().rxdata().bits();
-                    }
-
-                    // Wait for automatic stop
-                    busy_wait!(self.i2c, busy, is_not_busy);
-
-                    Ok(())
-                }
-            }
-
-            impl Read for I2c<$I2CX> {
-                type Error = Error;
-
-                fn read(
-                    &mut self,
-                    addr: u8,
-                    buffer: &mut [u8],
-                ) -> Result<(), Error> {
-                    // TODO support transfers of more than 255 bytes
-                    assert!(buffer.len() < 256 && buffer.len() > 0);
-
-                    self.master_read(addr, buffer.len(), Stop::Automatic);
-
-                    for byte in buffer {
-                        // Wait until we have received something
-                        busy_wait!(self.i2c, rxne, is_not_empty);
-
-                        *byte = self.i2c.rxdr.read().rxdata().bits();
-                    }
-
-                    // Wait for automatic stop
-                    busy_wait!(self.i2c, busy, is_not_busy);
-
-                    Ok(())
                 }
             }
         )+
     };
 }
 
-macro_rules! pins {
-    ($($I2CX:ty: SCL: [$($SCL:ty),*] SDA: [$($SDA:ty),*])+) => {
-        $(
-            $(
-                impl PinScl<$I2CX> for $SCL { }
-            )*
-            $(
-                impl PinSda<$I2CX> for $SDA { }
-            )*
-        )+
+impl<I2C: Instance> I2c<I2C> {
+    /// Create and initialise a new I2C peripheral.
+    pub fn new(
+        i2c: I2C,
+        pins: (impl Into<I2C::Scl>, impl Into<I2C::Sda>),
+        frequency: Hertz,
+        prec: I2C::Rec,
+        clocks: &CoreClocks,
+    ) -> Self {
+        let _pins: (I2C::Scl, I2C::Sda) = (pins.0.into(), pins.1.into());
+        Self::new_unchecked(i2c, frequency, prec, clocks)
+    }
+    /// Create and initialise a new I2C peripheral.
+    ///
+    /// The frequency of the I2C bus clock is specified by `frequency`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ratio between `frequency` and the i2c_ker_ck
+    /// is out of bounds. The acceptable range is [4, 8192].
+    ///
+    /// Panics if the `frequency` is too fast. The maximum is 1MHz.
+    pub fn new_unchecked(
+        i2c: I2C,
+        frequency: Hertz,
+        prec: I2C::Rec,
+        clocks: &CoreClocks,
+    ) -> Self {
+        let _ = prec.enable().reset(); // drop, can be recreated by free method
+
+        let freq: u32 = frequency.raw();
+
+        // Maximum f_SCL for Fast-mode Plus (Fm+)
+        assert!(freq <= 1_000_000);
+
+        let i2c_clk: u32 = I2C::get_frequency(clocks).raw();
+
+        // Clear PE bit in I2C_CR1
+        i2c.cr1.modify(|_, w| w.pe().clear_bit());
+
+        // Enable the Analog Noise Filter by setting
+        // ANFOFF (Analog Noise Filter OFF) to 0.  This is
+        // usually enabled by default
+        i2c.cr1.modify(|_, w| w.anfoff().clear_bit());
+
+        // Configure timing
+        let (presc_reg, scll, sclh, sdadel, scldel) =
+            i2c_timing!(i2c_clk, freq);
+        i2c.timingr.write(|w| {
+            w.presc()
+                .bits(presc_reg)
+                .scll()
+                .bits(scll)
+                .sclh()
+                .bits(sclh)
+                .sdadel()
+                .bits(sdadel)
+                .scldel()
+                .bits(scldel)
+        });
+
+        // Enable the peripheral
+        i2c.cr1.write(|w| w.pe().set_bit());
+
+        I2c { i2c }
+    }
+
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &I2C {
+        &self.i2c
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut I2C {
+        &mut self.i2c
+    }
+
+    /// Enable or disable the DMA mode for reception
+    pub fn rx_dma(&mut self, enable: bool) {
+        self.i2c.cr1.modify(|_, w| w.rxdmaen().bit(enable));
+    }
+
+    /// Enable or disable the DMA mode for transmission
+    pub fn tx_dma(&mut self, enable: bool) {
+        self.i2c.cr1.modify(|_, w| w.txdmaen().bit(enable));
+    }
+
+    /// Start listening for `event`
+    pub fn listen(&mut self, event: Event) {
+        self.i2c.cr1.modify(|_, w| match event {
+            Event::Transmit => w.txie().set_bit(),
+            Event::Receive => w.rxie().set_bit(),
+            Event::TransferComplete => w.tcie().set_bit(),
+            Event::Stop => w.stopie().set_bit(),
+            Event::Errors => w.errie().set_bit(),
+            Event::NotAcknowledge => w.nackie().set_bit(),
+        });
+    }
+
+    /// Stop listening for `event`
+    pub fn unlisten(&mut self, event: Event) {
+        self.i2c.cr1.modify(|_, w| match event {
+            Event::Transmit => w.txie().clear_bit(),
+            Event::Receive => w.rxie().clear_bit(),
+            Event::TransferComplete => w.tcie().clear_bit(),
+            Event::Stop => w.stopie().clear_bit(),
+            Event::Errors => w.errie().clear_bit(),
+            Event::NotAcknowledge => w.nackie().clear_bit(),
+        });
+        let _ = self.i2c.cr1.read();
+        let _ = self.i2c.cr1.read(); // Delay 2 peripheral clocks
+    }
+
+    /// Clears interrupt flag for `event`
+    pub fn clear_irq(&mut self, event: Event) {
+        self.i2c.icr.write(|w| match event {
+            Event::Stop => w.stopcf().set_bit(),
+            Event::Errors => {
+                w.berrcf().set_bit().arlocf().set_bit().ovrcf().set_bit()
+            }
+            Event::NotAcknowledge => w.nackcf().set_bit(),
+            _ => w,
+        });
+        let _ = self.i2c.isr.read();
+        let _ = self.i2c.isr.read(); // Delay 2 peripheral clocks
     }
 }
 
-pins! {
-    I2C1:
-        SCL: [
-            gpio::PB6<Alternate<4, OpenDrain>>,
-            gpio::PB8<Alternate<4, OpenDrain>>
-        ]
+impl<I2C: Instance> I2cExt for I2C {
+    /// Create and initialise a new I2C peripheral.
+    ///
+    /// A tuple of pins `(scl, sda)` for this I2C peripheral should
+    /// be passed as `pins`. This function sets each pin to
+    /// open-drain mode.
+    ///
+    /// The frequency of the I2C bus clock is specified by `frequency`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ratio between `frequency` and the i2c_ker_ck
+    /// is out of bounds. The acceptable range is [4, 8192].
+    ///
+    /// Panics if the `frequency` is too fast. The maximum is 1MHz.
+    fn i2c(
+        self,
+        pins: (impl Into<Self::Scl>, impl Into<Self::Sda>),
+        frequency: Hertz,
+        prec: I2C::Rec,
+        clocks: &CoreClocks,
+    ) -> I2c<Self> {
+        I2c::new(self, pins, frequency, prec, clocks)
+    }
 
-        SDA: [
-            gpio::PB7<Alternate<4, OpenDrain>>,
-            gpio::PB9<Alternate<4, OpenDrain>>
-        ]
-
-    I2C2:
-        SCL: [
-            gpio::PB10<Alternate<4, OpenDrain>>,
-            gpio::PF1<Alternate<4, OpenDrain>>,
-            gpio::PH4<Alternate<4, OpenDrain>>
-        ]
-
-        SDA: [
-            gpio::PB11<Alternate<4, OpenDrain>>,
-            gpio::PF0<Alternate<4, OpenDrain>>,
-            gpio::PH5<Alternate<4, OpenDrain>>
-        ]
-
-    I2C3:
-        SCL: [
-            gpio::PA8<Alternate<4, OpenDrain>>,
-            gpio::PH7<Alternate<4, OpenDrain>>
-        ]
-
-        SDA: [
-            gpio::PC9<Alternate<4, OpenDrain>>,
-            gpio::PH8<Alternate<4, OpenDrain>>
-        ]
-
-    I2C4:
-        SCL: [
-            gpio::PD12<Alternate<4, OpenDrain>>,
-            gpio::PF14<Alternate<4, OpenDrain>>,
-            gpio::PH11<Alternate<4, OpenDrain>>,
-            gpio::PB6<Alternate<6, OpenDrain>>,
-            gpio::PB8<Alternate<6, OpenDrain>>
-        ]
-
-        SDA: [
-            gpio::PB7<Alternate<6, OpenDrain>>,
-            gpio::PB9<Alternate<6, OpenDrain>>,
-            gpio::PD13<Alternate<4, OpenDrain>>,
-            gpio::PF15<Alternate<4, OpenDrain>>,
-            gpio::PH12<Alternate<4, OpenDrain>>
-        ]
+    /// Create and initialise a new I2C peripheral. No pin types are
+    /// required.
+    ///
+    /// The frequency of the I2C bus clock is specified by `frequency`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ratio between `frequency` and the i2c_ker_ck
+    /// is out of bounds. The acceptable range is [4, 8192].
+    ///
+    /// Panics if the `frequency` is too fast. The maximum is 1MHz.
+    fn i2c_unchecked(
+        self,
+        frequency: Hertz,
+        prec: I2C::Rec,
+        clocks: &CoreClocks,
+    ) -> I2c<Self> {
+        I2c::new_unchecked(self, frequency, prec, clocks)
+    }
 }
 
+/// Master controller methods
+///
+/// These infallible methods are used to begin or end parts of
+/// transactions, but do __not__ read or write the data
+/// registers. If you want to perform an entire transcation see the
+/// [Read](I2c#impl-Read) and [Write](I2c#impl-Write)
+/// implementations.
+///
+/// If a previous transcation is still in progress, then these
+/// methods will block until that transcation is complete. A
+/// previous transaction can still be "in progress" up to 50% of a
+/// bus cycle after a ACK/NACK event. Otherwise these methods return
+/// immediately.
+impl<I2C: Instance> I2c<I2C> {
+    /// Master read
+    ///
+    /// Perform an I2C start and prepare to receive `length` bytes.
+    ///
+    /// ```ignore
+    /// Master: ST SAD+R  ...  (SP)
+    /// Slave:            ...
+    /// ```
+    pub fn master_read(&mut self, addr: u8, length: usize, stop: Stop) {
+        assert!(length < 256 && length > 0);
+
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to receive bytes into
+        // `buffer`. The START bit can be set even if the bus
+        // is BUSY or I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.sadd().bits((addr << 1) as u16);
+            w.rd_wrn().read();
+            w.nbytes().bits(length as u8);
+            w.start().set_bit();
+            w.autoend().bit(stop == Stop::Automatic)
+        });
+    }
+
+    /// Master write
+    ///
+    /// Perform an I2C start and prepare to send `length` bytes.
+    ///
+    /// ```ignore
+    /// Master: ST SAD+W  ...  (SP)
+    /// Slave:            ...
+    /// ```
+    pub fn master_write(&mut self, addr: u8, length: usize, stop: Stop) {
+        assert!(length < 256 && length > 0);
+
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to send `bytes`. The
+        // START bit can be set even if the bus is BUSY or
+        // I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.start().set_bit();
+            w.sadd().bits(u16(addr << 1));
+            w.add10().clear_bit();
+            w.rd_wrn().write();
+            w.nbytes().bits(length as u8);
+            w.autoend().bit(stop == Stop::Automatic)
+        });
+    }
+
+    /// Master restart
+    ///
+    /// Performs an I2C restart following a write phase and prepare
+    /// to receive `length` bytes. The I2C peripheral is configured
+    /// to provide an automatic stop.
+    ///
+    /// ```ignore
+    /// Master: ...  SR  SAD+R  ...  (SP)
+    /// Slave:  ...             ...
+    /// ```
+    pub fn master_re_start(&mut self, addr: u8, length: usize, stop: Stop) {
+        assert!(length < 256 && length > 0);
+
+        self.i2c.cr2.write(|w| {
+            w.sadd().bits(u16(addr << 1 | 1));
+            w.add10().clear_bit();
+            w.rd_wrn().read();
+            w.nbytes().bits(length as u8);
+            w.start().set_bit();
+            w.autoend().bit(stop == Stop::Automatic)
+        });
+    }
+
+    /// Master stop
+    ///
+    /// Generate a stop condition.
+    ///
+    /// ```ignore
+    /// Master: ...  SP
+    /// Slave:  ...
+    /// ```
+    pub fn master_stop(&mut self) {
+        self.i2c.cr2.write(|w| w.stop().set_bit());
+    }
+}
+
+impl<I2C: Instance> Write for I2c<I2C> {
+    type Error = Error;
+
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // TODO support transfers of more than 255 bytes
+        assert!(bytes.len() < 256 && !bytes.is_empty());
+
+        // I2C start
+        //
+        // ST SAD+W
+        self.master_write(addr, bytes.len(), Stop::Software);
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte when
+            // through)
+            busy_wait!(self.i2c, txis, is_empty);
+
+            // Put byte on the wire
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+        }
+
+        // Wait until the write finishes
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // Stop
+        self.master_stop();
+
+        // Wait for stop
+        busy_wait!(self.i2c, busy, is_not_busy);
+
+        Ok(())
+    }
+}
+
+impl<I2C: Instance> WriteRead for I2c<I2C> {
+    type Error = Error;
+
+    fn write_read(
+        &mut self,
+        addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), Error> {
+        // TODO support transfers of more than 255 bytes
+        assert!(bytes.len() < 256 && !bytes.is_empty());
+        assert!(buffer.len() < 256 && !buffer.is_empty());
+
+        // I2C start
+        //
+        // ST SAD+W
+        self.master_write(addr, bytes.len(), Stop::Software);
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte went through)
+            busy_wait!(self.i2c, txis, is_empty);
+
+            // Put byte on the wire
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+        }
+
+        // Wait until the write finishes before beginning to read.
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // I2C re-start
+        //
+        // SR  SAD+R
+        self.master_re_start(addr, buffer.len(), Stop::Automatic);
+
+        for byte in buffer {
+            // Wait until we have received something
+            busy_wait!(self.i2c, rxne, is_not_empty);
+
+            *byte = self.i2c.rxdr.read().rxdata().bits();
+        }
+
+        // Wait for automatic stop
+        busy_wait!(self.i2c, busy, is_not_busy);
+
+        Ok(())
+    }
+}
+
+impl<I2C: Instance> Read for I2c<I2C> {
+    type Error = Error;
+
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+        // TODO support transfers of more than 255 bytes
+        assert!(buffer.len() < 256 && !buffer.is_empty());
+
+        self.master_read(addr, buffer.len(), Stop::Automatic);
+
+        for byte in buffer {
+            // Wait until we have received something
+            busy_wait!(self.i2c, rxne, is_not_empty);
+
+            *byte = self.i2c.rxdr.read().rxdata().bits();
+        }
+
+        // Wait for automatic stop
+        busy_wait!(self.i2c, busy, is_not_busy);
+
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "rm0455"))]
 i2c!(
-    I2C1: (i2c1, I2c1, pclk1),
-    I2C2: (i2c2, I2c2, pclk1),
-    I2C3: (i2c3, I2c3, pclk1),
-    I2C4: (i2c4, I2c4, pclk4),
+    pac::I2C1: (I2c1, pclk1),
+    pac::I2C2: (I2c2, pclk1),
+    pac::I2C3: (I2c3, pclk1),
+    pac::I2C4: (I2c4, pclk4),
 );
+
+// TODO: fix derive SPI3 from SPI1 in SVD
+#[cfg(feature = "rm0455")]
+i2c!(pac::I2C1: (I2c1, pclk1), pac::I2C2: (I2c2, pclk1),);
+#[cfg(feature = "rm0455")]
+impl I2c<pac::I2C3> {
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &pac::I2C3 {
+        &self.i2c
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut pac::I2C3 {
+        &mut self.i2c
+    }
+}
+#[cfg(feature = "rm0455")]
+impl I2c<pac::I2C4> {
+    /// Returns a reference to the inner peripheral
+    pub fn inner(&self) -> &pac::I2C4 {
+        &self.i2c
+    }
+
+    /// Returns a mutable reference to the inner peripheral
+    pub fn inner_mut(&mut self) -> &mut pac::I2C4 {
+        &mut self.i2c
+    }
+}
 
 #[cfg(test)]
 mod tests {

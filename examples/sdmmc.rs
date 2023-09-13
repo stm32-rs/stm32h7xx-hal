@@ -11,7 +11,6 @@
 mod utilities;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::sdmmc::{SdCard, Sdmmc};
 use stm32h7xx_hal::{pac, prelude::*};
 
@@ -60,36 +59,12 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     // SDMMC pins
-    let clk = gpioc
-        .pc12
-        .into_alternate()
-        .internal_pull_up(false)
-        .speed(Speed::VeryHigh);
-    let cmd = gpiod
-        .pd2
-        .into_alternate()
-        .internal_pull_up(true)
-        .speed(Speed::VeryHigh);
-    let d0 = gpioc
-        .pc8
-        .into_alternate()
-        .internal_pull_up(true)
-        .speed(Speed::VeryHigh);
-    let d1 = gpioc
-        .pc9
-        .into_alternate()
-        .internal_pull_up(true)
-        .speed(Speed::VeryHigh);
-    let d2 = gpioc
-        .pc10
-        .into_alternate()
-        .internal_pull_up(true)
-        .speed(Speed::VeryHigh);
-    let d3 = gpioc
-        .pc11
-        .into_alternate()
-        .internal_pull_up(true)
-        .speed(Speed::VeryHigh);
+    let clk = gpioc.pc12.into_alternate().internal_pull_up(false);
+    let cmd = gpiod.pd2.into_alternate().internal_pull_up(true);
+    let d0 = gpioc.pc8.into_alternate().internal_pull_up(true);
+    let d1 = gpioc.pc9.into_alternate().internal_pull_up(true);
+    let d2 = gpioc.pc10.into_alternate().internal_pull_up(true);
+    let d3 = gpioc.pc11.into_alternate().internal_pull_up(true);
 
     // Create SDMMC
     let mut sdmmc: Sdmmc<_, SdCard> = dp.SDMMC1.sdmmc(
