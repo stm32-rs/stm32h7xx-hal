@@ -649,63 +649,6 @@ impl<'dma, 'tx> TxToken for EthTxToken<'dma, 'tx> {
     }
 }
 
-impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
-    type RxToken<'token> = EthRxToken<'token, 'rx> where Self: 'token;
-    type TxToken<'token> = EthTxToken<'token, 'tx> where Self: 'token;
-
-    fn capabilities(&self) -> DeviceCapabilities {
-        let mut caps = DeviceCapabilities::default();
-        caps.max_transmission_unit = ethernet::MTU;
-        caps.max_burst_size = Some(1);
-        caps.checksum = ChecksumCapabilities::ignored();
-        caps
-    }
-
-    fn receive(
-        &mut self,
-        _timestamp: Instant,
-    ) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
-        if self.tx_available() && self.rx_available() {
-            #[cfg(feature = "ptp")]
-            let rx_packet_id = self.next_packet_id();
-
-            let EthernetDMA {
-                rx_ring, tx_ring, ..
-            } = self;
-
-            let rx = EthRxToken {
-                rx_ring,
-                #[cfg(feature = "ptp")]
-                meta: rx_packet_id,
-            };
-
-            let tx = EthTxToken {
-                tx_ring,
-                #[cfg(feature = "ptp")]
-                meta: None,
-            };
-            Some((rx, tx))
-        } else {
-            None
-        }
-    }
-
-    fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
-        if self.tx_available() {
-            let tx_packet_id = self.next_packet_id();
-
-            let EthernetDMA { tx_ring, .. } = self;
-            Some(EthTxToken {
-                tx_ring,
-                #[cfg(feature = "ptp")]
-                meta: Some(tx_packet_id),
-            })
-        } else {
-            None
-        }
-    }
-}
-
 /// Use this Ethernet driver with [smoltcp](https://github.com/smoltcp-rs/smoltcp)
 impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
     type RxToken<'token> = EthRxToken<'token, 'rx> where Self: 'token;
