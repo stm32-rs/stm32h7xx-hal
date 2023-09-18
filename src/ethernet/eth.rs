@@ -75,6 +75,10 @@ const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 // padding
 const ETH_BUF_SIZE: usize = 1536;
 
+
+pub const PTP_MAX_SIZE: usize = 76 (0x4C);
+pub const MAX_PTP_FOLLOWERS: usize = 16 (0x10);
+
 /// Transmit and Receive Descriptor fields
 #[allow(dead_code)]
 mod emac_consts {
@@ -107,6 +111,10 @@ pub struct EthernetDMA<'rx, 'tx> {
 
     #[cfg(feature = "ptp")]
     packet_id_counter: u32,
+    #[cfg(feature = "ptp")]
+    ptp_frame_buffer: [([u8; PTP_MAX_SIZE], Option<PacketId>); MAX_PTP_FOLLOWERS],
+    #[cfg(feature = "ptp")]
+    write_pos: usize,
 }
 
 /// Ethernet MAC
@@ -289,36 +297,72 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
         });
         // frame filter register
         eth_mac.macpfr.modify(|_, w| {
-            w.dntu()
-                .clear_bit()
-                .ipfe()
-                .clear_bit()
-                .vtfe()
-                .clear_bit()
-                .hpf()
-                .clear_bit()
-                .saf()
-                .clear_bit()
-                .saif()
-                .clear_bit()
-                .pcf()
-                .bits(0b00)
-                .dbf()
-                .clear_bit()
-                .pm()
-                .clear_bit()
-                .daif()
-                .clear_bit()
-                .hmc()
-                .clear_bit()
-                .huc()
-                .clear_bit()
-                // Receive All
-                .ra()
-                .clear_bit()
-                // Promiscuous mode
-                .pr()
-                .clear_bit()
+            #[cfg(feature = "ptp")]
+            {
+                w.dntu()
+                    .clear_bit()
+                    .ipfe()
+                    .clear_bit()
+                    .vtfe()
+                    .clear_bit()
+                    .hpf()
+                    .clear_bit()
+                    .saf()
+                    .clear_bit()
+                    .saif()
+                    .clear_bit()
+                    .pcf()
+                    .bits(0b00)
+                    .dbf()
+                    .clear_bit()
+                    .pm()
+                    .set_bit()
+                    .daif()
+                    .clear_bit()
+                    .hmc()
+                    .clear_bit()
+                    .huc()
+                    .clear_bit()
+                    // Receive All
+                    .ra()
+                    .clear_bit()
+                    // Promiscuous mode
+                    .pr()
+                    .clear_bit()
+            }
+            #[cfg(not(feature = "ptp"))]
+            {
+                w.dntu()
+                    .clear_bit()
+                    .ipfe()
+                    .clear_bit()
+                    .vtfe()
+                    .clear_bit()
+                    .hpf()
+                    .clear_bit()
+                    .saf()
+                    .clear_bit()
+                    .saif()
+                    .clear_bit()
+                    .pcf()
+                    .bits(0b00)
+                    .dbf()
+                    .clear_bit()
+                    .pm()
+                    .clear_bit()
+                    .daif()
+                    .clear_bit()
+                    .hmc()
+                    .clear_bit()
+                    .huc()
+                    .clear_bit()
+                    // Receive All
+                    .ra()
+                    .clear_bit()
+                    // Promiscuous mode
+                    .pr()
+                    .clear_bit()
+            }
         });
         eth_mac.macwtr.write(|w| w.pwe().clear_bit());
         // Flow Control Register
@@ -470,6 +514,11 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
 
         #[cfg(feature = "ptp")]
         packet_id_counter: 0,
+        #[cfg(feature = "ptp")]
+        ptp_frame_buffer: [([0u8; PTP_MAX_SIZE], None); MAX_PTP_FOLLOWERS],
+        #[cfg(feature = "ptp")]
+        write_pos: 0,
+        
     };
     dma.rx_ring.start(&dma.eth_dma);
     dma.tx_ring.start(&dma.eth_dma);
@@ -533,13 +582,6 @@ impl EthernetMAC {
         }
     }
 
-    pub fn set_all_multicast(&mut self, enable: bool) {
-        cortex_m::interrupt::free(|_cs| {
-            self.eth_mac.macpfr.modify(|_, w| {
-                w.pm().bit(enable)
-            });
-        });
-    }
 }
 
 /// PHY Operations
@@ -591,6 +633,8 @@ pub struct EthRxToken<'a, 'rx> {
     rx_ring: &'a mut RxRing<'rx>,
     #[cfg(feature = "ptp")]
     meta: PacketId,
+    #[cfg(feature = "ptp")]
+    buf: &'a mut ([u8; PTP_MAX_SIZE], Option<PacketId>),
 }
 
 impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
@@ -606,6 +650,15 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
 
         // NOTE(unwrap): an `EthRxToken` is only created when `eth.rx_available()`
         let mut packet = self.rx_ring.recv_next(meta).ok().unwrap();
+        #[cfg(feature = "ptp")]
+        {
+            let ethertype = NetworkEndian::read_u16(&buffer[12..14]);
+            if ethertype == 0x88F7 {
+                let packet_buf = &buffer[14..];
+                ((self.buf.0)[0..packet_buf.len()]).copy_from_slice(packet_buf);
+                self.buf.1 = Some(meta);
+            }
+        }
         let result = f(&mut packet);
         packet.free();
         result
@@ -678,7 +731,12 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
                 rx_ring,
                 #[cfg(feature = "ptp")]
                 meta: rx_packet_id,
+                #[cfg(feature = "ptp")]
+                buf: &mut self.ptp_frame_buffer[self.write_pos],
             };
+
+            #[cfg(feature = "ptp")]
+            self.write_pos = (self.write_pos + 1) % MAX_PTP_FOLLOWERS;
 
             let tx = EthTxToken {
                 tx_ring,
