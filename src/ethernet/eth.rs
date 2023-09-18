@@ -28,6 +28,7 @@ use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::{Interrupt, ETHERNET_DMA, ETHERNET_MTL, NVIC};
+use byteorder::{ByteOrder, NetworkEndian};
 use futures::task::AtomicWaker;
 
 use smoltcp::{
