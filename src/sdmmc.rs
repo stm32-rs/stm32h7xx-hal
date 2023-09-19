@@ -1229,7 +1229,6 @@ macro_rules! sdmmc {
                     }
                 }
 
-
                 /// Write blocks to card. Buffer length must be multiple of 512
                 pub fn write_blocks(
                     &mut self,
@@ -1239,19 +1238,18 @@ macro_rules! sdmmc {
                     let _card = self.card()?;
 
                     assert!(buffer.len() % 512 == 0,
-                    "Buffer length must be a multiple of 512");
-
+                            "Buffer length must be a multiple of 512");
                     if !self.cmd16_illegal {
                         self.cmd(common_cmd::set_block_length(512))?; // CMD16
                     }
                     let n_blocks = buffer.len() / 512;
 
-                    self.cmd(sd_cmd::set_block_count(buffer.len() as u32 / 512))?; // CMD23
+                    // Set number of blocks to transfer
+                    self.cmd(sd_cmd::set_block_count(n_blocks as u32))?; // CMD23
 
                     // Setup write command
-                    self.start_datapath_transfer(512 * n_blocks as  u32, 9, Dir::HostToCard);
+                    self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::HostToCard);
                     self.cmd(common_cmd::write_multiple_blocks(address))?; // CMD25
-
 
                     let mut i = 0;
                     let mut status;
