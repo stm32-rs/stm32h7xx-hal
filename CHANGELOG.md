@@ -8,6 +8,7 @@
 * MSRV increased to 1.65.0
 * add `IntoAf` trait to restrict `into_alternate` [#346]
 * sdmmc: Introduce `write_blocks` [#453]
+* sdmmc-fat: Optimize writing speeds [#456]
 
 ## [v0.14.0] 2023-03-22
 

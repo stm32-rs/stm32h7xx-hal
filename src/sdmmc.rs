@@ -805,11 +805,22 @@ macro_rules! sdmmc {
                     address: u32,
                     buffer: &[u8]
                 ) -> Result<(), Error> {
+                    self.write_blocks_begin(address, buffer.len())?;
+                    self.write_blocks_feed(buffer);
+                    self.write_blocks_conclude()?;
+                    Ok(())
+                }
+
+                fn write_blocks_begin(
+                    &mut self,
+                    address: u32,
+                    buffer_len: usize,
+                ) -> Result<(), Error> {
                     let _card = self.card()?;
 
-                    assert!(buffer.len() % 512 == 0,
+                    assert!(buffer_len % 512 == 0,
                             "Buffer length must be a multiple of 512");
-                    let n_blocks = buffer.len() / 512;
+                    let n_blocks = buffer_len / 512;
 
                     if !self.cmd16_illegal {
                         self.cmd(common_cmd::set_block_length(512))?; // CMD16
@@ -819,6 +830,10 @@ macro_rules! sdmmc {
                     self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::HostToCard);
                     self.cmd(common_cmd::write_multiple_blocks(address))?; // CMD25
 
+                    Ok(())
+                }
+
+                fn write_blocks_feed(&mut self, buffer: &[u8]) {
                     let mut i = 0;
                     let mut status;
                     while {
@@ -842,6 +857,10 @@ macro_rules! sdmmc {
                             break
                         }
                     }
+                }
+
+                fn write_blocks_conclude(&mut self) -> Result<(), Error> {
+                    let mut status;
 
                     while {
                         status = self.sdmmc.star.read();
@@ -850,6 +869,7 @@ macro_rules! sdmmc {
                           || status.dtimeout().bit()
                           || status.dataend().bit())
                     } {}
+
                     self.cmd(common_cmd::stop_transmission())?; // CMD12
 
                     err_from_datapath_sm!(status);
@@ -1339,10 +1359,17 @@ macro_rules! sdmmc {
                     blocks: &[embedded_sdmmc::Block],
                     start_block_idx: embedded_sdmmc::BlockIdx,
                 ) -> Result<(), Self::Error> {
-                    let start = start_block_idx.0;
                     let mut sdmmc = self.sdmmc.borrow_mut();
-                    for block_idx in start..(start + blocks.len() as u32) {
-                        sdmmc.write_block(block_idx, &blocks[(block_idx - start) as usize].contents)?;
+                    let start = start_block_idx.0;
+                    if blocks.len() == 1 {
+                        sdmmc.write_block(start, &blocks[0].contents)?;
+                    } else {
+                        let total_length = embedded_sdmmc::Block::LEN * blocks.len();
+                        sdmmc.write_blocks_begin(start, total_length)?;
+                        for block in blocks.iter() {
+                            sdmmc.write_blocks_feed(&block.contents);
+                        }
+                        sdmmc.write_blocks_conclude()?;
                     }
                     Ok(())
                 }

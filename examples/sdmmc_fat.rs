@@ -2,7 +2,7 @@
 #![no_std]
 
 use {
-    embedded_sdmmc::{Controller, VolumeIdx},
+    embedded_sdmmc::{Controller, Mode, VolumeIdx},
     stm32h7xx_hal::sdmmc::{SdCard, Sdmmc},
     stm32h7xx_hal::{pac, prelude::*, rcc},
 };
@@ -89,14 +89,55 @@ unsafe fn main() -> ! {
     // See https://github.com/rust-embedded-community/embedded-sdmmc-rs for docs
     // and more examples
 
+    log::info!("Initialize file system manager");
     let mut sd_fatfs = Controller::new(sd.sdmmc_block_device(), TimeSource);
-    let sd_fatfs_volume = sd_fatfs.get_volume(VolumeIdx(0)).unwrap();
+    let mut sd_fatfs_volume = sd_fatfs.get_volume(VolumeIdx(0)).unwrap();
     let sd_fatfs_root_dir = sd_fatfs.open_root_dir(&sd_fatfs_volume).unwrap();
+
+    log::info!("List all the directories and their info");
     sd_fatfs
         .iterate_dir(&sd_fatfs_volume, &sd_fatfs_root_dir, |entry| {
             log::info!("{:?}", entry);
         })
         .unwrap();
+
+    const WRITE_BUFFER: [u8; 8 * 1024] = [b'B'; 8 * 1024];
+
+    for (filename, length) in
+        &[("small.txt", 8), ("big.txt", WRITE_BUFFER.len())]
+    {
+        log::info!("Open file {:?}", filename);
+        let mut file = sd_fatfs
+            .open_file_in_dir(
+                &mut sd_fatfs_volume,
+                &sd_fatfs_root_dir,
+                filename,
+                Mode::ReadWriteCreateOrTruncate,
+            )
+            .unwrap();
+
+        log::info!("Write {:?} characters in it", length);
+        sd_fatfs
+            .write(&mut sd_fatfs_volume, &mut file, &WRITE_BUFFER[0..*length])
+            .unwrap();
+
+        log::info!("Read it back and confirm it contains the expected content");
+        file.seek_from_start(0).unwrap();
+        while !file.eof() {
+            let mut buffer = [0u8; 1024];
+            let num_read = sd_fatfs
+                .read(&sd_fatfs_volume, &mut file, &mut buffer)
+                .unwrap();
+            for b in &buffer[0..num_read] {
+                assert_eq!(*b as char, 'B');
+            }
+        }
+
+        sd_fatfs.close_file(&sd_fatfs_volume, file).unwrap();
+    }
+
+    log::info!("Test successfully finished");
+
     sd_fatfs.close_dir(&sd_fatfs_volume, sd_fatfs_root_dir);
 
     loop {
