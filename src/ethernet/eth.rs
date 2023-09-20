@@ -854,7 +854,7 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
         if let Some(mut tx_token) = tx_option {
             tx_token.set_meta(meta.into());
             tx_token.consume(frame.len(), |buf| {
-                buf.copy_from_slice(&frame);
+                buf[..frame.len()].copy_from_slice(&frame);
             });
         }
     }
