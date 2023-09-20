@@ -652,11 +652,11 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
         let mut packet = self.rx_ring.recv_next(meta).ok().unwrap();
         #[cfg(feature = "ptp")]
         {
-            let ethertype = u16::from_be_bytes(&packet[12..14].try_into().unwrap());
+            let ethertype = u16::from_be_bytes(packet[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
                 let packet_buf = &packet[14..];
                 ((self.buf.0)[0..packet_buf.len()]).copy_from_slice(packet_buf);
-                self.buf.1 = Some(meta);
+                self.buf.1 = meta;
             }
         }
         let result = f(&mut packet);
