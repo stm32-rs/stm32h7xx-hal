@@ -786,6 +786,19 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
             self.ptp_frame_buffer[pos].1 = None;
         }
     }
+    #[cfg(feature = "ptp")]
+    pub fn send_ptp_frame(
+        frame: &[u8],
+        tx_option: Option<<EthernetDMA<'static, 'static> as Device>::TxToken<'_>>,
+        meta: PacketId,
+    ) {
+        if let Some(mut tx_token) = tx_option {
+            tx_token.set_meta(meta.into());
+            tx_token.consume(frame.len(), |buf| {
+                buf.copy_from_slice(&frame);
+            });
+        }
+    }
     /// Return the number of packets dropped since this method was
     /// last called
     pub fn number_packets_dropped(&self) -> u32 {
