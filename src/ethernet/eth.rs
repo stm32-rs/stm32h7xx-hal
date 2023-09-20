@@ -767,13 +767,13 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
     }
 }
 
-impl<'rx, 'tx> EthernetDMA<'rx, 'tx> {
+impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
     pub fn get_frame_from(&'a self, clock_identity: u64) -> Option<(&'a ([u8; PTP_MAX_SIZE], Option<PacketId>), usize)> {
         for i in 0..MAX_PTP_FOLLOWERS {
             if self.ptp_frame_buffer[i].1 != None {
                 // defmt::info!("buffer = {}", self.ptp_frame_buffer[i].0);
-                if NetworkEndian::read_u64(&self.ptp_frame_buffer[i].0[20..28]) == clock_identity {
+                if u64::from_be_bytes(self.ptp_frame_buffer[i].0[20..28].try_into().unwrap()) == clock_identity {
                     return Some((&self.ptp_frame_buffer[i], i));
                 }
             }
