@@ -28,7 +28,6 @@ use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::{Interrupt, ETHERNET_DMA, ETHERNET_MTL, NVIC};
-use byteorder::{ByteOrder, NetworkEndian};
 use futures::task::AtomicWaker;
 
 use smoltcp::{
@@ -77,8 +76,8 @@ const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 const ETH_BUF_SIZE: usize = 1536;
 
 
-pub const PTP_MAX_SIZE: usize = 76 (0x4C);
-pub const MAX_PTP_FOLLOWERS: usize = 16 (0x10);
+pub const PTP_MAX_SIZE: usize = 76;
+pub const MAX_PTP_FOLLOWERS: usize = 16;
 
 /// Transmit and Receive Descriptor fields
 #[allow(dead_code)]
@@ -653,9 +652,9 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
         let mut packet = self.rx_ring.recv_next(meta).ok().unwrap();
         #[cfg(feature = "ptp")]
         {
-            let ethertype = NetworkEndian::read_u16(&buffer[12..14]);
+            let ethertype = u16::from_be_bytes(&packet[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
-                let packet_buf = &buffer[14..];
+                let packet_buf = &packet[14..];
                 ((self.buf.0)[0..packet_buf.len()]).copy_from_slice(packet_buf);
                 self.buf.1 = Some(meta);
             }
