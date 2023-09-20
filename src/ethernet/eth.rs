@@ -730,6 +730,8 @@ impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
                 rx_ring,
                 #[cfg(feature = "ptp")]
                 meta: rx_packet_id,
+                #[cfg(feature = "ptp")]
+                buf: &mut self.ptp_frame_buffer[self.write_pos],
             };
 
             let tx = EthTxToken {
