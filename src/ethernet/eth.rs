@@ -768,6 +768,24 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
 }
 
 impl<'rx, 'tx> EthernetDMA<'rx, 'tx> {
+    #[cfg(feature = "ptp")]
+    pub fn get_frame_from(&'a self, clock_identity: u64) -> Option<(&'a ([u8; PTP_MAX_SIZE], Option<PacketId>), usize)> {
+        for i in 0..MAX_PTP_FOLLOWERS {
+            if self.ptp_frame_buffer[i].1 != None {
+                // defmt::info!("buffer = {}", self.ptp_frame_buffer[i].0);
+                if NetworkEndian::read_u64(&self.ptp_frame_buffer[i].0[20..28]) == clock_identity {
+                    return Some((&self.ptp_frame_buffer[i], i));
+                }
+            }
+        }
+        None
+    }
+    #[cfg(feature = "ptp")]
+    pub fn invalidate_frame_at(&'a mut self, pos: usize) {
+        if pos < MAX_PTP_FOLLOWERS {
+            self.ptp_frame_buffer[pos].1 = None;
+        }
+    }
     /// Return the number of packets dropped since this method was
     /// last called
     pub fn number_packets_dropped(&self) -> u32 {
