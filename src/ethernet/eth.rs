@@ -736,7 +736,9 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
             };
 
             #[cfg(feature = "ptp")]
-            self.write_pos = (self.write_pos + 1) % MAX_PTP_FOLLOWERS;
+            {
+                self.write_pos = (self.write_pos + 1) % MAX_PTP_FOLLOWERS;
+            }
 
             let tx = EthTxToken {
                 tx_ring,
