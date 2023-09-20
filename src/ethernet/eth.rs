@@ -789,7 +789,7 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
     pub fn send_ptp_frame(
         frame: &[u8],
-        tx_option: Option<<EthernetDMA<'static, 'static> as Device>::TxToken<'_>>,
+        tx_option: Option<<EthernetDMA<'static, 'static> as phy::Device>::TxToken<'_>>,
         meta: PacketId,
     ) {
         if let Some(mut tx_token) = tx_option {
