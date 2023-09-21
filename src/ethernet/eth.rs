@@ -19,6 +19,10 @@
 //! > want to enable the cache, the simplest method would be to mark SRAM3
 //! > as uncacheable via the MPU.
 //!
+//! This implementation is derived from 0BSD-relicensed work done by 
+//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
+//!
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
