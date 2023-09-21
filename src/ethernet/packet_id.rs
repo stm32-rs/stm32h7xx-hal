@@ -1,11 +1,12 @@
+//! This implementation is derived from 0BSD-relicensed work done by 
+//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
+
 /// A packet ID.
 ///
 /// This packet ID can be used to obtain information about a specific
 /// ethernet frame (either sent or received) from the DMA.
 ///
-//! This implementation is derived from 0BSD-relicensed work done by 
-//! Johannes Draaijer <jcdra1@gmail.com> for the 
-//! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
 #[cfg_attr(
     feature = "ptp",
