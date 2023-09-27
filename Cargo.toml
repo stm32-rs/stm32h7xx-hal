@@ -1,6 +1,6 @@
 [package]
 name = "stm32h7xx-hal"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["Andrew Straw <strawman@astraw.com>",
            "Richard Meadows <richard@richard.fish>",
            "Henrik Böving <hargonix@gmail.com>",
