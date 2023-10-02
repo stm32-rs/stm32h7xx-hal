@@ -49,6 +49,8 @@ static TIME: AtomicU32 = AtomicU32::new(0);
 /// Locally administered MAC address
 const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
+/// DesRing TD
+const NUM_DESCRIPTORS: usize = 8;
 #[link_section = ".sram3.eth"]
 /// Doc
 static mut TX_DESCRIPTORS: [TxDescriptor; NUM_DESCRIPTORS] =
