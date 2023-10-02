@@ -194,7 +194,7 @@ mod app {
         } = ethernet::new(
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
-            dp.ETHERNET_DMA,                
+            dp.ETHERNET_DMA,
             (
                 rmii_ref_clk,
                 rmii_mdio,
@@ -220,7 +220,6 @@ mod app {
         lan8742a.phy_reset();
         lan8742a.phy_init();
         // The eth_dma should not be used until the PHY reports the link is up
-
 
         // unsafe: mutable reference to static storage, we only do this once
         let store = unsafe {
