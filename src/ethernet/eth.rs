@@ -62,13 +62,16 @@ const _TXDESC_SIZE: usize = core::mem::size_of::<TxDescriptor>();
 ///
 /// This is necessary as we only have a single Descriptor Skip Length
 /// value which applies to both TX and RX descriptors.
+#[allow(clippy::assertions_on_constants)]
 const _ASSERT_DESCRIPTOR_SIZES: () = assert!(_RXDESC_SIZE == _TXDESC_SIZE);
 
+#[allow(clippy::assertions_on_constants)]
 const _ASSERT_DESCRIPTOR_ALIGN: () = assert!(_RXDESC_SIZE % 4 == 0);
 
 const DESC_WORD_SKIP: u8 =
     ((_RXDESC_SIZE / 4) - raw_descriptor::DESC_SIZE) as u8;
 
+#[allow(clippy::assertions_on_constants)]
 const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
@@ -200,6 +203,7 @@ pub fn new<'rx, 'tx>(
 /// # Safety
 ///
 /// `EthernetDMA` shall not be moved as it is initialised here
+#[allow(clippy::too_many_arguments)]
 pub unsafe fn new_unchecked<'rx, 'tx>(
     eth_mac: stm32::ETHERNET_MAC,
     eth_mtl: stm32::ETHERNET_MTL,
