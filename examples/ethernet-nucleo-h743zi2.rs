@@ -23,7 +23,13 @@ mod utilities;
 use log::info;
 
 use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::{PHY, MTU, RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing}};
+use stm32h7xx_hal::{
+    ethernet,
+    ethernet::{
+        RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
+        PHY,
+    },
+};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
@@ -218,7 +224,7 @@ fn main() -> ! {
 
 #[interrupt]
 fn ETH() {
-    ethernet::eth_interrupt_handler(); 
+    ethernet::eth_interrupt_handler();
 }
 
 #[exception]
