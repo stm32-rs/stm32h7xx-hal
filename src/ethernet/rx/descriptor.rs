@@ -188,12 +188,11 @@ impl RxDescriptor {
         packet_id: Option<PacketId>,
         buffer: &mut [u8],
     ) -> Result<(), RxDescriptorError> {
-        if self.has_error() {
-            Err(RxDescriptorError::DmaError)
-        } else
         // Only single-frame descriptors and non-context descriptors are supported
         // for now.
-        if self.is_first()
+        if self.has_error() {
+            Err(RxDescriptorError::DmaError)
+        } else if self.is_first()
             && self.is_last()
             && !self.has_error()
             && !self.is_context()

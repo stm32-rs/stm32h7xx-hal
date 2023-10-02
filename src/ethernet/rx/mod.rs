@@ -273,7 +273,7 @@ impl<'a> RxRing<'a> {
     #[cfg(feature = "async-await")]
     pub async fn recv(&mut self, packet_id: Option<PacketId>) -> RxPacket {
         let entry = core::future::poll_fn(|ctx| {
-            let res = self.recv_next_impl(packet_id.clone());
+            let res = self.recv_next_impl(packet_id);
 
             match res {
                 Ok(value) => Poll::Ready(value),
@@ -341,7 +341,7 @@ impl core::ops::Deref for RxPacket<'_, '_> {
     }
 }
 
-impl<'a> core::ops::DerefMut for RxPacket<'_, '_> {
+impl core::ops::DerefMut for RxPacket<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.buffer[..self.length]
     }

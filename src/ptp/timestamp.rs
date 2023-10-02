@@ -77,7 +77,7 @@ impl Timestamp {
 
     /// Get the raw subsecond value of this timestamp.
     pub const fn subseconds(&self) -> Subseconds {
-        Subseconds::new_unchecked(self.0.abs() as u32 & Subseconds::MAX_VALUE)
+        Subseconds::new_unchecked(self.0.unsigned_abs() as u32 & Subseconds::MAX_VALUE)
     }
 
     /// Get the signed subsecond value of this timestamp.

@@ -39,7 +39,7 @@ impl Subseconds {
     ///
     /// Returns `None` if `value > SUBSECONDS_PER_SECOND`. (See [`SUBSECONDS_PER_SECOND`]).
     pub const fn new(value: u32) -> Option<Self> {
-        if value > SUBSECONDS_PER_SECOND as u32 {
+        if value > SUBSECONDS_PER_SECOND {
             None
         } else {
             Some(Self(value))
@@ -63,7 +63,7 @@ impl Subseconds {
     ///
     /// Returns [`None`] if `nanos >= NANOS_PER_SECOND`. (See [`NANOS_PER_SECOND`])
     pub const fn new_from_nanos(nanos: u32) -> Option<Self> {
-        if nanos >= NANOS_PER_SECOND as u32 {
+        if nanos >= NANOS_PER_SECOND {
             return None;
         }
 
@@ -89,13 +89,13 @@ impl Subseconds {
     #[allow(unused)]
     /// Convert this [`Subseconds`] to Hertz
     pub(crate) const fn hertz(&self) -> u32 {
-        SUBSECONDS_PER_SECOND as u32 / self.0
+        SUBSECONDS_PER_SECOND / self.0
     }
 
     #[allow(unused)]
     pub(crate) const fn nearest_increment(input_clk_hz: u32) -> Subseconds {
         let hclk_half_subs =
-            (SUBSECONDS_PER_SECOND as u32 + (input_clk_hz / 2)) / input_clk_hz;
+            (SUBSECONDS_PER_SECOND + (input_clk_hz / 2)) / input_clk_hz;
 
         Self::new_unchecked(hclk_half_subs)
     }

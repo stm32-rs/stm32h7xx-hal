@@ -31,7 +31,7 @@ use core::task::Poll;
 use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
-use crate::stm32::{Interrupt, ETHERNET_DMA, ETHERNET_MTL, NVIC};
+use crate::stm32::{Interrupt, ETHERNET_DMA, NVIC};
 use futures::task::AtomicWaker;
 
 use smoltcp::{
@@ -45,10 +45,10 @@ use smoltcp::{
 };
 
 use super::rx::{
-    self, RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing,
+    RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing,
 };
 use super::tx::{
-    self, TxDescriptor, TxDescriptorRing, TxError, TxPacket, TxRing,
+    TxDescriptor, TxDescriptorRing, TxError, TxPacket, TxRing,
 };
 
 use super::packet_id::PacketId;
@@ -77,7 +77,7 @@ const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
-const ETH_BUF_SIZE: usize = 1536;
+// const ETH_BUF_SIZE: usize = 1536;
 
 
 pub const PTP_MAX_SIZE: usize = 76;
@@ -98,7 +98,6 @@ mod emac_consts {
     pub const EMAC_TDES2_B1L: u32 = 0x0000_3FFF;
     pub const EMAC_DES0_BUF1AP: u32 = 0xFFFF_FFFF;
 }
-use self::emac_consts::*;
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -106,17 +105,22 @@ use self::emac_consts::*;
 /// with any TX or RX descriptors.
 pub struct PacketIdNotFound;
 
+pub struct PtpFrameWithId {
+    ptp_frame: [u8; PTP_MAX_SIZE],
+    packet_id: Option<PacketId>,
+}
+
 /// Ethernet DMA.
 pub struct EthernetDMA<'rx, 'tx> {
     eth_dma: ETHERNET_DMA,
-    eth_mtl: crate::stm32::ETHERNET_MTL,
+    // eth_mtl: crate::stm32::ETHERNET_MTL,
     rx_ring: RxRing<'rx>,
     tx_ring: TxRing<'tx>,
 
     #[cfg(feature = "ptp")]
     packet_id_counter: u32,
     #[cfg(feature = "ptp")]
-    ptp_frame_buffer: [([u8; PTP_MAX_SIZE], Option<PacketId>); MAX_PTP_FOLLOWERS],
+    ptp_frame_buffer: [PtpFrameWithId; MAX_PTP_FOLLOWERS],
     #[cfg(feature = "ptp")]
     write_pos: usize,
 }
@@ -168,7 +172,7 @@ pub fn new<'rx, 'tx>(
     mac_addr: EthernetAddress,
     prec: rec::Eth1Mac,
     clocks: &CoreClocks,
-) -> (Parts<'rx, 'tx>) {
+) -> Parts<'rx, 'tx> {
     pins.set_speed(Speed::VeryHigh);
     unsafe {
         new_unchecked(
@@ -512,14 +516,14 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
 
     let mut dma = EthernetDMA {
         eth_dma,
-        eth_mtl,
+        // eth_mtl,
         rx_ring: RxRing::new(rx_buffer),
         tx_ring: TxRing::new(tx_buffer),
 
         #[cfg(feature = "ptp")]
         packet_id_counter: 0,
         #[cfg(feature = "ptp")]
-        ptp_frame_buffer: [([0u8; PTP_MAX_SIZE], None); MAX_PTP_FOLLOWERS],
+        ptp_frame_buffer: [PtpFrameWithId{ ptp_frame: [0u8; PTP_MAX_SIZE], packet_id: None}; MAX_PTP_FOLLOWERS],
         #[cfg(feature = "ptp")]
         write_pos: 0,
         
@@ -638,7 +642,7 @@ pub struct EthRxToken<'a, 'rx> {
     #[cfg(feature = "ptp")]
     meta: PacketId,
     #[cfg(feature = "ptp")]
-    buf: &'a mut ([u8; PTP_MAX_SIZE], Option<PacketId>),
+    buf: &'a mut PtpFrameWithId,
 }
 
 impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
@@ -647,7 +651,7 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
         F: FnOnce(&mut [u8]) -> R,
     {
         #[cfg(feature = "ptp")]
-        let meta = Some(self.meta.into());
+        let meta = Some(self.meta);
 
         #[cfg(not(feature = "ptp"))]
         let meta = None;
@@ -659,8 +663,8 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
             let ethertype = u16::from_be_bytes(packet[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
                 let packet_buf = &packet[14..];
-                ((self.buf.0)[0..packet_buf.len()]).copy_from_slice(packet_buf);
-                self.buf.1 = meta;
+                ((self.buf.ptp_frame)[0..packet_buf.len()]).copy_from_slice(packet_buf);
+                self.buf.packet_id = meta;
             }
         }
         let result = f(&mut packet);
@@ -670,7 +674,7 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
 
     #[cfg(feature = "ptp")]
     fn meta(&self) -> smoltcp::phy::PacketMeta {
-        self.meta.clone().into()
+        self.meta.into()
     }
 }
 
@@ -832,11 +836,11 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
 
 impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
-    pub fn get_frame_from(&'a self, clock_identity: u64) -> Option<(&'a ([u8; PTP_MAX_SIZE], Option<PacketId>), usize)> {
+    pub fn get_frame_from(&'a self, clock_identity: u64) -> Option<(&'a PtpFrameWithId, usize)> {
         for i in 0..MAX_PTP_FOLLOWERS {
-            if self.ptp_frame_buffer[i].1 != None {
+            if self.ptp_frame_buffer[i].packet_id.is_some() {
                 // defmt::info!("buffer = {}", self.ptp_frame_buffer[i].0);
-                if u64::from_be_bytes(self.ptp_frame_buffer[i].0[20..28].try_into().unwrap()) == clock_identity {
+                if u64::from_be_bytes(self.ptp_frame_buffer[i].ptp_frame[20..28].try_into().unwrap()) == clock_identity {
                     return Some((&self.ptp_frame_buffer[i], i));
                 }
             }
@@ -846,7 +850,7 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
     pub fn invalidate_frame_at(&'a mut self, pos: usize) {
         if pos < MAX_PTP_FOLLOWERS {
-            self.ptp_frame_buffer[pos].1 = None;
+            self.ptp_frame_buffer[pos].packet_id = None;
         }
     }
     #[cfg(feature = "ptp")]
@@ -858,7 +862,7 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
         if let Some(mut tx_token) = tx_option {
             tx_token.set_meta(meta.into());
             tx_token.consume(frame.len(), |buf| {
-                buf[..frame.len()].copy_from_slice(&frame);
+                buf[..frame.len()].copy_from_slice(frame);
             });
         }
     }

@@ -384,7 +384,7 @@ impl TxPacket<'_> {
 impl Drop for TxPacket<'_> {
     fn drop(&mut self) {
         self.desc
-            .send(self.packet_id.clone(), &self.buffer[..self.length]);
+            .send(self.packet_id, &self.buffer[..self.length]);
         TxRing::demand_poll();
     }
 }
