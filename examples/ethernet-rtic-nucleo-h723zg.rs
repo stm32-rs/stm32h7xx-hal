@@ -25,13 +25,13 @@ use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
-use stm32h7xx_hal::{rcc::CoreClocks, stm32};
 use stm32h7xx_hal::{
     ethernet,
     ethernet::{
         RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
     },
 };
+use stm32h7xx_hal::{rcc::CoreClocks, stm32};
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
     let c_ck_mhz = clocks.c_ck().to_MHz();
@@ -281,7 +281,7 @@ mod app {
 
     #[task(binds = ETH, local = [net])]
     fn ethernet_event(ctx: ethernet_event::Context) {
-        ethernet::eth_interrupt_handler(); 
+        ethernet::eth_interrupt_handler();
 
         let time = TIME.load(Ordering::Relaxed);
         ctx.local.net.poll(time as i64);
