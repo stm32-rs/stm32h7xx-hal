@@ -100,6 +100,7 @@ mod emac_consts {
 /// with any TX or RX descriptors.
 pub struct PacketIdNotFound;
 
+#[derive(Copy)]
 pub struct PtpFrameWithId {
     ptp_frame: [u8; PTP_MAX_SIZE],
     packet_id: Option<PacketId>,
