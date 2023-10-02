@@ -1,5 +1,5 @@
-//! This implementation is derived from 0BSD-relicensed work done by 
-//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! This implementation is derived from 0BSD-relicensed work done by
+//! Johannes Draaijer <jcdra1@gmail.com> for the
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
 use core::sync::atomic::{self, Ordering};

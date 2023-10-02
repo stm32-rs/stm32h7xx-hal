@@ -19,8 +19,8 @@
 //! > want to enable the cache, the simplest method would be to mark SRAM3
 //! > as uncacheable via the MPU.
 //!
-//! This implementation is derived from 0BSD-relicensed work done by 
-//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! This implementation is derived from 0BSD-relicensed work done by
+//! Johannes Draaijer <jcdra1@gmail.com> for the
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 //!
 //! [quartiq/stabilizer]: https://github.com/quartiq/stabilizer
@@ -44,12 +44,8 @@ use smoltcp::{
     wire::EthernetAddress,
 };
 
-use super::rx::{
-    RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing,
-};
-use super::tx::{
-    TxDescriptor, TxDescriptorRing, TxError, TxPacket, TxRing,
-};
+use super::rx::{RxDescriptor, RxDescriptorRing, RxError, RxPacket, RxRing};
+use super::tx::{TxDescriptor, TxDescriptorRing, TxError, TxPacket, TxRing};
 
 use super::packet_id::PacketId;
 
@@ -78,7 +74,6 @@ const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 // 6 DMAC, 6 SMAC, 4 q tag, 2 ethernet type II, 1500 ip MTU, 4 CRC, 2
 // padding
 // const ETH_BUF_SIZE: usize = 1536;
-
 
 pub const PTP_MAX_SIZE: usize = 76;
 pub const MAX_PTP_FOLLOWERS: usize = 16;
@@ -523,10 +518,12 @@ pub unsafe fn new_unchecked<'rx, 'tx>(
         #[cfg(feature = "ptp")]
         packet_id_counter: 0,
         #[cfg(feature = "ptp")]
-        ptp_frame_buffer: [PtpFrameWithId{ ptp_frame: [0u8; PTP_MAX_SIZE], packet_id: None}; MAX_PTP_FOLLOWERS],
+        ptp_frame_buffer: [PtpFrameWithId {
+            ptp_frame: [0u8; PTP_MAX_SIZE],
+            packet_id: None,
+        }; MAX_PTP_FOLLOWERS],
         #[cfg(feature = "ptp")]
         write_pos: 0,
-        
     };
     dma.rx_ring.start(&dma.eth_dma);
     dma.tx_ring.start(&dma.eth_dma);
@@ -589,7 +586,6 @@ impl EthernetMAC {
             clock_range: self.clock_range,
         }
     }
-
 }
 
 /// PHY Operations
@@ -660,10 +656,12 @@ impl<'dma, 'rx> RxToken for EthRxToken<'dma, 'rx> {
         let mut packet = self.rx_ring.recv_next(meta).ok().unwrap();
         #[cfg(feature = "ptp")]
         {
-            let ethertype = u16::from_be_bytes(packet[12..14].try_into().unwrap());
+            let ethertype =
+                u16::from_be_bytes(packet[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
                 let packet_buf = &packet[14..];
-                ((self.buf.ptp_frame)[0..packet_buf.len()]).copy_from_slice(packet_buf);
+                ((self.buf.ptp_frame)[0..packet_buf.len()])
+                    .copy_from_slice(packet_buf);
                 self.buf.packet_id = meta;
             }
         }
@@ -836,11 +834,19 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
 
 impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
-    pub fn get_frame_from(&'a self, clock_identity: u64) -> Option<(&'a PtpFrameWithId, usize)> {
+    pub fn get_frame_from(
+        &'a self,
+        clock_identity: u64,
+    ) -> Option<(&'a PtpFrameWithId, usize)> {
         for i in 0..MAX_PTP_FOLLOWERS {
             if self.ptp_frame_buffer[i].packet_id.is_some() {
                 // defmt::info!("buffer = {}", self.ptp_frame_buffer[i].0);
-                if u64::from_be_bytes(self.ptp_frame_buffer[i].ptp_frame[20..28].try_into().unwrap()) == clock_identity {
+                if u64::from_be_bytes(
+                    self.ptp_frame_buffer[i].ptp_frame[20..28]
+                        .try_into()
+                        .unwrap(),
+                ) == clock_identity
+                {
                     return Some((&self.ptp_frame_buffer[i], i));
                 }
             }
@@ -856,7 +862,9 @@ impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
     pub fn send_ptp_frame(
         frame: &[u8],
-        tx_option: Option<<EthernetDMA<'static, 'static> as phy::Device>::TxToken<'_>>,
+        tx_option: Option<
+            <EthernetDMA<'static, 'static> as phy::Device>::TxToken<'_>,
+        >,
         meta: PacketId,
     ) {
         if let Some(mut tx_token) = tx_option {

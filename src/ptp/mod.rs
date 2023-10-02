@@ -1,8 +1,8 @@
 //! PTP access and configuration.
 //!
 //! See [`EthernetPTP`] for a more details.
-//! This implementation is derived from 0BSD-relicensed work done by 
-//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! This implementation is derived from 0BSD-relicensed work done by
+//! Johannes Draaijer <jcdra1@gmail.com> for the
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
 use crate::ethernet::EthernetDMA;
@@ -287,7 +287,9 @@ impl EthernetPTP {
         self.configure_target_time_interrupt(timestamp);
 
         core::future::poll_fn(|ctx| {
-            if (EthernetPTP::read_and_clear_interrupt_flag()) || (EthernetPTP::now().raw() >= timestamp.raw()) {
+            if (EthernetPTP::read_and_clear_interrupt_flag())
+                || (EthernetPTP::now().raw() >= timestamp.raw())
+            {
                 Poll::Ready(())
             } else {
                 EthernetPTP::waker().register(ctx.waker());

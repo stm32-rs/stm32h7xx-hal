@@ -1,5 +1,5 @@
-//! This implementation is derived from 0BSD-relicensed work done by 
-//! Johannes Draaijer <jcdra1@gmail.com> for the 
+//! This implementation is derived from 0BSD-relicensed work done by
+//! Johannes Draaijer <jcdra1@gmail.com> for the
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
 use super::{raw_descriptor::DescriptorRing, PacketId};
@@ -383,8 +383,7 @@ impl TxPacket<'_> {
 
 impl Drop for TxPacket<'_> {
     fn drop(&mut self) {
-        self.desc
-            .send(self.packet_id, &self.buffer[..self.length]);
+        self.desc.send(self.packet_id, &self.buffer[..self.length]);
         TxRing::demand_poll();
     }
 }
