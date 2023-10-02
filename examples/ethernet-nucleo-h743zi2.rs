@@ -23,7 +23,7 @@ mod utilities;
 use log::info;
 
 use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::PHY};
+use stm32h7xx_hal::{ethernet, ethernet::{PHY, MTU, RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing}};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
@@ -155,9 +155,9 @@ fn main() -> ! {
     };
 
     let ethernet::Parts {
-        dma: mut eth_dma,
-        mac: mut eth_mac,
-        ptp,
+        dma: eth_dma,
+        mac: eth_mac,
+        ptp: _ptp,
     } = ethernet::new(
         dp.ETHERNET_MAC,
         dp.ETHERNET_MTL,
@@ -170,7 +170,7 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
-    let start_addend = ptp.addend();
+    // let start_addend = ptp.addend();
     eth_dma.enable_interrupt();
 
     // Initialise ethernet PHY...
@@ -218,7 +218,7 @@ fn main() -> ! {
 
 #[interrupt]
 fn ETH() {
-    unsafe { ethernet::interrupt_handler() }
+    ethernet::eth_interrupt_handler(); 
 }
 
 #[exception]
