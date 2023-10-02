@@ -23,7 +23,12 @@ use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
-use stm32h7xx_hal::{ethernet, rcc::CoreClocks, stm32};
+use stm32h7xx_hal::{rcc::CoreClocks, stm32};
+use stm32h7xx_hal::{ethernet, 
+    ethernet::{
+        RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
+    },
+};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
@@ -73,13 +78,13 @@ static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
 
 pub struct Net<'a> {
     iface: Interface,
-    ethdev: ethernet::EthernetDMA<4, 4>,
+    ethdev: ethernet::EthernetDMA<'a, 'a>,
     sockets: SocketSet<'a>,
 }
 impl<'a> Net<'a> {
     pub fn new(
         store: &'a mut NetStorageStatic<'a>,
-        mut ethdev: ethernet::EthernetDMA<4, 4>,
+        mut ethdev: ethernet::EthernetDMA<'a, 'a>,
         ethernet_addr: HardwareAddress,
         now: Instant,
     ) -> Self {
@@ -165,6 +170,18 @@ mod app {
         let rmii_txd0 = gpiob.pb12.into_alternate();
         let rmii_txd1 = gpiob.pb13.into_alternate();
 
+        let rmii_pins = (
+            rmii_ref_clk,
+            rmii_mdio,
+            rmii_mdc,
+            rmii_crs_dv,
+            rmii_rxd0,
+            rmii_rxd1,
+            rmii_tx_en,
+            rmii_txd0,
+            rmii_txd1,
+        );
+
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
         assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
@@ -189,32 +206,39 @@ mod app {
             )
         };
 
+        #[cfg(feature = "ptp")]
         let ethernet::Parts {
-            dma: mut eth_dma,
-            mac: mut eth_mac,
-            ptp,
+            dma: eth_dma,
+            mac: eth_mac,
+            ptp: _ptp,
         } = ethernet::new(
-            dp.ETHERNET_MAC,
-            dp.ETHERNET_MTL,
-            dp.ETHERNET_DMA,
-            (
-                rmii_ref_clk,
-                rmii_mdio,
-                rmii_mdc,
-                rmii_crs_dv,
-                rmii_rxd0,
-                rmii_rxd1,
-                rmii_tx_en,
-                rmii_txd0,
-                rmii_txd1,
-            ),
+            ctx.device.ETHERNET_MAC,
+            ctx.device.ETHERNET_MTL,
+            ctx.device.ETHERNET_DMA,
+            rmii_pins,
             rx_ring,
             tx_ring,
             mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,
         );
-        let start_addend = ptp.addend();
+
+        #[cfg(not(feature = "ptp"))]
+        let ethernet::Parts {
+            dma: eth_dma,
+            mac: eth_mac,
+        } = ethernet::new(
+            ctx.device.ETHERNET_MAC,
+            ctx.device.ETHERNET_MTL,
+            ctx.device.ETHERNET_DMA,
+            rmii_pins,
+            rx_ring,
+            tx_ring,
+            mac_addr,
+            ccdr.peripheral.ETH1MAC,
+            &ccdr.clocks,
+        );
+        // let start_addend = ptp.addend();
         eth_dma.enable_interrupt();
 
         // Initialise ethernet PHY...
@@ -267,7 +291,7 @@ mod app {
 
     #[task(binds = ETH, local = [net])]
     fn ethernet_event(ctx: ethernet_event::Context) {
-        unsafe { ethernet::interrupt_handler() }
+        ethernet::eth_interrupt_handler();
 
         let time = TIME.load(Ordering::Relaxed);
         ctx.local.net.poll(time as i64);

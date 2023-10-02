@@ -160,6 +160,7 @@ fn main() -> ! {
         )
     };
 
+    #[cfg(feature = "ptp")]
     let ethernet::Parts {
         dma: eth_dma,
         mac: eth_mac,
@@ -176,6 +177,21 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
+    #[cfg(not(feature = "ptp"))]
+    let ethernet::Parts {
+        dma: eth_dma,
+        mac: eth_mac,
+    } = ethernet::new(
+        dp.ETHERNET_MAC,
+        dp.ETHERNET_MTL,
+        dp.ETHERNET_DMA,
+        rmii_pins,
+        rx_ring,
+        tx_ring,
+        mac_addr,
+        ccdr.peripheral.ETH1MAC,
+        &ccdr.clocks,
+    );
     // let start_addend = ptp.addend();
     eth_dma.enable_interrupt();
 

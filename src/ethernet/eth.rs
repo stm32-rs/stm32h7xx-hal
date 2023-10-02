@@ -758,6 +758,7 @@ impl<'a, 'rx, 'tx> phy::Device for &'a mut EthernetDMA<'rx, 'tx> {
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         if self.tx_available() {
+            #[cfg(feature = "ptp")]
             let tx_packet_id = self.next_packet_id();
 
             let EthernetDMA { tx_ring, .. } = self;
@@ -823,6 +824,7 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         if self.tx_available() {
+            #[cfg(feature = "ptp")]
             let tx_packet_id = self.next_packet_id();
 
             let EthernetDMA { tx_ring, .. } = self;
