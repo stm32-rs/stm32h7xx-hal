@@ -7,7 +7,7 @@
 //! ## Examples using the Electro Smith Daisy Seed Board (AK4556 codec)
 //!
 //! - [SAI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai_dma_passthru.rs)
-//! - [SAI with I2C](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai-i2s-passthru.rs)
+//! - [SAI with I2S](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai-i2s-passthru.rs)
 
 use core::marker::PhantomData;
 
