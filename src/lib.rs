@@ -145,7 +145,8 @@ pub use crate::stm32::interrupt;
 #[cfg(all(
     feature = "device-selected",
     feature = "ethernet",
-    not(feature = "rm0455")
+    not(feature = "rm0455"),
+    feature = "ptp"
 ))]
 #[cfg_attr(docsrs, doc(cfg(feature = "ethernet")))]
 pub mod ptp;

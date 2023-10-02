@@ -32,7 +32,8 @@ use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
 use stm32h7xx_hal::{rcc::CoreClocks, stm32};
 
-use stm32h7xx_hal::{ethernet, 
+use stm32h7xx_hal::{
+    ethernet,
     ethernet::{
         RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
     },
@@ -301,7 +302,7 @@ mod app {
 
     #[task(binds = ETH, local = [net])]
     fn ethernet_event(ctx: ethernet_event::Context) {
-        ethernet::eth_interrupt_handler(); 
+        ethernet::eth_interrupt_handler();
 
         let time = TIME.load(Ordering::Relaxed);
         ctx.local.net.poll(time as i64);

@@ -28,18 +28,18 @@
 
 use core::task::Poll;
 
+#[cfg(feature = "ptp")]
 use crate::ptp::{EthernetPTP, Timestamp};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 use crate::stm32::{Interrupt, ETHERNET_DMA, NVIC};
 use futures::task::AtomicWaker;
 
+#[cfg(feature = "ptp")]
+use smoltcp::phy::PacketMeta;
 use smoltcp::{
     self,
-    phy::{
-        self, ChecksumCapabilities, DeviceCapabilities, PacketMeta, RxToken,
-        TxToken,
-    },
+    phy::{self, ChecksumCapabilities, DeviceCapabilities, RxToken, TxToken},
     time::Instant,
     wire::EthernetAddress,
 };
@@ -78,7 +78,9 @@ const _ASSERT_DESC_WORD_SKIP_SIZE: () = assert!(DESC_WORD_SKIP <= 0b111);
 // padding
 // const ETH_BUF_SIZE: usize = 1536;
 
+#[cfg(feature = "ptp")]
 pub const PTP_MAX_SIZE: usize = 76;
+#[cfg(feature = "ptp")]
 pub const MAX_PTP_FOLLOWERS: usize = 16;
 
 /// Transmit and Receive Descriptor fields
@@ -103,6 +105,7 @@ mod emac_consts {
 /// with any TX or RX descriptors.
 pub struct PacketIdNotFound;
 
+#[cfg(feature = "ptp")]
 #[derive(Clone, Copy)]
 pub struct PtpFrameWithId {
     ptp_frame: [u8; PTP_MAX_SIZE],
@@ -839,6 +842,7 @@ impl<'rx, 'tx> phy::Device for EthernetDMA<'rx, 'tx> {
     }
 }
 
+#[allow(clippy::extra_unused_lifetimes)]
 impl<'a, 'rx, 'tx> EthernetDMA<'rx, 'tx> {
     #[cfg(feature = "ptp")]
     pub fn get_frame_from(

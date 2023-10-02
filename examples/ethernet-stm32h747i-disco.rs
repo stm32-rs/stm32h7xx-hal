@@ -20,7 +20,8 @@ mod utilities;
 
 use log::info;
 
-use stm32h7xx_hal::{ethernet, 
+use stm32h7xx_hal::{
+    ethernet,
     ethernet::{
         RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
         PHY,
@@ -50,7 +51,6 @@ static mut RX_DESCRIPTORS: [RxDescriptor; NUM_DESCRIPTORS] =
 /// Doc
 static mut RX_BUFFERS: [[u8; MTU + 2]; NUM_DESCRIPTORS] =
     [[0u8; MTU + 2]; NUM_DESCRIPTORS];
-
 
 // the program entry point
 #[entry]
@@ -204,7 +204,7 @@ fn main() -> ! {
 
 #[interrupt]
 fn ETH() {
-    ethernet::eth_interrupt_handler(); 
+    ethernet::eth_interrupt_handler();
 }
 
 #[exception]

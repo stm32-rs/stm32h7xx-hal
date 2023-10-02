@@ -7,6 +7,7 @@ use crate::stm32::ETHERNET_DMA;
 
 #[cfg(feature = "ptp")]
 use super::eth::PacketIdNotFound;
+#[cfg(feature = "ptp")]
 use crate::ptp::Timestamp;
 
 mod descriptor;

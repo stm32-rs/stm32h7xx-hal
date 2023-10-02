@@ -23,12 +23,13 @@ use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 
-use stm32h7xx_hal::{rcc::CoreClocks, stm32};
-use stm32h7xx_hal::{ethernet, 
+use stm32h7xx_hal::{
+    ethernet,
     ethernet::{
         RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
     },
 };
+use stm32h7xx_hal::{rcc::CoreClocks, stm32};
 
 /// Configure SYSTICK for 1ms timebase
 fn systick_init(mut syst: stm32::SYST, clocks: CoreClocks) {
