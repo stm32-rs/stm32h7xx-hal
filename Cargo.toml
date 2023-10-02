@@ -116,9 +116,9 @@ default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
 [features]
-default = ["rt", "stm32h743v",
+default = ["rt", 
   "ethernet",
-  "device-selected", "ptp", "async-await"]
+  "device-selected", "async-await"]
 device-selected = []
 revision_v = []
 rm0433 = ["gpio-h747"] # aka. "single core" devices
