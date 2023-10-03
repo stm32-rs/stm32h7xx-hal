@@ -108,8 +108,8 @@ pub struct PacketIdNotFound;
 #[cfg(feature = "ptp")]
 #[derive(Clone, Copy)]
 pub struct PtpFrameWithId {
-    ptp_frame: [u8; PTP_MAX_SIZE],
-    packet_id: Option<PacketId>,
+    pub ptp_frame: [u8; PTP_MAX_SIZE],
+    pub packet_id: Option<PacketId>,
 }
 
 /// Ethernet DMA.
