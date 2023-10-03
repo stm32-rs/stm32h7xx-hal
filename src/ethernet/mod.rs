@@ -57,10 +57,10 @@ mod cache;
 pub(crate) use cache::Cache;
 
 mod eth;
-pub use eth::{eth_interrupt_handler, new, new_unchecked};
-pub use eth::{EthernetDMA, EthernetMAC, Parts};
 #[cfg(feature = "ptp")]
 pub use eth::PtpFrameWithId;
+pub use eth::{eth_interrupt_handler, new, new_unchecked};
+pub use eth::{EthernetDMA, EthernetMAC, Parts};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)
