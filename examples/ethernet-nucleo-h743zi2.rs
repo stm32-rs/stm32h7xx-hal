@@ -23,7 +23,13 @@ mod utilities;
 use log::info;
 
 use stm32h7xx_hal::rcc::CoreClocks;
-use stm32h7xx_hal::{ethernet, ethernet::PHY};
+use stm32h7xx_hal::{
+    ethernet,
+    ethernet::{
+        RxDescriptor, RxDescriptorRing, TxDescriptor, TxDescriptorRing, MTU,
+        PHY,
+    },
+};
 use stm32h7xx_hal::{prelude::*, stm32, stm32::interrupt};
 
 /// Configure SYSTICK for 1ms timebase
@@ -49,9 +55,24 @@ static TIME: AtomicU32 = AtomicU32::new(0);
 /// Locally administered MAC address
 const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
-/// Ethernet descriptor rings are a global singleton
+/// DesRing TD
+const NUM_DESCRIPTORS: usize = 8;
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+/// Doc
+static mut TX_DESCRIPTORS: [TxDescriptor; NUM_DESCRIPTORS] =
+    [TxDescriptor::new(); NUM_DESCRIPTORS];
+#[link_section = ".sram3.eth"]
+/// Doc
+static mut TX_BUFFERS: [[u8; MTU + 2]; NUM_DESCRIPTORS] =
+    [[0u8; MTU + 2]; NUM_DESCRIPTORS];
+#[link_section = ".sram3.eth"]
+/// Doc
+static mut RX_DESCRIPTORS: [RxDescriptor; NUM_DESCRIPTORS] =
+    [RxDescriptor::new(); NUM_DESCRIPTORS];
+#[link_section = ".sram3.eth"]
+/// Doc
+static mut RX_BUFFERS: [[u8; MTU + 2]; NUM_DESCRIPTORS] =
+    [[0u8; MTU + 2]; NUM_DESCRIPTORS];
 
 // the program entry point
 #[entry]
@@ -104,6 +125,17 @@ fn main() -> ! {
     let rmii_txd0 = gpiog.pg13.into_alternate();
     let rmii_txd1 = gpiob.pb13.into_alternate();
 
+    let rmii_pins = (
+        rmii_ref_clk,
+        rmii_mdio,
+        rmii_mdc,
+        rmii_crs_dv,
+        rmii_rxd0,
+        rmii_rxd1,
+        rmii_tx_en,
+        rmii_txd0,
+        rmii_txd1,
+    );
     // Initialise ethernet...
     assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
     assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000); // PCLK 100MHz
@@ -111,28 +143,57 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
-    let (_eth_dma, eth_mac) = unsafe {
-        ethernet::new(
-            dp.ETHERNET_MAC,
-            dp.ETHERNET_MTL,
-            dp.ETHERNET_DMA,
-            (
-                rmii_ref_clk,
-                rmii_mdio,
-                rmii_mdc,
-                rmii_crs_dv,
-                rmii_rxd0,
-                rmii_rxd1,
-                rmii_tx_en,
-                rmii_txd0,
-                rmii_txd1,
-            ),
-            &mut DES_RING,
-            mac_addr,
-            ccdr.peripheral.ETH1MAC,
-            &ccdr.clocks,
+    let (rx_ring, tx_ring) = {
+        // let tx_desc = unsafe { TX_DESCRIPTORS.write([TxDescriptor::new(); NUM_DESCRIPTORS]) };
+        // let tx_buf = unsafe { TX_BUFFERS.write([[0u8; MTU + 2]; NUM_DESCRIPTORS]) };
+
+        // let rx_desc = unsafe { RX_DESCRIPTORS.write([RxDescriptor::new(); NUM_DESCRIPTORS]) };
+        // let rx_buf = unsafe { RX_BUFFERS.write([[0u8; MTU + 2]; NUM_DESCRIPTORS]) };
+
+        (
+            RxDescriptorRing::new(unsafe { &mut RX_DESCRIPTORS }, unsafe {
+                &mut RX_BUFFERS
+            }),
+            TxDescriptorRing::new(unsafe { &mut TX_DESCRIPTORS }, unsafe {
+                &mut TX_BUFFERS
+            }),
         )
     };
+
+    #[cfg(feature = "ptp")]
+    let ethernet::Parts {
+        dma: eth_dma,
+        mac: eth_mac,
+        ptp: _ptp,
+    } = ethernet::new(
+        dp.ETHERNET_MAC,
+        dp.ETHERNET_MTL,
+        dp.ETHERNET_DMA,
+        rmii_pins,
+        rx_ring,
+        tx_ring,
+        mac_addr,
+        ccdr.peripheral.ETH1MAC,
+        &ccdr.clocks,
+    );
+
+    #[cfg(not(feature = "ptp"))]
+    let ethernet::Parts {
+        dma: eth_dma,
+        mac: eth_mac,
+    } = ethernet::new(
+        dp.ETHERNET_MAC,
+        dp.ETHERNET_MTL,
+        dp.ETHERNET_DMA,
+        rmii_pins,
+        rx_ring,
+        tx_ring,
+        mac_addr,
+        ccdr.peripheral.ETH1MAC,
+        &ccdr.clocks,
+    );
+    // let start_addend = ptp.addend();
+    eth_dma.enable_interrupt();
 
     // Initialise ethernet PHY...
     let mut lan8742a = ethernet::phy::LAN8742A::new(eth_mac.set_phy_addr(0));
@@ -140,7 +201,6 @@ fn main() -> ! {
     lan8742a.phy_init();
 
     unsafe {
-        ethernet::enable_interrupt();
         cp.NVIC.set_priority(stm32::Interrupt::ETH, 196); // Mid prio
         cortex_m::peripheral::NVIC::unmask(stm32::Interrupt::ETH);
     }
@@ -180,7 +240,7 @@ fn main() -> ! {
 
 #[interrupt]
 fn ETH() {
-    unsafe { ethernet::interrupt_handler() }
+    ethernet::eth_interrupt_handler();
 }
 
 #[exception]

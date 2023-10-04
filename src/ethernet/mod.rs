@@ -5,6 +5,10 @@
 //! - SMSC LAN8742a
 //! - Micrel KSZ8081R
 //!
+//! This implementation is derived from 0BSD-relicensed work done by
+//! Johannes Draaijer <jcdra1@gmail.com> for the
+//! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
+//!
 //! # Examples
 //!
 //! - [Simple link checker for the Nucleo-H743ZI2](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/ethernet-nucleo-h743zi2.rs)
@@ -32,6 +36,13 @@ pub trait PHY {
 
 mod ksz8081r;
 mod lan8742a;
+pub(crate) mod raw_descriptor;
+
+mod rx;
+pub use rx::{RxDescriptor, RxDescriptorRing, RxError, RxPacket};
+
+mod tx;
+pub use tx::{TxDescriptor, TxDescriptorRing, TxError};
 
 /// Some common implementations of the [PHY trait](PHY)
 pub mod phy {
@@ -39,15 +50,27 @@ pub mod phy {
     pub use super::lan8742a::*;
 }
 
+mod packet_id;
+pub use packet_id::PacketId;
+
+mod cache;
+pub(crate) use cache::Cache;
+
 mod eth;
-pub use eth::{enable_interrupt, interrupt_handler, new, new_unchecked};
-pub use eth::{DesRing, EthernetDMA, EthernetMAC};
+#[cfg(feature = "ptp")]
+pub use eth::PtpFrameWithId;
+pub use eth::{eth_interrupt_handler, new, new_unchecked};
+pub use eth::{EthernetDMA, EthernetMAC, Parts};
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)
 pub trait PinsRMII {
     fn set_speed(&mut self, speed: Speed);
 }
+
+// ***VERIFY THIS!!!!!***
+/// From the datasheet: *VLAN Frame maxsize = 1522*
+pub const MTU: usize = 1522;
 
 // Two lanes
 impl<REF_CLK, MDIO, MDC, CRS_DV, RXD0, RXD1, TX_EN, TXD0, TXD1> PinsRMII
