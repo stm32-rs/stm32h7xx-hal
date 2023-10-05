@@ -8,7 +8,7 @@ use crate::{
     stm32,
 };
 
-use super::{common::BankSelect, Bank, Config, Qspi, SamplingEdge};
+use super::{common::BankSelect, Bank, Config, Qspi, QspiError, SamplingEdge};
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
 pub struct NoIo {}
@@ -229,12 +229,21 @@ pub trait QspiExt {
 }
 
 impl Qspi<stm32::QUADSPI> {
-    pub fn change_bank(&mut self, bank: BankSelect) {
+    pub fn change_bank_unchecked(
+        &mut self,
+        bank: BankSelect,
+    ) -> Result<(), QspiError> {
+        // Ensure that the peripheral is no longer busy before changing FSEL and DFM bits
+        if self.is_busy().is_err() {
+            return Err(QspiError::Busy);
+        };
+
         self.rb.cr.modify(|_, w| w.dfm().clear_bit());
         match bank {
             BankSelect::One => self.rb.cr.modify(|_, w| w.fsel().clear_bit()),
             BankSelect::Two => self.rb.cr.modify(|_, w| w.fsel().set_bit()),
         }
+        Ok(())
     }
 
     pub fn qspi_unchecked<CONFIG>(
