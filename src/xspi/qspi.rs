@@ -229,6 +229,8 @@ pub trait QspiExt {
 }
 
 impl Qspi<stm32::QUADSPI> {
+    /// Switches between single-bank mode on Bank 1 and single-bank mode on Bank 2.
+    /// Note that it has no effect in dual-flash mode.
     pub fn change_bank_unchecked(
         &mut self,
         bank: BankSelect,
@@ -342,6 +344,10 @@ impl Qspi<stm32::QUADSPI> {
 }
 
 impl QspiExt for stm32::QUADSPI {
+    /// Create and initialize a new QUADSPI peripheral that will use the single-bank mode on the Bank 1 of the flash memory.
+    ///
+    /// A list of pins `(sck, io0, io1, io2, io3)` for this QSPI peripheral should be passed as pins.
+    /// Even if the pins are not used, the function will consume them to avoid accessing to them manually.
     fn bank1<CONFIG, PINS>(
         self,
         _pins: PINS,
@@ -356,6 +362,10 @@ impl QspiExt for stm32::QUADSPI {
         Qspi::qspi_unchecked(self, config, Bank::One, clocks, prec)
     }
 
+    /// Create and initialize a new QUADSPI peripheral that will use the single-bank mode on the Bank 2 of the flash memory.
+    ///
+    /// A list of pins `(sck, io0, io1, io2, io3)` for this QSPI peripheral should be passed as pins.
+    /// Even if the pins are not used, the function will consume them to avoid accessing to them manually.
     fn bank2<CONFIG, PINS>(
         self,
         _pins: PINS,
@@ -370,6 +380,13 @@ impl QspiExt for stm32::QUADSPI {
         Qspi::qspi_unchecked(self, config, Bank::Two, clocks, prec)
     }
 
+    /// Create and initialize a new QUADSPI peripheral that can switch between both banks of the flash memory.
+    ///
+    /// The Bank to use at initialization is given by the `initial_bank` parameter.
+    /// A list of pins `(sck, bank1_io0, bank1_io1, bank1_io2, bank1_io3, bank2_io0, bank2_io1, bank2_io2, bank2_io3)` for this QSPI peripheral should be passed as pins.
+    /// Even if the pins are not used, the function will consume them to avoid accessing to them manually.
+    ///
+    /// Note that the peripheral will still be initialized in single-bank mode and the used bank have to be changed using the [`change_bank_unchecked`](../xspi/struct.Qspi.html#method.change_bank_unchecked) method.
     fn bank_switch<CONFIG, PINS>(
         self,
         _pins: PINS,
@@ -385,6 +402,9 @@ impl QspiExt for stm32::QUADSPI {
         Qspi::qspi_unchecked(self, config, initial_bank.into(), clocks, prec)
     }
 
+    /// Create and initialize a new QUADSPI peripheral without consuming any pins.
+    ///
+    /// The given `bank` allow to chose between communication to just one of the two banks (single-bank mode) or to both at the same time (dual-flash mode).
     fn qspi_unchecked<CONFIG>(
         self,
         config: CONFIG,
