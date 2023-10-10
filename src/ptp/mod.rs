@@ -5,7 +5,6 @@
 //! Johannes Draaijer <jcdra1@gmail.com> for the
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
-use crate::ethernet::EthernetDMA;
 use crate::rcc::CoreClocks;
 
 mod timestamp;

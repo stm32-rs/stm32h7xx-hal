@@ -66,7 +66,7 @@ mod emac_consts {
 use self::emac_consts::*;
 
 #[cfg(feature = "ptp")]
-pub use super::{Timestamp, EthernetPTP};
+use crate::ptp::{Timestamp, EthernetPTP};
 
 /// A struct to store the packet meta and the timestamp
 #[derive(Clone, Copy)]
