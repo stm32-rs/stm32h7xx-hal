@@ -39,6 +39,11 @@ pub mod phy {
     pub use super::lan8742a::*;
 }
 
+#[cfg(feature = "ptp")]
+mod ptp;
+#[cfg(feature = "ptp")]
+pub use ptp::{Timestamp, EthernetPTP};
+
 mod eth;
 pub use eth::{enable_interrupt, interrupt_handler, new, new_unchecked};
 pub use eth::{DesRing, EthernetDMA, EthernetMAC};

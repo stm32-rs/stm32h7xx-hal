@@ -65,64 +65,20 @@ mod emac_consts {
 }
 use self::emac_consts::*;
 
-/// A PTP timestamp
 #[cfg(feature = "ptp")]
-#[derive(Clone, Copy)]
-pub struct Timestamp(i64);
-
-#[cfg(feature = "ptp")]
-impl Timestamp {
-
-    const SIGN_BIT: u32 = 0x8000_0000;
-
-    pub const fn new_unchecked(negative: bool, seconds: u32, subseconds: u32) -> Self {
-        let seconds: i64 = (seconds as i64) << 31;
-        let subseconds: i64 = subseconds as i64;
-        let mut total = seconds + subseconds;
-        if negative {
-            total = -total;
-        }
-        Self(total)
-    }
-
-    pub const fn from_parts(high: u32, low: u32) -> Timestamp {
-        let negative = (low & Self::SIGN_BIT) == Self::SIGN_BIT;
-        let subseconds = low & !(Self::SIGN_BIT);
-        Timestamp::new_unchecked(negative, high, subseconds)
-    }
-    
-}
-
-// /// A packet id
-// #[cfg(feature = "ptp")]
-// #[derive(Clone, Copy, PartialEq)]
-// pub struct PacketId(u32);
-
-// impl From<smoltcp::phy::PacketMeta> for PacketId {
-//     fn from (meta: smoltcp::phy::PacketMeta) -> Self {
-//         Self(meta.id)
-//     }
-// }
-
-// impl Into<smoltcp::phy::PacketMeta> for PacketId {
-//     fn into(self) -> smoltcp::phy::PacketMeta {
-//         let mut meta = smoltcp::phy::PacketMeta::new();
-//         meta.id = self.0;
-//         meta
-//     }
-// }
+pub use super::{Timestamp, EthernetPTP};
 
 /// A struct to store the packet meta and the timestamp
-#[cfg(feature = "ptp")]
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
+#[cfg(feature = "ptp")]
 pub struct PacketInfo {
     packet_meta: Option<smoltcp::phy::PacketMeta>,
     timestamp: Option<Timestamp>,
 }
 
-#[cfg(feature = "ptp")]
 #[derive(Clone, Copy, PartialEq)]
+#[cfg(feature = "ptp")]
 pub struct PacketMetaNotFound;
 
 #[cfg(feature = "ptp")]
@@ -158,7 +114,6 @@ impl PacketInfo {
         self.timestamp = timestamp;
     }
 }
-
 /// Transmit Descriptor representation
 ///
 /// * tdes0: transmit buffer address
