@@ -100,6 +100,7 @@ gpio-h72 = []
 gpio-h747 = []
 gpio-h7a2 = []
 
+ptp = ["smoltcp/packetmeta-id"]
 dsi = []
 cm4 = []
 cm7 = []
