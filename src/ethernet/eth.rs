@@ -1175,7 +1175,7 @@ pub unsafe fn interrupt_handler() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
         .dmacsr
-        .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
+        .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit().tbu().set_bit().rbu().set_bit().ais().set_bit());
     let _ = eth_dma.dmacsr.read();
     let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
