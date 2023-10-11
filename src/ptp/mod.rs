@@ -78,7 +78,7 @@ impl EthernetPTP {
         (stssi, tsa)
     }
 
-    pub(crate) fn new(
+    pub fn new(
         clocks: CoreClocks,
         // Note(_dma): this field exists to ensure that the PTP is not
         // initialized before the DMA. If PTP is started before the DMA,
