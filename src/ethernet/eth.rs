@@ -73,8 +73,9 @@ use crate::ptp::{Timestamp, EthernetPTP, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
 #[repr(C, packed)]
 #[cfg(feature = "ptp")]
 pub struct PtpFrame {
-    pub ptp_frame: [u8; PTP_MAX_SIZE],
+    pub buffer: [u8; PTP_MAX_SIZE],
     pub clock_identity: u64,
+    pub meta_option: Option<smoltcp::phy::PacketMeta>,
 }
 
 /// A struct to store the packet meta and the timestamp
