@@ -70,7 +70,6 @@ use crate::ptp::{Timestamp, EthernetPTP, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
 
 /// A struct to store the PTP frame and clock_identity
 #[derive(Clone, Copy)]
-#[repr(C, packed)]
 #[cfg(feature = "ptp")]
 pub struct PtpFrame {
     pub buffer: [u8; PTP_MAX_SIZE],
