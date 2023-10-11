@@ -66,7 +66,16 @@ mod emac_consts {
 use self::emac_consts::*;
 
 #[cfg(feature = "ptp")]
-use crate::ptp::{Timestamp, EthernetPTP};
+use crate::ptp::{Timestamp, EthernetPTP, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
+
+/// A struct to store the PTP frame and clock_identity
+#[derive(Clone, Copy)]
+#[repr(C, packed)]
+#[cfg(feature = "ptp")]
+pub struct PtpFrame {
+    pub ptp_frame: [u8; PTP_MAX_SIZE],
+    pub clock_identity: u64,
+}
 
 /// A struct to store the packet meta and the timestamp
 #[derive(Clone, Copy)]
@@ -526,6 +535,10 @@ pub struct EthernetDMA<const TD: usize, const RD: usize> {
 
     #[cfg(feature = "ptp")]
     packet_meta_counter: u32,
+    #[cfg(feature = "ptp")]
+    pub ptp_frame_buffer: [Option<PtpFrame>; MAX_PTP_FOLLOWERS],
+    #[cfg(feature = "ptp")]
+    pub write_pos: usize,
 }
 
 #[cfg(feature = "ptp")]
@@ -930,6 +943,10 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         eth_dma,
         #[cfg(feature = "ptp")]
         packet_meta_counter: 0,
+        #[cfg(feature = "ptp")]
+        ptp_frame_buffer: [None; MAX_PTP_FOLLOWERS],
+        #[cfg(feature = "ptp")]
+        write_pos: 0,
     };
 
     (dma, mac)

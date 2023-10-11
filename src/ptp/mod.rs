@@ -6,6 +6,8 @@
 //! [`stm32-eth`](https://github.com/stm32-rs/stm32-eth) project
 
 use crate::rcc::CoreClocks;
+use smoltcp::phy::TxToken as smoltcp_TxToken;
+use crate::ethernet::{EthernetDMA, TxToken, PtpFrame};
 
 mod timestamp;
 pub use timestamp::Timestamp;
@@ -14,6 +16,9 @@ mod subseconds;
 pub use subseconds::{
     Subseconds, NANOS_PER_SECOND, SUBSECONDS_PER_SECOND, SUBSECONDS_TO_SECONDS,
 };
+
+pub const MAX_PTP_FOLLOWERS: usize = 8;
+pub const PTP_MAX_SIZE: usize = 76;
 
 /// Access to the IEEE 1508v2 PTP peripheral present on the ethernet peripheral.
 ///
@@ -322,6 +327,55 @@ impl EthernetPTP {
             macppscr.modify(|_, w| w.ppsctrl().variant(pps_freq));
         }
     }
+}
+
+impl<'a> EthernetPTP {
+    pub fn get_frame_from<const TD: usize, const RD: usize>(dma: &'a EthernetDMA<TD, RD>, clock_identity: u64) -> Option<&'a PtpFrame> {
+        let mut i = dma.write_pos;
+        loop {
+            if let Some(frame) = dma.ptp_frame_buffer[i].as_ref() {
+                if frame.clock_identity == clock_identity { 
+                    return Some(frame);
+                }
+            }
+            i = (i + 1) % MAX_PTP_FOLLOWERS;
+
+            if i == dma.write_pos {
+                break;
+            }
+        }
+        return None;
+    }
+    pub fn invalidate_frame_from<const TD: usize, const RD: usize>(dma: &'a mut EthernetDMA<TD, RD>, clock_identity: u64) {
+        let mut i = dma.write_pos;
+        loop {
+            if let Some(frame) = dma.ptp_frame_buffer[i] {
+                if frame.clock_identity == clock_identity { 
+                    dma.ptp_frame_buffer[i] = None;
+                    return;
+                }
+            }
+            i = (i + 1) % MAX_PTP_FOLLOWERS;
+
+            if i == dma.write_pos {
+                break;
+            }
+        }
+    }
+    
+    pub fn send_ptp_frame<const TD: usize, const RD: usize>(
+        frame: &[u8],
+        tx_option: Option<TxToken<TD>>,
+        meta: smoltcp::phy::PacketMeta,
+    ) {
+        if let Some(mut tx_token) = tx_option {
+            tx_token.set_meta(meta);
+            tx_token.consume(frame.len(), |buf| {
+                buf[..frame.len()].copy_from_slice(frame);
+            });
+        }
+    }
+
 }
 
 #[cfg(all(test, not(target_os = "none")))]
