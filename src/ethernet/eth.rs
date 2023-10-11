@@ -232,7 +232,7 @@ impl<const TD: usize> TDesRing<TD> {
         // Read format
         self.td[x].tdes0 = address; // Buffer 1
         self.td[x].tdes1 = 0; // Not used
-        assert!(self.td[x].tdes2 & !EMAC_TDES2_B1L == 0); // Not used
+        assert!(self.td[x].tdes2 & !(EMAC_TDES2_B1L | EMAC_TDES2_TTSE)== 0); // Not used
         assert!(self.td[x].tdes2 & EMAC_TDES2_B1L > 0); // Length must be valid
         self.td[x].tdes3 = 0;
         self.td[x].tdes3 |= EMAC_DES3_FD; // FD: Contains first buffer of packet
