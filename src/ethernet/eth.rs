@@ -66,7 +66,7 @@ mod emac_consts {
 use self::emac_consts::*;
 
 #[cfg(feature = "ptp")]
-use crate::ptp::{Timestamp, EthernetPTP, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
+use crate::ptp::{Timestamp, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
 
 /// A struct to store the PTP frame and clock_identity
 #[derive(Clone, Copy)]
@@ -75,6 +75,17 @@ pub struct PtpFrame {
     pub buffer: [u8; PTP_MAX_SIZE],
     pub clock_identity: u64,
     pub meta_option: Option<smoltcp::phy::PacketMeta>,
+}
+
+#[cfg(feature = "ptp")]
+impl PtpFrame{
+    pub const fn new() -> Self {
+        Self {
+            buffer: [0u8; PTP_MAX_SIZE],
+            clock_identity: 0,
+            meta_option: None,
+        }
+    }
 }
 
 /// A struct to store the packet meta and the timestamp
@@ -1038,6 +1049,8 @@ pub struct RxToken<'a, const RD: usize> {
     des_ring: &'a mut RDesRing<RD>,
     #[cfg(feature = "ptp")]
     packet_meta: smoltcp::phy::PacketMeta,
+    #[cfg(feature = "ptp")]
+    ptp_frame: &'a mut Option<PtpFrame>,
 }
 
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
@@ -1052,6 +1065,13 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
                 let timestamp = self.des_ring.read_timestamp_from_next();
                 self.des_ring.attach_timestamp(timestamp);
                 self.des_ring.release_timestamp_desc();
+            }
+            let ethertype = u16::from_be_bytes(unsafe {self.des_ring.buf_as_slice_mut()[12..14].try_into().unwrap()});
+            if ethertype == 0x88F7 {
+                let packet_buf = unsafe {&self.des_ring.buf_as_slice_mut()[14..]};
+                self.ptp_frame.unwrap().buffer[0..packet_buf.len()].copy_from_slice(packet_buf);
+                self.ptp_frame.unwrap().meta_option = Some(self.packet_meta);
+                self.ptp_frame.unwrap().clock_identity = u64::from_be_bytes(packet_buf[20..28].try_into().unwrap());
             }
         }
         let result = f(unsafe { self.des_ring.buf_as_slice_mut() });
@@ -1093,18 +1113,29 @@ impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
         if self.ring.rx.available() && self.ring.tx.available() {
             #[cfg(feature = "ptp")]
             let rx_packet_meta = self.next_packet_meta();
-            Some((
+            #[cfg(feature = "ptp")]
+            {
+                self.ptp_frame_buffer[self.write_pos] = Some(PtpFrame::new());
+            }
+            let tokens = Some((
                 RxToken {
                     des_ring: &mut self.ring.rx, 
                     #[cfg(feature = "ptp")]
                     packet_meta: rx_packet_meta,
+                    #[cfg(feature = "ptp")]
+                    ptp_frame: &mut self.ptp_frame_buffer[self.write_pos],
                 }, 
                 TxToken {
                     des_ring: &mut self.ring.tx, 
                     #[cfg(feature = "ptp")]
                     packet_meta: None
                 }
-            ))
+            ));
+            #[cfg(feature = "ptp")]
+            {
+                self.write_pos += (self.write_pos + 1) % MAX_PTP_FOLLOWERS;
+            }
+            tokens
         } else {
             None
         }
