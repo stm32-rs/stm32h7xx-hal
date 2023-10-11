@@ -1193,5 +1193,5 @@ pub unsafe fn enable_interrupt() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
         .dmacier
-        .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit());
+        .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit().aie().set_bit().rbue().set_bit().tbue().set_bit());
 }
