@@ -1078,7 +1078,6 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        let buf = unsafe { self.des_ring.buf_as_slice_mut() };
         #[cfg(feature = "ptp")]
         {
             self.des_ring.set_meta_and_clear_ts(Some(self.packet_meta));
@@ -1087,6 +1086,11 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
                 self.des_ring.attach_timestamp(timestamp);
                 self.des_ring.release_timestamp_desc();
             }
+        }
+
+        let buf = unsafe { self.des_ring.buf_as_slice_mut() };
+        #[cfg(feature = "ptp")]
+        {
             let ethertype = u16::from_be_bytes(buf[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
                 let packet_buf = &buf[14..];
