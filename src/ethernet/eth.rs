@@ -1030,8 +1030,8 @@ impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
         F: FnOnce(&mut [u8]) -> R,
     {
         assert!(len <= ETH_BUF_SIZE);
-
-        let result = f(unsafe { self.des_ring.buf_as_slice_mut(len) });
+        let mut buf = unsafe { self.des_ring.buf_as_slice_mut(len) };
+        let result = f(buf);
         #[cfg(feature = "ptp")]
         self.des_ring.enable_ptp_with_id(self.packet_meta);
         self.des_ring.release();
