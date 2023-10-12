@@ -1083,7 +1083,8 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
             // if running state is NOT RUNNING
             // demand poll!!!! otherwise itll stop when timestamp blocking and not start again?!?!
             let eth_dma = unsafe{&*stm32::ETHERNET_DMA::ptr()};
-            if eth_dma.dmadsr.read().rps0().bits() == 0b100 { //receive descriptor unavailable!
+            let status = eth_dma.dmadsr.read().rps0().bits();
+            if status == 0b100 || status == 0b000 { //receive descriptor unavailable!
                 // demand poll!!!
                 eth_dma
                     .dmacrx_dtpr
