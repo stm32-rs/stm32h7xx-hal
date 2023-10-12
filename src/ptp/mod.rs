@@ -330,10 +330,10 @@ impl EthernetPTP {
 }
 
 impl<'a> EthernetPTP {
-    pub fn get_frame_from<const TD: usize, const RD: usize>(dma: &'a EthernetDMA<TD, RD>, clock_identity: u64) -> Option<&'a PtpFrame> {
+    pub fn get_frame_from<const TD: usize, const RD: usize>(dma: &'a EthernetDMA<TD, RD>, clock_identity: u64) -> Option<PtpFrame> {
         let mut i = dma.write_pos;
         loop {
-            if let Some(frame) = dma.ptp_frame_buffer[i].as_ref() {
+            if let Some(frame) = dma.ptp_frame_buffer[i] {
                 if frame.clock_identity == clock_identity { 
                     return Some(frame);
                 }
