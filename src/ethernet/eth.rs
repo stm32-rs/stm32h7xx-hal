@@ -1030,8 +1030,7 @@ impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
         F: FnOnce(&mut [u8]) -> R,
     {
         assert!(len <= ETH_BUF_SIZE);
-        let mut buf = unsafe { self.des_ring.buf_as_slice_mut(len) };
-        let result = f(buf);
+        let result = f(unsafe { self.des_ring.buf_as_slice_mut(len) });
         #[cfg(feature = "ptp")]
         self.des_ring.enable_ptp_with_id(self.packet_meta);
         self.des_ring.release();
@@ -1175,7 +1174,8 @@ pub unsafe fn interrupt_handler() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
         .dmacsr
-        .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit().tbu().set_bit().rbu().set_bit().ais().set_bit());
+        .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
+    // .tbu().set_bit().rbu().set_bit().ais().set_bit()
     let _ = eth_dma.dmacsr.read();
     let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
@@ -1193,5 +1193,6 @@ pub unsafe fn enable_interrupt() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
         .dmacier
-        .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit().aie().set_bit().rbue().set_bit().tbue().set_bit());
+        .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit());
+    // .aie().set_bit().rbue().set_bit().tbue().set_bit()
 }
