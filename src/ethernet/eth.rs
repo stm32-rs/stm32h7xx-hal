@@ -1089,7 +1089,7 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
             }
             let ethertype = u16::from_be_bytes(buf[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
-                let packet_buf = buf[14..];
+                let packet_buf = &buf[14..];
                 self.ptp_frame.unwrap().buffer[0..packet_buf.len()].copy_from_slice(packet_buf);
                 self.ptp_frame.unwrap().meta_option = Some(self.packet_meta);
                 self.ptp_frame.unwrap().clock_identity = u64::from_be_bytes(packet_buf[20..28].try_into().unwrap());
