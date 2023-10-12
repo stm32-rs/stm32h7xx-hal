@@ -530,7 +530,7 @@ impl<const RD: usize> RDesRing<RD> {
 
         // Ensure changes to the descriptor are committed before
         // DMA engine sees tail pointer store
-        cortex_m::asm::dsb();
+        // cortex_m::asm::dsb();
 
         // // Move the tail pointer (TPR) to this descriptor
         // unsafe {
