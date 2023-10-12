@@ -1080,6 +1080,15 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     {
         #[cfg(feature = "ptp")]
         {
+            // if running state is NOT RUNNING
+            // demand poll!!!! otherwise itll stop when timestamp blocking and not start again?!?!
+            let eth_dma = unsafe{&*stm32::ETHERNET_DMA::ptr()};
+            if eth_dma.dmadsr.read().rps0().bits() == 0b100 { //receive descriptor unavailable!
+                // demand poll!!!
+                eth_dma
+                    .dmacrx_dtpr
+                    .modify(|r, w| unsafe { w.bits(r.bits()) });
+            }
             self.des_ring.set_meta_and_clear_ts(Some(self.packet_meta));
             if self.des_ring.was_timestamped() {
                 let timestamp = self.des_ring.read_timestamp_from_next();
