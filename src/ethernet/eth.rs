@@ -513,9 +513,32 @@ impl<const RD: usize> RDesRing<RD> {
 
     #[cfg(feature = "ptp")]
     pub fn release_timestamp_desc(&mut self) {
-        self.rdidx += 1;
-        self.release();
-        self.rdidx -= 2;
+        let x = self.rdidx + 1;
+
+        assert!(self.rd[x].rdes3 & EMAC_DES3_OWN == 0); // Owned by us
+
+        let address = ptr::addr_of!(self.rbuf[x]) as u32;
+
+        // Read format
+        self.rd[x].rdes0 = address; // Buffer 1
+        self.rd[x].rdes1 = 0; // Reserved
+        self.rd[x].rdes2 = 0; // Marked as invalid
+        self.rd[x].rdes3 = 0;
+        self.rd[x].rdes3 |= EMAC_DES3_OWN; // Give the DMA engine ownership
+        self.rd[x].rdes3 |= EMAC_RDES3_BUF1V; // BUF1V: 1st buffer address is valid
+        self.rd[x].rdes3 |= EMAC_RDES3_IOC; // IOC: Interrupt on complete
+
+        // Ensure changes to the descriptor are committed before
+        // DMA engine sees tail pointer store
+        cortex_m::asm::dsb();
+
+        // // Move the tail pointer (TPR) to this descriptor
+        // unsafe {
+        //     let dma = &*stm32::ETHERNET_DMA::ptr();
+        //     dma.dmacrx_dtpr
+        //         .write(|w| w.bits(&(self.rd[x]) as *const _ as u32));
+        // }
+
     }
 }
 
