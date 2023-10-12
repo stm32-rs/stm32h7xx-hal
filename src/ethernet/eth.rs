@@ -877,9 +877,9 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         eth_dma.dmamr.modify(|_, w| {
             w.intm()
                 .bits(0b00)
-                // Rx Tx priority ratio 1:1
+                // Rx Tx priority ratio 2:1
                 .pr()
-                .bits(0b000)
+                .bits(0b001)
                 .txpr()
                 .clear_bit()
                 .da()
