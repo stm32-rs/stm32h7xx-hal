@@ -333,9 +333,9 @@ impl<'a> EthernetPTP {
     pub fn get_frame_from<const TD: usize, const RD: usize>(dma: &'a EthernetDMA<TD, RD>, clock_identity: u64) -> Option<PtpFrame> {
         let mut i = dma.write_pos;
         loop {
-            if let Some(frame) = dma.ptp_frame_buffer[i] {
-                if frame.clock_identity == clock_identity { 
-                    return Some(frame);
+            if dma.ptp_frame_buffer[i].meta_option.is_some() {
+                if dma.ptp_frame_buffer[i].clock_identity == clock_identity { 
+                    return Some(dma.ptp_frame_buffer[i]);
                 }
             }
             i = (i + 1) % MAX_PTP_FOLLOWERS;
@@ -349,9 +349,9 @@ impl<'a> EthernetPTP {
     pub fn invalidate_frame_from<const TD: usize, const RD: usize>(dma: &'a mut EthernetDMA<TD, RD>, clock_identity: u64) {
         let mut i = dma.write_pos;
         loop {
-            if let Some(frame) = dma.ptp_frame_buffer[i] {
-                if frame.clock_identity == clock_identity { 
-                    dma.ptp_frame_buffer[i] = None;
+            if dma.ptp_frame_buffer[i].meta_option.is_some() {
+                if dma.ptp_frame_buffer[i].clock_identity == clock_identity { 
+                    dma.ptp_frame_buffer[i].meta_option = None;
                     return;
                 }
             }

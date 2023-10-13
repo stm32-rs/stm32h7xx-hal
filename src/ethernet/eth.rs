@@ -570,7 +570,7 @@ pub struct EthernetDMA<const TD: usize, const RD: usize> {
     #[cfg(feature = "ptp")]
     packet_meta_counter: u32,
     #[cfg(feature = "ptp")]
-    pub ptp_frame_buffer: [Option<PtpFrame>; MAX_PTP_FOLLOWERS],
+    pub ptp_frame_buffer: [PtpFrame; MAX_PTP_FOLLOWERS],
     #[cfg(feature = "ptp")]
     pub write_pos: usize,
 }
@@ -976,7 +976,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         #[cfg(feature = "ptp")]
         packet_meta_counter: 0,
         #[cfg(feature = "ptp")]
-        ptp_frame_buffer: [None; MAX_PTP_FOLLOWERS],
+        ptp_frame_buffer: [PtpFrame::new(); MAX_PTP_FOLLOWERS],
         #[cfg(feature = "ptp")]
         write_pos: 0,
     };
@@ -1070,7 +1070,7 @@ pub struct RxToken<'a, const RD: usize> {
     #[cfg(feature = "ptp")]
     packet_meta: smoltcp::phy::PacketMeta,
     #[cfg(feature = "ptp")]
-    ptp_frame: &'a mut Option<PtpFrame>,
+    ptp_frame: &'a mut PtpFrame,
 }
 
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
@@ -1104,9 +1104,10 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
             let ethertype = u16::from_be_bytes(buf[12..14].try_into().unwrap());
             if ethertype == 0x88F7 {
                 let packet_buf = &buf[14..];
-                self.ptp_frame.unwrap().buffer[0..packet_buf.len()].copy_from_slice(packet_buf);
-                self.ptp_frame.unwrap().meta_option = Some(self.packet_meta);
-                self.ptp_frame.unwrap().clock_identity = u64::from_be_bytes(packet_buf[20..28].try_into().unwrap());
+                let clock_identity = u64::from_be_bytes(packet_buf[20..28].try_into().unwrap());
+                self.ptp_frame.buffer[0..packet_buf.len()].copy_from_slice(packet_buf);
+                self.ptp_frame.meta_option = Some(self.packet_meta);
+                self.ptp_frame.clock_identity = clock_identity;
             }
         }
         let result = f(buf);
@@ -1148,10 +1149,6 @@ impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
         if self.ring.rx.available() && self.ring.tx.available() {
             #[cfg(feature = "ptp")]
             let rx_packet_meta = self.next_packet_meta();
-            #[cfg(feature = "ptp")]
-            {
-                self.ptp_frame_buffer[self.write_pos] = Some(PtpFrame::new());
-            }
             let tokens = Some((
                 RxToken {
                     des_ring: &mut self.ring.rx, 
