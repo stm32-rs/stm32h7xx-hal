@@ -295,6 +295,7 @@ pub enum Error {
     Crc,
     DataCrcFail,
     RxOverFlow,
+    TxUnderFlow,
     NoCard,
     BadClock,
     InvalidConfiguration,
@@ -342,6 +343,8 @@ macro_rules! err_from_datapath_sm {
             return Err(Error::DataCrcFail);
         } else if $status.rxoverr().bit() {
             return Err(Error::RxOverFlow);
+        } else if $status.txunderr().bit() {
+            return Err(Error::TxUnderFlow);
         } else if $status.dtimeout().bit() {
             return Err(Error::Timeout);
         }
@@ -777,6 +780,97 @@ macro_rules! sdmmc {
                             break;
                         }
                     }
+
+                    err_from_datapath_sm!(status);
+                    self.clear_static_interrupt_flags();
+
+                    let mut timeout: u32 = 0xFFFF_FFFF;
+
+                    // Try to read card status (CMD13)
+                    while timeout > 0 {
+                        if self.card_ready()? {
+                            return Ok(());
+                        }
+                        timeout -= 1;
+                    }
+                    Err(Error::SoftwareTimeout)
+                }
+
+                /// Write multiple blocks to card. The length of the buffer
+                /// must be multiple of 512.
+                ///
+                /// `address` is the block address.
+                pub fn write_blocks(
+                    &mut self,
+                    address: u32,
+                    buffer: &[u8]
+                ) -> Result<(), Error> {
+                    self.write_blocks_begin(address, buffer.len())?;
+                    self.write_blocks_feed(buffer);
+                    self.write_blocks_conclude()?;
+                    Ok(())
+                }
+
+                fn write_blocks_begin(
+                    &mut self,
+                    address: u32,
+                    buffer_len: usize,
+                ) -> Result<(), Error> {
+                    let _card = self.card()?;
+
+                    assert!(buffer_len % 512 == 0,
+                            "Buffer length must be a multiple of 512");
+                    let n_blocks = buffer_len / 512;
+
+                    if !self.cmd16_illegal {
+                        self.cmd(common_cmd::set_block_length(512))?; // CMD16
+                    }
+
+                    // Setup write command
+                    self.start_datapath_transfer(512 * n_blocks as u32, 9, Dir::HostToCard);
+                    self.cmd(common_cmd::write_multiple_blocks(address))?; // CMD25
+
+                    Ok(())
+                }
+
+                fn write_blocks_feed(&mut self, buffer: &[u8]) {
+                    let mut i = 0;
+                    let mut status;
+                    while {
+                        status = self.sdmmc.star.read();
+                        !(status.txunderr().bit()
+                          || status.dcrcfail().bit()
+                          || status.dtimeout().bit()
+                          || status.dataend().bit())
+                    } {
+                        if status.txfifohe().bit() {
+                            for _ in 0..8 {
+                                let mut wb = [0u8; 4];
+                                wb.copy_from_slice(&buffer[i..i + 4]);
+                                let word = u32::from_le_bytes(wb);
+                                self.sdmmc.fifor.write(|w| unsafe { w.bits(word) });
+                                i += 4;
+                            }
+                        }
+
+                        if i >= buffer.len() {
+                            break
+                        }
+                    }
+                }
+
+                fn write_blocks_conclude(&mut self) -> Result<(), Error> {
+                    let mut status;
+
+                    while {
+                        status = self.sdmmc.star.read();
+                        !(status.txunderr().bit()
+                          || status.dcrcfail().bit()
+                          || status.dtimeout().bit()
+                          || status.dataend().bit())
+                    } {}
+
+                    self.cmd(common_cmd::stop_transmission())?; // CMD12
 
                     err_from_datapath_sm!(status);
                     self.clear_static_interrupt_flags();
@@ -1239,7 +1333,7 @@ macro_rules! sdmmc {
             }
 
             #[cfg(feature = "sdmmc-fatfs")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "sdmcc-fatfs")))]
+            #[cfg_attr(docsrs, doc(cfg(feature = "sdmmc-fatfs")))]
             impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc<$SDMMCX, SdCard>> {
                 type Error = Error;
 
@@ -1265,10 +1359,17 @@ macro_rules! sdmmc {
                     blocks: &[embedded_sdmmc::Block],
                     start_block_idx: embedded_sdmmc::BlockIdx,
                 ) -> Result<(), Self::Error> {
-                    let start = start_block_idx.0;
                     let mut sdmmc = self.sdmmc.borrow_mut();
-                    for block_idx in start..(start + blocks.len() as u32) {
-                        sdmmc.write_block(block_idx, &blocks[(block_idx - start) as usize].contents)?;
+                    let start = start_block_idx.0;
+                    if blocks.len() == 1 {
+                        sdmmc.write_block(start, &blocks[0].contents)?;
+                    } else {
+                        let total_length = embedded_sdmmc::Block::LEN * blocks.len();
+                        sdmmc.write_blocks_begin(start, total_length)?;
+                        for block in blocks.iter() {
+                            sdmmc.write_blocks_feed(&block.contents);
+                        }
+                        sdmmc.write_blocks_conclude()?;
                     }
                     Ok(())
                 }

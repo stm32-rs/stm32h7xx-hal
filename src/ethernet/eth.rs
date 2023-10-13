@@ -700,7 +700,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
     //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().clear_bit());
 
     cortex_m::interrupt::free(|_cs| {
-        // Reset ETH_DMA - write 1 and wait for 0.
+        // reset ETH_DMA - write 1 and wait for 0
         eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
         while eth_dma.dmamr.read().swr().bit_is_set() {}
 

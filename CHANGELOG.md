@@ -1,12 +1,21 @@
 # Changelog
 
-## Unreleased
+## [Unreleased]
 
-* remove unused `bitflags` dependency
-* bors bot replaced with GH merge queue
-* Update `smoltcp` dependency to `0.9.0`
-* MSRV increased to 1.65.0
-* add `IntoAf` trait to restrict `into_alternate` [#346]
+## [v0.15.0] 2023-10-09
+
+* Remove unused `bitflags` dependency
+* Bors bot replaced with GH merge queue
+* Update `smoltcp` dependency to `0.10.0` (from `0.8.0`) [#422] [#439]
+* Update `embedded-sdmmc` to `0.5` (from `0.4`) [#440]
+* Update `fdcan` to `0.2` (from `0.1`) [#440]
+* MSRV increased to Rust 1.65.0 [#422]
+* Add `IntoAf` trait to restrict `into_alternate` [#346]
+* Replace casts of &T to &mut T with `UnsafeCell` [#451]
+* pwr: Add VOS0 support for RM0455 parts [#429]
+* sdmmc: Introduce `write_blocks` [#453]
+* sdmmc-fat: Optimize writing speeds [#456]
+* wwdg: Add additional possibility for WWDG1RSTF [#434]
 
 ## [v0.14.0] 2023-03-22
 
@@ -278,7 +287,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.15.0...HEAD
+[v0.15.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.1...v0.14.0
 [v0.13.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...v0.13.1
 [v0.13.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.12.2...v0.13.0
@@ -367,4 +377,11 @@
 [#418]: https://github.com/stm32-rs/stm32h7xx-hal/pull/418
 [#419]: https://github.com/stm32-rs/stm32h7xx-hal/pull/419
 [#421]: https://github.com/stm32-rs/stm32h7xx-hal/pull/421
+[#422]: https://github.com/stm32-rs/stm32h7xx-hal/pull/422
 [#426]: https://github.com/stm32-rs/stm32h7xx-hal/pull/426
+[#429]: https://github.com/stm32-rs/stm32h7xx-hal/pull/429
+[#434]: https://github.com/stm32-rs/stm32h7xx-hal/pull/434
+[#440]: https://github.com/stm32-rs/stm32h7xx-hal/pull/440
+[#451]: https://github.com/stm32-rs/stm32h7xx-hal/pull/451
+[#453]: https://github.com/stm32-rs/stm32h7xx-hal/pull/453
+[#456]: https://github.com/stm32-rs/stm32h7xx-hal/pull/456
