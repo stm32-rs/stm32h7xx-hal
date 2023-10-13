@@ -1094,7 +1094,7 @@ impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
             if self.des_ring.was_timestamped() {
                 let timestamp = self.des_ring.read_timestamp_from_next();
                 self.des_ring.attach_timestamp(timestamp);
-                self.des_ring.release_timestamp_desc();
+                // self.des_ring.release_timestamp_desc();
             }
         }
 
