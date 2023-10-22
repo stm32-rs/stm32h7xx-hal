@@ -70,7 +70,7 @@ mod app {
         #[cfg(any(feature = "rm0455", feature = "rm0468"))]
         let (pin_dm, pin_dp) = {
             let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
-            (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
+            (gpioa.pa11, gpioa.pa12)
         };
 
         let led = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE).pe1;
