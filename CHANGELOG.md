@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* Bugfix, usb: On RM0455 and RM0468 parts, PA11/PA12 do not have an alternate function
+  (AF) for USB. Use `into_analog()` when passing pins to `USB1/2::new` on these parts [#464]
+
 ## [v0.15.0] 2023-10-09
 
 * Remove unused `bitflags` dependency
@@ -385,3 +388,4 @@
 [#451]: https://github.com/stm32-rs/stm32h7xx-hal/pull/451
 [#453]: https://github.com/stm32-rs/stm32h7xx-hal/pull/453
 [#456]: https://github.com/stm32-rs/stm32h7xx-hal/pull/456
+[#464]: https://github.com/stm32-rs/stm32h7xx-hal/pull/464
