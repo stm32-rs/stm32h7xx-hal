@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.15.1] 2023-11-03
+
 * Bugfix, usb: On RM0455 and RM0468 parts, PA11/PA12 do not have an alternate function
   (AF) for USB. Use `into_analog()` when passing pins to `USB1/2::new` on these parts [#464]
 
@@ -290,7 +292,8 @@
 * Upgrade to stm32-rs v0.9.0 (including svd2rust v0.16)
 * Started Changelog
 
-[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.15.1...HEAD
+[v0.15.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.15.0...v0.15.1
 [v0.15.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.1...v0.14.0
 [v0.13.1]: https://github.com/stm32-rs/stm32h7xx-hal/compare/v0.13.0...v0.13.1
