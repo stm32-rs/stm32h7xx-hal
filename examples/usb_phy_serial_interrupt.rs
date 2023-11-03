@@ -1,4 +1,7 @@
 //! CDC-ACM serial port example using an external phy and interrupts
+//!
+//! This example is for RM0433/RM0399 parts. It has been tested on the Arduino
+//! Portenta H7
 #![no_std]
 #![no_main]
 
