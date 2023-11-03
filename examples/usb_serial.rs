@@ -59,7 +59,7 @@ fn main() -> ! {
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     let (pin_dm, pin_dp) = {
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
-        (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
+        (gpioa.pa11, gpioa.pa12)
     };
 
     let usb = USB1::new(
