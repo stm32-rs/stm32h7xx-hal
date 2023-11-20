@@ -152,11 +152,13 @@ unsafe fn main() -> ! {
         USB_BUS_ALLOCATOR.as_ref().unwrap(),
         UsbVidPid(VID, PID),
     )
-    .manufacturer("Fake company")
-    .product("Serial port")
-    .serial_number("TEST")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")
+            ]).unwrap()
     .device_class(usbd_serial::USB_CLASS_CDC)
-    .max_packet_size_0(64)
+    .max_packet_size_0(64).unwrap()
     .build();
 
     interrupt_free(|cs| {

@@ -73,9 +73,11 @@ fn main() -> ! {
     let mut serial1 = usbd_serial::SerialPort::new(&usb1_bus);
     let mut usb1_dev =
         UsbDeviceBuilder::new(&usb1_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST PORT 1")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")
+            ]).unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
 
