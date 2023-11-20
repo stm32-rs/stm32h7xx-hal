@@ -94,8 +94,8 @@ mod app {
             .strings(&[usb_device::device::StringDescriptors::default()
                 .manufacturer("Fake company")
                 .product("Serial port")
-                .serial_number("TEST PORT 1")
-            ]).unwrap()
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
         let usb = (usb_dev, serial);
