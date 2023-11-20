@@ -6,6 +6,7 @@
 
 * Bugfix, usb: On RM0455 and RM0468 parts, PA11/PA12 do not have an alternate function
   (AF) for USB. Use `into_analog()` when passing pins to `USB1/2::new` on these parts [#464]
+* [breaking] `usb-device` updated to v0.3.0
 
 ## [v0.15.0] 2023-10-09
 
