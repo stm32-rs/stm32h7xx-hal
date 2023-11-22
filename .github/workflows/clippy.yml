@@ -15,7 +15,6 @@ jobs:
           toolchain: 1.66.0
           target: thumbv7em-none-eabihf
           components: clippy
-      - uses: actions-rs/clippy-check@v1
+      - uses: clechasseur/rs-clippy-check@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           args: --examples --target thumbv7em-none-eabihf --features=rt,stm32h743v -- -D warnings
