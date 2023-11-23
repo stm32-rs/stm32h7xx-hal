@@ -4,7 +4,6 @@ stm32h7xx-hal
 =============
 
 [![docs.rs](https://docs.rs/stm32h7xx-hal/badge.svg)](https://docs.rs/stm32h7xx-hal)
-[![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/12691)
 [![CI](https://github.com/stm32-rs/stm32h7xx-hal/workflows/Continuous%20integration/badge.svg)](https://github.com/stm32-rs/stm32h7xx-hal/actions)
 [![Crates.io](https://img.shields.io/crates/v/stm32h7xx-hal.svg)](https://crates.io/crates/stm32h7xx-hal)
 ![Minimum rustc version](https://img.shields.io/badge/rustc-1.65.0+-yellow.svg)
