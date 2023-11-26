@@ -102,15 +102,15 @@ pub use stm32h7::stm32h743 as stm32;
 pub use stm32h7::stm32h743v as stm32;
 
 // Single core with crypto
-#[cfg(any(feature = "stm32h753",))]
+#[cfg(feature = "stm32h753")]
 pub use stm32h7::stm32h753 as stm32;
-#[cfg(any(feature = "stm32h753v",))]
+#[cfg(feature = "stm32h753v")]
 pub use stm32h7::stm32h753v as stm32;
 
 // Dual core
-#[cfg(any(feature = "stm32h747cm7",))]
+#[cfg(feature = "stm32h747cm7")]
 pub use stm32h7::stm32h747cm7 as stm32;
-#[cfg(any(feature = "stm32h757cm7",))]
+#[cfg(feature = "stm32h757cm7")]
 pub use stm32h7::stm32h757cm7 as stm32;
 // TODO(rm0399): soundness of PeripheralREC macro in rcc/rec.rs
 

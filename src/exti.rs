@@ -257,9 +257,7 @@ impl ExtiExt for EXTI {
         let line = ev as u8;
 
         match line {
-            0..=19 | 20 | 21 => {
-                reg_for_cpu!(self, pr1).read().bits() & (1 << line) != 0
-            }
+            0..=21 => reg_for_cpu!(self, pr1).read().bits() & (1 << line) != 0,
             49 | 51 => {
                 reg_for_cpu!(self, pr2).read().bits() & (1 << (line - 32)) != 0
             }
@@ -278,7 +276,7 @@ impl ExtiExt for EXTI {
 
         unsafe {
             match line {
-                0..=19 | 20 | 21 => {
+                0..=21 => {
                     reg_for_cpu!(self, pr1).write(|w| w.bits(1 << line));
                     let _ = reg_for_cpu!(self, pr1).read();
                     let _ = reg_for_cpu!(self, pr1).read(); // Delay 2 peripheral clocks

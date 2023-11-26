@@ -34,7 +34,7 @@ fn main() -> ! {
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG2, &ccdr);
 
     // RM0468
-    #[cfg(all(feature = "rm0468"))]
+    #[cfg(feature = "rm0468")]
     let mut watchdog = SystemWindowWatchdog::new(dp.WWDG1, &ccdr);
 
     info!("");
