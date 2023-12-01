@@ -217,6 +217,8 @@ pub mod usb_hs;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
 pub mod xspi;
+#[cfg(feature="dsi")]
+pub mod dsi;
 
 #[cfg(feature = "device-selected")]
 mod sealed {

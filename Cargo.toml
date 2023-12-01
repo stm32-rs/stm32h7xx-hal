@@ -46,6 +46,7 @@ embedded-display-controller = { version = "^0.1.0", optional = true }
 log = { version = "0.4.14", optional = true} # see also the dev-dependencies section
 fdcan = { version = "0.2", optional = true }
 embedded-storage = "0.3"
+embedded-dsi = { path = "../embedded-hal/embedded-dsi", optional = true }
 
 [dependencies.smoltcp]
 version = "0.10.0"
@@ -81,6 +82,9 @@ usbd-serial = "0.1.0"
 numtoa = "0.2.3"
 tinybmp = "0.5"
 embedded-graphics = "0.8"
+otm8009a = { path = "../otm8009a" }
+eg-seven-segment = "0.2.0"
+ft6236 = { git = "https://github.com/romixlab/ft6236.git" }
 
 [dev-dependencies.smoltcp]
 version = "0.10.0"
@@ -100,7 +104,7 @@ gpio-h72 = []
 gpio-h747 = []
 gpio-h7a2 = []
 
-dsi = []
+dsi = ["embedded-dsi", "embedded-display-controller"]
 cm4 = []
 cm7 = []
 smps = []
@@ -262,3 +266,15 @@ required-features = ["rt", "usb_hs", "rm0433"]
 [[example]]
 name = "vos0"
 required-features = ["revision_v"]
+
+[[example]]
+name = "display-dsi-video-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc"]
+
+[[example]]
+name = "display-dsi-video-teartest-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc"]
+
+[[example]]
+name = "display-dsi-command-teartest-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc"]
