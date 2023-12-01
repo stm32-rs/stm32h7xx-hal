@@ -44,15 +44,13 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     loop {
-        loop {
-            led.set_high();
-            delay.delay_ms(100_u16);
+        led.set_high();
+        delay.delay_ms(100_u16);
 
-            led.set_low();
-            delay.delay_ms(100_u16);
+        led.set_low();
+        delay.delay_ms(100_u16);
 
-            let is_high = led.with_input(|x| x.is_high());
-            info!("LED pin high? {}", is_high);
-        }
+        let is_high = led.with_input(|x| x.is_high());
+        info!("LED pin high? {}", is_high);
     }
 }

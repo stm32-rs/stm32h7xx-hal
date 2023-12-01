@@ -91,9 +91,11 @@ mod app {
         .unwrap();
         let serial = usbd_serial::SerialPort::new(usb_bus);
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
         let usb = (usb_dev, serial);

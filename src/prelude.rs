@@ -39,7 +39,7 @@ pub use crate::timer::HalDisabledLpTimer as _stm32h7xx_hal_timer_HalDisabledLpTi
 pub use crate::timer::HalEnabledLpTimer as _stm32h7xx_hal_timer_HalEnabledLpTimer;
 pub use crate::timer::HalLpTimer as _stm32h7xx_hal_timer_HalLpTimer;
 pub use crate::timer::TimerExt as _stm32h7xx_hal_timer_TimerExt;
-#[cfg(all(feature = "xspi"))]
+#[cfg(feature = "xspi")]
 #[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
 pub use crate::xspi::XspiExt as _stm32h7xx_hal_xspi_XspiExt;
 pub use fugit::{ExtU32 as _, RateExtU32 as _};
