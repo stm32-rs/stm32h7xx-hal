@@ -11,6 +11,7 @@ use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 
+use embedded_hal::delay::DelayNs;
 use stm32h7xx_hal::{
     adc,
     delay::Delay,
@@ -73,7 +74,7 @@ fn main() -> ! {
     // Setup Temperature Sensor on the disabled ADC
     let mut channel = adc::Temperature::new();
     channel.enable(&adc);
-    delay.delay_us(25_u16);
+    delay.delay_us(25);
     let mut adc = adc.enable();
 
     let vdda = 2.500; // Volts
