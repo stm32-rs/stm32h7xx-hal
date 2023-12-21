@@ -8,18 +8,17 @@
 
 use core::mem::MaybeUninit;
 
+use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 
+use embedded_hal::i2c::*;
 use stm32h7xx_hal::dma::{
     bdma::{BdmaConfig, StreamsTuple},
     PeripheralToMemory, Transfer,
 };
-
 use stm32h7xx_hal::prelude::*;
 use stm32h7xx_hal::{i2c, pac, pac::interrupt, rcc::LowPowerMode};
-
-use cortex_m_rt::entry;
 
 use log::info;
 
