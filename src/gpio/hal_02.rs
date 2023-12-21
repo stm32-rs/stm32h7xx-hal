@@ -2,12 +2,27 @@ use core::convert::Infallible;
 
 use super::{
     dynamic::PinModeError, marker, DynamicPin, ErasedPin, Input, OpenDrain,
-    Output, PartiallyErasedPin, Pin, PinMode, PinState,
+    Output, PartiallyErasedPin, Pin, PinMode,
 };
 
-use embedded_hal::digital::v2::{
-    InputPin, IoPin, OutputPin, StatefulOutputPin, ToggleableOutputPin,
+use embedded_hal_02::digital::v2::{
+    InputPin, IoPin, OutputPin, PinState, StatefulOutputPin,
+    ToggleableOutputPin,
 };
+
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
+    /// Set the output of the pin regardless of its mode.
+    /// Primarily used to set the output value of the pin
+    /// before changing its mode to an output to avoid
+    /// a short spike of an incorrect value
+    #[inline(always)]
+    fn _set_state_02(&mut self, state: PinState) {
+        match state {
+            PinState::High => self._set_high(),
+            PinState::Low => self._set_low(),
+        }
+    }
+}
 
 // Implementations for `Pin`
 
@@ -78,7 +93,7 @@ impl<const P: char, const N: u8> IoPin<Self, Self>
         Ok(self)
     }
     fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
-        self.set_state(state);
+        self._set_state_02(state);
         Ok(self)
     }
 }
@@ -93,7 +108,7 @@ where
         Ok(self.into_input())
     }
     fn into_output_pin(mut self, state: PinState) -> Result<Self, Self::Error> {
-        self.set_state(state);
+        self._set_state_02(state);
         Ok(self)
     }
 }
@@ -111,7 +126,7 @@ where
         mut self,
         state: PinState,
     ) -> Result<Pin<P, N, Output<Otype>>, Self::Error> {
-        self._set_state(state);
+        self._set_state_02(state);
         Ok(self.into_mode())
     }
 }

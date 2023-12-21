@@ -7,6 +7,7 @@
 #![no_std]
 
 use cortex_m_rt::entry;
+use embedded_hal::delay::DelayNs;
 use stm32h7xx_hal::{pac, prelude::*};
 
 #[macro_use]
