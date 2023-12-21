@@ -11,6 +11,9 @@
 * pwm: `enable` method now returns type `Result<(), PwmError>`
 * pwm: LPTIMs can return a `NotEnabled` error from `set_duty_cycle`
 
+* serial: Implement embedded-io `Read` and `Write` traits
+* serial: Rename methods `read` -> `read_byte`; `write` -> `write_byte`
+
 ## [v0.15.1] 2023-11-03
 
 * Bugfix, usb: On RM0455 and RM0468 parts, PA11/PA12 do not have an alternate function

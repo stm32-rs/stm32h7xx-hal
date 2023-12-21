@@ -8,9 +8,8 @@ use cortex_m_rt::entry;
 mod utilities;
 use log::info;
 
+use embedded_io::Write;
 use stm32h7xx_hal::{pac, prelude::*, serial::config::Config};
-
-use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
