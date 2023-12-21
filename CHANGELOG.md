@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 * MSRV increased to Rust 1.66.1 [#473]
+* Upgraded to embedded-hal v1.0.0-rc.3
+
+* pwm: Renamed `get_max_duty` -> `max_duty_cycle`; `set_duty` -> `set_duty_cycle`
+* pwm: `enable` method now returns type `Result<(), PwmError>`
 
 ## [v0.15.1] 2023-11-03
 

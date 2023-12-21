@@ -1,5 +1,4 @@
 //! Prelude
-pub use embedded_hal::prelude::*;
 
 pub use crate::adc::AdcExt as _stm32h7xx_hal_adc_AdcExt;
 #[cfg(feature = "can")]
