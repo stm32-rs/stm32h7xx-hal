@@ -8,6 +8,8 @@
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
+
+use embedded_hal::delay::DelayNs;
 use stm32h7xx_hal::{pac, prelude::*, rcc::ResetReason};
 
 use log::info;
@@ -48,7 +50,7 @@ fn main() -> ! {
 
     // delay 10s
     let mut delay = cp.SYST.delay(ccdr.clocks);
-    delay.delay_ms(10_000u16);
+    delay.delay_ms(10_000);
 
     // system reset
     stm32h7xx_hal::pac::SCB::sys_reset()

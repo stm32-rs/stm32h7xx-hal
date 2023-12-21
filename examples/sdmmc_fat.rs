@@ -2,6 +2,7 @@
 #![no_std]
 
 use {
+    embedded_hal::delay::DelayNs,
     embedded_sdmmc::{Controller, Mode, VolumeIdx},
     stm32h7xx_hal::sdmmc::{SdCard, Sdmmc},
     stm32h7xx_hal::{pac, prelude::*, rcc},

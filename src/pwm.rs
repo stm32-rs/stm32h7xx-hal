@@ -300,6 +300,16 @@ pub trait FaultMonitor {
     fn set_fault(&mut self);
 }
 
+/// Error type for PWM
+#[derive(Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum PwmError {
+    /// Error
+    Error,
+    /// Failure because the PWM channel was not enabled
+    NotEnabled,
+}
+
 /// Exposes timer wide advanced features, such as [FaultMonitor](trait.FaultMonitor.html)
 /// or future features like trigger outputs for synchronization with ADCs and other peripherals
 pub struct PwmControl<TIM, FAULT> {
@@ -1762,6 +1772,7 @@ macro_rules! lptim_hal {
 
             impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
                 type Duty = u16;
+                type Error = PwmError;
 
                 // You may not access self in the following methods!
                 // See unsafe above
@@ -1770,7 +1781,7 @@ macro_rules! lptim_hal {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
                     // LPTIM only has one output, so we disable the
-                    // entire timer
+                    // entire timer. LPTIM only has one channel.
                     tim.cr.modify(|_, w| w.enable().disabled());
                 }
 
@@ -1795,6 +1806,11 @@ macro_rules! lptim_hal {
 
                 fn set_duty(&mut self, duty: u16) {
                     let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    // LPTIM must be enabled to update CMP value
+                    if tim.cr.read().enable().bit_is_clear() {
+                        return Err(Self::Error::NotEnabled)
+                    }
 
                     tim.cmp.write(|w| w.cmp().bits(duty));
                     while !tim.isr.read().cmpok().is_set() {}
