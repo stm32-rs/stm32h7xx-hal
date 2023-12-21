@@ -4,9 +4,12 @@
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
+
+use embedded_hal::pwm::*;
+use stm32h7xx_hal::{pac, prelude::*};
+
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
 
@@ -47,23 +50,23 @@ fn main() -> ! {
             .pwm(pins, 10.kHz(), ccdr.peripheral.TIM1, &ccdr.clocks);
 
     // Output PWM on PA8
-    let max = pwm.get_max_duty();
-    pwm.set_duty(max / 2);
+    let max = pwm.max_duty_cycle();
+    pwm.set_duty_cycle(max / 2).unwrap();
 
     info!("50%");
-    pwm.enable();
+    pwm.enable().unwrap();
     asm::bkpt();
 
     info!("25%");
-    pwm.set_duty(max / 4);
+    pwm.set_duty_cycle(max / 4).unwrap();
     asm::bkpt();
 
     info!("12.5%");
-    pwm.set_duty(max / 8);
+    pwm.set_duty_cycle(max / 8).unwrap();
     asm::bkpt();
 
     info!("100%");
-    pwm.set_duty(max);
+    pwm.set_duty_cycle(max).unwrap();
     asm::bkpt();
 
     let mut pwm = dp.TIM12.pwm(
@@ -74,9 +77,9 @@ fn main() -> ! {
     );
 
     // Output PWM on PB14
-    let max = pwm.get_max_duty();
-    pwm.set_duty(max / 2);
-    pwm.enable();
+    let max = pwm.max_duty_cycle();
+    pwm.set_duty_cycle(max / 2).unwrap();
+    pwm.enable().unwrap();
 
     loop {
         cortex_m::asm::nop()

@@ -9,6 +9,7 @@
 
 * pwm: Renamed `get_max_duty` -> `max_duty_cycle`; `set_duty` -> `set_duty_cycle`
 * pwm: `enable` method now returns type `Result<(), PwmError>`
+* pwm: LPTIMs can return a `NotEnabled` error from `set_duty_cycle`
 
 ## [v0.15.1] 2023-11-03
 

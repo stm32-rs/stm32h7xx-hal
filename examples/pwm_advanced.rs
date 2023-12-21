@@ -45,7 +45,7 @@
 //! If you momentarily pull PE15 low, LD2 will turn on and you will get no PWM on PE8-PE14, even if you pull PE15 high again
 //! If PE15 is high and you press the USER button, TIM1 PWM will resume on PE8-PE14
 
-#![deny(warnings)]
+//#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -54,6 +54,8 @@ use cortex_m_rt::entry;
 mod utilities;
 use stm32h7xx_hal::pwm::{FaultMonitor, Polarity};
 use stm32h7xx_hal::{pac, prelude::*};
+
+use embedded_hal::pwm::*;
 
 use log::info;
 
@@ -122,16 +124,16 @@ fn main() -> ! {
     let mut t1c4 = t1c4.into_active_low();
 
     // Output TIM1 PWM
-    let period = t1c1.get_max_duty();
-    t1c1.set_duty(period / 2);
-    t1c2.set_duty(period / 8 * 7);
-    t1c3.set_duty(period / 8);
-    t1c4.set_duty(period / 2);
+    let period = t1c1.max_duty_cycle();
+    t1c1.set_duty_cycle(period / 2).unwrap();
+    t1c2.set_duty_cycle(period / 8 * 7).unwrap();
+    t1c3.set_duty_cycle(period / 8).unwrap();
+    t1c4.set_duty_cycle(period / 2).unwrap();
 
-    t1c1.enable();
-    t1c2.enable();
-    t1c3.enable();
-    t1c4.enable();
+    t1c1.enable().unwrap();
+    t1c2.enable().unwrap();
+    t1c3.enable().unwrap();
+    t1c4.enable().unwrap();
 
     // Configure TIM2 PWM
     let (_t2control, (mut t2c2, mut t2c1, mut t2c3, t2c4)) = dp
@@ -154,16 +156,16 @@ fn main() -> ! {
     let mut t2c4 = t2c4.into_active_low();
 
     // Output TIM2 PWM
-    let period = t2c1.get_max_duty();
-    t2c1.set_duty(period / 4 * 3);
-    t2c2.set_duty(period / 2);
-    t2c3.set_duty(period / 4);
-    t2c4.set_duty(period / 4 * 3);
+    let period = t2c1.max_duty_cycle();
+    t2c1.set_duty_cycle(period / 4 * 3).unwrap();
+    t2c2.set_duty_cycle(period / 2).unwrap();
+    t2c3.set_duty_cycle(period / 4).unwrap();
+    t2c4.set_duty_cycle(period / 4 * 3).unwrap();
 
-    t2c1.enable();
-    t2c2.enable();
-    t2c3.enable();
-    t2c4.enable();
+    t2c1.enable().unwrap();
+    t2c2.enable().unwrap();
+    t2c3.enable().unwrap();
+    t2c4.enable().unwrap();
 
     // Configure TIM3 PWM
     let (_t3control, (mut t3c3, mut t3c2)) = dp
@@ -178,12 +180,12 @@ fn main() -> ! {
         .finalize();
 
     // Output TIM3 PWM
-    let period = t3c2.get_max_duty();
-    t3c2.set_duty(period / 3);
-    t3c3.set_duty(period / 3 * 2);
+    let period = t3c2.max_duty_cycle();
+    t3c2.set_duty_cycle(period / 3).unwrap();
+    t3c3.set_duty_cycle(period / 3 * 2).unwrap();
 
-    t3c2.enable();
-    t3c3.enable();
+    t3c2.enable().unwrap();
+    t3c3.enable().unwrap();
 
     // Configure TIM4 PWM
     let (_t4control, t4c4) = dp
@@ -199,10 +201,10 @@ fn main() -> ! {
     let mut t4c4 = t4c4.into_active_low();
 
     // Output TIM4 PWM
-    let period = t4c4.get_max_duty();
-    t4c4.set_duty(period / 10 * 4);
+    let period = t4c4.max_duty_cycle();
+    t4c4.set_duty_cycle(period / 10 * 4).unwrap();
 
-    t4c4.enable();
+    t4c4.enable().unwrap();
 
     // Configure TIM5 PWM
     let t5builder = dp
@@ -218,10 +220,10 @@ fn main() -> ! {
     let (_t5control, mut t5c4) = t5builder.finalize();
 
     // Output TIM5 PWM
-    let period = t5c4.get_max_duty();
-    t5c4.set_duty(period / 5 * 4);
+    let period = t5c4.max_duty_cycle();
+    t5c4.set_duty_cycle(period / 5 * 4).unwrap();
 
-    t5c4.enable();
+    t5c4.enable().unwrap();
 
     // Configure TIM8 PWM
     let (mut t8control, (t8c1, mut t8c2, t8c3, t8c4)) = dp
@@ -247,16 +249,16 @@ fn main() -> ! {
     let mut t8c4 = t8c4.into_active_low();
 
     // Output TIM8 PWM
-    let period = t8c1.get_max_duty();
-    t8c1.set_duty(period / 2);
-    t8c2.set_duty(period / 10);
-    t8c3.set_duty(period / 4);
-    t8c4.set_duty(period / 4 * 3);
+    let period = t8c1.max_duty_cycle();
+    t8c1.set_duty_cycle(period / 2).unwrap();
+    t8c2.set_duty_cycle(period / 10).unwrap();
+    t8c3.set_duty_cycle(period / 4).unwrap();
+    t8c4.set_duty_cycle(period / 4 * 3).unwrap();
 
-    t8c1.enable();
-    t8c2.enable();
-    t8c3.enable();
-    t8c4.enable();
+    t8c1.enable().unwrap();
+    t8c2.enable().unwrap();
+    t8c3.enable().unwrap();
+    t8c4.enable().unwrap();
 
     // Configure TIM12 PWM
     let (mut t12c2, t12c1) = dp.TIM12.pwm(
@@ -269,12 +271,12 @@ fn main() -> ! {
     let mut t12c1 = t12c1.into_active_low();
 
     // Output TIM12 PWM
-    let period = t12c1.get_max_duty();
-    t12c1.set_duty(period / 4);
-    t12c2.set_duty(period / 10 * 4);
+    let period = t12c1.max_duty_cycle();
+    t12c1.set_duty_cycle(period / 4).unwrap();
+    t12c2.set_duty_cycle(period / 10 * 4).unwrap();
 
-    t12c1.enable();
-    t12c2.enable();
+    t12c1.enable().unwrap();
+    t12c2.enable().unwrap();
 
     // Configure TIM13 PWM
     let (_t13control, t13c1) = dp
@@ -290,10 +292,10 @@ fn main() -> ! {
     let mut t13c1 = t13c1.into_active_low();
 
     // Output TIM13 PWM
-    let period = t13c1.get_max_duty();
-    t13c1.set_duty(period / 10 * 3);
+    let period = t13c1.max_duty_cycle();
+    t13c1.set_duty_cycle(period / 10 * 3).unwrap();
 
-    t13c1.enable();
+    t13c1.enable().unwrap();
 
     // Configure TIM14 PWM
     let (_t14control, mut t14c1) = dp
@@ -307,10 +309,10 @@ fn main() -> ! {
         .finalize();
 
     // Output TIM14 PWM
-    let period = t14c1.get_max_duty();
-    t14c1.set_duty(period / 5);
+    let period = t14c1.max_duty_cycle();
+    t14c1.set_duty_cycle(period / 5).unwrap();
 
-    t14c1.enable();
+    t14c1.enable().unwrap();
 
     // Configure TIM15 PWM
     let (mut t15control, (t15c1, mut t15c2)) = dp
@@ -331,12 +333,12 @@ fn main() -> ! {
         .into_comp_active_low();
 
     // Output TIM15 PWM
-    let period = t15c1.get_max_duty();
-    t15c1.set_duty(period / 4);
-    t15c2.set_duty(period / 2);
+    let period = t15c1.max_duty_cycle();
+    t15c1.set_duty_cycle(period / 4).unwrap();
+    t15c2.set_duty_cycle(period / 2).unwrap();
 
-    t15c1.enable();
-    t15c2.enable();
+    t15c1.enable().unwrap();
+    t15c2.enable().unwrap();
 
     // Configure TIM16 PWM
     let (mut t16control, t16c1) = dp
@@ -353,10 +355,10 @@ fn main() -> ! {
     let mut t16c1 = t16c1.into_active_low();
 
     // Output TIM16 PWM
-    let period = t16c1.get_max_duty();
-    t16c1.set_duty(period / 4);
+    let period = t16c1.max_duty_cycle();
+    t16c1.set_duty_cycle(period / 4).unwrap();
 
-    t16c1.enable();
+    t16c1.enable().unwrap();
 
     // Configure TIM17 PWM
     let (_t17control, t17c1) = dp
@@ -373,10 +375,10 @@ fn main() -> ! {
     let mut t17c1 = t17c1.into_complementary(gpiof.pf9.into_alternate());
 
     // Output TIM16 PWM
-    let period = t17c1.get_max_duty();
-    t17c1.set_duty(period / 2);
+    let period = t17c1.max_duty_cycle();
+    t17c1.set_duty_cycle(period / 2).unwrap();
 
-    t17c1.enable();
+    t17c1.enable().unwrap();
 
     info!("");
     info!("PWM channels enabled; see examples/pwm_advanced.rs for list of channels, pins, and settings");

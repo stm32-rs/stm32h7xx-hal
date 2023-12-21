@@ -301,13 +301,20 @@ pub trait FaultMonitor {
 }
 
 /// Error type for PWM
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum PwmError {
     /// Error
     Error,
     /// Failure because the PWM channel was not enabled
     NotEnabled,
+}
+impl hal::pwm::Error for PwmError {
+    fn kind(&self) -> hal::pwm::ErrorKind {
+        use hal::pwm::ErrorKind;
+
+        ErrorKind::Other
+    }
 }
 
 /// Exposes timer wide advanced features, such as [FaultMonitor](trait.FaultMonitor.html)
@@ -1031,8 +1038,9 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
     // Divide by 100000 then 10000 by multiplying and shifting
     // This can't overflow because both values being multiplied are u32
     let deadtime_ticks = deadtime.ticks() as u64 * base_freq.raw() as u64;
-    // Make sure we won't overflow when multiplying; DTG is max 1008 ticks and CKD is max prescaler of 4
-    // so deadtimes over 4032 ticks are impossible (4032*10^9 before dividing)
+    // Make sure we won't overflow when multiplying; DTG is max 1008 ticks and
+    // CKD is max prescaler of 4 so deadtimes over 4032 ticks are impossible
+    // (4032*10^9 before dividing)
     assert!(deadtime_ticks <= 4_032_000_000_000u64);
     let deadtime_ticks = deadtime_ticks * 42950;
     let deadtime_ticks = (deadtime_ticks >> 32) as u32;
@@ -1072,7 +1080,8 @@ fn calculate_deadtime(base_freq: Hertz, deadtime: NanoSeconds) -> (u8, u8) {
 pub trait PwmExt: Sized {
     type Rec: ResetEnable;
 
-    /// The requested frequency will be rounded to the nearest achievable frequency; the actual frequency may be higher or lower than requested.
+    /// The requested frequency will be rounded to the nearest achievable
+    /// frequency; the actual frequency may be higher or lower than requested.
     fn pwm<PINS, U, V>(
         self,
         _pins: PINS,
@@ -1146,10 +1155,14 @@ macro_rules! tim_hal {
                 let clk = <$TIMX>::get_clk(clocks)
                     .expect(concat!(stringify!($TIMX), ": Input clock not running!"));
 
-                let (period, prescale) = match $bits {
-                    16 => calculate_frequency_16bit(clk, freq, Alignment::Left),
-                    _ => calculate_frequency_32bit(clk, freq, Alignment::Left),
-                };
+                // let (period, prescale) = match $bits {
+                //     16 => calculate_frequency_16bit(clk, freq, Alignment::Left),
+                //     _ => calculate_frequency_32bit(clk, freq, Alignment::Left),
+                // };
+
+                // TODO(EH1): Only support ARR values up to 65535, even on
+                // 32-bit timers
+                let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
 
                 // Write prescale
                 tim.psc.write(|w| { w.psc().bits(prescale as u16) });
@@ -1210,10 +1223,14 @@ macro_rules! tim_hal {
                     let (period, prescaler) = match self.count {
                         CountSettings::Explicit { period, prescaler } => (period as u32, prescaler),
                         CountSettings::Frequency( freq ) => {
-                            match $bits {
-                                16 => calculate_frequency_16bit(self.base_freq, freq, self.alignment),
-                                _ => calculate_frequency_32bit(self.base_freq, freq, self.alignment),
-                            }
+                            // match $bits {
+                            //     16 => calculate_frequency_16bit(self.base_freq, freq, self.alignment),
+                            //     _ => calculate_frequency_32bit(self.base_freq, freq, self.alignment),
+                            // }
+
+                            // TODO(EH1): Only support ARR values up to 65535,
+                            // even on 32-bit timers
+                            calculate_frequency_16bit(self.base_freq, freq, self.alignment)
                         },
                     };
 
@@ -1244,12 +1261,26 @@ macro_rules! tim_hal {
                             //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
                             //  BKE = 1 -> break is enabled
                             //  BKP = 0 for active low, 1 for active high
-                            // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
-                            unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bkf().bits(1).aoe().clear_bit().bke().set_bit().bkp().bit(bkp).moe().$moe_set()); }
+                            //
+                            // Safety: bkf is set to a constant value (1) that
+                            // is a valid value for the field per the reference
+                            // manual
+                            unsafe {
+                                tim.$bdtr.write(|w| w
+                                                .dtg().bits(dtg)
+                                                .bkf().bits(1)
+                                                .aoe().clear_bit()
+                                                .bke().set_bit()
+                                                .bkp().bit(bkp)
+                                                .moe().$moe_set());
+                            }
 
                             // AF1:
                             //  BKINE = 1 -> break input enabled
-                            //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
+                            //
+                            //  BKINP should make input active high (BDTR BKP
+                            //  will set polarity), bit value varies timer to
+                            //  timer
                             tim.$af1.write(|w| w.bkine().set_bit().bkinp().$bkinp_setting());
                         }
                         $(
@@ -1260,17 +1291,31 @@ macro_rules! tim_hal {
                                 //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
                                 //  BK2E = 1 -> break is enabled
                                 //  BK2P = 0 for active low, 1 for active high
-                                // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
-                                unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
+                                //
+                                // Safety: bkf is set to a constant value (1)
+                                // that is a valid value for the field per the
+                                // reference manual
+                                unsafe { tim.$bdtr.write(|w| w
+                                                         .dtg().bits(dtg)
+                                                         .bk2f().bits(1)
+                                                         .aoe().clear_bit()
+                                                         .bk2e().set_bit()
+                                                         .bk2p().bit(bkp)
+                                                         .moe().$moe_set());
+                                }
 
                                 // AF1:
                                 //  BKINE = 1 -> break input enabled
-                                //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
+                                //
+                                //  BKINP should make input active high (BDTR
+                                //  BKP will set polarity), bit value varies
+                                //  timer to timer
                                 tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
                             }
                         )?
                         else {
-                            // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
+                            // Safety: the DTG field of BDTR allows any 8-bit
+                            // deadtime value and the dtg variable is u8
                             unsafe {
                                 tim.$bdtr.write(|w| w.dtg().bits(dtg).aoe().clear_bit().moe().$moe_set());
                             }
@@ -1339,8 +1384,10 @@ macro_rules! tim_hal {
                     /// Set the deadtime for complementary PWM channels of this timer
                     #[must_use]
                     pub fn with_deadtime<T: Into<NanoSeconds>>(mut self, deadtime: T) -> Self {
-                        // $bdtr is an Ident that only exists for timers with deadtime, so we can use it as a variable name to
-                        // only implement this method for timers that support deadtime.
+                        // $bdtr is an Ident that only exists for timers with
+                        // deadtime, so we can use it as a variable name to only
+                        // implement this method for timers that support
+                        // deadtime.
                         let $bdtr = deadtime.into();
 
                         self.deadtime = $bdtr;
@@ -1356,12 +1403,15 @@ macro_rules! tim_hal {
                     self
                 }
 
-                // Timers with advanced counting options, including center aligned and right aligned PWM
+                // Timers with advanced counting options, including center
+                // aligned and right aligned PWM
                 $(
                     #[must_use]
                     pub fn center_aligned(mut self) -> Self {
-                        // $cms is an Ident that only exists for timers with center/right aligned PWM, so we can use it as a variable name to
-                        // only implement this method for timers that support center/right aligned PWM.
+                        // $cms is an Ident that only exists for timers with
+                        // center/right aligned PWM, so we can use it as a
+                        // variable name to only implement this method for
+                        // timers that support center/right aligned PWM.
                         let $cms = Alignment::Center;
 
                         self.alignment = $cms;
@@ -1381,9 +1431,12 @@ macro_rules! tim_hal {
             // Timers with break/fault, dead time, and complimentary capabilities
             $(
                 impl<PINS, CHANNEL, COMP> PwmBuilder<$TIMX, PINS, CHANNEL, FaultDisabled, COMP, $typ> {
-                    /// Configure a break pin that will disable PWM when activated (active level based on polarity argument)
-                    /// Note: not all timers have fault inputs; `FaultPins<TIM>` is only implemented for valid pins/timers.
-                    pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity) -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
+                    /// Configure a break pin that will disable PWM when
+                    /// activated (active level based on polarity argument)
+                    /// Note: not all timers have fault inputs; `FaultPins<TIM>`
+                    /// is only implemented for valid pins/timers.
+                    pub fn with_break_pin<P: FaultPins<$TIMX>>(self, _pin: P, polarity: Polarity)
+                                                               -> PwmBuilder<$TIMX, PINS, CHANNEL, FaultEnabled, COMP, $typ> {
                         PwmBuilder {
                             _markers: PhantomData,
                             alignment: self.alignment,
@@ -1450,53 +1503,52 @@ pub trait PwmPinEnable {
     fn ccer_disable(&mut self);
 }
 
-// Implement PwmPin for timer channels
+// Implement SetDutyCycle for timer channels
 macro_rules! tim_pin_hal {
     // Standard pins (no complementary functionality)
     ($TIMX:ty, $typ:ty: $(
        ($CH:ident, $ccmrx_output:ident, $ocxpe:ident, $ocxm:ident),)+
     ) => {
         $(
-            impl<COMP> hal::PwmPin for Pwm<$TIMX, $CH, COMP>
+            impl<COMP> hal::pwm::ErrorType for Pwm<$TIMX, $CH, COMP>
+                where Pwm<$TIMX, $CH, COMP>: PwmPinEnable
+            {
+                type Error = PwmError;
+            }
+
+             impl<COMP> hal::pwm::SetDutyCycle for Pwm<$TIMX, $CH, COMP>
                 where Pwm<$TIMX, $CH, COMP>: PwmPinEnable {
-                type Duty = $typ;
 
-                // You may not access self in the following methods!
-                // See unsafe above
+                // type Duty = $typ;
+                // type Error = Infallible;
 
-                fn disable(&mut self) {
-                    self.ccer_disable();
-                }
 
-                fn enable(&mut self) {
+                // fn try_get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
+                //     let tim = unsafe { &*<$TIMX>::ptr() };
+
+                //     let arr = tim.arr.read().arr().bits();
+
+                //     // One PWM cycle is ARR+1 counts long
+                //     // Valid PWM duty cycles are 0 to ARR+1
+                //     // However, if ARR is 65535 on a 16-bit timer, we can't add 1
+                //     // In that case, 100% duty cycle is not possible, only 65535/65536
+                //     if arr == Self::Duty::MAX {
+                //         Ok(arr)
+                //     }
+                //     else {
+                //         Ok(arr + 1)
+                //     }
+                // }
+
+                fn max_duty_cycle(&self) -> u16 {
                     let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    tim.$ccmrx_output().modify(|_, w|
-                        w.$ocxpe()
-                            .enabled() // Enable preload
-                            .$ocxm()
-                            .pwm_mode1() // PWM Mode
-                    );
-
-                    self.ccer_enable();
-                }
-
-                fn get_duty(&self) -> Self::Duty {
-                    let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    tim.ccr[$CH as usize].read().ccr().bits()
-                }
-
-                fn get_max_duty(&self) -> Self::Duty {
-                    let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    let arr = tim.arr.read().arr().bits();
+                    let arr = tim.arr.read().arr().bits() as u16;
 
                     // One PWM cycle is ARR+1 counts long
                     // Valid PWM duty cycles are 0 to ARR+1
                     // However, if ARR is 65535 on a 16-bit timer, we can't add 1
                     // In that case, 100% duty cycle is not possible, only 65535/65536
-                    if arr == Self::Duty::MAX {
+                    if arr == u16::MAX {
                         arr
                     }
                     else {
@@ -1504,13 +1556,46 @@ macro_rules! tim_pin_hal {
                     }
                 }
 
-                fn set_duty(&mut self, duty: Self::Duty) {
+                fn set_duty_cycle(&mut self, duty: u16) -> Result<(), Self::Error> {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    tim.ccr[$CH as usize].write(|w| w.ccr().bits(duty));
+                    tim.ccr[$CH as usize].write(|w| w.ccr().bits(duty as $typ));
+
+                    Ok(())
                 }
             }
 
+            impl<COMP> Pwm<$TIMX, $CH, COMP>
+                where Pwm<$TIMX, $CH, COMP>: PwmPinEnable
+            {
+                /// Disable a PWM channel
+                pub fn disable(&mut self) -> Result<(), PwmError> {
+                    self.ccer_disable();
+                    Ok(())
+                }
+
+                /// Enables a PWM channel
+                pub fn enable(&mut self) -> Result<(), PwmError> {
+                    let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    tim.$ccmrx_output().modify(|_, w|
+                                               w.$ocxpe()
+                                               .enabled() // Enable preload
+                                               .$ocxm()
+                                               .pwm_mode1() // PWM Mode
+                    );
+
+                    self.ccer_enable();
+                    Ok(())
+                }
+
+                /// Returns the current duty cycle
+                pub fn get_duty(&self) -> Result<$typ, PwmError> {
+                    let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    Ok(tim.ccr[$CH as usize].read().ccr().bits())
+                }
+            }
         )+
 
         // Enable implementation for ComplementaryImpossible
@@ -1526,7 +1611,6 @@ macro_rules! tim_pin_hal {
                 tim.ccer.modify(|r, w| unsafe { w.bits(r.bits() & !Ch::<C>::EN) });
             }
         }
-
 
         impl<const C: u8, COMP> Pwm<$TIMX, C, COMP> {
             pub fn set_polarity(&mut self, pol: Polarity) {
@@ -1770,41 +1854,17 @@ macro_rules! lptim_hal {
                 PINS::split()
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
-                type Duty = u16;
+            impl hal::pwm::ErrorType for Pwm<$TIMX, C1, ComplementaryImpossible> {
                 type Error = PwmError;
+            }
 
-                // You may not access self in the following methods!
-                // See unsafe above
-
-                fn disable(&mut self) {
-                    let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    // LPTIM only has one output, so we disable the
-                    // entire timer. LPTIM only has one channel.
-                    tim.cr.modify(|_, w| w.enable().disabled());
-                }
-
-                fn enable(&mut self) {
-                    let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    tim.cr.modify(|_, w| w.enable().enabled());
-                    tim.cr.modify(|_, w| w.cntstrt().start());
-                }
-
-                fn get_duty(&self) -> u16 {
-                    let tim = unsafe { &*<$TIMX>::ptr() };
-
-                    tim.cmp.read().cmp().bits()
-                }
-
-                fn get_max_duty(&self) -> u16 {
+            impl hal::pwm::SetDutyCycle for Pwm<$TIMX, C1, ComplementaryImpossible> {
+                fn max_duty_cycle(&self) -> u16 {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
                     tim.arr.read().arr().bits()
                 }
-
-                fn set_duty(&mut self, duty: u16) {
+                fn set_duty_cycle(&mut self, duty: u16) -> Result<(), Self::Error> {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
                     // LPTIM must be enabled to update CMP value
@@ -1815,6 +1875,35 @@ macro_rules! lptim_hal {
                     tim.cmp.write(|w| w.cmp().bits(duty));
                     while !tim.isr.read().cmpok().is_set() {}
                     tim.icr.write(|w| w.cmpokcf().clear());
+                    Ok(())
+                }
+            }
+
+            impl Pwm<$TIMX, C1, ComplementaryImpossible> {
+                /// Disable a PWM channel
+                pub fn disable(&mut self) -> Result<(), PwmError>{
+                    let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    // LPTIM only has one output, so we disable the
+                    // entire timer. LPTIM only has one channel.
+                    tim.cr.modify(|_, w| w.enable().disabled());
+                    Ok(())
+                }
+
+                /// Enables a PWM channel
+                pub fn enable(&mut self)->Result<(), PwmError> {
+                    let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    tim.cr.modify(|_, w| w.enable().enabled());
+                    tim.cr.modify(|_, w| w.cntstrt().start());
+                    Ok(())
+                }
+
+                /// Returns the current duty cycle
+                pub fn get_duty(&self) -> Result<u16, PwmError> {
+                    let tim = unsafe { &*<$TIMX>::ptr() };
+
+                    Ok(tim.cmp.read().cmp().bits())
                 }
             }
         )+
