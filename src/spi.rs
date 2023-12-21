@@ -68,7 +68,6 @@ use core::ptr;
 
 use crate::gpio::{self, Alternate};
 use crate::hal;
-use crate::hal::spi::FullDuplex;
 pub use crate::hal::spi::{
     Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
 };
@@ -105,6 +104,17 @@ pub enum Error {
     /// corresponding word was received. May be caused by hardware issues where
     /// the SPI master fails to receive its own clock on the CLK pin
     DuplexFailed,
+}
+impl hal::spi::Error for Error {
+    fn kind(&self) -> hal::spi::ErrorKind {
+        use hal::spi::ErrorKind;
+
+        match self {
+            Error::Overrun => ErrorKind::Overrun,
+            Error::ModeFault => ErrorKind::ModeFault,
+            _ => ErrorKind::Other,
+        }
+    }
 }
 
 /// Enabled SPI peripheral (type state)
@@ -556,8 +566,7 @@ pub trait SpiExt<SPI, WORD>: Sized {
         CONFIG: Into<Config>;
 }
 
-pub trait HalEnabledSpi:
-    HalSpi + FullDuplex<Self::Word, Error = Error>
+pub trait HalEnabledSpi: HalSpi // + FullDuplex<Self::Word, Error = Error>
 {
     type Disabled: HalDisabledSpi<
         Spi = Self::Spi,
@@ -1058,10 +1067,12 @@ macro_rules! spi {
 	                }
 	            }
 
-                impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
-
-                    fn read(&mut self) -> nb::Result<$TY, Error> {
+                impl Spi<$SPIX, Enabled, $TY> {
+                    /// Reads the word stored in the shift register.
+                    ///
+                    /// NOTE: A word must be sent to the slave before attempting
+                    /// to call this method
+                    pub fn read(&mut self) -> nb::Result<$TY, Error> {
                         check_status_error!(self.spi;
                         {    // } else if sr.rxp().is_not_empty() {
                             rxp, is_not_empty,
@@ -1076,7 +1087,8 @@ macro_rules! spi {
                         })
                     }
 
-                    fn send(&mut self, word: $TY) -> nb::Result<(), Error> {
+                    /// Sends a word to the slave
+                    pub fn send(&mut self, word: $TY) -> nb::Result<(), Error> {
                         check_status_error!(self.spi;
                         {    // } else if sr.txp().is_not_full() {
                             txp, is_not_full,
@@ -1171,10 +1183,16 @@ macro_rules! spi {
                         })
                     }
 
-                    /// Internal implementation for blocking::spi::Write
-                    fn transfer_internal_w(&mut self, write_words: &[$TY]) -> Result<(), Error> {
-                        use hal::spi::FullDuplex;
+                    /// Internal implementation for ensuring the current
+                    /// transaction is completed
+                    #[inline(always)]
+                    fn flush(&mut self) -> Result<(), Error> {
+                        while self.spi.sr.read().eot().is_completed() {}
+                        Ok(())
+                    }
 
+                    /// Internal implementation for Write-only transfers
+                    fn transfer_internal_w(&mut self, write_words: &[$TY]) -> Result<(), Error> {
                         // both buffers are the same length
                         if write_words.is_empty() {
                             return Ok(());
@@ -1229,10 +1247,67 @@ macro_rules! spi {
                         Ok(())
                     }
 
-                    /// Internal implementation for blocking::spi::Transfer
-                    fn transfer_internal_rw(&mut self, words : &mut [$TY]) -> Result<(), Error> {
-                        use hal::spi::FullDuplex;
+                    /// Internal implementation for Read Write transfers
+                    fn transfer_internal_rw(&mut self, read: &mut [$TY], write: &[$TY])
+                                            -> Result<(), Error> {
+                        if read.is_empty() | write.is_empty() {
+                            return Ok(());
+                        }
+                        let len = core::cmp::max(read.len(), write.len());
 
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            const MAX_WORDS: usize = 0xFFFF;
+
+                            // Can we send
+                            if len > MAX_WORDS {
+                                return Err(Error::BufferTooBig { max_size: MAX_WORDS });
+                            }
+
+                            // Setup that we're going to send this amount of bits
+                            // SAFETY: We already checked that `write_words` is not empty
+                            self.setup_transaction(unsafe {
+                                core::num::NonZeroU16::new_unchecked(len as u16)
+                            })?;
+                        }
+
+                        // Depth of FIFO to use. All current SPI implementations
+                        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+                        // Table 409.) but pick 4 as a conservative value.
+                        const FIFO_WORDS: usize = 4;
+
+                        // Fill the first half of the write FIFO
+                        let mut write = write.into_iter();
+                        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+                            nb::block!(self.send(*write.next().unwrap_or(&0xFF)))?;
+                        }
+
+                        for i in FIFO_WORDS..len+FIFO_WORDS {
+                            let read_value = if i < len {
+                                // Continue filling write FIFO and emptying read FIFO
+                                nb::block!(
+                                    self.exchange_duplex_internal(*write.next().unwrap_or(&0xFF))
+                                )?
+                            } else {
+                                // Finish emptying the read FIFO
+                                nb::block!(self.read_duplex_internal())?
+                            };
+                            if i - FIFO_WORDS < read.len() {
+                                read[i - FIFO_WORDS] = read_value;
+                            }
+                        }
+
+                        // Are we in frame mode?
+                        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+                            // Clean up
+                            self.end_transaction()?;
+                        }
+
+                        Ok(())
+                    }
+
+                    /// Internal implementation for in-place transfers
+                    fn transfer_internal_in_place(&mut self, words : &mut [$TY]) -> Result<(), Error> {
                         if words.is_empty() {
                             return Ok(());
                         }
@@ -1288,21 +1363,24 @@ macro_rules! spi {
                     }
                 }
 
-                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
+                impl hal::spi::ErrorType for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
-
-                    fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
-
-                        self.transfer_internal_rw(words)?;
-
-                        Ok(words)
-                    }
                 }
-                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
-                    type Error = Error;
-
+                impl hal::spi::SpiBus<$TY> for Spi<$SPIX, Enabled, $TY> {
                     fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
                         self.transfer_internal_w(words)
+                    }
+                    fn read(&mut self, words: &mut [$TY]) -> Result<(), Self::Error> {
+                        self.transfer_internal_rw(words, &[])
+                    }
+                    fn transfer(&mut self, read: &mut [$TY], write: &[$TY]) -> Result<(), Self::Error> {
+                        self.transfer_internal_rw(read, write)
+                    }
+                    fn transfer_in_place(&mut self, words: &mut [$TY]) -> Result<(), Self::Error> {
+                        self.transfer_internal_in_place(words)
+                    }
+                    fn flush(&mut self) -> Result<(), Self::Error> {
+                        self.flush()
                     }
                 }
             )+

@@ -11,7 +11,8 @@ use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 use core::num::NonZeroU16;
-use spi::Spi;
+
+use embedded_hal::spi::*;
 use stm32h7xx_hal::{pac, prelude::*, spi};
 
 use log::info;
@@ -51,7 +52,7 @@ fn main() -> ! {
     info!("");
 
     // Initialise the SPI peripheral.
-    let mut spi: Spi<_, _, u8> = dp.SPI1.spi(
+    let mut spi: spi::Spi<_, _, u8> = dp.SPI1.spi(
         // Give ownership of the pins
         (sck, miso, mosi, hcs),
         // Create a config with the hardware chip select given
