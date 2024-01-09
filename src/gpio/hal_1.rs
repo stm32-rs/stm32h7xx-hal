@@ -4,9 +4,7 @@ use super::{
 };
 
 use embedded_hal::digital::{ErrorKind, ErrorType};
-use embedded_hal::digital::{
-    InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin,
-};
+use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin};
 
 /// Error type for GPIO
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,11 +58,6 @@ impl<const P: char, const N: u8, MODE> StatefulOutputPin
     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
         Ok(self._is_set_low())
     }
-}
-
-impl<const P: char, const N: u8, MODE> ToggleableOutputPin
-    for Pin<P, N, Output<MODE>>
-{
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
@@ -117,9 +110,6 @@ impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
         Ok(ErasedPin::is_set_low(self))
     }
-}
-
-impl<MODE> ToggleableOutputPin for ErasedPin<Output<MODE>> {
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
@@ -174,11 +164,6 @@ impl<const P: char, MODE> StatefulOutputPin
     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
         Ok(PartiallyErasedPin::is_set_low(self))
     }
-}
-
-impl<const P: char, MODE> ToggleableOutputPin
-    for PartiallyErasedPin<P, Output<MODE>>
-{
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
