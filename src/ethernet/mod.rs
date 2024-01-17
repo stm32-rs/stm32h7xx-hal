@@ -41,7 +41,9 @@ pub mod phy {
 
 mod eth;
 pub use eth::{enable_interrupt, interrupt_handler, new, new_unchecked};
-pub use eth::{DesRing, EthernetDMA, EthernetMAC};
+pub use eth::{DesRing, EthernetDMA, EthernetMAC, TxToken};
+#[cfg(feature = "ptp")]
+pub use eth::PtpFrame;
 
 /// Marks a set of pins used to communciate to a PHY with a Reduced Media
 /// Independent Interface (RMII)

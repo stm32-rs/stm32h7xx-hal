@@ -23,6 +23,8 @@
 //! [notes]: https://github.com/quartiq/stabilizer/commit/ab1735950b2108eaa8d51eb63efadcd2e25c35c4
 
 use core::ptr;
+#[cfg(feature = "ptp")]
+use core::task::Poll;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
@@ -52,7 +54,10 @@ mod emac_consts {
     pub const EMAC_DES3_LD: u32 = 0x1000_0000;
     pub const EMAC_DES3_ES: u32 = 0x0000_8000;
     pub const EMAC_TDES2_IOC: u32 = 0x8000_0000;
+    pub const EMAC_TDES2_TTSE: u32 = 0x4000_0000;
+    pub const EMAC_TDES3_TTSS: u32 = 0x0002_0000;
     pub const EMAC_RDES3_IOC: u32 = 0x4000_0000;
+    pub const EMAC_RDES1_TSA: u32 = 0x0000_4000;
     pub const EMAC_RDES3_PL: u32 = 0x0000_7FFF;
     pub const EMAC_RDES3_BUF1V: u32 = 0x0100_0000;
     pub const EMAC_TDES2_B1L: u32 = 0x0000_3FFF;
@@ -60,6 +65,75 @@ mod emac_consts {
 }
 use self::emac_consts::*;
 
+#[cfg(feature = "ptp")]
+use crate::ptp::{Timestamp, MAX_PTP_FOLLOWERS, PTP_MAX_SIZE};
+
+/// A struct to store the PTP frame and clock_identity
+#[derive(Clone, Copy)]
+#[cfg(feature = "ptp")]
+pub struct PtpFrame {
+    pub buffer: [u8; PTP_MAX_SIZE],
+    pub clock_identity: u64,
+    pub meta_option: Option<smoltcp::phy::PacketMeta>,
+}
+
+#[cfg(feature = "ptp")]
+impl PtpFrame{
+    pub const fn new() -> Self {
+        Self {
+            buffer: [0u8; PTP_MAX_SIZE],
+            clock_identity: 0,
+            meta_option: None,
+        }
+    }
+}
+
+/// A struct to store the packet meta and the timestamp
+#[derive(Clone, Copy)]
+#[repr(C, packed)]
+#[cfg(feature = "ptp")]
+pub struct PacketInfo {
+    packet_meta: Option<smoltcp::phy::PacketMeta>,
+    timestamp: Option<Timestamp>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[cfg(feature = "ptp")]
+pub struct PacketMetaNotFound;
+
+#[cfg(feature = "ptp")]
+impl Default for PacketInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "ptp")]
+impl PacketInfo {
+    pub const fn new() -> Self {
+        Self {
+            packet_meta: None,
+            timestamp: None,
+        }
+    }
+
+    pub fn set_meta_and_clear_ts(&mut self, packet_meta: Option<smoltcp::phy::PacketMeta>) {
+        self.packet_meta = packet_meta;
+        self.timestamp = None;
+    }
+
+    pub fn meta(&self) -> Option<smoltcp::phy::PacketMeta> {
+        self.packet_meta 
+    }
+
+    pub fn ts(&self) -> Option<Timestamp> {
+        self.timestamp
+    }
+
+    pub fn set_ts(&mut self, timestamp: Option<Timestamp>) {
+        self.timestamp = timestamp;
+    }
+}
 /// Transmit Descriptor representation
 ///
 /// * tdes0: transmit buffer address
@@ -99,6 +173,8 @@ impl TDes {
 struct TDesRing<const TD: usize> {
     td: [TDes; TD],
     tbuf: [[u32; ETH_BUF_SIZE / 4]; TD],
+    #[cfg(feature = "ptp")]
+    tinfo: [PacketInfo; TD],
     tdidx: usize,
 }
 
@@ -112,6 +188,8 @@ impl<const TD: usize> TDesRing<TD> {
                 tdes3: 0,
             }; TD],
             tbuf: [[0; ETH_BUF_SIZE / 4]; TD],
+            #[cfg(feature = "ptp")]
+            tinfo: [PacketInfo::new(); TD],
             tdidx: 0,
         }
     }
@@ -154,7 +232,7 @@ impl<const TD: usize> TDesRing<TD> {
         // Read format
         self.td[x].tdes0 = address; // Buffer 1
         self.td[x].tdes1 = 0; // Not used
-        assert!(self.td[x].tdes2 & !EMAC_TDES2_B1L == 0); // Not used
+        assert!(self.td[x].tdes2 & !(EMAC_TDES2_B1L | EMAC_TDES2_TTSE)== 0); // Not used
         assert!(self.td[x].tdes2 & EMAC_TDES2_B1L > 0); // Length must be valid
         self.td[x].tdes3 = 0;
         self.td[x].tdes3 |= EMAC_DES3_FD; // FD: Contains first buffer of packet
@@ -191,6 +269,50 @@ impl<const TD: usize> TDesRing<TD> {
         // this to return a slice from the packed buffer
         let addr = ptr::addr_of_mut!(self.tbuf[x]) as *mut _;
         core::slice::from_raw_parts_mut(addr, len)
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn poll_timestamp(
+        &self,
+        packet_meta: &smoltcp::phy::PacketMeta,
+    ) -> Poll<Result<Option<Timestamp>, PacketMetaNotFound>> {
+        for (idx, info) in self.tinfo.into_iter().enumerate() {
+            if match info.meta() {
+                Some(smoltcp::phy::PacketMeta {id, ..}) => id == packet_meta.id,
+                _ => false,
+            } {
+                if self.td[idx].available() {
+                    let timestamp = self.get_timestamp();
+                    return Poll::Ready(Ok(timestamp))
+                } else {
+                    return Poll::Pending
+                }
+            }
+        }
+        Poll::Ready(Err(PacketMetaNotFound))
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn enable_ptp_with_id(&mut self, packet_meta: Option<smoltcp::phy::PacketMeta>) {
+        if packet_meta.is_some() {
+            self.td[self.tdidx].tdes2 |= EMAC_TDES2_TTSE;
+        }
+        self.tinfo[self.tdidx].set_meta_and_clear_ts(packet_meta);
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn get_timestamp(&self) -> Option<Timestamp> {
+        let contains_timestamp = 
+            (self.td[self.tdidx].tdes3 & EMAC_TDES3_TTSS) == EMAC_TDES3_TTSS;
+        let owned = (self.td[self.tdidx].tdes3 & EMAC_DES3_OWN) == EMAC_DES3_OWN;
+        let is_last = (self.td[self.tdidx].tdes3 & EMAC_DES3_LD) == EMAC_DES3_LD;
+
+        if !owned && contains_timestamp && is_last {
+            let (low, high) = (self.td[self.tdidx].tdes0, self.td[self.tdidx].tdes1);
+            Some(Timestamp::from_parts(high, low))
+        } else {
+            None
+        }
     }
 }
 
@@ -244,6 +366,8 @@ impl RDes {
 struct RDesRing<const RD: usize> {
     rd: [RDes; RD],
     rbuf: [[u32; ETH_BUF_SIZE / 4]; RD],
+    #[cfg(feature = "ptp")]
+    rinfo: [PacketInfo; RD],
     rdidx: usize,
 }
 
@@ -257,6 +381,8 @@ impl<const RD: usize> RDesRing<RD> {
                 rdes3: 0,
             }; RD],
             rbuf: [[0; ETH_BUF_SIZE / 4]; RD],
+            #[cfg(feature = "ptp")]
+            rinfo: [PacketInfo::new(); RD],
             rdidx: 0,
         }
     }
@@ -344,6 +470,76 @@ impl<const RD: usize> RDesRing<RD> {
         let len = core::cmp::min(len, ETH_BUF_SIZE);
         core::slice::from_raw_parts_mut(addr, len)
     }
+
+    #[cfg(feature = "ptp")]
+    pub fn timestamp(&self, packet_meta: &smoltcp::phy::PacketMeta) -> Result<Option<Timestamp>, PacketMetaNotFound> {
+        for info in self.rinfo {
+            if match info.meta() {
+                Some(smoltcp::phy::PacketMeta {id, ..}) => id == packet_meta.id,
+                _ => false,
+            } {
+                return Ok(info.ts())
+            }
+        }
+        Err(PacketMetaNotFound)
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn set_meta_and_clear_ts(&mut self, packet_meta: Option<smoltcp::phy::PacketMeta>) {
+        self.rinfo[self.rdidx].set_meta_and_clear_ts(packet_meta)
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn was_timestamped(&self) -> bool {
+        ((self.rd[self.rdidx + 1].rdes3 & EMAC_DES3_CTXT) == EMAC_DES3_CTXT) // next one is context!
+            && ((self.rd[self.rdidx].rdes1 & EMAC_RDES1_TSA) == EMAC_RDES1_TSA) // 
+            && (self.rd[self.rdidx].rdes3 & EMAC_DES3_LD) == EMAC_DES3_LD // is last
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn read_timestamp_from_next(&self) -> Option<Timestamp> {
+        if !((self.rd[self.rdidx + 1].rdes3 & EMAC_DES3_OWN) == EMAC_DES3_OWN) { // if not is owned
+            let (high, low) = (self.rd[self.rdidx + 1].rdes1, self.rd[self.rdidx+1].rdes0);
+            Some(Timestamp::from_parts(high, low))
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn attach_timestamp(&mut self, timestamp: Option<Timestamp>) {
+        self.rinfo[self.rdidx].set_ts(timestamp);
+    }
+
+    #[cfg(feature = "ptp")]
+    pub fn release_timestamp_desc(&mut self) {
+        let x = self.rdidx + 1;
+
+        assert!(self.rd[x].rdes3 & EMAC_DES3_OWN == 0); // Owned by us
+
+        let address = ptr::addr_of!(self.rbuf[x]) as u32;
+
+        // Read format
+        self.rd[x].rdes0 = address; // Buffer 1
+        self.rd[x].rdes1 = 0; // Reserved
+        self.rd[x].rdes2 = 0; // Marked as invalid
+        self.rd[x].rdes3 = 0;
+        self.rd[x].rdes3 |= EMAC_DES3_OWN; // Give the DMA engine ownership
+        self.rd[x].rdes3 |= EMAC_RDES3_BUF1V; // BUF1V: 1st buffer address is valid
+        self.rd[x].rdes3 |= EMAC_RDES3_IOC; // IOC: Interrupt on complete
+
+        // Ensure changes to the descriptor are committed before
+        // DMA engine sees tail pointer store
+        // cortex_m::asm::dsb();
+
+        // // Move the tail pointer (TPR) to this descriptor
+        // unsafe {
+        //     let dma = &*stm32::ETHERNET_DMA::ptr();
+        //     dma.dmacrx_dtpr
+        //         .write(|w| w.bits(&(self.rd[x]) as *const _ as u32));
+        // }
+
+    }
 }
 
 pub struct DesRing<const TD: usize, const RD: usize> {
@@ -370,6 +566,38 @@ impl<const TD: usize, const RD: usize> Default for DesRing<TD, RD> {
 pub struct EthernetDMA<const TD: usize, const RD: usize> {
     ring: &'static mut DesRing<TD, RD>,
     eth_dma: stm32::ETHERNET_DMA,
+
+    #[cfg(feature = "ptp")]
+    packet_meta_counter: u32,
+    #[cfg(feature = "ptp")]
+    pub ptp_frame_buffer: [PtpFrame; MAX_PTP_FOLLOWERS],
+    #[cfg(feature = "ptp")]
+    pub write_pos: usize,
+}
+
+#[cfg(feature = "ptp")]
+impl <const TD: usize, const RD: usize> EthernetDMA<TD, RD> {
+    pub fn next_packet_meta(&mut self) -> smoltcp::phy::PacketMeta {
+        let mut meta = smoltcp::phy::PacketMeta::default();
+        meta.id = self.packet_meta_counter;
+        self.packet_meta_counter += 1;
+        meta
+    }
+    
+    pub fn rx_timestamp(
+        &self,
+        packet_meta: &smoltcp::phy::PacketMeta,
+    ) -> Result<Option<Timestamp>, PacketMetaNotFound> {
+        self.ring.rx.timestamp(packet_meta)
+    }
+
+    pub fn poll_tx_timestamp(
+        &self,
+        packet_meta: &smoltcp::phy::PacketMeta,
+    ) -> Poll<Result<Option<Timestamp>, PacketMetaNotFound>> {
+        self.ring.tx.poll_timestamp(packet_meta)
+    }
+
 }
 
 ///
@@ -539,6 +767,12 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                     | (u32::from(mac_addr.0[3]) << 24),
             )
         });
+
+        #[cfg(feature = "ptp")]
+        let pm_value = true;
+        #[cfg(not(feature = "ptp"))]
+        let pm_value = false;
+
         // frame filter register
         eth_mac.macpfr.modify(|_, w| {
             w.dntu()
@@ -558,7 +792,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .dbf()
                 .clear_bit()
                 .pm()
-                .clear_bit()
+                .bit(pm_value)
                 .daif()
                 .clear_bit()
                 .hmc()
@@ -643,9 +877,9 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         eth_dma.dmamr.modify(|_, w| {
             w.intm()
                 .bits(0b00)
-                // Rx Tx priority ratio 1:1
+                // Rx Tx priority ratio 2:1
                 .pr()
-                .bits(0b000)
+                .bits(0b001)
                 .txpr()
                 .clear_bit()
                 .da()
@@ -736,7 +970,16 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         clock_range: csr_clock_range,
     };
 
-    let dma = EthernetDMA { ring, eth_dma };
+    let dma = EthernetDMA { 
+        ring, 
+        eth_dma,
+        #[cfg(feature = "ptp")]
+        packet_meta_counter: 0,
+        #[cfg(feature = "ptp")]
+        ptp_frame_buffer: [PtpFrame::new(); MAX_PTP_FOLLOWERS],
+        #[cfg(feature = "ptp")]
+        write_pos: 0,
+    };
 
     (dma, mac)
 }
@@ -796,7 +1039,11 @@ impl StationManagement for EthernetMAC {
 }
 
 /// Define TxToken type and implement consume method
-pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
+pub struct TxToken<'a, const TD: usize> {
+    des_ring: &'a mut TDesRing<TD>,
+    #[cfg(feature = "ptp")]
+    packet_meta: Option<smoltcp::phy::PacketMeta>,
+}
 
 impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
     fn consume<R, F>(self, len: usize, f: F) -> R
@@ -804,24 +1051,73 @@ impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
         F: FnOnce(&mut [u8]) -> R,
     {
         assert!(len <= ETH_BUF_SIZE);
-
-        let result = f(unsafe { self.0.buf_as_slice_mut(len) });
-        self.0.release();
+        let result = f(unsafe { self.des_ring.buf_as_slice_mut(len) });
+        #[cfg(feature = "ptp")]
+        self.des_ring.enable_ptp_with_id(self.packet_meta);
+        self.des_ring.release();
         result
+    }
+
+    #[cfg(feature = "ptp")]
+    fn set_meta(&mut self, packet_meta: smoltcp::phy::PacketMeta) {
+        self.packet_meta = Some(packet_meta)
     }
 }
 
 /// Define RxToken type and implement consume method
-pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
+pub struct RxToken<'a, const RD: usize> {
+    des_ring: &'a mut RDesRing<RD>,
+    #[cfg(feature = "ptp")]
+    packet_meta: smoltcp::phy::PacketMeta,
+    #[cfg(feature = "ptp")]
+    ptp_frame: &'a mut PtpFrame,
+}
 
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     fn consume<R, F>(self, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        let result = f(unsafe { self.0.buf_as_slice_mut() });
-        self.0.release();
+        #[cfg(feature = "ptp")]
+        {
+            // if running state is NOT RUNNING
+            // demand poll!!!! otherwise itll stop when timestamp blocking and not start again?!?!
+            let eth_dma = unsafe{&*stm32::ETHERNET_DMA::ptr()};
+            let status = eth_dma.dmadsr.read().rps0().bits();
+            if status == 0b100 || status == 0b000 { //receive descriptor unavailable!
+                // demand poll!!!
+                eth_dma
+                    .dmacrx_dtpr
+                    .modify(|r, w| unsafe { w.bits(r.bits()) });
+            }
+            self.des_ring.set_meta_and_clear_ts(Some(self.packet_meta));
+            if self.des_ring.was_timestamped() {
+                let timestamp = self.des_ring.read_timestamp_from_next();
+                self.des_ring.attach_timestamp(timestamp);
+                // self.des_ring.release_timestamp_desc();
+            }
+        }
+
+        let buf = unsafe { self.des_ring.buf_as_slice_mut() };
+        #[cfg(feature = "ptp")]
+        {
+            let ethertype = u16::from_be_bytes(buf[12..14].try_into().unwrap());
+            if ethertype == 0x88F7 {
+                let packet_buf = &buf[14..];
+                let clock_identity = u64::from_be_bytes(packet_buf[20..28].try_into().unwrap());
+                self.ptp_frame.buffer[0..core::cmp::min(packet_buf.len(), PTP_MAX_SIZE)].copy_from_slice(&packet_buf[0..core::cmp::min(packet_buf.len(), PTP_MAX_SIZE)]);
+                self.ptp_frame.meta_option = Some(self.packet_meta);
+                self.ptp_frame.clock_identity = clock_identity;
+            }
+        }
+        let result = f(buf);
+        self.des_ring.release();
         result
+    }
+
+    #[cfg(feature = "ptp")]
+    fn meta(&self) -> smoltcp::phy::PacketMeta {
+        self.packet_meta 
     }
 }
 
@@ -851,7 +1147,27 @@ impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
         }
 
         if self.ring.rx.available() && self.ring.tx.available() {
-            Some((RxToken(&mut self.ring.rx), TxToken(&mut self.ring.tx)))
+            #[cfg(feature = "ptp")]
+            let rx_packet_meta = self.next_packet_meta();
+            let tokens = Some((
+                RxToken {
+                    des_ring: &mut self.ring.rx, 
+                    #[cfg(feature = "ptp")]
+                    packet_meta: rx_packet_meta,
+                    #[cfg(feature = "ptp")]
+                    ptp_frame: &mut self.ptp_frame_buffer[self.write_pos],
+                }, 
+                TxToken {
+                    des_ring: &mut self.ring.tx, 
+                    #[cfg(feature = "ptp")]
+                    packet_meta: None
+                }
+            ));
+            #[cfg(feature = "ptp")]
+            {
+                self.write_pos = (self.write_pos + 1) % MAX_PTP_FOLLOWERS;
+            }
+            tokens
         } else {
             None
         }
@@ -859,7 +1175,15 @@ impl<const TD: usize, const RD: usize> phy::Device for EthernetDMA<TD, RD> {
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<TxToken<TD>> {
         if self.ring.tx.available() {
-            Some(TxToken(&mut self.ring.tx))
+            #[cfg(feature = "ptp")]
+            let tx_packet_meta = Some(self.next_packet_meta());
+            Some(
+                TxToken {
+                    des_ring: &mut self.ring.tx,
+                    #[cfg(feature = "ptp")]
+                    packet_meta: tx_packet_meta,
+                }
+            )
         } else {
             None
         }
@@ -884,6 +1208,7 @@ pub unsafe fn interrupt_handler() {
     eth_dma
         .dmacsr
         .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
+    // .tbu().set_bit().rbu().set_bit().ais().set_bit()
     let _ = eth_dma.dmacsr.read();
     let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
 }
@@ -902,4 +1227,5 @@ pub unsafe fn enable_interrupt() {
     eth_dma
         .dmacier
         .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit());
+    // .aie().set_bit().rbue().set_bit().tbue().set_bit()
 }
