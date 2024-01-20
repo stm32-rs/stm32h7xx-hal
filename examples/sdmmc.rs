@@ -41,7 +41,7 @@ fn main() -> ! {
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
     // STM32H747I-DISCO development board
-    #[cfg(any(feature = "rm0399"))]
+    #[cfg(feature = "rm0399")]
     let mut led = {
         let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
 
