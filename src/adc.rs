@@ -1,7 +1,7 @@
 //! Analog to Digital Converter (ADC)
 //!
 //! ADC1 and ADC2 share a reset line. To initialise both of them, use the
-//! [`adc12`](adc12) method.
+//! [`adc12`] method.
 //!
 //! # Examples
 //!
@@ -999,7 +999,7 @@ macro_rules! adc_hal {
 
                 /// Set ADC sampling time
                 ///
-                /// Options can be found in [AdcSampleTime](crate::adc::AdcSampleTime).
+                /// Options can be found in [AdcSampleTime].
                 pub fn set_sample_time(&mut self, t_samp: AdcSampleTime) {
                     self.sample_time = t_samp;
                 }

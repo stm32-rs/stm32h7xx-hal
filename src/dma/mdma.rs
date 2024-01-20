@@ -44,10 +44,10 @@
 //! Unlike DMA1/DMA2, it is valid to assign the same request line to multiple
 //! MDMA streams. Additionally there are multiple requests lines to choose from
 //! for each target peripheral. For this reason, hardware request lines are
-//! specified as part of the [`MdmaConfig`](MdmaConfig) instead of being
-//! inferred from the peripheral type. If no hardware request line is specified,
-//! then the request line originates from software and the transfer is started
-//! immediately when [`enable`](Stream0#method.enable) is called.
+//! specified as part of the [`MdmaConfig`] instead of being inferred from the
+//! peripheral type. If no hardware request line is specified, then the request
+//! line originates from software and the transfer is started immediately when
+//! [`enable`](Stream0#method.enable) is called.
 //!
 //!
 
