@@ -3,6 +3,7 @@
 //! This example is for RM0433/RM0399 parts. It has been tested on the Arduino
 //! Portenta H7
 #![deny(warnings)]
+#![allow(clippy::type_complexity)]
 #![no_std]
 #![no_main]
 
