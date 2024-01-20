@@ -4,6 +4,7 @@
 //! For an example of using ADC1 and ADC2 together, see examples/adc12.rs
 //! For an example of using ADC1 and ADC2 in parallel, see examples/adc12_parallel.rs
 
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -33,8 +34,11 @@ fn main() -> ! {
 
     let adc_buffer: &'static mut [u16; 32_768] = {
         // Convert an uninitialised array into an array of uninitialised
-        let buf: &mut [MaybeUninit<u16>; 32_768] =
-            unsafe { mem::transmute(&mut BUFFER) };
+        let buf: &mut [MaybeUninit<u16>; 32_768] = unsafe {
+            &mut *(core::ptr::addr_of_mut!(BUFFER)
+                as *mut [MaybeUninit<_>; 32_768])
+        };
+
         // Initialise memory to valid values
         for slot in buf.iter_mut() {
             // Never create even a _temporary_ reference to uninitialised memory

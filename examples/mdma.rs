@@ -1,6 +1,5 @@
 //! Example of Memory to Memory Transfer with the Master DMA (MDMA)
 
-#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -52,15 +51,17 @@ fn main() -> ! {
     // Initialise the source buffer without taking any references to
     // uninitialisated memory
     let source_buffer: &'static mut [u32; 200] = {
-        let buf: &mut [MaybeUninit<u32>; 200] =
-            unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+        let buf: &mut [MaybeUninit<u32>; 200] = unsafe {
+            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
+                as *mut [MaybeUninit<u32>; 200])
+        };
 
         for value in buf.iter_mut() {
             unsafe {
                 value.as_mut_ptr().write(0x11223344u32);
             }
         }
-        unsafe { mem::transmute(buf) }
+        unsafe { SOURCE_BUFFER.assume_init_mut() }
     };
 
     //
@@ -104,8 +105,7 @@ fn main() -> ! {
     while !transfer.get_transfer_complete_flag() {}
 
     // Decompose the stream to get the source buffer back
-    let (stream, _mem2mem, _target, source_buffer_opt) = transfer.free();
-    let source_buffer = source_buffer_opt.unwrap();
+    let (stream, _mem2mem, _target, _) = transfer.free();
 
     for a in target_buffer.iter() {
         assert_eq!(*a, 0x11223344);
@@ -118,6 +118,7 @@ fn main() -> ! {
     //
 
     // Reset source buffer
+    let source_buffer = unsafe { SOURCE_BUFFER.assume_init_mut() };
     *source_buffer = [0xAABBCCDD; 200];
 
     // New target buffer on the stack

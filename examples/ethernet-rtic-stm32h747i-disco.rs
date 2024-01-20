@@ -52,7 +52,8 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
+    MaybeUninit::uninit();
 
 // This data will be held by Net through a mutable reference
 pub struct NetStorageStatic<'a> {
@@ -167,6 +168,8 @@ mod app {
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
+            DES_RING.write(ethernet::DesRing::new());
+
             ethernet::new(
                 ctx.device.ETHERNET_MAC,
                 ctx.device.ETHERNET_MTL,
@@ -182,7 +185,7 @@ mod app {
                     rmii_txd0,
                     rmii_txd1,
                 ),
-                &mut DES_RING,
+                DES_RING.assume_init_mut(),
                 mac_addr,
                 ccdr.peripheral.ETH1MAC,
                 &ccdr.clocks,
