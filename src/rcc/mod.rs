@@ -108,10 +108,9 @@
 //! # Peripherals
 //!
 //! The `freeze()` method returns a [Core Clocks Distribution and Reset
-//! (CCDR)](struct.Ccdr.html) object. This singleton tells you how the core
-//! clocks were actually configured (in [CoreClocks](struct.CoreClocks.html))
-//! and allows you to configure the remaining peripherals (see
-//! [PeripheralREC](crate::rcc::rec::struct.PeripheralREC.html)).
+//! (CCDR)](Ccdr) object. This singleton tells you how the core clocks were
+//! actually configured (in [CoreClocks]) and allows you to configure the
+//! remaining peripherals (see [PeripheralREC]).
 //!
 //!```rust
 //! let ccdr = ...; // Returned by `freeze()`, see examples above
@@ -126,7 +125,7 @@
 //! ccdr.peripheral.FDCAN.enable().reset();
 //!```
 //!
-//! The [PeripheralREC](struct.PeripheralREC.html) members implement move
+//! The [PeripheralREC] members implement move
 //! semantics, so once you have passed them to a constructor they cannot be
 //! modified again in safe Rust.
 //!
