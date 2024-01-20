@@ -97,7 +97,7 @@ mod app {
         // Initialize our transmit buffer.
         let buffer: &'static mut [u8; BUFFER_SIZE] = {
             let buf: &mut [MaybeUninit<u8>; BUFFER_SIZE] = unsafe {
-                &mut *(&mut BUFFER as *mut MaybeUninit<[u8; BUFFER_SIZE]>
+                &mut *(core::ptr::addr_of_mut!(BUFFER)
                     as *mut [MaybeUninit<u8>; BUFFER_SIZE])
             };
 
@@ -107,10 +107,7 @@ mod app {
                 }
             }
 
-            unsafe {
-                &mut *(buf as *mut [MaybeUninit<u8>; BUFFER_SIZE]
-                    as *mut [u8; BUFFER_SIZE])
-            }
+            unsafe { BUFFER.assume_init_mut() }
         };
 
         let streams = hal::dma::dma::StreamsTuple::new(

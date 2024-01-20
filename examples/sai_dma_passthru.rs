@@ -6,6 +6,8 @@
 #![no_main]
 #![no_std]
 
+use core::mem::MaybeUninit;
+
 use cortex_m::asm;
 
 use cortex_m_rt::entry;
@@ -43,9 +45,11 @@ const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 // = static data ==============================================================
 
 #[link_section = ".sram3"]
-static mut TX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
+static mut TX_BUFFER: MaybeUninit<[u32; DMA_BUFFER_LENGTH]> =
+    MaybeUninit::uninit();
 #[link_section = ".sram3"]
-static mut RX_BUFFER: [u32; DMA_BUFFER_LENGTH] = [0; DMA_BUFFER_LENGTH];
+static mut RX_BUFFER: MaybeUninit<[u32; DMA_BUFFER_LENGTH]> =
+    MaybeUninit::uninit();
 pub const CLOCK_RATE_HZ: Hertz = Hertz::MHz(400);
 
 const HSE_CLOCK_MHZ: Hertz = Hertz::MHz(16);
@@ -107,7 +111,7 @@ fn main() -> ! {
 
     // dma1 stream 0
     let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-        unsafe { &mut TX_BUFFER };
+        unsafe { TX_BUFFER.assume_init_mut() }; // uninitialised memory
     let dma_config = dma::dma::DmaConfig::default()
         .priority(dma::config::Priority::High)
         .memory_increment(true)
@@ -125,7 +129,7 @@ fn main() -> ! {
 
     // dma1 stream 1
     let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-        unsafe { &mut RX_BUFFER };
+        unsafe { RX_BUFFER.assume_init_mut() }; // uninitialised memory
     let dma_config = dma_config
         .transfer_complete_interrupt(true)
         .half_transfer_interrupt(true);
@@ -172,6 +176,12 @@ fn main() -> ! {
         pac::NVIC::unmask(pac::Interrupt::DMA1_STR1);
     }
 
+    static mut TRANSFER_DMA1_STR1: MaybeUninit<Option<TransferDma1Str1>> =
+        MaybeUninit::uninit();
+    unsafe {
+        TRANSFER_DMA1_STR1.write(None);
+    }
+
     dma1_str1.start(|_sai1_rb| {
         sai1.enable_dma(SaiChannel::ChannelB);
     });
@@ -209,25 +219,26 @@ fn main() -> ! {
         dma::DBTransfer,
     >;
 
-    static mut TRANSFER_DMA1_STR1: Option<TransferDma1Str1> = None;
     unsafe {
-        TRANSFER_DMA1_STR1 = Some(dma1_str1);
+        TRANSFER_DMA1_STR1.write(Some(dma1_str1)); // drops previous None
         info!(
             "{:?}, {:?}",
-            &TX_BUFFER[0] as *const u32, &RX_BUFFER[0] as *const u32
+            TX_BUFFER.assume_init()[0] as *const u32,
+            RX_BUFFER.assume_init()[0] as *const u32
         );
     }
 
     #[interrupt]
     fn DMA1_STR1() {
         let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-            unsafe { &mut TX_BUFFER };
+            unsafe { TX_BUFFER.assume_init_mut() };
         let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-            unsafe { &mut RX_BUFFER };
+            unsafe { RX_BUFFER.assume_init_mut() };
 
         let stereo_block_length = tx_buffer.len() / 2;
 
-        if let Some(transfer) = unsafe { &mut TRANSFER_DMA1_STR1 } {
+        if let Some(transfer) = unsafe { TRANSFER_DMA1_STR1.assume_init_mut() }
+        {
             let skip = if transfer.get_half_transfer_flag() {
                 transfer.clear_half_transfer_interrupt();
                 (0, stereo_block_length)

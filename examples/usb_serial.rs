@@ -8,8 +8,11 @@
 //! to use the USB2 peripheral together with PA11 and PA12. This applies to the
 //! NUCLEO-H743ZI2 board.
 //!
+#![deny(warnings)]
 #![no_std]
 #![no_main]
+
+use core::mem::MaybeUninit;
 
 #[macro_use]
 #[allow(unused)]
@@ -23,7 +26,7 @@ use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
 
-static mut EP_MEMORY: [u32; 1024] = [0; 1024];
+static mut EP_MEMORY: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -72,7 +75,17 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
-    let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });
+    // Initialise EP_MEMORY to zero
+    unsafe {
+        let buf: &mut [MaybeUninit<u32>; 1024] =
+            &mut *(core::ptr::addr_of_mut!(EP_MEMORY) as *mut _);
+        for value in buf.iter_mut() {
+            value.as_mut_ptr().write(0);
+        }
+    }
+
+    // Now we may assume that EP_MEMORY is initialised
+    let usb_bus = UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() });
 
     let mut serial = usbd_serial::SerialPort::new(&usb_bus);
 

@@ -2,12 +2,11 @@
 //!
 //!
 
-#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_std]
 #![no_main]
 
-use core::{mem, mem::MaybeUninit};
+use core::mem::MaybeUninit;
 
 #[macro_use]
 mod utilities;
@@ -93,13 +92,14 @@ fn main() -> ! {
     let config = BdmaConfig::default().memory_increment(true);
 
     // We need to specify the direction with a type annotation
-    let mut transfer: Transfer<_, _, PeripheralToMemory, _, _> = Transfer::init(
-        streams.0,
-        i2c,
-        unsafe { &mut BUFFER }, // uninitialised memory
-        None,
-        config,
-    );
+    let mut transfer: Transfer<_, _, PeripheralToMemory, &mut [u8; 10], _> =
+        Transfer::init(
+            streams.0,
+            i2c,
+            unsafe { BUFFER.assume_init_mut() }, // uninitialised memory
+            None,
+            config,
+        );
 
     transfer.start(|i2c| {
         // This closure runs right after enabling the stream
@@ -128,7 +128,7 @@ fn I2C4_EV() {
     info!("I2C transfer complete!");
 
     // Look at BUFFER, which we expect to be initialised
-    let buffer: &'static mut [u8; 10] = unsafe { mem::transmute(&mut BUFFER) };
+    let buffer: &'static [u8; 10] = unsafe { BUFFER.assume_init_mut() };
 
     assert_eq!(buffer[0], 0xBE);
 

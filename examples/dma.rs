@@ -1,11 +1,10 @@
 //! Example of Memory to Memory Transfer with the DMA
 
-#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
-use core::{mem, mem::MaybeUninit};
+use core::mem::MaybeUninit;
 
 use cortex_m_rt::entry;
 #[macro_use]
@@ -57,15 +56,17 @@ fn main() -> ! {
     // Initialise the source buffer with truly random data, without taking any
     // references to uninitialisated memory
     let source_buffer: &'static mut [u32; 20] = {
-        let buf: &mut [MaybeUninit<u32>; 20] =
-            unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+        let buf: &mut [MaybeUninit<u32>; 20] = unsafe {
+            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
+                as *mut [MaybeUninit<u32>; 20])
+        };
 
         for value in buf.iter_mut() {
             unsafe {
                 value.as_mut_ptr().write(rng.gen().unwrap());
             }
         }
-        unsafe { mem::transmute(buf) }
+        unsafe { SOURCE_BUFFER.assume_init_mut() }
     };
     // Save a copy on the stack so we can check it later
     let source_buffer_cloned = *source_buffer;
@@ -85,7 +86,9 @@ fn main() -> ! {
         Transfer::init(
             streams.4,
             MemoryToMemory::new(),
-            unsafe { mem::transmute(&mut TARGET_BUFFER) }, // Uninitialised memory
+            unsafe {
+                (*core::ptr::addr_of_mut!(TARGET_BUFFER)).assume_init_mut()
+            }, // Uninitialised memory
             Some(source_buffer),
             config,
         );
@@ -97,7 +100,7 @@ fn main() -> ! {
 
     // Now the target memory is actually initialised
     let target_buffer: &'static mut [u32; 20] =
-        unsafe { mem::transmute(&mut TARGET_BUFFER) };
+        unsafe { TARGET_BUFFER.assume_init_mut() };
 
     // Comparison check
     assert_eq!(&source_buffer_cloned, target_buffer);

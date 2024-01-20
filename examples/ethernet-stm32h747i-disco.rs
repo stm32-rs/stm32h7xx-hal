@@ -11,6 +11,7 @@
 #![no_main]
 #![no_std]
 
+use core::mem::MaybeUninit;
 use cortex_m_rt as rt;
 use rt::{entry, exception};
 
@@ -28,7 +29,8 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
+    MaybeUninit::uninit();
 
 // the program entry point
 #[entry]
@@ -85,6 +87,8 @@ fn main() -> ! {
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, eth_mac) = unsafe {
+        DES_RING.write(ethernet::DesRing::new());
+
         ethernet::new(
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
@@ -100,7 +104,7 @@ fn main() -> ! {
                 rmii_txd0,
                 rmii_txd1,
             ),
-            &mut DES_RING,
+            DES_RING.assume_init_mut(),
             mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,

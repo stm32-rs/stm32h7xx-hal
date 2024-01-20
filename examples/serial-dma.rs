@@ -7,7 +7,6 @@
 //! into chunks and using the `next_transfer_with` method to start each part of
 //! the transfer.
 
-#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -83,26 +82,28 @@ fn main() -> ! {
     // uninitialised memory
     let short_buffer: &'static mut [u8; 10] = {
         let buf: &mut [MaybeUninit<u8>; 10] =
-            unsafe { mem::transmute(&mut SHORT_BUFFER) };
+            unsafe { &mut *(core::ptr::addr_of_mut!(SHORT_BUFFER) as *mut _) };
 
         for (i, value) in buf.iter_mut().enumerate() {
             unsafe {
                 value.as_mut_ptr().write(i as u8 + 96); // 0x60, 0x61, 0x62...
             }
         }
-        unsafe { mem::transmute(buf) }
+        unsafe { SHORT_BUFFER.assume_init_mut() }
     };
     // view u32 buffer as u8. Endianess is undefined (little-endian on STM32H7)
     let long_buffer: &'static mut [u8; 0x2_0010] = {
         let buf: &mut [MaybeUninit<u32>; 0x8004] =
-            unsafe { mem::transmute(&mut LONG_BUFFER) };
+            unsafe { &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut _) };
 
         for (i, value) in buf.iter_mut().enumerate() {
             unsafe {
                 value.as_mut_ptr().write(i as u32);
             }
         }
-        unsafe { mem::transmute(buf) }
+        unsafe {
+            &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut [u8; 0x2_0010])
+        }
     };
 
     // Setup the DMA transfer on stream 0
