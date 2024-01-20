@@ -22,6 +22,8 @@ use crate::stm32::{
     TIM1, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17, TIM2, TIM3, TIM4, TIM5,
     TIM6, TIM7, TIM8,
 };
+#[cfg(feature = "rm0468")]
+use crate::stm32::{TIM23, TIM24};
 
 use cast::{u16, u32};
 use void::Void;
@@ -57,6 +59,10 @@ macro_rules! impl_tim_ker_ck {
 impl_tim_ker_ck! {
     timx_ker_ck: TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM12, TIM13, TIM14
     timy_ker_ck: TIM1, TIM8, TIM15, TIM16, TIM17
+}
+#[cfg(feature = "rm0468")]
+impl_tim_ker_ck! {
+   timx_ker_ck: TIM23, TIM24
 }
 
 /// LPTIM1 Kernel Clock
@@ -590,6 +596,12 @@ hal! {
     TIM15: (tim15, Tim15, u16),
     TIM16: (tim16, Tim16, u16),
     TIM17: (tim17, Tim17, u16),
+}
+#[cfg(feature = "rm0468")]
+hal! {
+    // General-purpose
+    TIM23: (tim23, Tim23, u32),
+    TIM24: (tim24, Tim24, u32),
 }
 
 macro_rules! lptim_hal {

@@ -639,7 +639,9 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(feature = "rm0468")]
     APB1H, "" => [
-        Swpmi [kernel clk: Swpmi d2ccip1 "SWPMI"]
+        Swpmi [kernel clk: Swpmi d2ccip1 "SWPMI"],
+
+        Tim23, Tim24
     ];
 
 
