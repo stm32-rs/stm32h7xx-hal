@@ -45,9 +45,8 @@ use embedded_display_controller::DisplayConfiguration;
 use otm8009a::Otm8009A;
 use stm32h7xx_hal::dsi::{
     DsiCmdModeTransmissionKind, DsiHost, DsiInterrupts, DsiMode, DsiPhyTimers,
-    DsiVideoMode, LaneCount,
+    LaneCount,
 };
-use ft6236::{FT6236};
 use crate::utilities::mpu_config::init_mpu;
 use crate::utilities::write::write_to::WriteTo;
 use core::fmt::Write;
@@ -303,14 +302,6 @@ fn main() -> ! {
     let mut dsi_refresh_handle = dsi_host.refresh_handle();
     info!("Initialised Display...");
 
-    let scl = gpiod.pd12.into_alternate_open_drain();
-    let sda = gpiod.pd13.into_alternate_open_drain();
-    let i2c4 =
-        dp.I2C4
-            .i2c((scl, sda), 100.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
-    let mut touch_ctrl = FT6236::new(i2c4);
-    // let touch_int = gpiok.pk7
-
     let mut x = 0;
     let mut y = 0;
     let mut frame = 0;
@@ -347,11 +338,6 @@ fn main() -> ! {
             write!(&mut buf, "f: {frame}").unwrap();
             frame += 1;
             colored_label(buf.as_str().unwrap(), 50, 20, Rgb888::RED, draw).unwrap();
-
-            if let Ok(Some(pt)) = touch_ctrl.get_point0() {
-                info!("Touch: {} {}", pt.y, 480 - pt.x);
-                Circle::new(Point::new(480 - pt.x as i32 - 25, pt.y as i32 - 25), 50).into_styled(style_green).draw(draw).unwrap();
-            }
 
             display_test(draw).unwrap();
         });

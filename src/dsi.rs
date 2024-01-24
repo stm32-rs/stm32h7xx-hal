@@ -6,7 +6,7 @@ use crate::{
 };
 use core::cmp::{max, min};
 use embedded_display_controller::DisplayConfiguration;
-use embedded_dsi::{DsiHostCtrlIo, DsiReadCommand, DsiWriteCommand};
+use embedded_display_controller::dsi::{DsiHostCtrlIo, DsiReadCommand, DsiWriteCommand};
 #[cfg(feature = "log")]
 use log::debug;
 
@@ -589,19 +589,19 @@ impl DsiHostCtrlIo for DsiHost {
         )?;
         match kind {
             DsiWriteCommand::DcsShortP0 { .. } => todo!(),
-            DsiWriteCommand::DcsShortP1 { reg, data } => {
+            DsiWriteCommand::DcsShortP1 { arg, data } => {
                 // debug!("{}, short_p1: reg: {reg:02x}, data: {data:02x}", self.write_idx);
                 // self.write_idx += 1;
-                self.ghcr_write(data, reg, kind.discriminant());
+                self.ghcr_write(data, arg, kind.discriminant());
             }
-            DsiWriteCommand::DcsLongWrite { dcs_cmd, buf } => {
-                self.long_write(dcs_cmd, buf, kind.discriminant())?
+            DsiWriteCommand::DcsLongWrite { arg, data } => {
+                self.long_write(arg, data, kind.discriminant())?
             }
             DsiWriteCommand::GenericShortP0 => todo!(),
             DsiWriteCommand::GenericShortP1 => todo!(),
             DsiWriteCommand::GenericShortP2 => todo!(),
-            DsiWriteCommand::GenericLongWrite { cmd, buf } => {
-                self.long_write(cmd, buf, kind.discriminant())?
+            DsiWriteCommand::GenericLongWrite { arg, data } => {
+                self.long_write(arg, data, kind.discriminant())?
             }
             DsiWriteCommand::SetMaximumReturnPacketSize(len) => {
                 self.ghcr_write(
@@ -629,8 +629,8 @@ impl DsiHostCtrlIo for DsiHost {
         }
 
         match kind {
-            DsiReadCommand::DcsShort { dcs_cmd } => {
-                self.ghcr_write(0, dcs_cmd, kind.discriminant());
+            DsiReadCommand::DcsShort { arg } => {
+                self.ghcr_write(0, arg, kind.discriminant());
             }
             DsiReadCommand::GenericShortP0 => {
                 self.ghcr_write(0, 0, kind.discriminant());

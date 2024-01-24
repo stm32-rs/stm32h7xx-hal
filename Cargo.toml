@@ -42,11 +42,10 @@ sdio-host = { version = "0.9", optional = true }
 embedded-sdmmc = { version = "0.5", optional = true }
 stm32-fmc = { version = "0.3", optional = true }
 synopsys-usb-otg = { version = "0.4", features = ["cortex-m"], optional = true }
-embedded-display-controller = { version = "^0.1.0", optional = true }
+embedded-display-controller = { version = "^0.2.0", optional = true }
 log = { version = "0.4.14", optional = true} # see also the dev-dependencies section
 fdcan = { version = "0.2", optional = true }
 embedded-storage = "0.3"
-embedded-dsi = { git = "https://github.com/romixlab/embedded-hal.git", branch = "dsi", optional = true }
 
 [dependencies.smoltcp]
 version = "0.10.0"
@@ -82,9 +81,8 @@ usbd-serial = "0.2.0"
 numtoa = "0.2.3"
 tinybmp = "0.5"
 embedded-graphics = "0.8"
-otm8009a = { git = "https://github.com/romixlab/otm8009a.git" }
+otm8009a = "0.1"
 eg-seven-segment = "0.2.0"
-ft6236 = { git = "https://github.com/romixlab/ft6236.git" }
 
 [dev-dependencies.smoltcp]
 version = "0.10.0"
@@ -104,7 +102,7 @@ gpio-h72 = []
 gpio-h747 = []
 gpio-h7a2 = []
 
-dsi = ["embedded-dsi", "embedded-display-controller"]
+dsi = ["embedded-display-controller"]
 cm4 = []
 cm7 = []
 smps = []

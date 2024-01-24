@@ -35,7 +35,6 @@ use embedded_display_controller::DisplayController;
 use chrono::{NaiveDateTime, NaiveTime};
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, PrimitiveStyleBuilder};
 
 use embedded_display_controller::DisplayConfiguration;
 use otm8009a::Otm8009A;
@@ -43,7 +42,6 @@ use stm32h7xx_hal::dsi::{
     DsiCmdModeTransmissionKind, DsiHost, DsiInterrupts, DsiMode, DsiPhyTimers,
     DsiVideoMode, LaneCount,
 };
-use ft6236::{FT6236};
 use crate::utilities::display_primitives::time_circuit;
 use crate::utilities::mpu_config::init_mpu;
 
@@ -309,17 +307,18 @@ fn main() -> ! {
     //let mut dsi_refresh_handle = dsi_host.refresh_handle();
     info!("Initialised Display...");
 
-    let scl = gpiod.pd12.into_alternate_open_drain();
-    let sda = gpiod.pd13.into_alternate_open_drain();
-    let i2c4 =
-        dp.I2C4
-            .i2c((scl, sda), 100.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
-    let mut touch_ctrl = FT6236::new(i2c4);
+    // Works
+    // let scl = gpiod.pd12.into_alternate_open_drain();
+    // let sda = gpiod.pd13.into_alternate_open_drain();
+    // let i2c4 =
+    //     dp.I2C4
+    //         .i2c((scl, sda), 100.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
+    // let mut touch_ctrl = FT6236::new(i2c4);
     // let touch_int = gpiok.pk7
 
-    let style_green = PrimitiveStyleBuilder::new()
-        .fill_color(Rgb888::GREEN)
-        .build();
+    // let style_green = PrimitiveStyleBuilder::new()
+    //     .fill_color(Rgb888::GREEN)
+    //     .build();
 
     loop {
         // Draw on a double buffered display
@@ -332,10 +331,10 @@ fn main() -> ! {
             time_circuit(now, tc_x, 250, "PRESENT TIME", Rgb888::CSS_LIME_GREEN, Rgb888::new(15, 64, 15), draw).unwrap();
             time_circuit(NaiveDateTime::new(NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(), NaiveTime::from_hms_opt(01, 20, 0).unwrap()), tc_x, 400, "LAST TIME DEPARTED", Rgb888::CSS_ORANGE, Rgb888::new(77, 42, 0), draw).unwrap();
 
-            if let Ok(Some(pt)) = touch_ctrl.get_point0() {
-                info!("Touch: {} {}", pt.y, 480 - pt.x);
-                Circle::new(Point::new(pt.y as i32 - 25, 480 - pt.x as i32 - 25), 50).into_styled(style_green).draw(draw).unwrap();
-            }
+            // if let Ok(Some(pt)) = touch_ctrl.get_point0() {
+            //     info!("Touch: {} {}", pt.y, 480 - pt.x);
+            //     Circle::new(Point::new(pt.y as i32 - 25, 480 - pt.x as i32 - 25), 50).into_styled(style_green).draw(draw).unwrap();
+            // }
         });
         disp.swap_layer_wait();
     }
