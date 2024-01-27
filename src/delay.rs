@@ -49,7 +49,7 @@ use void::Void;
 
 use crate::nb::block;
 use crate::rcc::CoreClocks;
-use crate::time::{Hertz, MicroSeconds};
+use crate::time::Hertz;
 use fugit::RateExtU32;
 
 pub trait DelayExt {
