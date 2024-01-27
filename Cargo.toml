@@ -152,6 +152,10 @@ opt-level = "s" # optimize for binary size
 # configuration required by the example.
 
 [[example]]
+name = "blinky-stm32h747i-disco"
+required-features = ["rt", "stm32h747cm7"]
+
+[[example]]
 name = "can-echo"
 required-features = ["can"]
 
