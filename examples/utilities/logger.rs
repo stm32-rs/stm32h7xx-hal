@@ -43,12 +43,12 @@ cfg_if::cfg_if! {
         }
 
         static LOGGER: Logger = Logger {
-            level: Level::Info,
+            level: Level::Debug,
         };
 
         pub fn init() {
             rtt_init_print!();
-            log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Info)).unwrap();
+            log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Debug)).unwrap();
         }
 
         impl log::Log for Logger {

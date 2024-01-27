@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* MSRV increased to Rust 1.66.1 [#473]
+
 ## [v0.15.1] 2023-11-03
 
 * Bugfix, usb: On RM0455 and RM0468 parts, PA11/PA12 do not have an alternate function

@@ -13,6 +13,7 @@ use core::{mem, slice};
 
 #[macro_use]
 mod utilities;
+mod utilities_display;
 use log::info;
 
 extern crate cortex_m;
@@ -32,6 +33,7 @@ use embedded_graphics::mono_font::{ascii, MonoTextStyle};
 use embedded_graphics::prelude::*;
 use embedded_graphics::text::Text;
 
+use crate::utilities_display::display_target::BufferedDisplay;
 use numtoa::NumToA;
 use tinybmp::Bmp;
 
@@ -230,7 +232,7 @@ fn main() -> ! {
     });
 
     let layer = ltdc.split();
-    let mut disp = BufferedDisplay::new(layer, fb1, fb2);
+    let mut disp = BufferedDisplay::new(layer, fb1, fb2, WIDTH, HEIGHT);
 
     lcd_disp_en.set_low();
     lcd_disp_ctrl.set_high();
@@ -278,132 +280,6 @@ fn main() -> ! {
             ferris.draw(draw).unwrap();
         });
         disp.swap_layer_wait();
-    }
-}
-
-/// A display with swappable framebuffers
-pub struct BufferedDisplay<'a, LY> {
-    layer: LY,
-    front_buffer: &'a mut [u32],
-    back_buffer: &'a mut [u32],
-}
-
-/// An individual display layer, borrowing from `BufferedDisplay`
-pub struct DisplayBuffer<'a, 'p>(
-    /// Underlying buffer
-    pub &'p mut &'a mut [u32],
-);
-
-impl<'a, LY> BufferedDisplay<'a, LY>
-where
-    LY: embedded_display_controller::DisplayControllerLayer,
-{
-    pub fn new(
-        mut layer: LY,
-        front_buffer: &'a mut [u32],
-        back_buffer: &'a mut [u32],
-    ) -> Self {
-        // Safety: the frame buffer has the right size
-        unsafe {
-            layer.enable(
-                front_buffer.as_ptr() as *const u8,
-                embedded_display_controller::PixelFormat::ARGB8888,
-            );
-        }
-
-        BufferedDisplay {
-            layer,
-            front_buffer,
-            back_buffer,
-        }
-    }
-
-    /// Swaps frame buffers
-    ///
-    /// # Safety
-    ///
-    /// Does not wait for the swap to actually occur, and hence layer accesses
-    /// after this may write to the wrong layer. For a safe version, use
-    /// swap_layer_wait
-    pub unsafe fn swap_layer(&mut self) {
-        // Have been filling back buffer
-        self.layer.swap_framebuffer(self.back_buffer.as_ptr());
-        // Swap the back buffer to the front and visa versa
-        mem::swap(&mut self.back_buffer, &mut self.front_buffer);
-    }
-
-    /// Swaps frame buffers then waits for the swap to occour on the next
-    /// vertical blanking period
-    pub fn swap_layer_wait(&mut self) {
-        // unsafe: we wait for the swap to occour, so current
-        // displayed buffer is protected
-        unsafe { self.swap_layer() };
-        while self.layer.is_swap_pending() {}
-    }
-
-    /// Access to layer via closure
-    pub fn layer<F, T>(&mut self, func: F) -> T
-    where
-        F: FnOnce(&mut DisplayBuffer) -> T,
-    {
-        // Create a layer that lives until the end of this call
-        let mut layer = DisplayBuffer(&mut self.back_buffer);
-        func(&mut layer)
-    }
-}
-
-use embedded_graphics::{
-    geometry,
-    pixelcolor::raw::{RawData, RawU24},
-    pixelcolor::Rgb888,
-    Pixel,
-};
-
-// Implement DrawTarget for
-impl embedded_graphics::draw_target::DrawTarget for DisplayBuffer<'_, '_> {
-    type Color = Rgb888;
-    type Error = ();
-
-    /// Draw a pixel
-    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
-    where
-        I: IntoIterator<Item = Pixel<Self::Color>>,
-    {
-        for pixel in pixels {
-            let Pixel(point, color) = pixel;
-            let raw: RawU24 = color.into();
-            let rgb: u32 = 0xFF00_0000u32 | raw.into_inner();
-
-            if point.x >= 0
-                && point.y >= 0
-                && point.x < (WIDTH as i32)
-                && point.y < (HEIGHT as i32)
-            {
-                let index = (point.y * (WIDTH as i32)) + point.x;
-                self.0[index as usize] = rgb;
-            } else {
-                // Ignore invalid points
-            }
-        }
-
-        Ok(())
-    }
-}
-impl geometry::OriginDimensions for DisplayBuffer<'_, '_> {
-    /// Return the size of the display
-    fn size(&self) -> geometry::Size {
-        geometry::Size::new(HEIGHT as u32, WIDTH as u32)
-    }
-}
-
-impl DisplayBuffer<'_, '_> {
-    /// Clears the buffer
-    pub fn clear(&mut self) {
-        let pixels = WIDTH * HEIGHT;
-
-        for a in self.0[..pixels as usize].iter_mut() {
-            *a = 0xFF00_0000u32; // Solid black
-        }
     }
 }
 
