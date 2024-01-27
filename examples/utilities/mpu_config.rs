@@ -1,5 +1,6 @@
 use cortex_m::peripheral::{MPU, SCB};
 
+#[allow(unused, unsafe_code)]
 pub fn init_mpu(mpu: MPU, scb: &mut SCB, sdram_size: usize) {
     // Refer to ARM®v7-M Architecture Reference Manual ARM DDI 0403
     // Version E.b Section B3.5
