@@ -267,7 +267,7 @@ required-features = ["revision_v"]
 
 [[example]]
 name = "display-dsi-video-stm32h747i-disco"
-required-features = ["dsi", "ltdc", "fmc"]
+required-features = ["dsi", "ltdc", "fmc", "rtc"]
 
 [[example]]
 name = "display-dsi-video-teartest-stm32h747i-disco"

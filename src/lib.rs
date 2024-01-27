@@ -156,6 +156,8 @@ pub mod dac;
 pub mod delay;
 #[cfg(feature = "device-selected")]
 pub mod dma;
+#[cfg(feature = "dsi")]
+pub mod dsi;
 #[cfg(all(
     feature = "device-selected",
     feature = "ethernet",
@@ -217,8 +219,6 @@ pub mod usb_hs;
 #[cfg(all(feature = "device-selected", feature = "xspi"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "xspi")))]
 pub mod xspi;
-#[cfg(feature="dsi")]
-pub mod dsi;
 
 #[cfg(feature = "device-selected")]
 mod sealed {

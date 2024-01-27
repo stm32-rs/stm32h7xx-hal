@@ -46,7 +46,10 @@ pub mod write_to {
     }
 
     #[allow(dead_code)]
-    pub fn show<'a>(buffer: &'a mut [u8], args: fmt::Arguments) -> Result<&'a str, fmt::Error> {
+    pub fn show<'a>(
+        buffer: &'a mut [u8],
+        args: fmt::Arguments,
+    ) -> Result<&'a str, fmt::Error> {
         let mut w = WriteTo::new(buffer);
         fmt::write(&mut w, args)?;
         w.as_str().ok_or(fmt::Error)

@@ -5,8 +5,10 @@ use crate::{
     time::Hertz,
 };
 use core::cmp::{max, min};
+use embedded_display_controller::dsi::{
+    DsiHostCtrlIo, DsiReadCommand, DsiWriteCommand,
+};
 use embedded_display_controller::DisplayConfiguration;
-use embedded_display_controller::dsi::{DsiHostCtrlIo, DsiReadCommand, DsiWriteCommand};
 #[cfg(feature = "log")]
 use log::debug;
 
@@ -115,7 +117,7 @@ pub enum ColorCoding {
     SixteenBitsConfig3 = 0b010,
     EighteenBitsConfig1 = 0b011,
     EighteenBitsConfig2 = 0b100,
-    TwentyFourBits = 0b101
+    TwentyFourBits = 0b101,
 }
 
 pub struct DsiConfig {
@@ -219,7 +221,12 @@ impl DsiHost {
         let f_pix_khz = f_phy_hz / 1_000 / 8;
         let uix4 = 4_000_000_000 / f_phy_hz;
         #[cfg(feature = "log")]
-        debug!("f_phy={}kHz, f_pix={}kHz, uix4={}", f_phy_hz / 1_000, f_pix_khz, uix4);
+        debug!(
+            "f_phy={}kHz, f_pix={}kHz, uix4={}",
+            f_phy_hz / 1_000,
+            f_pix_khz,
+            uix4
+        );
         dsi.wpcr0
             .modify(|_, w| unsafe { w.uix4().bits(uix4 as u8) });
         // debug!("f_phy={}, uix4=override=8", f_phy);
@@ -304,13 +311,15 @@ impl DsiHost {
 
                 // Horizontal sync active (HSA) in lane byte clock cycles
                 let f_ltdc_khz = dsi_config.ltdc_freq.to_kHz();
-                let hsa = ((display_config.h_sync as u32) * f_pix_khz / f_ltdc_khz) as u16;
+                let hsa = ((display_config.h_sync as u32) * f_pix_khz
+                    / f_ltdc_khz) as u16;
                 #[cfg(feature = "log")]
                 debug!("hsa={}", hsa);
                 dsi.vhsacr.modify(|_, w| unsafe { w.hsa().bits(hsa) });
 
                 // Horizontal back porch (HBP) in lane byte clock cycles
-                let hbp = ((display_config.h_back_porch as u32) * f_pix_khz / f_ltdc_khz) as u16;
+                let hbp = ((display_config.h_back_porch as u32) * f_pix_khz
+                    / f_ltdc_khz) as u16;
                 #[cfg(feature = "log")]
                 debug!("hbp={}", hbp);
                 dsi.vhbpcr.modify(|_, w| unsafe { w.hbp().bits(hbp) });
@@ -398,7 +407,7 @@ impl DsiHost {
         let lpe = match dsi_config.color_coding_host {
             ColorCoding::EighteenBitsConfig1 => true,
             ColorCoding::EighteenBitsConfig2 => true,
-            _ => false
+            _ => false,
         };
         dsi.lcolcr.modify(|_, w| unsafe {
             w.lpe()
@@ -408,7 +417,9 @@ impl DsiHost {
         });
 
         // Color coding for the wrapper
-        dsi.wcfgr.modify(|_, w| unsafe { w.colmux().bits(dsi_config.color_coding_wrapper as u8) });
+        dsi.wcfgr.modify(|_, w| unsafe {
+            w.colmux().bits(dsi_config.color_coding_wrapper as u8)
+        });
 
         dsi.lpmcr.modify(|_, w| unsafe {
             w.lpsize()

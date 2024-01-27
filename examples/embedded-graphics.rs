@@ -13,6 +13,7 @@ use core::{mem, slice};
 
 #[macro_use]
 mod utilities;
+mod utilities_display;
 use log::info;
 
 extern crate cortex_m;
@@ -32,9 +33,9 @@ use embedded_graphics::mono_font::{ascii, MonoTextStyle};
 use embedded_graphics::prelude::*;
 use embedded_graphics::text::Text;
 
+use crate::utilities_display::display_target::BufferedDisplay;
 use numtoa::NumToA;
 use tinybmp::Bmp;
-use crate::utilities::display_target::BufferedDisplay;
 
 const WIDTH: usize = 480;
 const HEIGHT: usize = 272;

@@ -2,7 +2,7 @@
 //! an external display. The external display is connected through the DSI link.
 //! DSI Video mode is used, so the display is constantly refreshed by hardware.
 //!
-//! Run command: cargo embed --release --features="stm32h747cm7,dsi,log,ltdc,fmc,rm0399,smps,example-smps,log-rtt,rt,rtc" --example display-dsi-video-stm32h747i-disco
+//! Run command: cargo embed --release --features="stm32h747cm7,dsi,log,ltdc,fmc,example-smps,log-rtt,rt,rtc" --example display-dsi-video-stm32h747i-disco
 //!
 //! Tested on a STM32H747I-DISCO development board with a ST MB1166 Display
 //! (supplied together with the development kit).
@@ -16,6 +16,8 @@ use core::{mem, slice};
 
 #[macro_use]
 mod utilities;
+mod utilities_display;
+
 use log::info;
 use otm8009a::Otm8009AConfig;
 use stm32h7xx_hal::dsi::{ColorCoding, DsiChannel, DsiConfig, DsiPllConfig};
@@ -24,7 +26,7 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 use cortex_m_rt::{entry, exception};
 
-use crate::utilities::display_target::BufferedDisplay;
+use crate::utilities_display::display_target::BufferedDisplay;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::ltdc;
 use stm32h7xx_hal::stm32::rcc::d1ccipr::FMCSEL_A;
@@ -36,14 +38,14 @@ use chrono::{NaiveDateTime, NaiveTime};
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 
+use crate::utilities::mpu_config::init_mpu;
+use crate::utilities_display::display_primitives::time_circuit;
 use embedded_display_controller::DisplayConfiguration;
 use otm8009a::Otm8009A;
 use stm32h7xx_hal::dsi::{
     DsiCmdModeTransmissionKind, DsiHost, DsiInterrupts, DsiMode, DsiPhyTimers,
     DsiVideoMode, LaneCount,
 };
-use crate::utilities::display_primitives::time_circuit;
-use crate::utilities::mpu_config::init_mpu;
 
 pub const WIDTH: usize = 800;
 pub const HEIGHT: usize = 480;
@@ -326,10 +328,43 @@ fn main() -> ! {
             draw.clear();
 
             let tc_x = 54;
-            time_circuit(NaiveDateTime::new(NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(), NaiveTime::from_hms_opt(01, 21, 0).unwrap()), tc_x, 100, "DESTINATION TIME", Rgb888::CSS_ORANGE_RED, Rgb888::new(102, 27, 0), draw).unwrap();
+            time_circuit(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(),
+                    NaiveTime::from_hms_opt(01, 21, 0).unwrap(),
+                ),
+                tc_x,
+                100,
+                "DESTINATION TIME",
+                Rgb888::CSS_ORANGE_RED,
+                Rgb888::new(102, 27, 0),
+                draw,
+            )
+            .unwrap();
             let now = rtc.date_time().unwrap();
-            time_circuit(now, tc_x, 250, "PRESENT TIME", Rgb888::CSS_LIME_GREEN, Rgb888::new(15, 64, 15), draw).unwrap();
-            time_circuit(NaiveDateTime::new(NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(), NaiveTime::from_hms_opt(01, 20, 0).unwrap()), tc_x, 400, "LAST TIME DEPARTED", Rgb888::CSS_ORANGE, Rgb888::new(77, 42, 0), draw).unwrap();
+            time_circuit(
+                now,
+                tc_x,
+                250,
+                "PRESENT TIME",
+                Rgb888::CSS_LIME_GREEN,
+                Rgb888::new(15, 64, 15),
+                draw,
+            )
+            .unwrap();
+            time_circuit(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(),
+                    NaiveTime::from_hms_opt(01, 20, 0).unwrap(),
+                ),
+                tc_x,
+                400,
+                "LAST TIME DEPARTED",
+                Rgb888::CSS_ORANGE,
+                Rgb888::new(77, 42, 0),
+                draw,
+            )
+            .unwrap();
 
             // if let Ok(Some(pt)) = touch_ctrl.get_point0() {
             //     info!("Touch: {} {}", pt.y, 480 - pt.x);

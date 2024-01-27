@@ -7,7 +7,7 @@
 //! While in Landscape mode diagonal line is visible, because display is still refreshed
 //! in 480px lines from display's own graphics RAM, while writes are now 800px high.
 //!
-//! Run command: cargo embed --release --features="stm32h747cm7,dsi,log,ltdc,fmc,rm0399,smps,example-smps,log-rtt,rt,rtc" --example display-dsi-video-teartest-stm32h747i-disco
+//! Run command: cargo embed --release --features="stm32h747cm7,dsi,log,ltdc,fmc,example-smps,log-rtt,rt" --example display-dsi-video-teartest-stm32h747i-disco
 //!
 //! Tested on a STM32H747I-DISCO development board with a ST MB1166 Display
 //! (supplied together with the development kit).
@@ -21,6 +21,7 @@ use core::{mem, slice};
 
 #[macro_use]
 mod utilities;
+mod utilities_display;
 use log::info;
 use otm8009a::Otm8009AConfig;
 use stm32h7xx_hal::dsi::{ColorCoding, DsiChannel, DsiConfig, DsiPllConfig};
@@ -29,7 +30,7 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 use cortex_m_rt::{entry, exception};
 
-use crate::utilities::display_target::BufferedDisplay;
+use crate::utilities_display::display_target::BufferedDisplay;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::ltdc;
 use stm32h7xx_hal::stm32::rcc::d1ccipr::FMCSEL_A;
@@ -41,17 +42,19 @@ use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
 
+use crate::utilities::mpu_config::init_mpu;
+use crate::utilities_display::display_primitives::{
+    colored_label, display_test,
+};
+use crate::utilities_display::write::write_to::WriteTo;
+use core::fmt::Write;
 use embedded_display_controller::DisplayConfiguration;
 use otm8009a::Otm8009A;
 use stm32h7xx_hal::dsi::{
     DsiCmdModeTransmissionKind, DsiHost, DsiInterrupts, DsiMode, DsiPhyTimers,
     DsiVideoMode, LaneCount,
 };
-use crate::utilities::mpu_config::init_mpu;
-use crate::utilities::write::write_to::WriteTo;
-use core::fmt::Write;
 use stm32h7xx_hal::rcc::PllConfigStrategy;
-use crate::utilities::display_primitives::{colored_label, display_test};
 
 // Remember to use correct display controller orientation, Portrait in this case
 pub const WIDTH: usize = 480;
@@ -338,7 +341,8 @@ fn main() -> ! {
             let mut buf = WriteTo::new(&mut buf);
             write!(&mut buf, "f: {frame}").unwrap();
             frame += 1;
-            colored_label(buf.as_str().unwrap(), 50, 20, Rgb888::RED, draw).unwrap();
+            colored_label(buf.as_str().unwrap(), 50, 20, Rgb888::RED, draw)
+                .unwrap();
 
             display_test(draw).unwrap();
         });
