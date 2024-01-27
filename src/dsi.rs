@@ -1,3 +1,7 @@
+//! Display Serial Interface
+//!
+//! Interface with MIPI D-PHY
+
 use crate::rcc::CoreClocks;
 use crate::{
     device::DSIHOST,

@@ -166,6 +166,18 @@ name = "crc"
 required-features = ["crc"]
 
 [[example]]
+name = "display-dsi-video-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc", "rtc", "rm0399"]
+
+[[example]]
+name = "display-dsi-video-teartest-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc", "rm0399"]
+
+[[example]]
+name = "display-dsi-command-teartest-stm32h747i-disco"
+required-features = ["dsi", "ltdc", "fmc", "rm0399"]
+
+[[example]]
 name = "embedded-graphics"
 required-features = ["ltdc", "xspi", "rm0468"]
 
@@ -264,15 +276,3 @@ required-features = ["rt", "usb_hs", "rm0433"]
 [[example]]
 name = "vos0"
 required-features = ["revision_v"]
-
-[[example]]
-name = "display-dsi-video-stm32h747i-disco"
-required-features = ["dsi", "ltdc", "fmc", "rtc"]
-
-[[example]]
-name = "display-dsi-video-teartest-stm32h747i-disco"
-required-features = ["dsi", "ltdc", "fmc"]
-
-[[example]]
-name = "display-dsi-command-teartest-stm32h747i-disco"
-required-features = ["dsi", "ltdc", "fmc"]

@@ -33,7 +33,7 @@ jobs:
           - stm32h7b0
           - stm32h735
     env:                        # Peripheral Feature flags
-      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,defmt
+      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi,defmt
 
     steps:
       - uses: actions/checkout@v4

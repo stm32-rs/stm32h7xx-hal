@@ -156,7 +156,7 @@ pub mod dac;
 pub mod delay;
 #[cfg(feature = "device-selected")]
 pub mod dma;
-#[cfg(feature = "dsi")]
+#[cfg(all(feature = "device-selected", feature = "dsi", feature = "rm0399"))]
 pub mod dsi;
 #[cfg(all(
     feature = "device-selected",

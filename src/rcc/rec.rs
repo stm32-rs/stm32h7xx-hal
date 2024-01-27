@@ -698,7 +698,7 @@ peripheral_reset_and_enable_control! {
     #[cfg(all())]
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc [fixed clk: "pll3_r_ck"],
-        #[cfg(any(feature = "dsi"))] Dsi
+        #[cfg(any(feature = "rm0399"))] Dsi
     ];
 
 
