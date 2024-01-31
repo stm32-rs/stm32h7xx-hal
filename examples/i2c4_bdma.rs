@@ -91,12 +91,20 @@ fn main() -> ! {
 
     let config = BdmaConfig::default().memory_increment(true);
 
+    // Initialise buffer
+    unsafe {
+        // Convert an uninitialised array into an array of uninitialised
+        let buf: &mut [core::mem::MaybeUninit<u8>; 10] =
+            &mut *(core::ptr::addr_of_mut!(BUFFER) as *mut _);
+        buf.iter_mut().for_each(|x| x.as_mut_ptr().write(0));
+    }
+
     // We need to specify the direction with a type annotation
     let mut transfer: Transfer<_, _, PeripheralToMemory, &mut [u8; 10], _> =
         Transfer::init(
             streams.0,
             i2c,
-            unsafe { BUFFER.assume_init_mut() }, // uninitialised memory
+            unsafe { BUFFER.assume_init_mut() },
             None,
             config,
         );
