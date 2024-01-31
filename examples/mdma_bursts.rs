@@ -61,7 +61,7 @@ fn main() -> ! {
     info!("");
 
     // Initialise the source buffer without taking any references to
-    // uninitialisated memory
+    // uninitialised memory
     let _source_buffer: &'static mut [u32; 200] = {
         let buf: &mut [MaybeUninit<u32>; 200] = unsafe {
             &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
@@ -75,6 +75,9 @@ fn main() -> ! {
         }
         unsafe { SOURCE_BUFFER.assume_init_mut() }
     };
+
+    // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
+    // behaviour (taking a mutable reference to uninitialised memory)
 
     // Setup DMA
     let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
