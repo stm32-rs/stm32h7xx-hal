@@ -71,6 +71,9 @@ fn main() -> ! {
     // Save a copy on the stack so we can check it later
     let source_buffer_cloned = *source_buffer;
 
+    // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
+    // behaviour (taking a mutable reference to uninitialised memory)
+
     // Setup DMA
     //
     // We need to specify the transfer size with a type annotation
