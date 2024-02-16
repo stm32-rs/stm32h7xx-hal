@@ -48,7 +48,7 @@ fdcan = { version = "0.2", optional = true }
 embedded-storage = "0.3"
 
 [dependencies.smoltcp]
-version = "0.10.0"
+version = "0.11.0"
 default-features = false
 features = ["medium-ethernet", "proto-ipv4", "socket-raw"]
 optional = true
@@ -83,7 +83,7 @@ tinybmp = "0.5"
 embedded-graphics = "0.8"
 
 [dev-dependencies.smoltcp]
-version = "0.10.0"
+version = "0.11.0"
 default-features = false
 features = ["medium-ethernet", "proto-ipv4", "proto-ipv6", "socket-raw"]
 
