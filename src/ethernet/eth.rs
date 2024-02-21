@@ -282,7 +282,7 @@ impl<const TD: usize> TDesRing<TD> {
                 _ => false,
             } {
                 if self.td[idx].available() {
-                    let timestamp = self.get_timestamp();
+                    let timestamp = self.get_timestamp(idx);
                     return Poll::Ready(Ok(timestamp))
                 } else {
                     return Poll::Pending
@@ -301,14 +301,14 @@ impl<const TD: usize> TDesRing<TD> {
     }
 
     #[cfg(feature = "ptp")]
-    pub fn get_timestamp(&self) -> Option<Timestamp> {
+    pub fn get_timestamp(&self, idx: usize) -> Option<Timestamp> {
         let contains_timestamp = 
-            (self.td[self.tdidx].tdes3 & EMAC_TDES3_TTSS) == EMAC_TDES3_TTSS;
-        let owned = (self.td[self.tdidx].tdes3 & EMAC_DES3_OWN) == EMAC_DES3_OWN;
-        let is_last = (self.td[self.tdidx].tdes3 & EMAC_DES3_LD) == EMAC_DES3_LD;
+            (self.td[idx].tdes3 & EMAC_TDES3_TTSS) == EMAC_TDES3_TTSS;
+        let owned = (self.td[idx].tdes3 & EMAC_DES3_OWN) == EMAC_DES3_OWN;
+        let is_last = (self.td[idx].tdes3 & EMAC_DES3_LD) == EMAC_DES3_LD;
 
         if !owned && contains_timestamp && is_last {
-            let (low, high) = (self.td[self.tdidx].tdes0, self.td[self.tdidx].tdes1);
+            let (low, high) = (self.td[idx].tdes0, self.td[idx].tdes1);
             Some(Timestamp::from_parts(high, low))
         } else {
             None
