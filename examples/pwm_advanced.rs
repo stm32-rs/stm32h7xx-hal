@@ -55,7 +55,7 @@ mod utilities;
 use stm32h7xx_hal::pwm::{FaultMonitor, Polarity};
 use stm32h7xx_hal::{pac, prelude::*};
 
-use embedded_hal::pwm::*;
+use embedded_hal_1::pwm::*; // this example uses embedded-hal v1.0
 
 use log::info;
 

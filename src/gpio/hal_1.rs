@@ -3,8 +3,8 @@ use super::{
     PartiallyErasedPin, Pin,
 };
 
-use embedded_hal::digital::{ErrorKind, ErrorType};
-use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin};
+use embedded_hal_1::digital::{ErrorKind, ErrorType};
+use embedded_hal_1::digital::{InputPin, OutputPin, StatefulOutputPin};
 
 /// Error type for GPIO
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -15,7 +15,7 @@ pub enum GpioError {
     /// Error
     Other,
 }
-impl embedded_hal::digital::Error for GpioError {
+impl embedded_hal_1::digital::Error for GpioError {
     fn kind(&self) -> ErrorKind {
         ErrorKind::Other
     }

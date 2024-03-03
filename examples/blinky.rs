@@ -8,7 +8,7 @@ use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 
-use embedded_hal::delay::DelayNs;
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;

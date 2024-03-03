@@ -9,7 +9,7 @@ use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
 
-use embedded_hal::pwm::*;
+use embedded_hal_1::pwm::*; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::{pac, prelude::*, rcc::rec};
 
 use log::info;

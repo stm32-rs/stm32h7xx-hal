@@ -12,7 +12,7 @@ use cortex_m_rt::entry;
 mod utilities;
 use core::num::NonZeroU16;
 
-use embedded_hal::spi::*;
+use embedded_hal_1::spi::*; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::{pac, prelude::*, spi};
 
 use log::info;

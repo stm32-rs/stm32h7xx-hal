@@ -6,6 +6,8 @@
 use cortex_m_rt::entry;
 use stm32h7xx_hal::{pac, prelude::*};
 
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
+
 use log::info;
 
 #[macro_use]
@@ -53,13 +55,13 @@ fn main() -> ! {
             led2.set_low();
             led3.set_high();
             led4.set_low();
-            delay.delay_ms(500_u16);
+            delay.delay_ms(500);
 
             led1.set_low();
             led2.set_high();
             led3.set_low();
             led4.set_high();
-            delay.delay_ms(500_u16);
+            delay.delay_ms(500);
         }
     }
 }

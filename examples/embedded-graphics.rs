@@ -21,7 +21,7 @@ extern crate cortex_m_rt as rt;
 use core::sync::atomic::{AtomicU32, Ordering};
 use cortex_m_rt::{entry, exception};
 
-use embedded_hal::delay::DelayNs;
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ltdc, xspi};

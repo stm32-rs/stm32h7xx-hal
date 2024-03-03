@@ -39,7 +39,6 @@
 
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use embedded_hal::delay::DelayNs;
 use void::Void;
 
 use crate::block;
@@ -206,7 +205,7 @@ impl Delay {
     }
 }
 
-impl DelayNs for Delay {
+impl embedded_hal_1::delay::DelayNs for Delay {
     fn delay_ns(&mut self, ns: u32) {
         // With c_ck up to 480e6, 1 cycle is always > 2ns
 
@@ -310,7 +309,7 @@ macro_rules! impl_delay_from_count_down_timer  {
                 }
             }
 
-            impl DelayNs for DelayFromCountDownTimer<$TIMX> {
+            impl embedded_hal_1::delay::DelayNs for DelayFromCountDownTimer<$TIMX> {
                 fn delay_ns(&mut self, ns: u32) {
                     // TODO(): This delay is 1000x longer than the intended duration!
                     self.delay_us_internal(ns);

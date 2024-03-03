@@ -11,7 +11,7 @@
 mod utilities;
 
 use cortex_m_rt::entry;
-use embedded_hal::delay::DelayNs;
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::sdmmc::{SdCard, Sdmmc};
 use stm32h7xx_hal::{pac, prelude::*};

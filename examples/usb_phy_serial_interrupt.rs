@@ -11,7 +11,7 @@ use {
     core::cell::RefCell,
     core::mem::MaybeUninit,
     cortex_m::interrupt::{free as interrupt_free, Mutex},
-    embedded_hal::delay::DelayNs,
+    embedded_hal_1::delay::DelayNs, // this example uses embedded-hal v1.0
     stm32h7xx_hal::{
         interrupt, pac,
         prelude::*,

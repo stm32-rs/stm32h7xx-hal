@@ -18,7 +18,7 @@ use crate::hal::{
     rcc,
     rcc::rec,
 };
-use embedded_hal::delay::DelayNs;
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use fdcan::{
     config::NominalBitTiming,
     filter::{StandardFilter, StandardFilterSlot},

@@ -30,6 +30,8 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 use cortex_m_rt::{entry, exception};
 
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
+
 use crate::utilities_display::display_target::BufferedDisplay;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::ltdc;
