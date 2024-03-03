@@ -8,7 +8,6 @@
 // TODO: on the h7x3 at least, only TIM2, TIM3, TIM4, TIM5 can support 32 bits.
 // TIM1 is 16 bit.
 
-use core::convert::TryFrom;
 use core::marker::PhantomData;
 
 use crate::hal::timer::{CountDown, Periodic};

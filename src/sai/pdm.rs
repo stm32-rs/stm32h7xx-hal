@@ -15,8 +15,6 @@
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
 
-use core::convert::TryInto;
-
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
 

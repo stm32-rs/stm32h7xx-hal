@@ -63,7 +63,6 @@
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
 use core::cell::UnsafeCell;
-use core::convert::From;
 use core::marker::PhantomData;
 use core::ptr;
 

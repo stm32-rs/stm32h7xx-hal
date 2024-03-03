@@ -4,7 +4,6 @@
 //!
 //! - [CRC example](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/crc.rs)
 
-use core::convert::TryInto;
 use core::fmt;
 
 use crate::rcc::{rec, ResetEnable};

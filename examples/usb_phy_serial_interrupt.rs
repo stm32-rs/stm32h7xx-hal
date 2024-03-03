@@ -18,8 +18,10 @@ use {
         stm32,
         usb_hs::{UsbBus, USB1_ULPI},
     },
-    usb_device::prelude::*,
-    usb_device::{bus::UsbBusAllocator, device::UsbDevice},
+    usb_device::{
+        bus::UsbBusAllocator,
+        device::{UsbDevice, UsbDeviceBuilder, UsbVidPid},
+    },
     usbd_serial::{DefaultBufferStore, SerialPort},
 };
 
