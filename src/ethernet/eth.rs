@@ -28,7 +28,6 @@ use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 
 use smoltcp::{
-    self,
     phy::{self, DeviceCapabilities},
     time::Instant,
     wire::EthernetAddress,
