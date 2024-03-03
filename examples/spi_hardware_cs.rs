@@ -16,11 +16,12 @@
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
+
+use embedded_hal_1::spi::*; // this example uses embedded-hal v1.0
+use nb::block;
 use stm32h7xx_hal::{pac, prelude::*, spi};
 
 use log::info;
-
-use nb::block;
 
 #[entry]
 fn main() -> ! {

@@ -27,6 +27,8 @@ use log::info;
 use otm8009a::Otm8009AConfig;
 use stm32h7xx_hal::dsi::{ColorCoding, DsiChannel, DsiConfig, DsiPllConfig};
 
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
+
 extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 use cortex_m_rt::{entry, exception};

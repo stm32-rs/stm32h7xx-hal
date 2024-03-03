@@ -7,7 +7,6 @@
 use core::cmp;
 use core::mem;
 
-use crate::hal::blocking::rng;
 use crate::rcc::{rec, rec::RngClkSel};
 use crate::rcc::{CoreClocks, ResetEnable};
 use crate::stm32::RNG;
@@ -113,14 +112,6 @@ impl core::iter::Iterator for Rng {
 
     fn next(&mut self) -> Option<u32> {
         self.value().ok()
-    }
-}
-
-impl rng::Read for Rng {
-    type Error = ErrorKind;
-
-    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.fill(buffer)
     }
 }
 

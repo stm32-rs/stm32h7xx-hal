@@ -18,6 +18,7 @@ use crate::hal::{
     rcc,
     rcc::rec,
 };
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use fdcan::{
     config::NominalBitTiming,
     filter::{StandardFilter, StandardFilterSlot},
@@ -135,7 +136,7 @@ fn main() -> ! {
             info!("Received Header: {:#X?}", rxheader);
             info!("received data: {:X?}", &buffer);
 
-            delay.delay_ms(1_u16);
+            delay.delay_ms(1);
             block!(can.transmit(rxheader.unwrap().to_tx_header(None), &buffer))
                 .unwrap();
             info!("Transmit: {:X?}", buffer);

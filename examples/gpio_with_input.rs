@@ -7,7 +7,7 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
@@ -45,10 +45,10 @@ fn main() -> ! {
 
     loop {
         led.set_high();
-        delay.delay_ms(100_u16);
+        delay.delay_ms(100);
 
         led.set_low();
-        delay.delay_ms(100_u16);
+        delay.delay_ms(100);
 
         let is_high = led.with_input(|x| x.is_high());
         info!("LED pin high? {}", is_high);

@@ -11,8 +11,7 @@
 //! - [Using ADC1 and ADC2 in parallel](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc12_parallel.rs)
 //! - [Using ADC1 through DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/adc_dma.rs)
 
-use crate::hal::adc::{Channel, OneShot};
-use crate::hal::blocking::delay::DelayUs;
+use crate::hal::delay::DelayNs;
 
 use core::convert::Infallible;
 use core::marker::PhantomData;
@@ -186,6 +185,11 @@ impl AdcCalLinear {
     }
 }
 
+/// A marker trait to identify MCU pins that can be used as inputs to an ADC channel
+pub trait Channel<ADC> {
+    type ID;
+    fn channel() -> Self::ID;
+}
 macro_rules! adc_pins {
     ($ADC:ident, $($input:ty => $chan:expr),+ $(,)*) => {
         $(
@@ -364,7 +368,7 @@ pub trait AdcExt<ADC>: Sized {
     fn adc(
         self,
         f_adc: impl Into<Hertz>,
-        delay: &mut impl DelayUs<u8>,
+        delay: &mut impl DelayNs,
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> Adc<ADC, Disabled>;
@@ -421,7 +425,7 @@ pub fn adc12(
     adc1: ADC1,
     adc2: ADC2,
     f_adc: impl Into<Hertz>,
-    delay: &mut impl DelayUs<u8>,
+    delay: &mut impl DelayNs,
     prec: rec::Adc12,
     clocks: &CoreClocks,
 ) -> (Adc<ADC1, Disabled>, Adc<ADC2, Disabled>) {
@@ -500,7 +504,7 @@ macro_rules! adc_hal {
 
 	            fn adc(self,
                        f_adc: impl Into<Hertz>,
-                       delay: &mut impl DelayUs<u8>,
+                       delay: &mut impl DelayNs,
                        prec: rec::$Rec,
                        clocks: &CoreClocks) -> Adc<$ADC, Disabled>
 	            {
@@ -513,7 +517,7 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adcX(adc: $ADC, f_adc: impl Into<Hertz>, delay: &mut impl DelayUs<u8>,
+                pub fn $adcX(adc: $ADC, f_adc: impl Into<Hertz>, delay: &mut impl DelayNs,
                              prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
                     // Consume ADC register block, produce Self with default
@@ -631,13 +635,14 @@ macro_rules! adc_hal {
                 /// Disables Deeppowerdown-mode and enables voltage regulator
                 ///
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
-                pub fn power_up(&mut self, delay: &mut impl DelayUs<u8>) {
+                pub fn power_up(&mut self, delay: &mut impl DelayNs) {
                     // Refer to RM0433 Rev 7 - Chapter 25.4.6
                     self.rb.cr.modify(|_, w|
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
                     );
-                    delay.delay_us(10_u8);
+
+                    delay.delay_us(10);
 
                     // check LDORDY bit if present
                     $(
@@ -884,6 +889,17 @@ macro_rules! adc_hal {
                     nb::Result::Ok(result)
                 }
 
+                /// Perform an ADC conversion on the specified pin
+                pub fn read<PIN, T>(&mut self, pin: &mut PIN) -> nb::Result<T, Infallible>
+                where
+                    PIN: Channel<$ADC, ID = u8>,
+                    T: From<u32>
+                {
+                    self.start_conversion(pin);
+                    let res = block!(self.read_sample()).unwrap();
+                    Ok(res.into())
+                }
+
                 fn check_conversion_conditions(&self) {
                     let cr = self.rb.cr.read();
                     // Ensure that no conversions are ongoing
@@ -1109,20 +1125,6 @@ macro_rules! adc_hal {
                 /// Returns a mutable reference to the inner peripheral
                 pub fn inner_mut(&mut self) -> &mut $ADC {
                     &mut self.rb
-                }
-            }
-
-            impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC, Enabled>
-            where
-                WORD: From<u32>,
-                PIN: Channel<$ADC, ID = u8>,
-            {
-                type Error = ();
-
-                fn read(&mut self, pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    self.start_conversion(pin);
-                    let res = block!(self.read_sample()).unwrap();
-                    Ok(res.into())
                 }
             }
         )+

@@ -11,6 +11,7 @@ use {
     core::cell::RefCell,
     core::mem::MaybeUninit,
     cortex_m::interrupt::{free as interrupt_free, Mutex},
+    embedded_hal_1::delay::DelayNs, // this example uses embedded-hal v1.0
     stm32h7xx_hal::{
         interrupt, pac,
         prelude::*,
@@ -110,10 +111,10 @@ unsafe fn main() -> ! {
     // clock source. Sometimes you have to enable them by yourself.
     // This is the case on the Arduino Portenta H7.
     let mut oscen = gpioh.ph1.into_push_pull_output();
-    delay.delay_ms(10u32);
+    delay.delay_ms(10);
     oscen.set_high();
     // Wait for osc to be stable
-    delay.delay_ms(100u32);
+    delay.delay_ms(100);
 
     // Set USB OTG pin floating
     let mut _usb_otg = gpioj.pj6.into_floating_input();
@@ -121,9 +122,9 @@ unsafe fn main() -> ! {
     // Reset USB Phy
     let mut usb_phy_rst = gpioj.pj4.into_push_pull_output();
     usb_phy_rst.set_low();
-    delay.delay_ms(10u8);
+    delay.delay_ms(10);
     usb_phy_rst.set_high();
-    delay.delay_ms(10u8);
+    delay.delay_ms(10);
 
     // Enable USB OTG_HS interrupt
     cortex_m::peripheral::NVIC::unmask(pac::Interrupt::OTG_HS);

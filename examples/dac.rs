@@ -4,7 +4,7 @@
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-use stm32h7xx_hal::hal::Direction;
+use stm32h7xx_hal::qei::Direction;
 #[macro_use]
 mod utilities;
 use stm32h7xx_hal::{pac, prelude::*};

@@ -5,12 +5,13 @@
 #![no_std]
 
 use cortex_m_rt::entry;
+#[macro_use]
+mod utilities;
+
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
-
-#[macro_use]
-mod utilities;
 
 #[entry]
 fn main() -> ! {
@@ -42,9 +43,9 @@ fn main() -> ! {
 
     loop {
         led.set_high();
-        delay.delay_ms(500_u16);
+        delay.delay_ms(500);
 
         led.set_low();
-        delay.delay_ms(500_u16);
+        delay.delay_ms(500);
     }
 }

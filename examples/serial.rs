@@ -10,9 +10,8 @@ use cortex_m_rt::entry;
 mod utilities;
 use log::info;
 
+use embedded_io::Write;
 use stm32h7xx_hal::{pac, prelude::*};
-
-use core::fmt::Write;
 
 use nb::block;
 
@@ -55,7 +54,7 @@ fn main() -> ! {
 
     loop {
         // Echo what is received on the serial link.
-        let received = block!(rx.read()).unwrap();
-        block!(tx.write(received)).ok();
+        let received = block!(rx.read_byte()).unwrap();
+        block!(tx.write_byte(received)).ok();
     }
 }

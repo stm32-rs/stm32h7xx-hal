@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::gpio::{self, Analog};
-use crate::hal::blocking::delay::DelayUs;
+use crate::hal::delay::DelayNs;
 use crate::rcc::{rec, ResetEnable};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::DAC as DAC1;
@@ -127,7 +127,7 @@ macro_rules! dac {
                 delay: &mut T,
             ) -> $CX<$DAC, Disabled>
             where
-                T: DelayUs<u32>,
+                T: DelayNs,
             {
                 let dac = unsafe { &(*$DAC::ptr()) };
                 dac.cr.modify(|_, w| w.$en().clear_bit());
@@ -136,7 +136,7 @@ macro_rules! dac {
                 let mut trim = 0;
                 while true {
                     dac.ccr.modify(|_, w| unsafe { w.$trim().bits(trim) });
-                    delay.delay_us(64_u32);
+                    delay.delay_us(64);
                     if dac.sr.read().$cal_flag().bit() {
                         break;
                     }

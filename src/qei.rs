@@ -1,5 +1,5 @@
 //! # Quadrature Encoder Interface
-use crate::hal::{self, Direction};
+
 use crate::rcc::{rec, ResetEnable};
 
 use crate::gpio::{self, Alternate};
@@ -17,6 +17,11 @@ where
     PCH1: PinCh1<TIM>,
     PCH2: PinCh2<TIM>,
 {
+}
+
+pub enum Direction {
+    Downcounting,
+    Upcounting,
 }
 
 macro_rules! pins {
@@ -196,6 +201,20 @@ macro_rules! tim_hal {
                 pub fn release(self) -> ($TIM, rec::$Rec) {
                     (self.tim, rec::$Rec { _marker: core::marker::PhantomData })
                 }
+
+                /// Returns the current pulse count of the encoder
+                pub fn count(&self) -> $bits {
+                    self.tim.cnt.read().bits() as $bits
+                }
+
+                /// Returns the count direction
+                pub fn direction(&self) -> Direction {
+                    if self.tim.cr1.read().dir().bit_is_clear() {
+                        Direction::Upcounting
+                    } else {
+                        Direction::Downcounting
+                    }
+                }
             }
 
             impl QeiExt<$TIM> for $TIM {
@@ -209,23 +228,6 @@ macro_rules! tim_hal {
                     Qei::$tim(self, prec)
                 }
             }
-
-            impl hal::Qei for Qei<$TIM> {
-                type Count = $bits;
-
-                fn count(&self) -> $bits {
-                    self.tim.cnt.read().bits() as $bits
-                }
-
-                fn direction(&self) -> Direction {
-                    if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
-                    } else {
-                        hal::Direction::Downcounting
-                    }
-                }
-            }
-
         )+
     }
 }

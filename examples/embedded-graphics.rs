@@ -21,6 +21,7 @@ extern crate cortex_m_rt as rt;
 use core::sync::atomic::{AtomicU32, Ordering};
 use cortex_m_rt::{entry, exception};
 
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ltdc, xspi};
@@ -205,7 +206,7 @@ fn main() -> ! {
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
     let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
 
-    delay.delay_ms(40u8);
+    delay.delay_ms(40);
 
     let mut ltdc = ltdc::Ltdc::new(dp.LTDC, ccdr.peripheral.LTDC, &ccdr.clocks);
 

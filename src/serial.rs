@@ -8,14 +8,14 @@
 //! - [Inverted Signal Levels](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/serial-inverted-loopback.rs)
 
 use core::cell::UnsafeCell;
-use core::fmt;
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::ptr;
 
-use embedded_hal::blocking::serial as serial_block;
-use embedded_hal::prelude::*;
-use embedded_hal::serial;
-use nb::block;
+// use embedded_hal::blocking::serial as serial_block;
+// use embedded_hal::prelude::*;
+// use embedded_hal::serial;
+use embedded_io as eio;
 
 use stm32::usart1::cr2::{
     CLKEN_A, CPHA_A, CPOL_A, LBCL_A, MSBFIRST_A, RXINV_A, TXINV_A,
@@ -44,6 +44,8 @@ use crate::time::Hertz;
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
+    /// An attempted write could not write any data
+    WriteZero,
     /// Framing error
     Framing,
     /// Noise error
@@ -52,6 +54,14 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
+}
+impl eio::Error for Error {
+    fn kind(&self) -> eio::ErrorKind {
+        match self {
+            Error::WriteZero => eio::ErrorKind::WriteZero,
+            _ => eio::ErrorKind::Other,
+        }
+    }
 }
 
 /// Interrupt event
@@ -964,22 +974,60 @@ macro_rules! usart {
                 }
             }
 
-            impl serial::Read<u8> for Serial<$USARTX> {
-                type Error = Error;
+            // Implement embedded_io::Write
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+            impl eio::ErrorType for Serial<$USARTX> {
+                type Error = Error;
+            }
+            impl eio::Read for Serial<$USARTX> {
+                fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
                     let mut rx: Rx<$USARTX> = Rx {
                         _usart: PhantomData,
                         ker_ck: self.ker_ck,
                     };
-                    rx.read()
+                    rx.read(buf)
+                }
+            }
+            impl eio::ErrorType for Rx<$USARTX> {
+                type Error = Error;
+            }
+            impl eio::Read for Rx<$USARTX> {
+                fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+                    for (i, byte) in buf.iter_mut().enumerate() {
+                        while true {
+                            match self.read_byte() {
+                                Ok(b) => {
+                                    *byte = b;
+                                    continue;
+                                },
+                                Err(nb::Error::WouldBlock) => {
+                                    if i > 0 {
+                                        return Ok(i);
+                                    }
+                                },
+                                Err(nb::Error::Other(e)) => {
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                    Ok(buf.len())
                 }
             }
 
-            impl serial::Read<u8> for Rx<$USARTX> {
-                type Error = Error;
-
-                fn read(&mut self) -> nb::Result<u8, Error> {
+            impl Serial<$USARTX> {
+                /// Reads a single word from the serial interface
+                pub fn read_byte(&mut self) -> nb::Result<u8, Error> {
+                    let mut rx: Rx<$USARTX> = Rx {
+                        _usart: PhantomData,
+                        ker_ck: self.ker_ck,
+                    };
+                    rx.read_byte()
+                }
+            }
+            impl Rx<$USARTX> {
+                /// Reads a single word from the serial interface
+                pub fn read_byte(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -1004,9 +1052,7 @@ macro_rules! usart {
                         nb::Error::WouldBlock
                     })
                 }
-            }
 
-            impl Rx<$USARTX> {
                 /// Start listening for `Rxne` event
                 pub fn listen(&mut self) {
                     // unsafe: rxneie bit accessed by Rx part only
@@ -1064,49 +1110,66 @@ macro_rules! usart {
                 }
             }
 
-            impl serial::Write<u8> for Serial<$USARTX> {
-                type Error = core::convert::Infallible;
+            // Implement embedded_io::Write
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
+            impl eio::Write for Serial<$USARTX> {
+                fn flush(&mut self) -> Result<(), Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.flush()
                 }
-
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
-                    tx.write(byte)
+                    tx.write(buf)
+                }
+            }
+            impl eio::ErrorType for Tx<$USARTX> {
+                type Error = Error;
+            }
+            impl eio::Write for Tx<$USARTX> {
+                fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+                    for (i, byte) in buf.iter().enumerate() {
+                        if self.write_byte(*byte).is_ok() {
+                            continue;
+                        } else if i == 0 {
+                            return Err(Error::WriteZero);
+                        } else {
+                            return Ok(i);
+                        }
+                    }
+                    Ok(buf.len())
+                }
+                fn flush(&mut self) -> Result<(), Error> {
+                    // NOTE(unsafe) atomic read with no side effects
+                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+
+                    while !isr.tc().bit_is_set() {}
+                    Ok(())
                 }
             }
 
-            impl serial_block::write::Default<u8> for Serial<$USARTX> {
-                //implement marker trait to opt-in to default blocking write implementation
+            impl Serial<$USARTX> {
+                /// Writes a single word to the serial interface
+                pub fn write_byte(&mut self, byte: u8) -> nb::Result<(), Infallible> {
+                    let mut tx: Tx<$USARTX> = Tx {
+                        _usart: PhantomData,
+                    };
+                    tx.write_byte(byte)
+                }
             }
-
-            impl serial::Write<u8> for Tx<$USARTX> {
+            impl Tx<$USARTX> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the
                 // only possible errors during transmission are: clear
                 // to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard
                 // mode); neither of these apply to our hardware
                 // configuration
-                type Error = core::convert::Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
-
-                    if isr.tc().bit_is_set() {
-                        Ok(())
-                    } else {
-                        Err(nb::Error::WouldBlock)
-                    }
-                }
-
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                /// Writes a single word to the serial interface
+                pub fn write_byte(&mut self, byte: u8) -> nb::Result<(), Infallible> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -1124,9 +1187,7 @@ macro_rules! usart {
                         Err(nb::Error::WouldBlock)
                     }
                 }
-            }
 
-            impl Tx<$USARTX> {
                 /// Start listening for `Txe` event
                 pub fn listen(&mut self) {
                     // unsafe: txeie bit accessed by Tx part only
@@ -1293,24 +1354,4 @@ usart_sel! {
     UART5: "UART5",
     UART8: "UART8",
     UART7: "UART7",
-}
-
-impl<USART> fmt::Write for Tx<USART>
-where
-    Tx<USART>: serial::Write<u8>,
-{
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
-        Ok(())
-    }
-}
-
-impl<USART> fmt::Write for Serial<USART>
-where
-    Serial<USART>: serial::Write<u8>,
-{
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
-        Ok(())
-    }
 }

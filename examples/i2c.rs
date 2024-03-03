@@ -1,11 +1,12 @@
 #![no_main]
 #![no_std]
 
+use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
-use stm32h7xx_hal::{pac, prelude::*};
 
-use cortex_m_rt::entry;
+use embedded_hal_1::i2c::*; // this example uses embedded-hal v1.0
+use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
 

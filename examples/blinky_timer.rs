@@ -10,7 +10,8 @@ mod utilities;
 extern crate nb;
 
 use cortex_m_rt::entry;
-use stm32h7xx_hal::{pac, prelude::*, time::MilliSeconds};
+use embedded_hal_1::delay::DelayNs; // this example uses embedded-hal v1.0
+use stm32h7xx_hal::{pac, prelude::*};
 
 use log::info;
 
@@ -50,13 +51,12 @@ fn main() -> ! {
         for _ in 0..5 {
             // 20ms wait with timer
             led.toggle();
-            timer.start(MilliSeconds::from_ticks(20).into_rate());
+            timer.start(50.Hz()).unwrap();
             block!(timer.wait()).ok();
 
-            // Delay for 500ms. Timer must operate correctly on next
-            // use.
+            // Delay for 500ms. Timer must operate correctly on next use.
             led.toggle();
-            delay.delay_ms(500_u16);
+            delay.delay_ms(500);
         }
     }
 }
