@@ -27,6 +27,7 @@
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
+//! * MIPI DSI (STM32H747/757 only) Feature gate `dsi`
 //! * [CAN and CAN-FD](crate::can) Feature gate `can`
 //!
 //! External Memory
