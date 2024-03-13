@@ -459,9 +459,9 @@ macro_rules! octospi_impl {
                 // Communications configuration register
                 regs.ccr.write(|w| unsafe {
                     w.dmode()
-                        .bits(config.mode.reg_value())
+                        .bits(config.modes.data.reg_value())
                         .admode()
-                        .bits(config.mode.reg_value())
+                        .bits(config.modes.address.reg_value())
                         .adsize()
                         .bits(0) // Eight-bit address
                         .imode()
@@ -498,7 +498,7 @@ macro_rules! octospi_impl {
 
                 Octospi {
                     rb: regs,
-                    mode: config.mode,
+                    modes: config.modes,
                 }
             }
 
