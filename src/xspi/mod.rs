@@ -101,10 +101,9 @@
 //! interface. Automatic polling or memory-mapped modes are not supported,
 //! except for the OCTOSPI Hyperbus mode.
 //!
-//! Using different operational modes (1-bit/2-bit/4-bit etc.) for different
-//! phases of a single transaction is not supported. It is possible to change
-//! operational mode between transactions by calling
-//! [`configure_mode`](#method.configure_mode).
+//! It is possible to change operational mode between transactions by
+//! calling [`configure_mode`](#method.configure_mode) or
+//! [`configure_modes`](#method.configure_modes)
 
 // Parts of the Quad and Octo SPI support are shared (this file), but they are
 // different enough to require different initialisation routines and pin
@@ -117,7 +116,7 @@ mod qspi;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use common::{
     Bank, BankError, BankSelect, Xspi as Qspi, XspiError as QspiError,
-    XspiMode as QspiMode, XspiWord as QspiWord,
+    XspiMode as QspiMode, XspiModes as QspiModes, XspiWord as QspiWord,
 };
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use qspi::QspiExt as XspiExt;
@@ -128,7 +127,7 @@ mod octospi;
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub use common::{
     Xspi as Octospi, XspiError as OctospiError, XspiMode as OctospiMode,
-    XspiWord as OctospiWord,
+    XspiModes as OctospiModes, XspiWord as OctospiWord,
 };
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 pub use octospi::{Hyperbus, HyperbusConfig, OctospiExt as XspiExt};
@@ -173,6 +172,28 @@ mod common {
                 XspiMode::FourBit => 3,
                 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
                 XspiMode::EightBit => 4,
+            }
+        }
+    }
+    #[derive(Debug, Copy, Clone)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    pub struct XspiModes {
+        /// IO lines used for the instruction phase.
+        pub instruction: XspiMode,
+        /// IO lines used for the address phase.
+        pub address: XspiMode,
+        /// IO lines used for the alternate byte phase.
+        pub alt_byte: XspiMode,
+        /// IO lines used for the data phase.
+        pub data: XspiMode,
+    }
+    impl XspiModes {
+        pub fn new(mode: XspiMode) -> Self {
+            Self {
+                instruction: mode,
+                address: mode,
+                alt_byte: mode,
+                data: mode,
             }
         }
     }
@@ -308,7 +329,7 @@ mod common {
     /// ```
     #[derive(Copy, Clone)]
     pub struct Config {
-        pub(super) mode: XspiMode,
+        pub(super) modes: XspiModes,
         pub(super) frequency: Hertz,
         pub(super) dummy_cycles: u8,
         pub(super) sampling_edge: SamplingEdge,
@@ -323,7 +344,7 @@ mod common {
         /// * Sample on falling edge
         pub fn new(frequency: Hertz) -> Self {
             Config {
-                mode: XspiMode::OneBit,
+                modes: XspiModes::new(XspiMode::OneBit),
                 frequency,
                 dummy_cycles: 0,
                 sampling_edge: SamplingEdge::Falling,
@@ -331,13 +352,24 @@ mod common {
             }
         }
 
-        /// Specify the operating mode of the XSPI bus. Can be 1-bit, 2-bit or
-        /// 4-bit for Quadspi; 1-bit, 2-bit, 4-bit or 8-bit for Octospi.
+        /// Specify the operating mode for all phases of the XSPI bus
+        /// operation. Can be 1-bit, 2-bit or 4-bit for Quadspi;
+        /// 1-bit, 2-bit, 4-bit or 8-bit for Octospi.
         ///
         /// The operating mode can also be changed using the
         /// [`configure_mode`](Xspi#method.configure_mode) method
-        pub fn mode(mut self, mode: XspiMode) -> Self {
-            self.mode = mode;
+        pub fn mode(self, mode: XspiMode) -> Self {
+            self.modes(XspiModes::new(mode))
+        }
+
+        /// Specify the operating mode separately for each phase of
+        /// the XSPI bus operation. Can be 1-bit, 2-bit or 4-bit for
+        /// Quadspi; 1-bit, 2-bit, 4-bit or 8-bit for Octospi.
+        ///
+        /// The operating modes can also be changed using the
+        /// [`configure_modes`](Xspi#method.configure_modes) method
+        pub fn modes(mut self, modes: XspiModes) -> Self {
+            self.modes = modes;
             self
         }
 
@@ -406,10 +438,10 @@ mod common {
     pub struct Xspi<XSPI> {
         pub(super) rb: XSPI,
 
-        /// We store the current mode here because for extended transactions
+        /// We store the current modes here because for extended transactions
         /// various phases may be removed. Therefore we need to restore them
         /// after each transaction.
-        pub(super) mode: XspiMode,
+        pub(super) modes: XspiModes,
     }
 
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -514,17 +546,29 @@ mod common {
                 }
             }
 
-            /// Configure the operational mode (number of bits) of the XSPI
-            /// interface.
+            /// Configure the common mode (number of bits) for all phases of the XSPI
+            /// operation.
             ///
             /// # Args
-            /// * `mode` - The newly desired mode of the interface.
+            /// * `mode` - The newly desired mode for the operation.
             ///
             /// # Errors
             /// Returns XspiError::Busy if an operation is ongoing
             pub fn configure_mode(&mut self, mode: XspiMode) -> Result<(), XspiError> {
+                self.configure_modes(XspiModes::new(mode))
+            }
+
+            /// Configure the operational mode (number of bits), separately for each phase
+            /// of the XSPI interface.
+            ///
+            /// # Args
+            /// * `modes` - The newly desired modes for each phase of the operation.
+            ///
+            /// # Errors
+            /// Returns XspiError::Busy if an operation is ongoing
+            pub fn configure_modes(&mut self, modes: XspiModes) -> Result<(), XspiError> {
                 self.is_busy()?;
-                self.mode = mode;
+                self.modes = modes;
                 self.set_mode_address_data_only();
 
                 Ok(())
@@ -537,13 +581,13 @@ mod common {
                     w.imode()     // NO instruction phase
                         .bits(0)
                         .admode() // address phase
-                        .bits(self.mode.reg_value())
+                        .bits(self.modes.address.reg_value())
                         .adsize()
                         .bits(0)  // 8-bit address
                         .abmode() // NO alternate-bytes phase
                         .bits(0)
                         .dmode()  // data phase
-                        .bits(self.mode.reg_value())
+                        .bits(self.modes.data.reg_value())
                 });
             }
 
@@ -560,11 +604,10 @@ mod common {
                               alternate_bytes: XspiWord, dummy_cycles: u8, data: bool, read: bool) {
 
                 let fmode = if read { 0b01 } else { 0b00 };
-                let mode = self.mode.reg_value();
-                let imode = if instruction != XspiWord::None { mode } else { 0 };
-                let admode = if address != XspiWord::None { mode } else { 0 };
-                let abmode = if alternate_bytes != XspiWord::None { mode } else { 0 };
-                let dmode = if data { mode } else { 0 };
+                let imode = if instruction != XspiWord::None { self.modes.instruction.reg_value() } else { 0 };
+                let admode = if address != XspiWord::None { self.modes.address.reg_value() } else { 0 };
+                let abmode = if alternate_bytes != XspiWord::None { self.modes.alt_byte.reg_value() } else { 0 };
+                let dmode = if data { self.modes.data.reg_value() } else { 0 };
 
                 //writing to ccr will trigger the start of a transaction if there is no address or
                 //data rm0433 pg 894, so we do it all in one go
