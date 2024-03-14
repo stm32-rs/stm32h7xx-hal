@@ -130,7 +130,7 @@ pub trait FlashExt {
         &mut self,
         f: impl FnOnce(&mut LockedFlashBank, Option<&mut LockedFlashBank>) -> T,
     ) -> T;
-    ///
+    /// Access to memory bank 1.
     fn access_bank1<F, T>(&mut self, f: F) -> T
     where
         F: FnOnce(&mut LockedFlashBank) -> T;
