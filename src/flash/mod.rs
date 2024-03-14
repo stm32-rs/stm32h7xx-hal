@@ -123,8 +123,13 @@ pub trait FlashExt {
     fn address(&self) -> usize;
     /// Size in bytes
     fn len(&self) -> usize;
-    /// Access to memory banks
+    /// Split the flash into its banks.
     fn split(self) -> (LockedFlashBank, Option<LockedFlashBank>);
+    /// Access to memory banks.
+    fn access_banks<T>(
+        &mut self,
+        f: impl FnOnce(&mut LockedFlashBank, Option<&mut LockedFlashBank>) -> T,
+    ) -> T;
     ///
     fn access_bank1<F, T>(&mut self, f: F) -> T
     where
@@ -147,6 +152,23 @@ impl FlashExt for FLASH {
             len: if self.dual_bank() { len / 2 } else { len },
         };
         f(&mut bank)
+    }
+    fn access_banks<T>(
+        &mut self,
+        f: impl FnOnce(&mut LockedFlashBank, Option<&mut LockedFlashBank>) -> T,
+    ) -> T {
+        let len = self.len();
+        let mut bank1 = LockedFlashBank {
+            bank_index: 1,
+            base: 0x0800_0000,
+            len: if self.dual_bank() { len / 2 } else { len },
+        };
+        let mut bank2 = self.dual_bank().then_some(LockedFlashBank {
+            bank_index: 2,
+            base: 0x0810_0000,
+            len: self.len() / 2,
+        });
+        f(&mut bank1, bank2.as_mut())
     }
     fn address(&self) -> usize {
         0x0800_0000
