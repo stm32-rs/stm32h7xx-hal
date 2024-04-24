@@ -424,7 +424,7 @@ macro_rules! hal {
                 }
 
                 /// Sets the timer's prescaler and auto reload register so that the timer will reach
-                /// the ARR after `ticks` amount of timer clock ticks.
+                /// the ARR after `ticks - 1` amount of timer clock ticks.
                 ///
                 /// ```
                 /// // Set auto reload register to 50000 and prescaler to divide by 2.
@@ -567,7 +567,8 @@ fn calculate_timeout_ticks_register_values(ticks: u32) -> (u16, u16) {
     // resulting in a value that always fits in 16 bits.
     let psc = u16(ticks / (1 << 16)).unwrap();
     // Note (unwrap): Never panics because the divisor is always such that the result fits in 16 bits.
-    let arr = u16(ticks / (u32(psc) + 1)).unwrap();
+    // Also note that the timer counts `0..=arr`, so subtract 1 to get the correct period.
+    let arr = u16(ticks / (u32(psc) + 1)).unwrap().saturating_sub(1);
     (psc, arr)
 }
 
@@ -929,17 +930,17 @@ mod tests {
     #[test]
     fn timeout_ticks_register_values() {
         assert_eq!(calculate_timeout_ticks_register_values(0), (0, 0));
-        assert_eq!(calculate_timeout_ticks_register_values(50000), (0, 50000));
-        assert_eq!(calculate_timeout_ticks_register_values(100000), (1, 50000));
-        assert_eq!(calculate_timeout_ticks_register_values(65535), (0, 65535));
-        assert_eq!(calculate_timeout_ticks_register_values(65536), (1, 32768));
+        assert_eq!(calculate_timeout_ticks_register_values(50000), (0, 49999));
+        assert_eq!(calculate_timeout_ticks_register_values(100000), (1, 49999));
+        assert_eq!(calculate_timeout_ticks_register_values(65535), (0, 65534));
+        assert_eq!(calculate_timeout_ticks_register_values(65536), (1, 32767));
         assert_eq!(
             calculate_timeout_ticks_register_values(1000000),
-            (15, 62500)
+            (15, 62499)
         );
         assert_eq!(
             calculate_timeout_ticks_register_values(u32::MAX),
-            (u16::MAX, u16::MAX)
+            (u16::MAX, u16::MAX - 1)
         );
     }
 }
