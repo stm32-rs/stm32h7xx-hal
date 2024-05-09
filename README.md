@@ -35,6 +35,9 @@ Supported Configurations
 * __stm32h7a3__
 * __stm32h735__ (stm32h723, stm32h725, stm32h730, stm32h733, stm32h735)
 
+STM32H7R3/7S3 are not directly supported, see
+[#492](https://github.com/stm32-rs/stm32h7xx-hal/issues/492)
+
 #### Old revision STM32H742/743/750/753 parts
 
 In 2019 ST released hardware Revision V of the stm32h742, stm32h743, stm32h750
