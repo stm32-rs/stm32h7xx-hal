@@ -985,26 +985,52 @@ impl Rcc {
                 cfgr.sws().variant().unwrap()
             );
 
-            let d1cfgr = rcc.d1cfgr.read();
-            debug!(
-                "D1CFGR register: D1CPRE={:?} HPRE={:?} D1PPRE={:?}",
-                d1cfgr.d1cpre().variant().unwrap(),
-                d1cfgr.hpre().variant().unwrap(),
-                d1cfgr.d1ppre().variant().unwrap(),
-            );
+            #[cfg(not(feature = "rm0455"))]
+            {
+                let d1cfgr = rcc.d1cfgr.read();
+                debug!(
+                    "D1CFGR register: D1CPRE={:?} HPRE={:?} D1PPRE={:?}",
+                    d1cfgr.d1cpre().variant().unwrap(),
+                    d1cfgr.hpre().variant().unwrap(),
+                    d1cfgr.d1ppre().variant().unwrap(),
+                );
 
-            let d2cfgr = rcc.d2cfgr.read();
-            debug!(
-                "D2CFGR register: D2PPRE1={:?} D2PPRE1={:?}",
-                d2cfgr.d2ppre1().variant().unwrap(),
-                d2cfgr.d2ppre2().variant().unwrap(),
-            );
+                let d2cfgr = rcc.d2cfgr.read();
+                debug!(
+                    "D2CFGR register: D2PPRE1={:?} D2PPRE1={:?}",
+                    d2cfgr.d2ppre1().variant().unwrap(),
+                    d2cfgr.d2ppre2().variant().unwrap(),
+                );
 
-            let d3cfgr = rcc.d3cfgr.read();
-            debug!(
-                "D3CFGR register: D3PPRE={:?}",
-                d3cfgr.d3ppre().variant().unwrap(),
-            );
+                let d3cfgr = rcc.d3cfgr.read();
+                debug!(
+                    "D3CFGR register: D3PPRE={:?}",
+                    d3cfgr.d3ppre().variant().unwrap(),
+                );
+            }
+            #[cfg(feature = "rm0455")]
+            {
+                let cdcfgr1 = rcc.cdcfgr1.read();
+                debug!(
+                    "CDCFGR1 register: CDCPRE={:?} HPRE={:?} CDPPRE={:?}",
+                    cdcfgr1.cdcpre().variant().unwrap(),
+                    cdcfgr1.hpre().variant().unwrap(),
+                    cdcfgr1.cdppre().variant().unwrap(),
+                );
+
+                let cdcfgr2 = rcc.cdcfgr2.read();
+                debug!(
+                    "CDCFGR2 register: CDPPRE1={:?} CDPPRE1={:?}",
+                    cdcfgr2.cdppre1().variant().unwrap(),
+                    cdcfgr2.cdppre2().variant().unwrap(),
+                );
+
+                let srdcfgr = rcc.srdcfgr.read();
+                debug!(
+                    "SRDCFGR register: SRDPPRE={:?}",
+                    srdcfgr.srdppre().bits(),
+                );
+            }
 
             let pllckselr = rcc.pllckselr.read();
             debug!(
