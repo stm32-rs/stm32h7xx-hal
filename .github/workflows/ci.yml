@@ -32,8 +32,9 @@ jobs:
           - stm32h7b3
           - stm32h7b0
           - stm32h735
-    env:                        # Peripheral Feature flags
-      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi,defmt
+    env:
+      FLAGS: rt,defmt,log
+      PERIPHERAL: xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi
 
     steps:
       - uses: actions/checkout@v4
@@ -53,5 +54,5 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           targets: thumbv7em-none-eabihf
-      - run: cargo build --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }}
-      - run: cargo test --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }}
+      - run: cargo build --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }},${{ env.PERIPHERAL }}
+      - run: cargo test --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }},${{ env.PERIPHERAL }}
