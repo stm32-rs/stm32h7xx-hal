@@ -1,5 +1,5 @@
-//! Demo for STM32H747I-DISCO eval board using the Real Time for the Masses
-//! (RTIC) framework.
+//! Demo for STM32H747I-DISCO eval board using the Real-Time Interrupt-driven
+//! Concurrency (RTIC) framework.
 //!
 //! STM32H747I-DISCO: RMII TXD1 is on PG12
 //!
@@ -118,9 +118,7 @@ mod app {
     }
 
     #[init]
-    fn init(
-        mut ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(mut ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
@@ -231,7 +229,6 @@ mod app {
                 lan8742a,
                 link_led,
             },
-            init::Monotonics(),
         )
     }
 
