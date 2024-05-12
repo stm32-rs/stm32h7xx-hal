@@ -1,4 +1,5 @@
-//! Timers in RTIC. Tests TIM1, TIM2, TIM12, TIM17
+//! Timers using the Real-Time Interrupt-driven Concurrency (RTIC)
+//! framework. Tests TIM1, TIM2, TIM12, TIM17
 #![deny(warnings)]
 #![deny(unsafe_code)]
 #![no_std]
@@ -33,9 +34,7 @@ mod app {
     }
 
     #[init]
-    fn init(
-        ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = example_power!(pwr).freeze();
@@ -88,7 +87,6 @@ mod app {
                 led3: gpioi.pi14.into_push_pull_output(),
                 led4: gpioi.pi15.into_push_pull_output(),
             },
-            init::Monotonics(),
         )
     }
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* Examples use RTIC v2
+
 ## [v0.16.0] 2024-03-12
 
 * MSRV increased to Rust 1.66.1 [#473]
