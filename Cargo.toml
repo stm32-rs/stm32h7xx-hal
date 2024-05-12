@@ -65,7 +65,7 @@ optional = true
 
 [dev-dependencies]
 cortex-m-rt = ">=0.6.15,<0.8"
-cortex-m-rtic = "1.1"
+rtic = { version = "2.1", features = ["thumbv7-backend"] }
 log = "0.4.11"
 panic-halt = "0.2.0"
 panic-rtt-target = { version = "0.1.0", features = ["cortex-m"] }

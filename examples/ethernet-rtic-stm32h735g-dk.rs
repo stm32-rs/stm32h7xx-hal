@@ -1,5 +1,5 @@
-//! Demo for STM32H735G-DK eval board using the Real Time for the Masses
-//! (RTIC) framework.
+//! Demo for STM32H735G-DK eval board using the Real-Time Interrupt-driven
+//! Concurrency (RTIC) framework.
 //!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
 //!
@@ -111,9 +111,8 @@ mod app {
     }
 
     #[init]
-    fn init(
-        mut ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+
+    fn init(mut ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
@@ -221,7 +220,6 @@ mod app {
                 lan8742a,
                 link_led,
             },
-            init::Monotonics(),
         )
     }
 

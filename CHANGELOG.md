@@ -8,6 +8,8 @@
 * flash: Add `access_banks` method [#489]
 * qspi/octospi: Support different modes for each phase of an xspi operation [#488]
 * timer: Fix off-by-one-tick in timer period calculation [#491]
+* **Breaking** Update `smoltcp` to `0.12.0` (from `0.11.0`)
+* Examples use RTIC v2
 
 ## [v0.16.0] 2024-03-12
 

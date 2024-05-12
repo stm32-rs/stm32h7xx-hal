@@ -1,4 +1,5 @@
-//! Timers in RTIC with low power mode.
+//! Timers using the Real-Time Interrupt-driven Concurrency (RTIC) framework
+//! with low power mode.
 //!
 //! After the end of init the CPU transitions into CStop mode, and D1/D2
 //! (aka. CD) transition into DStop mode.
@@ -49,9 +50,7 @@ mod app {
     }
 
     #[init]
-    fn init(
-        ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         let mut syscfg = ctx.device.SYSCFG;
 
@@ -135,13 +134,12 @@ mod app {
                 timer2,
                 timer3,
             },
-            init::Monotonics(),
         )
     }
 
     // RTIC inserts a default idle loop that calls asm::wfi()
 
-    #[task(binds = EXTI15_10, local = [], priority = 1)]
+    #[task(binds = EXTI15_10, priority = 1)]
     fn exti15_10_interrupt(_: exti15_10_interrupt::Context) {
         // Once the wakeup is triggered, we loop here forever
     }

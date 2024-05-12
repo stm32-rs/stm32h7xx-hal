@@ -38,9 +38,7 @@ mod app {
     }
 
     #[init]
-    fn init(
-        ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = example_power!(pwr).freeze();
@@ -118,7 +116,6 @@ mod app {
                 usb,
                 led: led.into_push_pull_output(),
             },
-            init::Monotonics(),
         )
     }
 

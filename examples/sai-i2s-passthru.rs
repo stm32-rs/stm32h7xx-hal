@@ -42,9 +42,7 @@ mod app {
     struct LocalResources {}
 
     #[init]
-    fn init(
-        mut ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(mut ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let vos = example_power!(pwr).freeze();
@@ -113,11 +111,7 @@ mod app {
         audio.try_send(0, 0).unwrap();
         info!("Startup complete!");
 
-        (
-            SharedResources { audio },
-            LocalResources {},
-            init::Monotonics(),
-        )
+        (SharedResources { audio }, LocalResources {})
     }
 
     #[task(binds = SAI1, shared = [audio] )]

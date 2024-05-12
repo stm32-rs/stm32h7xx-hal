@@ -1,3 +1,5 @@
+//! Simple example of the Real-Time Interrupt-driven Concurrency (RTIC)
+//! framework. Originally tested on a STM32H735G-DK.
 #![deny(warnings)]
 #![deny(unsafe_code)]
 #![no_std]
@@ -24,9 +26,7 @@ mod app {
     }
 
     #[init]
-    fn init(
-        mut ctx: init::Context,
-    ) -> (SharedResources, LocalResources, init::Monotonics) {
+    fn init(mut ctx: init::Context) -> (SharedResources, LocalResources) {
         utilities::logger::init();
         let pwr = ctx.device.PWR.constrain();
         let pwrcfg = example_power!(pwr).freeze();
@@ -50,7 +50,6 @@ mod app {
                 button,
                 led: gpioc.pc3.into_push_pull_output(),
             },
-            init::Monotonics(),
         )
     }
 
