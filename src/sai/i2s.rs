@@ -2,7 +2,6 @@
 //!
 //! Inter-IC Sound.
 //!
-use core::convert::TryInto;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::sai::{GetClkSAI, Sai, SaiChannel, CLEAR_ALL_FLAGS_BITS, INTERFACE};

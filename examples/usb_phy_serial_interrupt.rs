@@ -1,9 +1,15 @@
 //! CDC-ACM serial port example using an external phy and interrupts
+//!
+//! This example is for RM0433/RM0399 parts. It has been tested on the Arduino
+//! Portenta H7
+#![deny(warnings)]
+#![allow(clippy::type_complexity)]
 #![no_std]
 #![no_main]
 
 use {
     core::cell::RefCell,
+    core::mem::MaybeUninit,
     cortex_m::interrupt::{free as interrupt_free, Mutex},
     stm32h7xx_hal::{
         interrupt, pac,
@@ -12,8 +18,10 @@ use {
         stm32,
         usb_hs::{UsbBus, USB1_ULPI},
     },
-    usb_device::prelude::*,
-    usb_device::{bus::UsbBusAllocator, device::UsbDevice},
+    usb_device::{
+        bus::UsbBusAllocator,
+        device::{UsbDevice, UsbDeviceBuilder, UsbVidPid},
+    },
     usbd_serial::{DefaultBufferStore, SerialPort},
 };
 
@@ -24,7 +32,7 @@ mod utilities;
 pub const VID: u16 = 0x2341;
 pub const PID: u16 = 0x025b;
 
-pub static mut USB_MEMORY_1: [u32; 1024] = [0u32; 1024];
+pub static mut USB_MEMORY_1: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
 pub static mut USB_BUS_ALLOCATOR: Option<UsbBusAllocator<UsbBus<USB1_ULPI>>> =
     None;
 pub static SERIAL_PORT: Mutex<
@@ -140,7 +148,16 @@ unsafe fn main() -> ! {
         &ccdr.clocks,
     );
 
-    USB_BUS_ALLOCATOR = Some(UsbBus::new(usb, &mut USB_MEMORY_1));
+    // Initialise USB_MEMORY_1 to zero
+    {
+        let buf: &mut [MaybeUninit<u32>; 1024] =
+            &mut *(core::ptr::addr_of_mut!(USB_MEMORY_1) as *mut _);
+        for value in buf.iter_mut() {
+            value.as_mut_ptr().write(0);
+        }
+    }
+
+    USB_BUS_ALLOCATOR = Some(UsbBus::new(usb, USB_MEMORY_1.assume_init_mut()));
 
     let usb_serial =
         usbd_serial::SerialPort::new(USB_BUS_ALLOCATOR.as_ref().unwrap());
@@ -149,11 +166,14 @@ unsafe fn main() -> ! {
         USB_BUS_ALLOCATOR.as_ref().unwrap(),
         UsbVidPid(VID, PID),
     )
-    .manufacturer("Fake company")
-    .product("Serial port")
-    .serial_number("TEST")
+    .strings(&[usb_device::device::StringDescriptors::default()
+        .manufacturer("Fake company")
+        .product("Serial port")
+        .serial_number("TEST PORT 1")])
+    .unwrap()
     .device_class(usbd_serial::USB_CLASS_CDC)
     .max_packet_size_0(64)
+    .unwrap()
     .build();
 
     interrupt_free(|cs| {

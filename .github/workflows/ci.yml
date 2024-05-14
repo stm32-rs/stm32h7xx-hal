@@ -1,17 +1,27 @@
 on:
   push:
-    branches: [ staging, trying, master ]
+    branches: master
   pull_request:
+  merge_group:
 
 name: Continuous integration
 
 jobs:
   ci:
+    name: CI
+    runs-on: ubuntu-latest
+    needs: [check]
+    if: always()
+    steps:
+      - name: Done
+        run: jq --exit-status 'all(.result == "success")' <<< '${{ toJson(needs) }}'
+
+  check:
     runs-on: ubuntu-latest
     strategy:
       matrix:                   # All permutations of {rust, mcu}
         rust:
-          - 1.65.0  # MSRV
+          - 1.66.1  # MSRV
           - stable
         mcu:
           - stm32h743
@@ -23,34 +33,25 @@ jobs:
           - stm32h7b0
           - stm32h735
     env:                        # Peripheral Feature flags
-      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,defmt
+      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi,defmt
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache cargo registry and index
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-target-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-memory-${{ hashFiles('**/memory.x') }}
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: thumbv7em-none-eabihf
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }}
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }}
+          targets: thumbv7em-none-eabihf
+      - run: cargo build --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }}
+      - run: cargo test --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }}

@@ -4,10 +4,13 @@
 //!
 //! This example uses both USB1 and USB2. This is only possible on devices that
 //! have the USB2 peripheral.
+#![deny(warnings)]
 #![no_std]
 #![no_main]
 
 use panic_itm as _;
+
+use core::mem::MaybeUninit;
 
 use cortex_m_rt::entry;
 
@@ -17,8 +20,8 @@ use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
 
-static mut EP_MEMORY_1: [u32; 1024] = [0; 1024];
-static mut EP_MEMORY_2: [u32; 1024] = [0; 1024];
+static mut EP_MEMORY_1: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
+static mut EP_MEMORY_2: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -68,25 +71,46 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
+    // Initialise EP_MEMORY_1 to zero
+    unsafe {
+        let buf: &mut [MaybeUninit<u32>; 1024] =
+            &mut *(core::ptr::addr_of_mut!(EP_MEMORY_1) as *mut _);
+        for value in buf.iter_mut() {
+            value.as_mut_ptr().write(0);
+        }
+    }
+    // Initialise EP_MEMORY_2 to zero
+    unsafe {
+        let buf: &mut [MaybeUninit<u32>; 1024] =
+            &mut *(core::ptr::addr_of_mut!(EP_MEMORY_2) as *mut _);
+        for value in buf.iter_mut() {
+            value.as_mut_ptr().write(0);
+        }
+    }
+
     // Port 1
-    let usb1_bus = UsbBus::new(usb1, unsafe { &mut EP_MEMORY_1 });
+    let usb1_bus = UsbBus::new(usb1, unsafe { EP_MEMORY_1.assume_init_mut() });
     let mut serial1 = usbd_serial::SerialPort::new(&usb1_bus);
     let mut usb1_dev =
         UsbDeviceBuilder::new(&usb1_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST PORT 1")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
 
     // Port 2
-    let usb2_bus = UsbBus::new(usb2, unsafe { &mut EP_MEMORY_2 });
+    let usb2_bus = UsbBus::new(usb2, unsafe { EP_MEMORY_2.assume_init_mut() });
     let mut serial2 = usbd_serial::SerialPort::new(&usb2_bus);
     let mut usb2_dev =
         UsbDeviceBuilder::new(&usb2_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST PORT 2")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
 

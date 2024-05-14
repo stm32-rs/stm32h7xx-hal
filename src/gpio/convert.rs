@@ -1,12 +1,5 @@
 use super::*;
 
-/// Const assert hack
-struct Assert<const L: u8, const R: u8>;
-
-impl<const L: u8, const R: u8> Assert<L, R> {
-    pub const LESS: () = assert!(L < R);
-}
-
 impl<const P: char, const N: u8, const A: u8>
     Pin<P, N, Alternate<A, PushPull>>
 {
@@ -25,6 +18,7 @@ impl<
     > From<Pin<P, N, MODE>> for Pin<P, N, Alternate<A, Otype>>
 where
     Alternate<A, Otype>: PinMode,
+    Self: marker::IntoAf<A>,
 {
     #[inline(always)]
     fn from(f: Pin<P, N, MODE>) -> Self {
@@ -35,6 +29,8 @@ where
 impl<const P: char, const N: u8, const A: u8, const B: u8>
     From<Pin<P, N, Alternate<B, PushPull>>>
     for Pin<P, N, Alternate<A, OpenDrain>>
+where
+    Self: marker::IntoAf<A>,
 {
     #[inline(always)]
     fn from(f: Pin<P, N, Alternate<B, PushPull>>) -> Self {
@@ -137,7 +133,9 @@ macro_rules! af {
             #[doc=stringify!($A)]
             #[doc=" mode"]
             #[deprecated(since = "0.12.0", note = "Use the .into_alternate() method instead")]
-            pub fn $into_alternate_af(self) -> Pin<P, N, Alternate<$A, PushPull>> {
+            pub fn $into_alternate_af(self) -> Pin<P, N, Alternate<$A, PushPull>> where
+                Self: marker::IntoAf<$A>,
+            {
                 self.into_alternate::<$A>()
             }
         )+
@@ -148,11 +146,10 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
     /// Configures the pin to operate alternate mode
     pub fn into_alternate<const A: u8>(
         self,
-    ) -> Pin<P, N, Alternate<A, PushPull>> {
-        #[allow(path_statements, clippy::no_effect)]
-        {
-            Assert::<A, 16>::LESS;
-        }
+    ) -> Pin<P, N, Alternate<A, PushPull>>
+    where
+        Self: marker::IntoAf<A>,
+    {
         self.into_mode()
     }
 
@@ -179,11 +176,10 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
     #[allow(path_statements)]
     pub fn into_alternate_open_drain<const A: u8>(
         self,
-    ) -> Pin<P, N, Alternate<A, OpenDrain>> {
-        #[allow(path_statements, clippy::no_effect)]
-        {
-            Assert::<A, 16>::LESS;
-        }
+    ) -> Pin<P, N, Alternate<A, OpenDrain>>
+    where
+        Self: marker::IntoAf<A>,
+    {
         self.into_mode()
     }
 

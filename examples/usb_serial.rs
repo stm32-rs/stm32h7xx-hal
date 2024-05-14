@@ -8,8 +8,11 @@
 //! to use the USB2 peripheral together with PA11 and PA12. This applies to the
 //! NUCLEO-H743ZI2 board.
 //!
+#![deny(warnings)]
 #![no_std]
 #![no_main]
+
+use core::mem::MaybeUninit;
 
 #[macro_use]
 #[allow(unused)]
@@ -23,7 +26,7 @@ use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
 
-static mut EP_MEMORY: [u32; 1024] = [0; 1024];
+static mut EP_MEMORY: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -59,7 +62,7 @@ fn main() -> ! {
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     let (pin_dm, pin_dp) = {
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
-        (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
+        (gpioa.pa11, gpioa.pa12)
     };
 
     let usb = USB1::new(
@@ -72,15 +75,27 @@ fn main() -> ! {
         &ccdr.clocks,
     );
 
-    let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });
+    // Initialise EP_MEMORY to zero
+    unsafe {
+        let buf: &mut [MaybeUninit<u32>; 1024] =
+            &mut *(core::ptr::addr_of_mut!(EP_MEMORY) as *mut _);
+        for value in buf.iter_mut() {
+            value.as_mut_ptr().write(0);
+        }
+    }
+
+    // Now we may assume that EP_MEMORY is initialised
+    let usb_bus = UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() });
 
     let mut serial = usbd_serial::SerialPort::new(&usb_bus);
 
     let mut usb_dev =
         UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
 

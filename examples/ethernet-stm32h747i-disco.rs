@@ -5,11 +5,13 @@
 //! The ethernet ring buffers are placed in SRAM3, where they can be
 //! accessed by both the core and the Ethernet DMA.
 //!
-//! This demo doesn't use smoltcp - see the stm32h747i-disco-rtic demo
+//! This demo does not use smoltcp - see the ethernet-rtic-stm32h747i-disco demo
+//! for an example of smoltcp
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
+use core::mem::MaybeUninit;
 use cortex_m_rt as rt;
 use rt::{entry, exception};
 
@@ -27,7 +29,8 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
+    MaybeUninit::uninit();
 
 // the program entry point
 #[entry]
@@ -84,6 +87,8 @@ fn main() -> ! {
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, eth_mac) = unsafe {
+        DES_RING.write(ethernet::DesRing::new());
+
         ethernet::new(
             dp.ETHERNET_MAC,
             dp.ETHERNET_MTL,
@@ -99,7 +104,7 @@ fn main() -> ! {
                 rmii_txd0,
                 rmii_txd1,
             ),
-            &mut DES_RING,
+            DES_RING.assume_init_mut(),
             mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,

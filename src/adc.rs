@@ -1,7 +1,7 @@
 //! Analog to Digital Converter (ADC)
 //!
 //! ADC1 and ADC2 share a reset line. To initialise both of them, use the
-//! [`adc12`](adc12) method.
+//! [`adc12`] method.
 //!
 //! # Examples
 //!
@@ -89,7 +89,7 @@ pub enum AdcDmaMode {
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
 //
 // Refer to RM0433 Rev 7 - Chapter 25.4.13
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(non_camel_case_types)]
 pub enum AdcSampleTime {
@@ -102,6 +102,7 @@ pub enum AdcSampleTime {
     /// 16.5 cycles sampling time
     T_16,
     /// 32.5 cycles sampling time
+    #[default]
     T_32,
     /// 64.5 cycles sampling time
     T_64,
@@ -111,11 +112,6 @@ pub enum AdcSampleTime {
     T_810,
 }
 
-impl Default for AdcSampleTime {
-    fn default() -> Self {
-        AdcSampleTime::T_32
-    }
-}
 impl AdcSampleTime {
     /// Returns the number of half clock cycles represented by this sampling time
     fn clock_cycles_x2(&self) -> u32 {
@@ -1216,7 +1212,7 @@ macro_rules! adc_hal {
 
                 /// Set ADC sampling time
                 ///
-                /// Options can be found in [AdcSampleTime](crate::adc::AdcSampleTime).
+                /// Options can be found in [AdcSampleTime].
                 pub fn set_sample_time(&mut self, t_samp: AdcSampleTime) {
                     self.sample_time = t_samp;
                 }

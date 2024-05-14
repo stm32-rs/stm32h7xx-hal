@@ -886,7 +886,7 @@ pins! {
             gpio::PB0<Alternate<3>>,
             gpio::PB14<Alternate<3>>,
             gpio::PH14<Alternate<3>>,
-            #[cfg(not(feature = "stm32h7b0"))]
+            #[cfg(not(any(feature = "stm32h7b0", feature = "rm0468")))]
             gpio::PJ7<Alternate<3>>,
             #[cfg(not(feature = "stm32h7b0"))]
             gpio::PJ11<Alternate<3>>
@@ -913,6 +913,56 @@ pins! {
             #[cfg(not(feature = "rm0468"))]
             gpio::PI1<Alternate<3>>
         ]
+}
+
+// Quad channel timers (RM0468)
+#[cfg(feature = "rm0468")]
+pins! {
+    pac::TIM23:
+        CH1(ComplementaryImpossible): [
+            gpio::PG12<Alternate<13>>,
+            gpio::PF0<Alternate<13>>,
+            gpio::PF6<Alternate<13>>
+        ]
+        CH2(ComplementaryImpossible): [
+            gpio::PG13<Alternate<13>>,
+            gpio::PF1<Alternate<13>>,
+            gpio::PF7<Alternate<13>>
+        ]
+        CH3(ComplementaryImpossible): [
+            gpio::PG14<Alternate<13>>,
+            gpio::PF2<Alternate<13>>,
+            gpio::PF8<Alternate<13>>
+        ]
+        CH4(ComplementaryImpossible): [
+            gpio::PF3<Alternate<13>>,
+            gpio::PF9<Alternate<13>>
+        ]
+        CH1N: []
+        CH2N: []
+        CH3N: []
+        CH4N: []
+        BRK: []
+        BRK2: []
+    pac::TIM24:
+        CH1(ComplementaryImpossible): [
+            gpio::PF11<Alternate<14>>
+        ]
+        CH2(ComplementaryImpossible): [
+            gpio::PF12<Alternate<14>>
+        ]
+        CH3(ComplementaryImpossible): [
+            gpio::PF13<Alternate<14>>
+        ]
+        CH4(ComplementaryImpossible): [
+            gpio::PF14<Alternate<14>>
+        ]
+        CH1N: []
+        CH2N: []
+        CH3N: []
+        CH4N: []
+        BRK: []
+        BRK2: []
 }
 
 // Period and prescaler calculator for 32-bit timers
@@ -1369,6 +1419,11 @@ tim_hal! {
     pac::TIM5: (tim5, Tim5, u32, 32, DIR: cms),
     pac::TIM8: (tim8, Tim8, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
 }
+#[cfg(feature = "rm0468")]
+tim_hal! {
+    pac::TIM23: (tim23, Tim23, u32, 32, DIR: cms),
+    pac::TIM24: (tim24, Tim24, u32, 32, DIR: cms),
+}
 tim_hal! {
     pac::TIM12: (tim12, Tim12, u16, 16),
     pac::TIM13: (tim13, Tim13, u16, 16),
@@ -1621,9 +1676,24 @@ tim_pin_hal! {
         (C3, ccmr2_output, oc3pe, oc3m),
         (C4, ccmr2_output, oc4pe, oc4m),
 }
-// Quad channel timers
 tim_pin_hal! {
     pac::TIM8, u16:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
+}
+#[cfg(feature = "rm0468")]
+tim_pin_hal! {
+    pac::TIM23, u32:
+        (C1, ccmr1_output, oc1pe, oc1m),
+        (C2, ccmr1_output, oc2pe, oc2m),
+        (C3, ccmr2_output, oc3pe, oc3m),
+        (C4, ccmr2_output, oc4pe, oc4m),
+}
+#[cfg(feature = "rm0468")]
+tim_pin_hal! {
+    pac::TIM24, u32:
         (C1, ccmr1_output, oc1pe, oc1m),
         (C2, ccmr1_output, oc2pe, oc2m),
         (C3, ccmr2_output, oc3pe, oc3m),

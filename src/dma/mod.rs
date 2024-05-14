@@ -19,14 +19,14 @@
 //!
 //! The following table summarizes the available DMA controllers
 //!
-//! | Controller | Accessible Memories | Peripheral [TargetAddress](traits::TargetAddress) Implementations | Double Buffering Supported ? | Number of DMA Streams | Initialization Method
+//! | Controller | Accessible Memories | Peripheral [TargetAddress] Implementations | Double Buffering Supported ? | Number of DMA Streams | Initialization Method
 //! | --- | --- | --- | --- | --- | ---
 //! | [MDMA](mdma) | All | `QUADSPI`, .. | No |16| [Transfer::init_master](Transfer#method.init_master)
 //! | [DMA1](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
 //! | [DMA2](dma) | AXISRAM, SRAM1/2/3/4 | all others [^notimpl] | Yes |8| [Transfer::init](Transfer#method.init)
 //! | [BDMA](bdma) | SRAM4 [^rm0455bdma] | `LPUART1`, `SPI6`, `I2C4`, `SAI4` | Yes |8| [Transfer::init](Transfer#method.init)
 //!
-//! [^notimpl]: [TargetAddress](traits::TargetAddress) is not yet implemented
+//! [^notimpl]: [TargetAddress] is not yet implemented
 //! for many peripherals
 //!
 //! [^rm0455bdma]: On 7B3/7A3/7B0 parts there are two BDMA controllers. BDMA1
@@ -272,22 +272,18 @@ pub mod config {
     /// the same software priority level, the stream with the lower number takes
     /// priority over the stream with the higher number. For example, Stream 2
     /// takes priority over Stream 4.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Default, Debug, Clone, Copy)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum Priority {
         /// Low priority.
         Low,
         /// Medium priority.
+        #[default]
         Medium,
         /// High priority.
         High,
         /// Very high priority.
         VeryHigh,
-    }
-    impl Default for Priority {
-        fn default() -> Self {
-            Priority::Medium
-        }
     }
 
     impl Bits<u8> for Priority {

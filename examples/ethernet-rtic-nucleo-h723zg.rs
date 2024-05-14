@@ -1,19 +1,16 @@
-//! Demo for STM32H747I-DISCO eval board using the Real Time for the Masses
+//! Demo for Nucleo-H723ZG eval board using the Real Time for the Masses
 //! (RTIC) framework.
-//!
-//! STM32H747I-DISCO: RMII TXD1 is on PG12
-//!
-//! If you are using the following boards, you will need to change the TXD1 pin
-//! assignment below!
-//! NUCLEO-H743ZI2: RMII TXD1 is on PB13
-//! NUCLEO-H745I-Q: RMII TXD1 is on PB13
 //!
 //! This demo responds to pings on 192.168.1.99 (IP address hardcoded below)
 //!
 //! We use the SysTick timer to create a 1ms timebase for use with smoltcp.
 //!
-//! The ethernet ring buffers are placed in SRAM3, where they can be
+//! The ethernet ring buffers are placed in AXI SRAM, where they can be
 //! accessed by both the core and the Ethernet DMA.
+//!
+//! Run like
+//!
+//! `cargo flash --example ethernet-rtic-nucleo-h723zg --features=ethernet,stm32h735 --chip=STM32H723ZGTx`
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -51,14 +48,15 @@ static TIME: AtomicU32 = AtomicU32::new(0);
 const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
-#[link_section = ".sram3.eth"]
+#[link_section = ".axisram.eth"]
 static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
     MaybeUninit::uninit();
 
-// This data will be held by Net through a mutable reference
+/// Net storage with static initialisation - another global singleton
 pub struct NetStorageStatic<'a> {
     socket_storage: [SocketStorage<'a>; 8],
 }
+
 // MaybeUninit allows us write code that is correct even if STORE is not
 // initialised by the runtime
 static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
@@ -73,10 +71,10 @@ impl<'a> Net<'a> {
         store: &'a mut NetStorageStatic<'a>,
         mut ethdev: ethernet::EthernetDMA<4, 4>,
         ethernet_addr: HardwareAddress,
-        now: Instant,
     ) -> Self {
         let config = Config::new(ethernet_addr);
-        let mut iface = Interface::new(config, &mut ethdev, now);
+
+        let mut iface = Interface::new(config, &mut ethdev, Instant::ZERO);
         // Set IP address
         iface.update_ip_addrs(|addrs| {
             let _ = addrs.push(IpCidr::new(IpAddress::v4(192, 168, 1, 99), 0));
@@ -114,7 +112,7 @@ mod app {
     struct LocalResources {
         net: Net<'static>,
         lan8742a: ethernet::phy::LAN8742A<ethernet::EthernetMAC>,
-        link_led: gpio::gpioi::PI14<gpio::Output<gpio::PushPull>>,
+        link_led: gpio::gpioe::PE1<gpio::Output<gpio::PushPull>>,
     }
 
     #[init]
@@ -124,10 +122,7 @@ mod app {
         utilities::logger::init();
         // Initialise power...
         let pwr = ctx.device.PWR.constrain();
-        let pwrcfg = pwr.smps().freeze();
-
-        // Link the SRAM3 power state to CPU1
-        ctx.device.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
+        let pwrcfg = pwr.ldo().freeze(); // nucleo-h723zg board doesn't have SMPS
 
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();
@@ -137,6 +132,7 @@ mod app {
             .freeze(pwrcfg, &ctx.device.SYSCFG);
 
         // Initialise system...
+        ctx.core.SCB.invalidate_icache();
         ctx.core.SCB.enable_icache();
         // TODO: ETH DMA coherence issues
         // ctx.core.SCB.enable_dcache(&mut ctx.core.CPUID);
@@ -145,9 +141,9 @@ mod app {
         // Initialise IO...
         let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
-        let gpiog = ctx.device.GPIOG.split(ccdr.peripheral.GPIOG);
-        let gpioi = ctx.device.GPIOI.split(ccdr.peripheral.GPIOI);
-        let mut link_led = gpioi.pi14.into_push_pull_output(); // LED3
+        let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
+        let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
+        let mut link_led = gpioe.pe1.into_push_pull_output(); // USR LED1
         link_led.set_high();
 
         let rmii_ref_clk = gpioa.pa1.into_alternate();
@@ -156,9 +152,9 @@ mod app {
         let rmii_crs_dv = gpioa.pa7.into_alternate();
         let rmii_rxd0 = gpioc.pc4.into_alternate();
         let rmii_rxd1 = gpioc.pc5.into_alternate();
-        let rmii_tx_en = gpiog.pg11.into_alternate();
-        let rmii_txd0 = gpiog.pg13.into_alternate();
-        let rmii_txd1 = gpiog.pg12.into_alternate(); // STM32H747I-DISCO
+        let rmii_tx_en = gpiob.pb11.into_alternate();
+        let rmii_txd0 = gpiob.pb12.into_alternate();
+        let rmii_txd1 = gpiob.pb13.into_alternate();
 
         // Initialise ethernet...
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000); // HCLK 200MHz
@@ -215,7 +211,7 @@ mod app {
             STORE.assume_init_mut()
         };
 
-        let net = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
+        let net = Net::new(store, eth_dma, mac_addr.into());
 
         // 1ms tick
         systick_init(ctx.core.SYST, ccdr.clocks);

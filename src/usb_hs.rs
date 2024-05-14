@@ -50,8 +50,8 @@ impl USB1 {
         usb_global: stm32::OTG1_HS_GLOBAL,
         usb_device: stm32::OTG1_HS_DEVICE,
         usb_pwrclk: stm32::OTG1_HS_PWRCLK,
-        _pin_dm: gpio::PA11<Alternate<10>>,
-        _pin_dp: gpio::PA12<Alternate<10>>,
+        _pin_dm: gpio::PA11<crate::gpio::Analog>,
+        _pin_dp: gpio::PA12<crate::gpio::Analog>,
         prec: rcc::rec::Usb1Otg,
         clocks: &rcc::CoreClocks,
     ) -> Self {

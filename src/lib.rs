@@ -27,6 +27,7 @@
 //! * [Ethernet](crate::ethernet) Feature gate `ethernet`
 //! * [USB HS](crate::usb_hs) Feature gate `usb_hs`
 //! * [LCD-TFT Display Controller](crate::ltdc) Feature gate `ltdc`
+//! * MIPI DSI (STM32H747/757 only) Feature gate `dsi`
 //! * [CAN and CAN-FD](crate::can) Feature gate `can`
 //!
 //! External Memory
@@ -46,7 +47,7 @@
 //!
 //! * [Direct Memory Access (DMA)](crate::dma)
 //! * [Cyclic Redundancy Check (CRC)](crate::crc) Feature gate `crc`
-//! * [Random Number Generator](crate::rng) ([rand_core::RngCore](rand_core::RngCore) is implemented under the `rand` feature gate)
+//! * [Random Number Generator](crate::rng) ([rand_core::RngCore] is implemented under the `rand` feature gate)
 //! * [Embedded Flash Memory](crate::flash)
 //! * [System Window Watchdog](crate::system_watchdog)
 //! * [Independent Watchdog](crate::independent_watchdog)
@@ -102,15 +103,15 @@ pub use stm32h7::stm32h743 as stm32;
 pub use stm32h7::stm32h743v as stm32;
 
 // Single core with crypto
-#[cfg(any(feature = "stm32h753",))]
+#[cfg(feature = "stm32h753")]
 pub use stm32h7::stm32h753 as stm32;
-#[cfg(any(feature = "stm32h753v",))]
+#[cfg(feature = "stm32h753v")]
 pub use stm32h7::stm32h753v as stm32;
 
 // Dual core
-#[cfg(any(feature = "stm32h747cm7",))]
+#[cfg(feature = "stm32h747cm7")]
 pub use stm32h7::stm32h747cm7 as stm32;
-#[cfg(any(feature = "stm32h757cm7",))]
+#[cfg(feature = "stm32h757cm7")]
 pub use stm32h7::stm32h757cm7 as stm32;
 // TODO(rm0399): soundness of PeripheralREC macro in rcc/rec.rs
 
@@ -156,6 +157,8 @@ pub mod dac;
 pub mod delay;
 #[cfg(feature = "device-selected")]
 pub mod dma;
+#[cfg(all(feature = "device-selected", feature = "dsi", feature = "rm0399"))]
+pub mod dsi;
 #[cfg(all(
     feature = "device-selected",
     feature = "ethernet",

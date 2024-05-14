@@ -44,10 +44,10 @@
 //! Unlike DMA1/DMA2, it is valid to assign the same request line to multiple
 //! MDMA streams. Additionally there are multiple requests lines to choose from
 //! for each target peripheral. For this reason, hardware request lines are
-//! specified as part of the [`MdmaConfig`](MdmaConfig) instead of being
-//! inferred from the peripheral type. If no hardware request line is specified,
-//! then the request line originates from software and the transfer is started
-//! immediately when [`enable`](Stream0#method.enable) is called.
+//! specified as part of the [`MdmaConfig`] instead of being inferred from the
+//! peripheral type. If no hardware request line is specified, then the request
+//! line originates from software and the transfer is started immediately when
+//! [`enable`](Stream0#method.enable) is called.
 //!
 //!
 
@@ -208,11 +208,12 @@ impl MdmaSize {
 }
 
 /// MDMA increment mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaIncrement {
     Fixed,
     /// Increment by one source/destination element each element
+    #[default]
     Increment,
     /// Decrement by one source/destination element each element
     Decrement,
@@ -224,11 +225,6 @@ pub enum MdmaIncrement {
     /// or equal to the source/destination element size, otherwise the stream
     /// initialisation will panic
     DecrementWithOffset(MdmaSize),
-}
-impl Default for MdmaIncrement {
-    fn default() -> Self {
-        MdmaIncrement::Increment
-    }
 }
 
 /// MDMA burst size. This type contains the _register_ value, thus the burst
@@ -278,10 +274,11 @@ impl defmt::Format for MdmaBurstSize {
 }
 
 /// MDMA Packing/Alignment mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaPackingAlignment {
     /// Source data is packed/unpacked into the destination data size
+    #[default]
     Packed,
     /// Source data is extended into the destination data size. Source data
     /// smaller than the destination is right-aligned and padded with zeros
@@ -299,29 +296,20 @@ pub enum MdmaPackingAlignment {
     /// of the source is written to the destination.
     TruncateLeft,
 }
-impl Default for MdmaPackingAlignment {
-    fn default() -> Self {
-        MdmaPackingAlignment::Packed
-    }
-}
 
 /// MDMA trigger mode
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum MdmaTrigger {
     /// Each MDMA request triggers a buffer transfer
     Buffer = 0b00,
     /// Each MDMA request triggers a block transfer
+    #[default]
     Block = 0b01,
     /// Each MDMA request triggers a repeated block transfer (Not Supported)
     RepeatedBlock = 0b10,
     /// Each MDMA request triggers a linked-link transfer (Not Supported)
     LinkedList = 0b11,
-}
-impl Default for MdmaTrigger {
-    fn default() -> Self {
-        MdmaTrigger::Block
-    }
 }
 
 /// MDMA interrupts

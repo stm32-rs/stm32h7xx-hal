@@ -19,34 +19,24 @@ jobs:
           - log-semihost
           - log-rtt
     env:                        # Peripheral Feature flags
-      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can
+      FLAGS: rt,xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache cargo registry and index
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-target-nightly-${{ hashFiles('**/Cargo.toml') }}-memory-${{ hashFiles('**/memory.x') }}
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          target: thumbv7em-none-eabihf
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }},${{ matrix.logging }}
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }}
+          targets: thumbv7em-none-eabihf
+      - run: cargo build --verbose --release --examples --target thumbv7em-none-eabihf --features ${{ matrix.mcu }},${{ env.FLAGS }},${{ matrix.logging }}
+      - run: cargo test --lib --target x86_64-unknown-linux-gnu --features ${{ matrix.mcu }},${{ env.FLAGS }}

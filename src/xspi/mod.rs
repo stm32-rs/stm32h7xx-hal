@@ -116,8 +116,8 @@
 mod qspi;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use common::{
-    Bank, Xspi as Qspi, XspiError as QspiError, XspiMode as QspiMode,
-    XspiWord as QspiWord,
+    Bank, BankError, BankSelect, Xspi as Qspi, XspiError as QspiError,
+    XspiMode as QspiMode, XspiWord as QspiWord,
 };
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 pub use qspi::QspiExt as XspiExt;
@@ -143,6 +143,7 @@ mod common {
         stm32,
         time::Hertz,
     };
+    use core::cell::UnsafeCell;
     use core::{marker::PhantomData, ptr};
 
     /// Represents operation modes of the XSPI interface.
@@ -247,7 +248,7 @@ mod common {
         Error,
     }
 
-    /// Indicates a specific QUADSPI bank to use
+    /// Indicates a specific QUADSPI bank to use.
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -258,6 +259,45 @@ mod common {
     }
     // Banks are not supported by the Octospi peripheral (there's two Octospi
     // peripherals instead)
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    pub enum BankError {
+        DualModeNotSupported,
+    }
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    impl TryFrom<Bank> for BankSelect {
+        type Error = BankError;
+
+        fn try_from(value: Bank) -> Result<Self, Self::Error> {
+            match value {
+                Bank::One => Ok(BankSelect::One),
+                Bank::Two => Ok(BankSelect::Two),
+                Bank::Dual => Err(BankError::DualModeNotSupported),
+            }
+        }
+    }
+
+    /// Indicates one of the two existing QUADSPI bank.
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    pub enum BankSelect {
+        One,
+        Two,
+    }
+
+    #[cfg(any(feature = "rm0433", feature = "rm0399"))]
+    impl From<BankSelect> for Bank {
+        fn from(val: BankSelect) -> Self {
+            match val {
+                BankSelect::One => Bank::One,
+                BankSelect::Two => Bank::Two,
+            }
+        }
+    }
 
     /// A structure for specifying the XSPI configuration.
     ///
@@ -641,7 +681,9 @@ mod common {
                 // Write data to the FIFO in a byte-wise manner.
                 unsafe {
                     for byte in data {
-                        ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
+                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+
+                        ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 
@@ -723,7 +765,9 @@ mod common {
                 // Transaction starts here
                 unsafe {
                     for byte in data {
-                        ptr::write_volatile(&self.rb.dr as *const _ as *mut u8, *byte);
+                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+
+                        ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 

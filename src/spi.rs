@@ -62,7 +62,7 @@
 //!
 //! [embedded_hal]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/spi/index.html
 
-use core::convert::From;
+use core::cell::UnsafeCell;
 use core::marker::PhantomData;
 use core::ptr;
 
@@ -1083,8 +1083,9 @@ macro_rules! spi {
                             {
                                 // NOTE(write_volatile) see note above
                                 unsafe {
+                                    let txdr = &self.spi.txdr as *const _ as *const UnsafeCell<$TY>;
                                     ptr::write_volatile(
-                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        UnsafeCell::raw_get(txdr),
                                         word,
                                     )
                                 }
@@ -1112,8 +1113,9 @@ macro_rules! spi {
                             {
                                 // NOTE(write_volatile/read_volatile) write/read only 1 word
                                 unsafe {
+                                    let txdr = &self.spi.txdr as *const _ as *const UnsafeCell<$TY>;
                                     ptr::write_volatile(
-                                        &self.spi.txdr as *const _ as *mut $TY,
+                                        UnsafeCell::raw_get(txdr),
                                         word,
                                     );
                                     return Ok(ptr::read_volatile(
@@ -1170,9 +1172,7 @@ macro_rules! spi {
                     }
 
                     /// Internal implementation for blocking::spi::Write
-                    fn transfer_internal_w<'w>(&mut self,
-                                             write_words: &'w [$TY],
-                    ) -> Result<(), Error> {
+                    fn transfer_internal_w(&mut self, write_words: &[$TY]) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         // both buffers are the same length
@@ -1230,9 +1230,7 @@ macro_rules! spi {
                     }
 
                     /// Internal implementation for blocking::spi::Transfer
-                    fn transfer_internal_rw<'w>(&mut self,
-                        words : &'w mut [$TY]
-                    ) -> Result<(), Error> {
+                    fn transfer_internal_rw(&mut self, words : &mut [$TY]) -> Result<(), Error> {
                         use hal::spi::FullDuplex;
 
                         if words.is_empty() {

@@ -5,12 +5,11 @@
 //! This example demonstrates a transfer with 1 beat/burst, and a 32
 //! beats/burst. The latter gives an approximately 25% speedup.
 
-#![allow(clippy::transmute_ptr_to_ptr)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
-use core::{mem, mem::MaybeUninit};
+use core::mem::MaybeUninit;
 
 use cortex_m_rt::entry;
 #[macro_use]
@@ -62,18 +61,23 @@ fn main() -> ! {
     info!("");
 
     // Initialise the source buffer without taking any references to
-    // uninitialisated memory
+    // uninitialised memory
     let _source_buffer: &'static mut [u32; 200] = {
-        let buf: &mut [MaybeUninit<u32>; 200] =
-            unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+        let buf: &mut [MaybeUninit<u32>; 200] = unsafe {
+            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
+                as *mut [MaybeUninit<u32>; 200])
+        };
 
         for value in buf.iter_mut() {
             unsafe {
                 value.as_mut_ptr().write(0x11223344u32);
             }
         }
-        unsafe { mem::transmute(buf) }
+        unsafe { SOURCE_BUFFER.assume_init_mut() }
     };
+
+    // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
+    // behaviour (taking a mutable reference to uninitialised memory)
 
     // Setup DMA
     let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
@@ -89,9 +93,9 @@ fn main() -> ! {
             // unsafe: Both source and destination live at least as long as this
             // transfer
             let source: &'static mut [u32; 200] =
-                unsafe { mem::transmute(&mut SOURCE_BUFFER) };
+                unsafe { SOURCE_BUFFER.assume_init_mut() };
             let target: &'static mut [u32; 200] =
-                unsafe { mem::transmute(&mut TARGET_BUFFER) };
+                unsafe { TARGET_BUFFER.assume_init_mut() }; // uninitialised memory
 
             Transfer::init_master(
                 stream,
@@ -125,8 +129,7 @@ fn main() -> ! {
         }
 
         // Decompose the stream to get the buffers back
-        let (_stream0, _mem2mem, target_buffer, _source_buffer_opt) =
-            transfer.free();
+        let (_stream0, _mem2mem, target_buffer, _) = transfer.free();
 
         for a in target_buffer.iter() {
             assert_eq!(*a, 0x11223344);

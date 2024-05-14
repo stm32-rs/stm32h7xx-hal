@@ -41,7 +41,7 @@ fn main() -> ! {
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
 
     // STM32H747I-DISCO development board
-    #[cfg(any(feature = "rm0399"))]
+    #[cfg(feature = "rm0399")]
     let mut led = {
         let gpioi = dp.GPIOI.split(ccdr.peripheral.GPIOI);
 
@@ -144,57 +144,45 @@ fn main() -> ! {
     info!("----------------------");
     info!("");
 
-    // Read test
-    let mut buffer = [0u8; 5120];
-
     cp.DWT.enable_cycle_counter();
-    let start = pac::DWT::cycle_count();
 
-    for i in 0..10 {
-        // Read 10 blocks
-        sdmmc.read_blocks(10 * i, &mut buffer).unwrap();
-    }
-
-    let end = pac::DWT::cycle_count();
-    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
-
-    info!("Read 10 blocks at {} bytes/s", 5120. / duration);
-    info!("");
-
+    // Write single block test
     let write_buffer = [0x34; 512];
     let start = pac::DWT::cycle_count();
-
-    for i in 0..10 {
-        if let Err(err) = sdmmc.write_block(i, &write_buffer) {
-            info!("Failed to write block {}: {:?}", i, err);
-        }
-    }
-
+    sdmmc.write_block(0, &write_buffer).unwrap();
     let end = pac::DWT::cycle_count();
     let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+    info!("Wrote single block at {} bytes/s", 512.0 / duration);
 
-    info!("Wrote 10 blocks at {} bytes/s", 5120. / duration);
-    info!("");
+    // Write multiple blocks test
+    let write_buffer = [0x34; 512 * 16];
+    let start = pac::DWT::cycle_count();
+    sdmmc.write_blocks(0, &write_buffer).unwrap();
+    let end = pac::DWT::cycle_count();
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+    info!("Wrote 16 blocks at {} bytes/s", (512.0 * 16.0) / duration);
+
+    // Read single block test
+    let mut buffer = [0u8; 512];
+    let start = pac::DWT::cycle_count();
+    sdmmc.read_block(0, &mut buffer).unwrap();
+    let end = pac::DWT::cycle_count();
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+    info!("Read single block at {} bytes/s", 512.0 / duration);
+
+    // Read multiple blocks test
+    let mut buffer = [0u8; 512 * 16];
+    let start = pac::DWT::cycle_count();
+    sdmmc.read_blocks(0, &mut buffer).unwrap();
+    let end = pac::DWT::cycle_count();
+    let duration = (end - start) as f32 / ccdr.clocks.c_ck().raw() as f32;
+    info!("Read 16 blocks at {} bytes/s", (512.0 * 16.0) / duration);
 
     info!("Verification test...");
-    // Write 10 blocks
-    for i in 0..10 {
-        if let Err(err) = sdmmc.write_block(i, &write_buffer) {
-            info!("Failed to write block {}: {:?}", i, err);
-        } else {
-            info!("Wrote block {}", i);
-        }
-
-        // Read back
-        sdmmc.read_blocks(0, &mut buffer).unwrap();
-    }
-
-    // Check the read
     for byte in buffer.iter() {
         assert_eq!(*byte, 0x34);
     }
-    info!("Verified 10 blocks");
-    info!("");
+    info!("Verified all blocks");
 
     info!("Done!");
 

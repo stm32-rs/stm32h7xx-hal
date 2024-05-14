@@ -36,7 +36,7 @@ fn main() -> ! {
     let mut watchdog = IndependentWatchdog::new(dp.IWDG2);
 
     // RM0468
-    #[cfg(all(feature = "rm0468"))]
+    #[cfg(feature = "rm0468")]
     let mut watchdog = IndependentWatchdog::new(dp.IWDG1);
 
     info!("");

@@ -15,6 +15,7 @@ mod utilities;
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
+    use core::mem::MaybeUninit;
     use stm32h7xx_hal::gpio::gpioe::PE1;
     use stm32h7xx_hal::gpio::{Output, PushPull};
     use stm32h7xx_hal::prelude::*;
@@ -22,7 +23,7 @@ mod app {
     use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
     use usb_device::prelude::*;
 
-    static mut EP_MEMORY: [u32; 1024] = [0; 1024];
+    static mut EP_MEMORY: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
     use super::utilities;
 
     #[shared]
@@ -70,7 +71,7 @@ mod app {
         #[cfg(any(feature = "rm0455", feature = "rm0468"))]
         let (pin_dm, pin_dp) = {
             let gpioa = ctx.device.GPIOA.split(ccdr.peripheral.GPIOA);
-            (gpioa.pa11.into_alternate(), gpioa.pa12.into_alternate())
+            (gpioa.pa11, gpioa.pa12)
         };
 
         let led = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE).pe1;
@@ -84,16 +85,28 @@ mod app {
             &ccdr.clocks,
         );
 
+        // Initialise EP_MEMORY to zero
+        unsafe {
+            let buf: &mut [MaybeUninit<u32>; 1024] =
+                &mut *(core::ptr::addr_of_mut!(EP_MEMORY) as *mut _);
+            for value in buf.iter_mut() {
+                value.as_mut_ptr().write(0);
+            }
+        }
+
+        // Now we may assume that EP_MEMORY is initialised
         let usb_bus = cortex_m::singleton!(
             : usb_device::class_prelude::UsbBusAllocator<UsbBus<USB1>> =
-                UsbBus::new(usb, unsafe { &mut EP_MEMORY })
+                UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() })
         )
         .unwrap();
         let serial = usbd_serial::SerialPort::new(usb_bus);
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
+            .strings(&[usb_device::device::StringDescriptors::default()
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST PORT 1")])
+            .unwrap()
             .device_class(usbd_serial::USB_CLASS_CDC)
             .build();
         let usb = (usb_dev, serial);
