@@ -387,14 +387,6 @@ adc_internal!(
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_pins!(ADC3,
     // 0, 1 are Pxy_C pins
-
-    // EB: These two are a bit of "hack" (normally not supported by hal).
-    // EB: Requires the PC2/3_C to be connected. Should not be included in any patches...
-    // EB: Use these because they are faster and we then don't need to mess with syscfg
-    // EB: (on mainboard)
-    gpio::PC2<Analog> => 0, // Force PC2 to use channel 0 (PC2_C)
-    gpio::PC3<Analog> => 1, // Add PC3_C on channel 0
-
     gpio::PF9<Analog> => 2,
     gpio::PF7<Analog> => 3,
     gpio::PF5<Analog> => 4,
@@ -405,7 +397,7 @@ adc_pins!(ADC3,
     gpio::PF4<Analog> => 9,
     gpio::PC0<Analog> => 10,
     gpio::PC1<Analog> => 11,
-    //gpio::PC2<Analog> => 12,
+    gpio::PC2<Analog> => 12,
     gpio::PH2<Analog> => 13,
     gpio::PH3<Analog> => 14,
     gpio::PH4<Analog> => 15,
