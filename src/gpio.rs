@@ -64,6 +64,10 @@
 use core::marker::PhantomData;
 
 use crate::rcc::ResetEnable;
+// EB: Todo: If making PR upstream, this should only be include for some boards (see pwr.rs)
+use crate::stm32::SYSCFG;
+// EB: Todo: If making PR upstream, check which boards has relevant Pxy_C pins and update
+// EB:       adc_pins! macros accordingly
 
 mod convert;
 pub use convert::PinMode;
@@ -256,6 +260,28 @@ af!(
     14: AF14,
     15: AF15
 );
+
+/// Joined state
+pub struct Joined;
+
+/// Split state
+pub struct Split;
+
+/// C pin type
+///
+/// This type is used to specify ADC analog input pins (typically named PA0_C or PC2_C).
+/// These pins can be connected to corresponding GPIO pins (PA0 or PC2) through an
+/// analog switch.
+/// - `MODE` is one of Joined (connected to gpio pin (e.g. PA0 and PA0_C are
+/// connected)) or Split (PA0 and PA0_C are not connected)
+pub struct CPin<const P: char, const N: u8, Mode> {
+    _mode: PhantomData<Mode>,
+}
+impl<const P: char, const N: u8, MODE> CPin<P, N, MODE> {
+    const fn new() -> Self {
+        Self { _mode: PhantomData }
+    }
+}
 
 /// Generic pin type
 ///
@@ -520,7 +546,8 @@ where
 
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $Rec:ident, $PEPin:ident, $port_id:expr, $PXn:ident, [
-        $($PXi:ident: ($pxi:ident, $i:expr, [$($A:literal),*] $(, $MODE:ty)?),)+
+        $($PXi:ident: ($pxi:ident, $i:expr, [$($A:literal),*] $(, $MODE:ty)?)
+        $(, ($CPIN:ident, $cpin:ident, $creg:ident))?,)+
     ]) => {
         #[doc=concat!("Port ", $port_id)]
         pub mod $gpiox {
@@ -533,6 +560,9 @@ macro_rules! gpio {
                     /// Pin
                     pub $pxi: $PXi $(<$MODE>)?,
                 )+
+                $(
+                    $(pub $cpin: $CPIN,)?
+                )*
             }
 
             impl super::GpioExt for $GPIOX {
@@ -546,6 +576,10 @@ macro_rules! gpio {
                         $(
                             $pxi: $PXi::new(),
                         )+
+                        $(
+                            $($cpin: $CPIN::new(),)?
+                        )*
+
                     }
                 }
 
@@ -556,6 +590,10 @@ macro_rules! gpio {
                         $(
                             $pxi: $PXi::new(),
                         )+
+                        $(
+                            $($cpin: $CPIN::new(),)?
+                        )*
+
                     }
                 }
             }
@@ -572,9 +610,40 @@ macro_rules! gpio {
                 )*
             )+
 
+            $(
+                $(
+                    #[doc=concat!("P", $port_id, $i, "_C pin")]
+                    #[allow(non_camel_case_types)]
+                    pub type $CPIN<MODE = super::Joined> = super::CPin<$port_id, $i, MODE>;
+                )?
+            )*
+
         }
 
-        pub use $gpiox::{ $($PXi,)+ };
+        pub use $gpiox::{ $($PXi,)+ $($($CPIN,)?)* };
+
+        $(
+            $(
+                impl<MODE> CPin<$port_id, $i, MODE> {
+                    #[doc=concat!("Configures the pin to split mode (P", $port_id, $i," and P", $port_id, $i,"_C are not connected)")]
+                    pub fn into_split(self) -> CPin<$port_id, $i, Split> {
+                        unsafe {
+                            (*SYSCFG::ptr()).pmcr.modify(|_, w| w.$creg().set_bit());
+                        }
+                        CPin::new()
+                    }
+                    #[doc=concat!("Configures the pin to joined mode (P", $port_id, $i," and P", $port_id, $i,"_C are connected)")]
+                    pub fn into_joined(self) -> CPin<$port_id, $i, Joined> {
+                        unsafe {
+                            (*SYSCFG::ptr()).pmcr.modify(|_, w| w.$creg().clear_bit());
+                        }
+
+                        CPin::new()
+                    }
+                }
+            )?
+        )*
+
     }
 }
 
@@ -755,8 +824,8 @@ gpio!(GPIOK, gpiok, Gpiok, PK, 'K', PKn, [
 
 #[cfg(feature = "gpio-h747")]
 gpio!(GPIOA, gpioa, Gpioa, PA, 'A', PAn, [
-    PA0: (pa0, 0, [1, 2, 3, 4, 7, 8, 9, 10, 11, 15]),
-    PA1: (pa1, 1, [1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 15]),
+    PA0: (pa0, 0, [1, 2, 3, 4, 7, 8, 9, 10, 11, 15]), (PA0_C, pa0_c, pa0so),
+    PA1: (pa1, 1, [1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 15]), (PA1_C, pa1_c, pa1so),
     PA2: (pa2, 2, [1, 2, 3, 4, 7, 8, 11, 12, 14, 15]),
     PA3: (pa3, 3, [1, 2, 3, 4, 7, 9, 10, 11, 14, 15]),
     PA4: (pa4, 4, [2, 5, 6, 7, 8, 12, 13, 14, 15]),
@@ -797,8 +866,8 @@ gpio!(GPIOB, gpiob, Gpiob, PB, 'B', PBn, [
 gpio!(GPIOC, gpioc, Gpioc, PC, 'C', PCn, [
     PC0: (pc0, 0, [3, 6, 8, 10, 12, 14, 15]),
     PC1: (pc1, 1, [0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 15]),
-    PC2: (pc2, 2, [3, 5, 6, 10, 11, 12, 15]),
-    PC3: (pc3, 3, [3, 5, 10, 11, 12, 15]),
+    PC2: (pc2, 2, [3, 5, 6, 10, 11, 12, 15]), (PC2_C, pc2_c, pc2so),
+    PC3: (pc3, 3, [3, 5, 10, 11, 12, 15]), (PC3_C, pc3_c, pc3so),
     PC4: (pc4, 4, [3, 5, 9, 11, 12, 15]),
     PC5: (pc5, 5, [2, 3, 9, 10, 11, 12, 13, 15]),
     PC6: (pc6, 6, [1, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15]),
