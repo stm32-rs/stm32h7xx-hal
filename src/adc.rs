@@ -29,7 +29,7 @@ use crate::stm32::adc12_common::ccr::PRESC_A;
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::adc3_common::ccr::PRESC_A;
 
-use crate::gpio::{self, Analog};
+use crate::gpio::{self, Analog, Split};
 use crate::pwr::{current_vos, VoltageScale};
 use crate::rcc::rec::AdcClkSelGetter;
 use crate::rcc::{rec, CoreClocks, ResetEnable};
@@ -332,6 +332,8 @@ pub struct Temperature;
 // Refer to DS12110 Rev 7 - Chapter 5 (Table 9)
 adc_pins!(ADC1,
     // 0, 1 are Pxy_C pins
+    gpio::PA0_C<Split> => 0,
+    gpio::PA1_C<Split> => 1,
     gpio::PF11<Analog> => 2,
     gpio::PA6<Analog> => 3,
     gpio::PC4<Analog> => 4,
@@ -387,6 +389,8 @@ adc_internal!(
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
 adc_pins!(ADC3,
     // 0, 1 are Pxy_C pins
+    gpio::PC2_C<Split> => 0,
+    gpio::PC3_C<Split> => 1,
     gpio::PF9<Analog> => 2,
     gpio::PF7<Analog> => 3,
     gpio::PF5<Analog> => 4,
