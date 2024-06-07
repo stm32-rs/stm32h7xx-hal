@@ -97,6 +97,8 @@ gpio-h72 = []
 gpio-h747 = []
 gpio-h7a2 = []
 
+defmt = ["dep:defmt", "fugit/defmt", "smoltcp?/defmt"]
+
 dsi = ["embedded-display-controller"]
 cm4 = []
 cm7 = []
