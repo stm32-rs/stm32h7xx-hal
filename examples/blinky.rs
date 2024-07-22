@@ -10,6 +10,7 @@ use stm32h7xx_hal::{pac, prelude::*};
 use log::info;
 
 #[macro_use]
+#[allow(unused)]
 mod utilities;
 
 #[entry]
@@ -21,21 +22,21 @@ fn main() -> ! {
     // Constrain and Freeze power
     info!("Setup PWR...                  ");
     let pwr = dp.PWR.constrain();
-    let pwrcfg = example_power!(pwr).freeze();
+    let pwrcfg = pwr.smps().freeze();
 
     // Constrain and Freeze clock
     info!("Setup RCC...                  ");
     let rcc = dp.RCC.constrain();
-    let ccdr = rcc.sys_ck(100.MHz()).freeze(pwrcfg, &dp.SYSCFG);
+    let ccdr = rcc.sys_ck(200.MHz()).hclk(200.MHz()).freeze(pwrcfg, &dp.SYSCFG);
 
     info!("");
     info!("stm32h7xx-hal example - Blinky");
     info!("");
 
-    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
 
-    // Configure PE1 as output.
-    let mut led = gpioe.pe1.into_push_pull_output();
+    // Configure PC2 as output.
+    let mut led = gpioc.pc2.into_push_pull_output();
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(ccdr.clocks);
