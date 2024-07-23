@@ -1,0 +1,29 @@
+Environmanet setup
+------------------
+Detailed steps can be found in:
+        https://docs.rust-embedded.org/book/intro/install.html
+
+Also have a look at the QEMU and hardware setup details in the same online book.
+        QEMU - https://docs.rust-embedded.org/book/start/qemu.html
+        Hardware - https://docs.rust-embedded.org/book/start/hardware.html
+        
+
+Build command
+-------------
+1) cargo clean
+2) cargo build --features=stm32h735,rt,log-semihost,example-smps  --example blinky
+
+    Note: In the above command the features are basically compile time flags which varies accordinfg to the device, features we need in an application etc.
+
+
+Debugging
+---------
+
+1) In one terminl execute 'openocd.exe'. Mkae sure that openocd.cfg is present in the dir from which the openocd.exe executed.
+2) In other terminl execute 'arm-none-eabi-gdb.exe -x .\openocd.gdb -q <path to the binary>'. Make sure that openocd.dbg file is presnet in that Dir.
+
+                eg: arm-none-eabi-gdb.exe -x .\openocd.gdb -q .\target\thumbv7em-none-eabihf\debug\examples\blinky
+
+3) Enter 'continue' or 'c' to continue execution in the gdb ternimal (You may need to do it 2 times) and observe the result in the openocd terminal.
+
+
