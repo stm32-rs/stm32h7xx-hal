@@ -29,7 +29,6 @@ type CH = stm32::sai4::CH;
 use crate::gpio::{self, Alternate};
 
 use crate::traits::i2s::FullDuplex;
-// use embedded_hal::i2s::FullDuplex;
 
 const NUM_SLOTS: u8 = 16;
 

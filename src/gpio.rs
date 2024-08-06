@@ -77,7 +77,7 @@ mod dynamic;
 pub use dynamic::{Dynamic, DynamicPin};
 mod hal_02;
 
-pub use embedded_hal::digital::v2::PinState;
+pub use embedded_hal_02::digital::v2::PinState;
 
 use core::fmt;
 
