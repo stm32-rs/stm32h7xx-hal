@@ -7,7 +7,6 @@
 use core::cmp;
 use core::mem;
 
-use crate::hal::blocking::rng;
 use crate::rcc::{rec, rec::RngClkSel};
 use crate::rcc::{CoreClocks, ResetEnable};
 use crate::stm32::RNG;
@@ -116,7 +115,7 @@ impl core::iter::Iterator for Rng {
     }
 }
 
-impl rng::Read for Rng {
+impl embedded_hal_02::blocking::rng::Read for Rng {
     type Error = ErrorKind;
 
     fn read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {

@@ -10,8 +10,6 @@
 
 use core::marker::PhantomData;
 
-use crate::hal::timer::{CountDown, Periodic};
-
 use crate::stm32::{lptim1, lptim3};
 use crate::stm32::{LPTIM1, LPTIM2, LPTIM3};
 #[cfg(not(feature = "rm0455"))]
@@ -285,9 +283,9 @@ pub enum Event {
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident, $Rec:ident, $cntType:ty),)+) => {
         $(
-            impl Periodic for Timer<$TIMX> {}
+            impl embedded_hal_02::timer::Periodic for Timer<$TIMX> {}
 
-            impl CountDown for Timer<$TIMX> {
+            impl embedded_hal_02::timer::CountDown for Timer<$TIMX> {
                 type Time = Hertz;
 
                 fn start<T>(&mut self, timeout: T)
@@ -331,6 +329,8 @@ macro_rules! hal {
                 fn timer(self, timeout: Hertz,
                             prec: Self::Rec, clocks: &CoreClocks
                 ) -> Timer<$TIMX> {
+                    use embedded_hal_02::timer::CountDown;
+
                     let mut timer = Timer::$timX(self, prec, clocks);
                     timer.start(timeout);
                     timer
@@ -607,9 +607,9 @@ hal! {
 macro_rules! lptim_hal {
     ($($TIMX:ident: ($timx:ident, $Rec:ident, $timXpac:ident),)+) => {
         $(
-            impl Periodic for LpTimer<$TIMX, Enabled> {}
+            impl embedded_hal_02::timer::Periodic for LpTimer<$TIMX, Enabled> {}
 
-            impl CountDown for LpTimer<$TIMX, Enabled> {
+            impl embedded_hal_02::timer::CountDown for LpTimer<$TIMX, Enabled> {
                 type Time = Hertz;
 
                 fn start<T>(&mut self, timeout: T)
@@ -692,10 +692,13 @@ macro_rules! lptim_hal {
             }
 
             impl LpTimer<$TIMX, Enabled> {
+
                 /// Configures a LPTIM peripheral as a periodic count down timer
                 pub fn $timx(tim: $TIMX, timeout: Hertz,
                                 prec: rec::$Rec, clocks: &CoreClocks
                 ) -> Self {
+                    use embedded_hal_02::timer::CountDown;
+
                     // enable and reset peripheral to a clean state
                     let _ = prec.enable().reset(); // drop, can be recreated by free method
 

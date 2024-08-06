@@ -9,7 +9,6 @@ use core::cmp;
 use core::marker::PhantomData;
 
 use crate::gpio::{self, Alternate, OpenDrain};
-use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
@@ -557,7 +556,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl Write for I2c<$I2CX> {
+            impl embedded_hal_02::blocking::i2c::Write for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
@@ -592,7 +591,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl WriteRead for I2c<$I2CX> {
+            impl embedded_hal_02::blocking::i2c::WriteRead for I2c<$I2CX> {
                 type Error = Error;
 
                 fn write_read(
@@ -641,7 +640,7 @@ macro_rules! i2c {
                 }
             }
 
-            impl Read for I2c<$I2CX> {
+            impl embedded_hal_02::blocking::i2c::Read for I2c<$I2CX> {
                 type Error = Error;
 
                 fn read(

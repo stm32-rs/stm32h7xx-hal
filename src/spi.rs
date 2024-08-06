@@ -67,11 +67,6 @@ use core::marker::PhantomData;
 use core::ptr;
 
 use crate::gpio::{self, Alternate};
-use crate::hal;
-use crate::hal::spi::FullDuplex;
-pub use crate::hal::spi::{
-    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
-};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32;
 #[cfg(feature = "rm0455")]
@@ -83,6 +78,9 @@ use crate::stm32::spi1::{
 };
 use crate::stm32::{SPI1, SPI2, SPI3, SPI4, SPI5, SPI6};
 use crate::time::Hertz;
+pub use embedded_hal_02::spi::{
+    Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3,
+};
 
 /// SPI error
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -557,7 +555,7 @@ pub trait SpiExt<SPI, WORD>: Sized {
 }
 
 pub trait HalEnabledSpi:
-    HalSpi + FullDuplex<Self::Word, Error = Error>
+    HalSpi + embedded_hal_02::spi::FullDuplex<Self::Word, Error = Error>
 {
     type Disabled: HalDisabledSpi<
         Spi = Self::Spi,
@@ -1058,7 +1056,7 @@ macro_rules! spi {
 	                }
 	            }
 
-                impl hal::spi::FullDuplex<$TY> for Spi<$SPIX, Enabled, $TY> {
+                impl embedded_hal_02::spi::FullDuplex<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn read(&mut self) -> nb::Result<$TY, Error> {
@@ -1173,7 +1171,7 @@ macro_rules! spi {
 
                     /// Internal implementation for blocking::spi::Write
                     fn transfer_internal_w(&mut self, write_words: &[$TY]) -> Result<(), Error> {
-                        use hal::spi::FullDuplex;
+                        use embedded_hal_02::spi::FullDuplex;
 
                         // both buffers are the same length
                         if write_words.is_empty() {
@@ -1231,7 +1229,7 @@ macro_rules! spi {
 
                     /// Internal implementation for blocking::spi::Transfer
                     fn transfer_internal_rw(&mut self, words : &mut [$TY]) -> Result<(), Error> {
-                        use hal::spi::FullDuplex;
+                        use embedded_hal_02::spi::FullDuplex;
 
                         if words.is_empty() {
                             return Ok(());
@@ -1288,7 +1286,7 @@ macro_rules! spi {
                     }
                 }
 
-                impl hal::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
+                impl embedded_hal_02::blocking::spi::Transfer<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn transfer<'w>(&mut self, words: &'w mut [$TY]) -> Result<&'w [$TY], Self::Error> {
@@ -1298,7 +1296,7 @@ macro_rules! spi {
                         Ok(words)
                     }
                 }
-                impl hal::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
+                impl embedded_hal_02::blocking::spi::Write<$TY> for Spi<$SPIX, Enabled, $TY> {
                     type Error = Error;
 
                     fn write(&mut self, words: &[$TY]) -> Result<(), Self::Error> {
