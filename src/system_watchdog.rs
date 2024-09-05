@@ -18,7 +18,6 @@
 //!
 //! - [Example application](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/watchdog.rs)
 
-use crate::hal::watchdog::{Watchdog, WatchdogEnable};
 use crate::rcc::Ccdr;
 use crate::time::{Hertz, MilliSeconds};
 use cast::u8;
@@ -115,7 +114,7 @@ impl SystemWindowWatchdog {
     }
 }
 
-impl Watchdog for SystemWindowWatchdog {
+impl embedded_hal_02::watchdog::Watchdog for SystemWindowWatchdog {
     /// Feeds the watchdog in order to avoid a reset, only executes properly if the watchdog
     /// has already been started aka. the down_counter is not 0 anymore
     fn feed(&mut self) {
@@ -125,7 +124,7 @@ impl Watchdog for SystemWindowWatchdog {
     }
 }
 
-impl WatchdogEnable for SystemWindowWatchdog {
+impl embedded_hal_02::watchdog::WatchdogEnable for SystemWindowWatchdog {
     type Time = MilliSeconds;
     /// Starts the watchdog with a given timeout period, if this period is out of bounds the function
     /// is going to panic

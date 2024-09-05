@@ -992,9 +992,9 @@ where
     /// MDMA block. The length is referred to the source size
     ///
     /// * `s_len`: The number of input words of s_size available. `None` if the
-    /// source is a peripheral
+    ///   source is a peripheral
     /// * `d_len`: The number of input words of d_size available. `None` if the
-    /// destination is a peripheral
+    ///   destination is a peripheral
     ///
     /// `s_len` and `d_len` cannot both be peripherals (None)
     fn m_number_of_bytes(
@@ -1052,24 +1052,24 @@ where
     /// # Panics
     ///
     /// * When a memory-memory transfer is specified but the `second_buf`
-    /// argument is `None`.
+    ///   argument is `None`.
     ///
     /// * When the length is greater than 65536 bytes.
     ///
     /// * When `config` specifies a `source_increment` that is smaller than the
-    /// source size.
+    ///   source size.
     ///
     /// * When `config` specifies a `destination_increment` that is smaller than
-    /// the destination size.
+    ///   the destination size.
     ///
     /// * When `config` specifies a `transfer_length` that is not a multiple of
-    /// both the source and destination sizes.
+    ///   both the source and destination sizes.
     ///
     /// * When `config` specifies a `packing_alignment` that extends the source,
-    /// but the source size is larger than the destination size.
+    ///   but the source size is larger than the destination size.
     ///
     /// * When `config` specifies a `packing_alignment` that truncates the
-    /// source, but the source size is smaller than the destination size.
+    ///   source, but the source size is smaller than the destination size.
     pub fn init_master(
         mut stream: STREAM,
         peripheral: PERIPHERAL,

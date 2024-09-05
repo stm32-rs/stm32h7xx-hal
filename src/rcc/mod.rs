@@ -35,10 +35,10 @@
 //! * `use_hse(a)` implies `sys_ck(a)`
 //!
 //! * `sys_ck(b)` implies `pll1_p_ck(b)` unless `b` equals HSI or
-//! `use_hse(b)` was specified
+//!   `use_hse(b)` was specified
 //!
 //! * `pll1_p_ck(c)` implies `pll1_r_ck(c/2)`, including when
-//! `pll1_p_ck` was implied by `sys_ck(c)` or `mco2_from_pll1_p_ck(c)`.
+//!   `pll1_p_ck` was implied by `sys_ck(c)` or `mco2_from_pll1_p_ck(c)`.
 //!
 //! Implied clock specifications can always be overridden by explicitly
 //! specifying that clock. If this results in a configuration that cannot

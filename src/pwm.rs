@@ -172,7 +172,6 @@
 
 use core::marker::PhantomData;
 
-use crate::hal;
 use crate::pac;
 
 use crate::rcc::{rec, CoreClocks, ResetEnable};
@@ -1447,7 +1446,7 @@ macro_rules! tim_pin_hal {
        ($CH:ident, $ccmrx_output:ident, $ocxpe:ident, $ocxm:ident),)+
     ) => {
         $(
-            impl<COMP> hal::PwmPin for Pwm<$TIMX, $CH, COMP>
+            impl<COMP> embedded_hal_02::PwmPin for Pwm<$TIMX, $CH, COMP>
                 where Pwm<$TIMX, $CH, COMP>: PwmPinEnable {
                 type Duty = $typ;
 
@@ -1760,7 +1759,7 @@ macro_rules! lptim_hal {
                 PINS::split()
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
+            impl embedded_hal_02::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible> {
                 type Duty = u16;
 
                 // You may not access self in the following methods!

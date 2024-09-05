@@ -1,5 +1,4 @@
 //! # Quadrature Encoder Interface
-use crate::hal::{self, Direction};
 use crate::rcc::{rec, ResetEnable};
 
 use crate::gpio::{self, Alternate};
@@ -186,7 +185,7 @@ macro_rules! tim_hal {
                     tim.smcr.write(|w| { w.sms().bits(3) });
 
                     #[allow(unused_unsafe)] // method is safe for some timers
-                    tim.arr.write(|w| unsafe { w.bits(core::u32::MAX) });
+                    tim.arr.write(|w| unsafe { w.bits(u32::MAX) });
                     tim.cr1.write(|w| w.cen().set_bit());
 
                     Qei { tim }
@@ -210,18 +209,18 @@ macro_rules! tim_hal {
                 }
             }
 
-            impl hal::Qei for Qei<$TIM> {
+            impl crate::hal_02::Qei for Qei<$TIM> {
                 type Count = $bits;
 
                 fn count(&self) -> $bits {
                     self.tim.cnt.read().bits() as $bits
                 }
 
-                fn direction(&self) -> Direction {
+                fn direction(&self) -> crate::hal_02::Direction {
                     if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
+                        crate::hal_02::Direction::Upcounting
                     } else {
-                        hal::Direction::Downcounting
+                        crate::hal_02::Direction::Downcounting
                     }
                 }
             }

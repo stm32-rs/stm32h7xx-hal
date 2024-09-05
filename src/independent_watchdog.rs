@@ -1,9 +1,5 @@
 //! Independent Watchdog
 //!
-//! This module implements the embedded-hal
-//! [Watchdog](https://docs.rs/embedded-hal/latest/embedded_hal/watchdog/trait.Watchdog.html)
-//! trait for the Independent Watchdog peripheral.
-//!
 //! The Independent Watchdog peripheral triggers a system reset when its internal counter expires.
 //!
 //! # Peripheral Naming

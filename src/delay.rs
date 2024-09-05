@@ -40,10 +40,6 @@
 use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use embedded_hal::{
-    blocking::delay::{DelayMs, DelayUs},
-    timer::CountDown,
-};
 use void::Void;
 
 use crate::nb::block;
@@ -110,7 +106,7 @@ impl<'a> Countdown<'a> {
     }
 }
 
-impl<'a> CountDown for Countdown<'a> {
+impl<'a> embedded_hal_02::timer::CountDown for Countdown<'a> {
     type Time = fugit::MicrosDurationU32;
 
     fn start<T>(&mut self, count: T)
@@ -163,25 +159,26 @@ impl Delay {
     }
 }
 
-impl DelayMs<u32> for Delay {
+impl embedded_hal_02::blocking::delay::DelayMs<u32> for Delay {
     fn delay_ms(&mut self, ms: u32) {
+        use embedded_hal_02::blocking::delay::DelayUs;
         self.delay_us(ms * 1_000);
     }
 }
 
-impl DelayMs<u16> for Delay {
+impl embedded_hal_02::blocking::delay::DelayMs<u16> for Delay {
     fn delay_ms(&mut self, ms: u16) {
         self.delay_ms(u32(ms));
     }
 }
 
-impl DelayMs<u8> for Delay {
+impl embedded_hal_02::blocking::delay::DelayMs<u8> for Delay {
     fn delay_ms(&mut self, ms: u8) {
         self.delay_ms(u32(ms));
     }
 }
 
-impl DelayUs<u32> for Delay {
+impl embedded_hal_02::blocking::delay::DelayUs<u32> for Delay {
     fn delay_us(&mut self, us: u32) {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
@@ -220,13 +217,13 @@ impl DelayUs<u32> for Delay {
     }
 }
 
-impl DelayUs<u16> for Delay {
+impl embedded_hal_02::blocking::delay::DelayUs<u16> for Delay {
     fn delay_us(&mut self, us: u16) {
         self.delay_us(u32(us))
     }
 }
 
-impl DelayUs<u8> for Delay {
+impl embedded_hal_02::blocking::delay::DelayUs<u8> for Delay {
     fn delay_us(&mut self, us: u8) {
         self.delay_us(u32(us))
     }
@@ -251,9 +248,9 @@ macro_rules! impl_delay_from_count_down_timer  {
     ($(($Delay:ident, $delay:ident, $num:expr)),+) => {
         $(
 
-            impl<T> $Delay<u32> for DelayFromCountDownTimer<T>
+            impl<T> embedded_hal_02::blocking::delay::$Delay<u32> for DelayFromCountDownTimer<T>
             where
-                T: CountDown<Time = Hertz>,
+                T: embedded_hal_02::timer::CountDown<Time = Hertz>,
             {
                 fn $delay(&mut self, t: u32) {
                     let mut time_left = t;
@@ -280,18 +277,18 @@ macro_rules! impl_delay_from_count_down_timer  {
                 }
             }
 
-            impl<T> $Delay<u16> for DelayFromCountDownTimer<T>
+            impl<T> embedded_hal_02::blocking::delay::$Delay<u16> for DelayFromCountDownTimer<T>
             where
-                T: CountDown<Time = Hertz>,
+                T: embedded_hal_02::timer::CountDown<Time = Hertz>,
             {
                 fn $delay(&mut self, t: u16) {
                     self.$delay(t as u32);
                 }
             }
 
-            impl<T> $Delay<u8> for DelayFromCountDownTimer<T>
+            impl<T> embedded_hal_02::blocking::delay::$Delay<u8> for DelayFromCountDownTimer<T>
             where
-                T: CountDown<Time = Hertz>,
+                T: embedded_hal_02::timer::CountDown<Time = Hertz>,
             {
                 fn $delay(&mut self, t: u8) {
                     self.$delay(t as u32);
