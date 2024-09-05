@@ -418,7 +418,7 @@ macro_rules! hal {
                         clk * timeout.as_secs() +
                         clk * u64::from(timeout.subsec_nanos()) / NANOS_PER_SECOND,
                     )
-                    .unwrap_or(u32::max_value());
+                    .unwrap_or(u32::MAX);
 
                     self.set_timeout_ticks(ticks.max(1));
                 }
