@@ -9,11 +9,13 @@ use core::cmp;
 use core::marker::PhantomData;
 
 use crate::gpio::{self, Alternate, OpenDrain};
-use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use embedded_hal_02::blocking::i2c::{Write, Read, WriteRead};
+use embedded_hal_1::i2c::{blocking::I2c as I2c1, SevenBitAddress, TenBitAddress};
 use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::stm32::{I2C1, I2C2, I2C3, I2C4};
 use crate::time::Hertz;
 use cast::u16;
+
 
 /// I2C Events
 ///
@@ -63,6 +65,8 @@ pub enum Error {
     // Alert, // SMBUS mode only
 }
 
+// Implement embedded-hal 0.2.7 traits
+
 /// A trait to represent the SCL Pin of an I2C Port
 pub trait PinScl<I2C> {}
 
@@ -104,6 +108,80 @@ pub trait I2cExt<I2C>: Sized {
         prec: Self::Rec,
         clocks: &CoreClocks,
     ) -> I2c<I2C>;
+}
+
+// Implement embedded-hal 1.0 traits
+
+/// Blocking I2C.
+pub trait I2c<A: AddressMode = SevenBitAddress>: ErrorType {
+    /// Reads enough bytes from slave with `address` to fill `read`.
+    fn read(&mut self, address: A, read: &mut [u8]) -> Result<(), Self::Error>;
+
+    /// Writes bytes to slave with address `address`.
+    fn write(&mut self, address: A, write: &[u8]) -> Result<(), Self::Error>;
+
+    /// Writes bytes to slave with address `address` and then reads enough bytes to fill `read` in a single transaction.
+    fn write_read(&mut self, address: A, write: &[u8], read: &mut [u8]) -> Result<(), Self::Error>;
+
+    /// Execute the provided operations on the I2C bus.
+    fn transaction(&mut self, address: A, operations: &mut [Operation<'_>]) -> Result<(), Self::Error>;
+}
+
+/// I2C operation.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Operation<'a> {
+    /// Read data into the provided buffer.
+    Read(&'a mut [u8]),
+    /// Write data from the provided buffer.
+    Write(&'a [u8]),
+}
+
+/// Address mode (7-bit / 10-bit).
+pub trait AddressMode: private::Sealed + 'static {}
+
+/// 7-bit address mode type.
+pub type SevenBitAddress = u8;
+
+/// 10-bit address mode type.
+pub type TenBitAddress = u16;
+
+impl AddressMode for SevenBitAddress {}
+impl AddressMode for TenBitAddress {}
+
+/// I2C error type trait.
+pub trait ErrorType {
+    /// Error type
+    type Error: Error;
+}
+
+/// I2C error.
+pub trait Error: core::fmt::Debug {
+    /// Convert error to a generic I2C error kind.
+    fn kind(&self) -> ErrorKind;
+}
+
+/// I2C error kind.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum ErrorKind {
+    Bus,
+    ArbitrationLoss,
+    NoAcknowledge(NoAcknowledgeSource),
+    Overrun,
+    Other,
+}
+
+/// I2C no acknowledge error source.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum NoAcknowledgeSource {
+    Address,
+    Data,
+    Unknown,
+}
+
+impl Error for ErrorKind {
+    fn kind(&self) -> ErrorKind {
+        *self
+    }
 }
 
 // Sequence to flush the TXDR register. This resets the TXIS and TXE
