@@ -816,7 +816,7 @@ pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     fn consume<R, F>(self, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> R,
+        F: FnOnce(&[u8]) -> R,
     {
         let result = f(unsafe { self.0.buf_as_slice_mut() });
         self.0.release();
