@@ -1,6 +1,7 @@
 //! Example of Memory to Memory Transfer with the Master DMA (MDMA)
 
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 

@@ -5,6 +5,7 @@
 //! This example uses both USB1 and USB2. This is only possible on devices that
 //! have the USB2 peripheral.
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_std]
 #![no_main]
 
