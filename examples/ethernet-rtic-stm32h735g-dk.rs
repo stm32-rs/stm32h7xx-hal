@@ -8,6 +8,7 @@
 //! The ethernet ring buffers are placed in AXI SRAM, where they can be
 //! accessed by both the core and the Ethernet DMA.
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 

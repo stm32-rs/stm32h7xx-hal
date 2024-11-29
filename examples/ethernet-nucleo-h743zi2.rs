@@ -9,6 +9,7 @@
 //! This demo does not use smoltcp - see the ethernet-rtic-stm32h747i-disco demo
 //! for an example of smoltcp
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 

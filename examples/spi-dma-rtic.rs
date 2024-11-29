@@ -3,6 +3,7 @@
 //!
 //! This example demonstrates using DMA to write data over a TX-only SPI interface.
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![allow(clippy::type_complexity)]
 #![no_main]
 #![no_std]
