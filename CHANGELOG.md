@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* MSRV increased to Rust 1.80.0
+* **Breaking** Update `smoltcp` to `0.12.0` (from `0.11.0`)
+
 ## [v0.16.0] 2024-03-12
 
 * MSRV increased to Rust 1.66.1 [#473]

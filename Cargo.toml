@@ -11,7 +11,7 @@ authors = ["Andrew Straw <strawman@astraw.com>",
            "Florian Jung <flo@windfisch.org>",
            "Matt Ickstadt <mattico8@gmail.com>"]
 edition = "2021"
-rust-version = "1.66.1"
+rust-version = "1.80.0"
 categories = ["embedded", "hardware-support", "no-std"]
 description = "Hardware Abstraction Layer implementation for STM32H7 series microcontrollers"
 keywords = ["arm", "cortex-m", "stm32h7xx", "hal", "embedded-hal"]
