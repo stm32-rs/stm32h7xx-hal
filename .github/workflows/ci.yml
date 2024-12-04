@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:                   # All permutations of {rust, mcu}
         rust:
-          - 1.66.1  # MSRV
+          - 1.80.0  # MSRV
           - stable
         mcu:
           - stm32h743

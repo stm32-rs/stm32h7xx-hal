@@ -332,16 +332,15 @@ impl<const RD: usize> RDesRing<RD> {
     ///
     /// Ensure that release() is called between subsequent calls to this
     /// function.
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn buf_as_slice_mut(&self) -> &mut [u8] {
+    pub unsafe fn buf_as_slice(&self) -> &[u8] {
         let x = self.rdidx;
 
         // Write-back format
-        let addr = ptr::addr_of!(self.rbuf[x]) as *mut u8;
+        let addr = ptr::addr_of!(self.rbuf[x]) as *const u8;
         let len = (self.rd[x].rdes3 & EMAC_RDES3_PL) as usize;
 
         let len = core::cmp::min(len, ETH_BUF_SIZE);
-        core::slice::from_raw_parts_mut(addr, len)
+        core::slice::from_raw_parts(addr, len)
     }
 }
 
@@ -816,9 +815,9 @@ pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
 impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
     fn consume<R, F>(self, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> R,
+        F: FnOnce(&[u8]) -> R,
     {
-        let result = f(unsafe { self.0.buf_as_slice_mut() });
+        let result = f(unsafe { self.0.buf_as_slice() });
         self.0.release();
         result
     }
