@@ -25,9 +25,9 @@ use crate::stm32::{ADC1, ADC2};
 use crate::stm32::{ADC3, ADC3_COMMON};
 
 #[cfg(feature = "rm0455")]
-use crate::stm32::adc12_common::ccr::PRESC_A;
+use crate::stm32::adc12_common::ccr::PRESC;
 #[cfg(not(feature = "rm0455"))]
-use crate::stm32::adc3_common::ccr::PRESC_A;
+use crate::stm32::adc3_common::ccr::PRESC;
 
 use crate::gpio::{self, Analog};
 use crate::pwr::{current_vos, VoltageScale};
@@ -36,9 +36,9 @@ use crate::rcc::{rec, CoreClocks, ResetEnable};
 use crate::time::Hertz;
 
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
-pub type Resolution = crate::stm32::adc3::cfgr::RES_A;
+pub type Resolution = crate::stm32::adc3::cfgr::RES;
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
-pub type Resolution = crate::stm32::adc1::cfgr::RES_A;
+pub type Resolution = crate::stm32::adc1::cfgr::RES;
 
 trait NumberOfBits {
     fn number_of_bits(&self) -> u32;
@@ -214,7 +214,7 @@ macro_rules! adc_internal {
 
                     let common = unsafe { &*$INT_ADC_COMMON::ptr() };
 
-                    common.ccr.modify(|_, w| w.$en().enabled());
+                    common.ccr().modify(|_, w| w.$en().enabled());
                 }
                 /// Disables the internal voltage/sdissor
                 /// ADC must be disabled.
@@ -222,7 +222,7 @@ macro_rules! adc_internal {
 
                     let common = unsafe { &*$INT_ADC_COMMON::ptr() };
 
-                    common.ccr.modify(|_, w| w.$en().disabled());
+                    common.ccr().modify(|_, w| w.$en().disabled());
                 }
             }
 
@@ -598,23 +598,23 @@ macro_rules! adc_hal {
                     let f_target = f_adc.raw();
 
                     let (divider, presc) = match ker_ck.raw().div_ceil(f_target) {
-                        1 => (1, PRESC_A::Div1),
-                        2 => (2, PRESC_A::Div2),
-                        3..=4 => (4, PRESC_A::Div4),
-                        5..=6 => (6, PRESC_A::Div6),
-                        7..=8 => (8, PRESC_A::Div8),
-                        9..=10 => (10, PRESC_A::Div10),
-                        11..=12 => (12, PRESC_A::Div12),
-                        13..=16 => (16, PRESC_A::Div16),
-                        17..=32 => (32, PRESC_A::Div32),
-                        33..=64 => (64, PRESC_A::Div64),
-                        65..=128 => (128, PRESC_A::Div128),
-                        129..=256 => (256, PRESC_A::Div256),
+                        1 => (1, PRESC::Div1),
+                        2 => (2, PRESC::Div2),
+                        3..=4 => (4, PRESC::Div4),
+                        5..=6 => (6, PRESC::Div6),
+                        7..=8 => (8, PRESC::Div8),
+                        9..=10 => (10, PRESC::Div10),
+                        11..=12 => (12, PRESC::Div12),
+                        13..=16 => (16, PRESC::Div16),
+                        17..=32 => (32, PRESC::Div32),
+                        33..=64 => (64, PRESC::Div64),
+                        65..=128 => (128, PRESC::Div128),
+                        129..=256 => (256, PRESC::Div256),
                         _ => panic!("Selecting the ADC clock required a prescaler > 256, \
                                      which is not possible in hardware. Either increase the ADC \
                                      clock frequency or decrease the kernel clock frequency"),
                     };
-                    unsafe { &*$ADC_COMMON::ptr() }.ccr.modify(|_, w| w.presc().variant(presc));
+                    unsafe { &*$ADC_COMMON::ptr() }.ccr().modify(|_, w| w.presc().variant(presc));
 
                     // Calculate actual value. See RM0433 Rev 7 - Figure 136.
                     #[cfg(feature = "revision_v")]
@@ -633,7 +633,7 @@ macro_rules! adc_hal {
                 /// Note: After power-up, a [`calibration`](#method.calibrate) shall be run
                 pub fn power_up(&mut self, delay: &mut impl DelayUs<u8>) {
                     // Refer to RM0433 Rev 7 - Chapter 25.4.6
-                    self.rb.cr.modify(|_, w|
+                    self.rb.cr().modify(|_, w|
                         w.deeppwd().clear_bit()
                             .advregen().set_bit()
                     );
@@ -643,7 +643,7 @@ macro_rules! adc_hal {
                     $(
                         #[cfg(feature = "revision_v")]
                         while {
-                            let $ldordy = self.rb.isr.read().bits() & 0x1000;
+                            let $ldordy = self.rb.isr().read().bits() & 0x1000;
                             $ldordy == 0
                         }{}
                     )*
@@ -654,7 +654,7 @@ macro_rules! adc_hal {
                 /// Note: This resets the [`calibration`](#method.calibrate) of the ADC
                 pub fn power_down(&mut self) {
                     // Refer to RM0433 Rev 7 - Chapter 25.4.6
-                    self.rb.cr.modify(|_, w|
+                    self.rb.cr().modify(|_, w|
                         w.deeppwd().set_bit()
                             .advregen().clear_bit()
                     );
@@ -668,17 +668,17 @@ macro_rules! adc_hal {
                     self.check_calibration_conditions();
 
                     // single channel (INNx equals to V_ref-)
-                    self.rb.cr.modify(|_, w|
+                    self.rb.cr().modify(|_, w|
                         w.adcaldif().clear_bit()
                             .adcallin().set_bit()
                     );
                     // calibrate
-                    self.rb.cr.modify(|_, w| w.adcal().set_bit());
-                    while self.rb.cr.read().adcal().bit_is_set() {}
+                    self.rb.cr().modify(|_, w| w.adcal().set_bit());
+                    while self.rb.cr().read().adcal().bit_is_set() {}
                 }
 
                 fn check_calibration_conditions(&self) {
-                    let cr = self.rb.cr.read();
+                    let cr = self.rb.cr().read();
                     if cr.aden().bit_is_set() {
                         panic!("Cannot start calibration when the ADC is enabled");
                     }
@@ -699,14 +699,14 @@ macro_rules! adc_hal {
 
                 /// Sets channels to single ended mode
                 fn configure_channels_dif_mode(&mut self) {
-                    self.rb.difsel.reset();
+                    self.rb.difsel().reset();
                 }
 
                 /// Configuration process immediately after enabling the ADC
                 fn configure(&mut self) {
                     // Single conversion mode, Software trigger
                     // Refer to RM0433 Rev 7 - Chapters 25.4.15, 25.4.19
-                    self.rb.cfgr.modify(|_, w|
+                    self.rb.cfgr().modify(|_, w|
                         w.cont().clear_bit()
                             .exten().disabled()
                             .discen().set_bit()
@@ -716,9 +716,9 @@ macro_rules! adc_hal {
                     //
                     // Refer to RM0433 Rev 7 - Chapter 25.4.3
                     #[cfg(not(feature = "revision_v"))]
-                    self.rb.cr.modify(|_, w| w.boost().set_bit());
+                    self.rb.cr().modify(|_, w| w.boost().set_bit());
                     #[cfg(feature = "revision_v")]
-                    self.rb.cr.modify(|_, w| {
+                    self.rb.cr().modify(|_, w| {
                         if self.clock.raw() <= 6_250_000 {
                             w.boost().lt6_25()
                         } else if self.clock.raw() <= 12_500_000 {
@@ -734,10 +734,10 @@ macro_rules! adc_hal {
                 /// Enable ADC
                 pub fn enable(mut self) -> Adc<$ADC, Enabled> {
                     // Refer to RM0433 Rev 7 - Chapter 25.4.9
-                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
-                    self.rb.cr.modify(|_, w| w.aden().set_bit());
-                    while self.rb.isr.read().adrdy().bit_is_clear() {}
-                    self.rb.isr.modify(|_, w| w.adrdy().set_bit());
+                    self.rb.isr().modify(|_, w| w.adrdy().set_bit());
+                    self.rb.cr().modify(|_, w| w.aden().set_bit());
+                    while self.rb.isr().read().adrdy().bit_is_clear() {}
+                    self.rb.isr().modify(|_, w| w.adrdy().set_bit());
 
                     self.configure();
 
@@ -755,19 +755,20 @@ macro_rules! adc_hal {
 
             impl Adc<$ADC, Enabled> {
                 fn stop_regular_conversion(&mut self) {
-                    self.rb.cr.modify(|_, w| w.adstp().set_bit());
-                    while self.rb.cr.read().adstp().bit_is_set() {}
+                    self.rb.cr().modify(|_, w| w.adstp().set_bit());
+                    while self.rb.cr().read().adstp().bit_is_set() {}
                 }
 
                 fn stop_injected_conversion(&mut self) {
-                    self.rb.cr.modify(|_, w| w.jadstp().set_bit());
-                    while self.rb.cr.read().jadstp().bit_is_set() {}
+                    self.rb.cr().modify(|_, w| w.jadstp().set_bit());
+                    while self.rb.cr().read().jadstp().bit_is_set() {}
                 }
 
                 fn set_chan_smp(&mut self, chan: u8) {
                     let t = self.get_sample_time().into();
                     if chan <= 9 {
-                        self.rb.smpr1.modify(|_, w| match chan {
+                        //NOTE(unsafe) Only valid bit patterns written
+                        self.rb.smpr1().modify(|_, w| unsafe { match chan {
                             0 => w.smp0().bits(t),
                             1 => w.smp1().bits(t),
                             2 => w.smp2().bits(t),
@@ -779,9 +780,10 @@ macro_rules! adc_hal {
                             8 => w.smp8().bits(t),
                             9 => w.smp9().bits(t),
                             _ => unreachable!(),
-                        })
+                        }});
                     } else {
-                        self.rb.smpr2.modify(|_, w| match chan {
+                        //NOTE(unsafe) Only valid bit patterns written
+                        self.rb.smpr2().modify(|_, w| unsafe { match chan {
                             10 => w.smp10().bits(t),
                             11 => w.smp11().bits(t),
                             12 => w.smp12().bits(t),
@@ -793,7 +795,7 @@ macro_rules! adc_hal {
                             18 => w.smp18().bits(t),
                             19 => w.smp19().bits(t),
                             _ => unreachable!(),
-                        })
+                        }});
                     }
                 }
 
@@ -802,19 +804,22 @@ macro_rules! adc_hal {
                     self.check_conversion_conditions();
 
                     // Set LSHIFT[3:0]
-                    self.rb.cfgr2.modify(|_, w| w.lshift().bits(self.get_lshift().value()));
+                    //NOTE(unsafe) Only valid bit patterns written
+                    unsafe {
+                        self.rb.cfgr2().modify(|_, w| w.lshift().bits(self.get_lshift().value()));
+                    }
 
                     // Select channel (with preselection, refer to RM0433 Rev 7 - Chapter 25.4.12)
-                    self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
+                    self.rb.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
                     self.set_chan_smp(chan);
-                    self.rb.sqr1.modify(|_, w| unsafe {
+                    self.rb.sqr1().modify(|_, w| unsafe {
                         w.sq1().bits(chan)
                             .l().bits(0)
                     });
                     self.current_channel = Some(chan);
 
                     // Perform conversion
-                    self.rb.cr.modify(|_, w| w.adstart().set_bit());
+                    self.rb.cr().modify(|_, w| w.adstart().set_bit());
                 }
 
                 /// Start conversion
@@ -829,9 +834,9 @@ macro_rules! adc_hal {
                     assert!(chan <= 19);
 
                     // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    self.rb.cfgr().modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
                     // Set discontinuous mode
-                    self.rb.cfgr.modify(|_, w| w.cont().clear_bit().discen().set_bit());
+                    self.rb.cfgr().modify(|_, w| w.cont().clear_bit().discen().set_bit());
 
                     self.start_conversion_common(chan);
                 }
@@ -847,16 +852,19 @@ macro_rules! adc_hal {
                     assert!(chan <= 19);
 
                     // Set resolution
-                    self.rb.cfgr.modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
+                    self.rb.cfgr().modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
 
 
-                    self.rb.cfgr.modify(|_, w| w.dmngt().bits(match mode {
-                        AdcDmaMode::OneShot => 0b01,
-                        AdcDmaMode::Circular => 0b11,
-                    }));
+                    //NOTE(unsafe) Only valid bit patterns written
+                    unsafe {
+                        self.rb.cfgr().modify(|_, w| w.dmngt().bits(match mode {
+                            AdcDmaMode::OneShot => 0b01,
+                            AdcDmaMode::Circular => 0b11,
+                        }));
+                    }
 
                     // Set continuous mode
-                    self.rb.cfgr.modify(|_, w| w.cont().set_bit().discen().clear_bit() );
+                    self.rb.cfgr().modify(|_, w| w.cont().set_bit().discen().clear_bit() );
 
                     self.start_conversion_common(chan);
                 }
@@ -871,21 +879,21 @@ macro_rules! adc_hal {
                     let chan = self.current_channel.expect("No channel was selected, use start_conversion first");
 
                     // Check if the conversion is finished
-                    if self.rb.isr.read().eoc().bit_is_clear() {
+                    if self.rb.isr().read().eoc().bit_is_clear() {
                         return Err(nb::Error::WouldBlock);
                     }
 
                     // Disable preselection of this channel, refer to RM0433 Rev 7 - Chapter 25.4.12
-                    self.rb.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << chan)) });
+                    self.rb.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << chan)) });
                     self.current_channel = None;
 
                     // Retrieve result
-                    let result = self.rb.dr.read().bits();
+                    let result = self.rb.dr().read().bits();
                     nb::Result::Ok(result)
                 }
 
                 fn check_conversion_conditions(&self) {
-                    let cr = self.rb.cr.read();
+                    let cr = self.rb.cr().read();
                     // Ensure that no conversions are ongoing
                     if cr.adstart().bit_is_set() {
                         panic!("Cannot start conversion because a regular conversion is ongoing");
@@ -904,7 +912,7 @@ macro_rules! adc_hal {
 
                 /// Disable ADC
                 pub fn disable(mut self) -> Adc<$ADC, Disabled> {
-                    let cr = self.rb.cr.read();
+                    let cr = self.rb.cr().read();
                     // Refer to RM0433 Rev 7 - Chapter 25.4.9
                     if cr.adstart().bit_is_set() {
                         self.stop_regular_conversion();
@@ -913,8 +921,8 @@ macro_rules! adc_hal {
                         self.stop_injected_conversion();
                     }
 
-                    self.rb.cr.modify(|_, w| w.addis().set_bit());
-                    while self.rb.cr.read().aden().bit_is_set() {}
+                    self.rb.cr().modify(|_, w| w.addis().set_bit());
+                    while self.rb.cr().read().aden().bit_is_set() {}
 
                     Adc {
                         rb: self.rb,
@@ -1043,7 +1051,7 @@ macro_rules! adc_hal {
 
                 /// Returns the offset calibration value for single ended channel
                 pub fn read_offset_calibration_value(&self) -> AdcCalOffset {
-                    AdcCalOffset(self.rb.calfact.read().calfact_s().bits())
+                    AdcCalOffset(self.rb.calfact().read().calfact_s().bits())
                 }
 
                 /// Returns the linear calibration values stored in an array in the following order:
@@ -1055,40 +1063,40 @@ macro_rules! adc_hal {
                     self.check_linear_read_conditions();
 
                     // Read 1st block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw1().clear_bit());
-                    while self.rb.cr.read().lincalrdyw1().bit_is_set() {}
-                    let res_1 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw1().clear_bit());
+                    while self.rb.cr().read().lincalrdyw1().bit_is_set() {}
+                    let res_1 = self.rb.calfact2().read().lincalfact().bits();
 
                     // Read 2nd block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw2().clear_bit());
-                    while self.rb.cr.read().lincalrdyw2().bit_is_set() {}
-                    let res_2 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw2().clear_bit());
+                    while self.rb.cr().read().lincalrdyw2().bit_is_set() {}
+                    let res_2 = self.rb.calfact2().read().lincalfact().bits();
 
                     // Read 3rd block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw3().clear_bit());
-                    while self.rb.cr.read().lincalrdyw3().bit_is_set() {}
-                    let res_3 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw3().clear_bit());
+                    while self.rb.cr().read().lincalrdyw3().bit_is_set() {}
+                    let res_3 = self.rb.calfact2().read().lincalfact().bits();
 
                     // Read 4th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw4().clear_bit());
-                    while self.rb.cr.read().lincalrdyw4().bit_is_set() {}
-                    let res_4 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw4().clear_bit());
+                    while self.rb.cr().read().lincalrdyw4().bit_is_set() {}
+                    let res_4 = self.rb.calfact2().read().lincalfact().bits();
 
                     // Read 5th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw5().clear_bit());
-                    while self.rb.cr.read().lincalrdyw5().bit_is_set() {}
-                    let res_5 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw5().clear_bit());
+                    while self.rb.cr().read().lincalrdyw5().bit_is_set() {}
+                    let res_5 = self.rb.calfact2().read().lincalfact().bits();
 
                     // Read 6th block of linear correction
-                    self.rb.cr.modify(|_, w| w.lincalrdyw6().clear_bit());
-                    while self.rb.cr.read().lincalrdyw6().bit_is_set() {}
-                    let res_6 = self.rb.calfact2.read().lincalfact().bits();
+                    self.rb.cr().modify(|_, w| w.lincalrdyw6().clear_bit());
+                    while self.rb.cr().read().lincalrdyw6().bit_is_set() {}
+                    let res_6 = self.rb.calfact2().read().lincalfact().bits();
 
                     AdcCalLinear([res_1, res_2, res_3, res_4, res_5, res_6])
                 }
 
                 fn check_linear_read_conditions(&self) {
-                    let cr = self.rb.cr.read();
+                    let cr = self.rb.cr().read();
                     // Ensure the ADC is enabled and is not in deeppowerdown-mode
                     if cr.deeppwd().bit_is_set() {
                         panic!("Cannot read linear calibration value when the ADC is in deeppowerdown-mode");

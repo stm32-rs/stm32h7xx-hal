@@ -153,10 +153,10 @@ impl DsiHost {
         let cycles_1ms = clocks.sysclk().raw() / 1_000;
 
         // Enable regulator
-        dsi.wrpcr.modify(|_, w| w.regen().set_bit());
+        dsi.wrpcr().modify(|_, w| w.regen().set_bit());
         // Wait for it to be ready
         block_with_timeout(
-            || dsi.wisr.read().rrs() == false,
+            || dsi.wisr().read().rrs() == false,
             DSI_TIMEOUT_MS,
             cycles_1ms,
             Error::RegTimeout,
@@ -168,7 +168,7 @@ impl DsiHost {
         // let ndiv = 102;
         // let idf  = 5;
         // let odf = 0b00;
-        dsi.wrpcr.modify(|_, w| unsafe {
+        dsi.wrpcr().modify(|_, w| unsafe {
             w.ndiv()
                 .bits(pll_config.ndiv) // allowed: 10 ..= 125
                 .idf()
@@ -177,22 +177,22 @@ impl DsiHost {
                 .bits(pll_config.odf) // div1: 0b00, div2: 0b01, div4: 0b10, div8: 0b11
         });
         // Enable PLL
-        dsi.wrpcr.modify(|_, w| w.pllen().set_bit());
+        dsi.wrpcr().modify(|_, w| w.pllen().set_bit());
         // Required to wait 400us before checking PLLLS flag
         cortex_m::asm::delay(cycles_1ms / 2);
         // Wait for the lock
         block_with_timeout(
-            || dsi.wisr.read().pllls() == false,
+            || dsi.wisr().read().pllls() == false,
             DSI_TIMEOUT_MS,
             cycles_1ms,
             Error::PllTimeout,
         )?;
 
         // Clock and digital section enable
-        dsi.pctlr.modify(|_, w| w.cke().set_bit().den().set_bit());
+        dsi.pctlr().modify(|_, w| w.cke().set_bit().den().set_bit());
 
         // Clock lane config
-        dsi.clcr.modify(
+        dsi.clcr().modify(
             |_, w| {
                 w.dpcc()
                     .set_bit() // 1: lanes are running in high speed mode
@@ -235,31 +235,31 @@ impl DsiHost {
         dsi.wpcr0
             .modify(|_, w| unsafe { w.uix4().bits(uix4 as u8) });
         // debug!("f_phy={}, uix4=override=8", f_phy);
-        // dsi.wpcr0.modify(|_, w| unsafe { w.uix4().bits(8) });
+        // dsi.wpcr0().modify(|_, w| unsafe { w.uix4().bits(8) });
 
         match dsi_config.interrupts {
             DsiInterrupts::None => {
                 // Disable all error interrupts for now and reset the error mask
-                dsi.ier0.write(|w| unsafe { w.bits(0) });
-                dsi.ier1.write(|w| unsafe { w.bits(0) });
+                dsi.ier0().write(|w| unsafe { w.bits(0) });
+                dsi.ier1().write(|w| unsafe { w.bits(0) });
             }
             DsiInterrupts::All => {
                 // Enable all error interrupts
-                dsi.ier0.write(|w| unsafe {
+                dsi.ier0().write(|w| unsafe {
                     w.bits(0b00000000_00011111_11111111_11111111)
                 });
-                dsi.ier1.write(|w| unsafe { w.bits(0b00011111_11111111) });
+                dsi.ier1().write(|w| unsafe { w.bits(0b00011111_11111111) });
 
                 // Enable wrapper interrupts
-                dsi.wier.write(|w| w.teie().set_bit().erie().set_bit());
+                dsi.wier().write(|w| w.teie().set_bit().erie().set_bit());
             }
         }
 
         match dsi_config.mode {
             DsiMode::Video { mode } => {
                 // Select video mode
-                dsi.mcr.modify(|_, w| w.cmdm().clear_bit()); // 0 - video mode, 1 - command mode
-                dsi.wcfgr.modify(|_, w| {
+                dsi.mcr().modify(|_, w| w.cmdm().clear_bit()); // 0 - video mode, 1 - command mode
+                dsi.wcfgr().modify(|_, w| {
                     w
                         // 0 - video mode, 1 - adapted command mode
                         .dsim()
@@ -276,7 +276,7 @@ impl DsiHost {
                 });
 
                 // Video mode transmission type, p. 1346
-                dsi.vmcr.modify(|_, w| unsafe {
+                dsi.vmcr().modify(|_, w| unsafe {
                     w.vmt()
                         .bits(mode as u8) // 0b00 - non-burst with sync pulses, 0b01 - non-burst with sync event, 0b1x - burst mode
                         .lpvsae()
@@ -299,7 +299,7 @@ impl DsiHost {
 
                 // Packet size, 14 bits max
                 // TODO: Might be incorrect for 16 or 18bit
-                dsi.vpcr.modify(|_, w| unsafe {
+                dsi.vpcr().modify(|_, w| unsafe {
                     w.vpsize().bits(display_config.active_width)
                 });
 
@@ -309,10 +309,10 @@ impl DsiHost {
                 // If set to 0 or 1, the video line is transmitted in a single packet.
                 // If set to 1, the packet is part of a chunk, so a null packet follows it if NPSIZE > 0. Otherwise,
                 // multiple chunks are used to transmit each video line.
-                dsi.vccr.modify(|_, w| unsafe { w.numc().bits(1) });
+                dsi.vccr().modify(|_, w| unsafe { w.numc().bits(1) });
 
                 // Size of the null packet
-                dsi.vnpcr.modify(|_, w| unsafe { w.npsize().bits(0) });
+                dsi.vnpcr().modify(|_, w| unsafe { w.npsize().bits(0) });
 
                 // Horizontal sync active (HSA) in lane byte clock cycles
                 let f_ltdc_khz = dsi_config.ltdc_freq.to_kHz();
@@ -320,14 +320,14 @@ impl DsiHost {
                     / f_ltdc_khz) as u16;
                 #[cfg(feature = "log")]
                 debug!("hsa={}", hsa);
-                dsi.vhsacr.modify(|_, w| unsafe { w.hsa().bits(hsa) });
+                dsi.vhsacr().modify(|_, w| unsafe { w.hsa().bits(hsa) });
 
                 // Horizontal back porch (HBP) in lane byte clock cycles
                 let hbp = ((display_config.h_back_porch as u32) * f_pix_khz
                     / f_ltdc_khz) as u16;
                 #[cfg(feature = "log")]
                 debug!("hbp={}", hbp);
-                dsi.vhbpcr.modify(|_, w| unsafe { w.hbp().bits(hbp) });
+                dsi.vhbpcr().modify(|_, w| unsafe { w.hbp().bits(hbp) });
 
                 // Total line time, HLINE = HSA + HBP + HACT + HFP
                 let hline = display_config.h_sync
@@ -338,31 +338,31 @@ impl DsiHost {
                 // let hsync = f_phy * 3 * hline as u32 / 8;
                 #[cfg(feature = "log")]
                 debug!("hline={}", hline);
-                dsi.vlcr.modify(|_, w| unsafe { w.hline().bits(hline) });
+                dsi.vlcr().modify(|_, w| unsafe { w.hline().bits(hline) });
 
                 // Vertical sync active (VSA)
-                dsi.vvsacr.modify(|_, w| unsafe {
+                dsi.vvsacr().modify(|_, w| unsafe {
                     w.vsa().bits(display_config.v_sync)
                 });
 
                 // Vertical back porch (VBP)
-                dsi.vvbpcr.modify(|_, w| unsafe {
+                dsi.vvbpcr().modify(|_, w| unsafe {
                     w.vbp().bits(display_config.v_back_porch)
                 });
 
                 // Vertical front porch (VFP)
-                dsi.vvfpcr.modify(|_, w| unsafe {
+                dsi.vvfpcr().modify(|_, w| unsafe {
                     w.vfp().bits(display_config.v_front_porch)
                 });
 
                 // Vertical active period
-                dsi.vvacr.modify(|_, w| unsafe {
+                dsi.vvacr().modify(|_, w| unsafe {
                     w.va().bits(display_config.active_height)
                 });
             }
             DsiMode::AdaptedCommand { tear_effect } => {
                 // Select command mode
-                dsi.mcr.modify(|_, w| w.cmdm().set_bit()); // 0 - video mode, 1 - command mode
+                dsi.mcr().modify(|_, w| w.cmdm().set_bit()); // 0 - video mode, 1 - command mode
                 let (is_external_pin, auto_refresh) = match tear_effect {
                     Some(te) => (
                         te.source == TearEffectSource::ExternalPin,
@@ -370,7 +370,7 @@ impl DsiHost {
                     ),
                     None => (false, false),
                 };
-                dsi.wcfgr.modify(|_, w| {
+                dsi.wcfgr().modify(|_, w| {
                     w
                         // 0 - video mode, 1 - adapted command mode
                         .dsim()
@@ -390,12 +390,12 @@ impl DsiHost {
                 });
 
                 // Maximum allowed size for memory write command
-                dsi.lccr.modify(|_, w| unsafe {
+                dsi.lccr().modify(|_, w| unsafe {
                     w.cmdsize().bits(display_config.active_width)
                 });
 
                 // Tearing effect acknowledge request
-                dsi.cmcr.modify(|_, w| w.teare().set_bit())
+                dsi.cmcr().modify(|_, w| w.teare().set_bit())
             }
         }
 
@@ -404,7 +404,7 @@ impl DsiHost {
             .modify(|_, w| unsafe { w.vcid().bits(dsi_config.channel as u8) });
 
         // Polarity
-        dsi.lpcr.modify(|_, w| {
+        dsi.lpcr().modify(|_, w| {
             w.dep().clear_bit().vsp().clear_bit().hsp().clear_bit()
         });
 
@@ -413,7 +413,7 @@ impl DsiHost {
             dsi_config.color_coding_host,
             ColorCoding::EighteenBitsConfig1 | ColorCoding::EighteenBitsConfig2
         );
-        dsi.lcolcr.modify(|_, w| unsafe {
+        dsi.lcolcr().modify(|_, w| unsafe {
             w.lpe()
                 .bit(lpe) // loosely packed: 18bits
                 .colc()
@@ -421,11 +421,11 @@ impl DsiHost {
         });
 
         // Color coding for the wrapper
-        dsi.wcfgr.modify(|_, w| unsafe {
+        dsi.wcfgr().modify(|_, w| unsafe {
             w.colmux().bits(dsi_config.color_coding_wrapper as u8)
         });
 
-        dsi.lpmcr.modify(|_, w| unsafe {
+        dsi.lpmcr().modify(|_, w| unsafe {
             w.lpsize()
                 .bits(dsi_config.lp_size) // Low power largest packet size
                 .vlpsize()
@@ -447,7 +447,7 @@ impl DsiHost {
             DsiCmdModeTransmissionKind::AllInHighSpeed => false,
             DsiCmdModeTransmissionKind::AllInLowPower => true,
         };
-        self.dsi.cmcr.modify(|_, w| {
+        self.dsi.cmcr().modify(|_, w| {
             w.gsw0tx()
                 .bit(is_low_power)
                 .gsw1tx()
@@ -473,15 +473,15 @@ impl DsiHost {
                 .mrdps()
                 .bit(is_low_power)
         });
-        self.dsi.cmcr.modify(|_, w| w.are().clear_bit()); // FIXME: might be incorrect
+        self.dsi.cmcr().modify(|_, w| w.are().clear_bit()); // FIXME: might be incorrect
     }
 
     pub fn configure_phy_timers(&mut self, phy_timers: DsiPhyTimers) {
         let max_time = max(phy_timers.clock_lp2hs, phy_timers.clock_hs2lp);
-        self.dsi.cltcr.modify(|_, w| unsafe {
+        self.dsi.cltcr().modify(|_, w| unsafe {
             w.hs2lp_time().bits(max_time).lp2hs_time().bits(max_time)
         });
-        self.dsi.dltcr.modify(|_, w| unsafe {
+        self.dsi.dltcr().modify(|_, w| unsafe {
             w.mrd_time()
                 .bits(phy_timers.dataline_max_read_time)
                 .hs2lp_time()
@@ -489,13 +489,13 @@ impl DsiHost {
                 .lp2hs_time()
                 .bits(phy_timers.dataline_lp2hs)
         });
-        self.dsi.pconfr.modify(|_, w| unsafe {
+        self.dsi.pconfr().modify(|_, w| unsafe {
             w.sw_time().bits(phy_timers.stop_wait_time)
         });
     }
 
     pub fn force_rx_low_power(&mut self, force: bool) {
-        self.dsi.wpcr1.modify(|_, w| w.flprxlpm().bit(force));
+        self.dsi.wpcr1().modify(|_, w| w.flprxlpm().bit(force));
     }
 
     fn long_write(
@@ -517,7 +517,7 @@ impl DsiHost {
         for (i, byte) in buf.iter().take(3).enumerate() {
             fifoword |= (*byte as u32) << (8 + 8 * i);
         }
-        self.dsi.gpdr.write(|w| unsafe { w.bits(fifoword) });
+        self.dsi.gpdr().write(|w| unsafe { w.bits(fifoword) });
         //debug!("gpdr = {fifoword:08x}");
 
         // Put the rest of the data, assuming that GPDR is accumulated in the hardware in some buffer.
@@ -526,7 +526,7 @@ impl DsiHost {
             for chunk in &mut iter {
                 let fifoword: [u8; 4] = chunk.try_into().unwrap();
                 let fifoword = u32::from_ne_bytes(fifoword); //.swap_bytes();
-                self.dsi.gpdr.write(|w| unsafe { w.bits(fifoword) });
+                self.dsi.gpdr().write(|w| unsafe { w.bits(fifoword) });
                 //debug!("gpdr = {fifoword:08x}");
             }
             if !iter.remainder().is_empty() {
@@ -534,7 +534,7 @@ impl DsiHost {
                 for (i, byte) in iter.remainder().iter().enumerate() {
                     fifoword |= (*byte as u32) << (8 * i);
                 }
-                self.dsi.gpdr.write(|w| unsafe { w.bits(fifoword) });
+                self.dsi.gpdr().write(|w| unsafe { w.bits(fifoword) });
                 //debug!("gpdr = {fifoword:08x}");
             }
         }
@@ -546,7 +546,7 @@ impl DsiHost {
     }
 
     fn ghcr_write(&mut self, msb: u8, lsb: u8, dt: u8) {
-        self.dsi.ghcr.write(|w| unsafe {
+        self.dsi.ghcr().write(|w| unsafe {
             w // GHCR p. 1354
                 .wcmsb()
                 .bits(msb)
@@ -560,12 +560,12 @@ impl DsiHost {
     }
 
     pub fn start(&mut self) {
-        self.dsi.cr.modify(|_, w| w.en().set_bit());
-        self.dsi.wcr.modify(|_, w| w.dsien().set_bit());
+        self.dsi.cr().modify(|_, w| w.en().set_bit());
+        self.dsi.wcr().modify(|_, w| w.dsien().set_bit());
     }
 
     pub fn refresh(&mut self) {
-        self.dsi.wcr.modify(|_, w| w.ltdcen().set_bit());
+        self.dsi.wcr().modify(|_, w| w.ltdcen().set_bit());
     }
 
     pub fn refresh_handle(&self) -> DsiRefreshHandle {
@@ -574,13 +574,13 @@ impl DsiHost {
     }
 
     pub fn enable_bus_turn_around(&mut self) {
-        self.dsi.pcr.modify(|_, w| w.btae().set_bit()); // Enable bus turn around
+        self.dsi.pcr().modify(|_, w| w.btae().set_bit()); // Enable bus turn around
     }
 }
 
 impl DsiRefreshHandle {
     pub fn refresh_now(&mut self) {
-        self.dsi.wcr.modify(|_, w| w.ltdcen().set_bit());
+        self.dsi.wcr().modify(|_, w| w.ltdcen().set_bit());
     }
 
     // pub fn refresh_when_te_happens(&mut self) {
@@ -597,7 +597,7 @@ impl DsiHostCtrlIo for DsiHost {
         // debug!("DSI write: {:x?}", kind);
         // wait for command fifo to be empty
         block_with_timeout(
-            || self.dsi.gpsr.read().cmdfe() == false,
+            || self.dsi.gpsr().read().cmdfe() == false,
             DSI_TIMEOUT_MS,
             self.cycles_1ms,
             Error::FifoTimeout,
@@ -636,8 +636,8 @@ impl DsiHostCtrlIo for DsiHost {
     ) -> Result<(), Error> {
         // println!("DSI read: {:x?}", kind);
         if buf.len() > 2 && buf.len() <= 65_535 {
-            self.write(DsiWriteCommand::SetMaximumReturnPacketSize(
-                buf.len() as u16
+            self().write(DsiWriteCommand::SetMaximumReturnPacketSize(
+                buf.len() as u16,
             ))?;
         } else if buf.len() > 65_535 {
             return Err(Error::BufferIsToBig);
@@ -663,9 +663,9 @@ impl DsiHostCtrlIo for DsiHost {
         block_with_timeout(
             || {
                 if bytes_left > 0 {
-                    if self.dsi.gpsr.read().prdfe().bit_is_clear() {
+                    if self.dsi.gpsr().read().prdfe().bit_is_clear() {
                         // GPSR: p. 1355
-                        let fifoword = self.dsi.gpdr.read().bits();
+                        let fifoword = self.dsi.gpdr().read().bits();
                         //debug!("fifoword read: {fifoword:08x}");
                         for b in fifoword
                             // .swap_bytes()
@@ -682,8 +682,8 @@ impl DsiHostCtrlIo for DsiHost {
                     // issued to the panel and the read data is not captured by the DSI Host
                     // which returns Packet Size Error.
                     // Need to ensure that the Read command has finished before checking PSE
-                    if self.dsi.gpsr.read().rcb().bit_is_clear()
-                        && self.dsi.isr1.read().pse().bit_is_set()
+                    if self.dsi.gpsr().read().rcb().bit_is_clear()
+                        && self.dsi.isr1().read().pse().bit_is_set()
                     {
                         return false;
                     }

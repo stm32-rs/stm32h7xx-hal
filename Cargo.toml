@@ -32,7 +32,8 @@ embedded-hal = { version = "0.2.6", features = ["unproven"] }
 embedded-dma = "0.2.0"
 cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
 defmt = { version = ">=0.2.0,<0.4", optional = true }
-stm32h7 = { version = "^0.15.1", default-features = false }
+#stm32h7 = { version = "^0.15.1", default-features = false }
+stm32h7 = { git = "https://github.com/stm32-rs/stm32-rs-nightlies", default-features = false }
 void = { version = "1.0.2", default-features = false }
 cast = { version = "0.3.0", default-features = false }
 nb = "1.0.0"

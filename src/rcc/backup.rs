@@ -78,7 +78,7 @@ mod rtc {
         fn enable(self) -> Self {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
                 bdcr.modify(|_, w| w.rtcen().set_bit());
             });
             self
@@ -87,7 +87,7 @@ mod rtc {
         fn disable(self) -> Self {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
                 bdcr.modify(|_, w| w.rtcen().clear_bit());
             });
             self
@@ -96,7 +96,7 @@ mod rtc {
         fn reset(self) -> Self {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
 
                 #[cfg(not(feature = "rm0455"))]
                 bdcr.modify(|_, w| w.bdrst().set_bit());
@@ -104,23 +104,23 @@ mod rtc {
                 bdcr.modify(|_, w| w.bdrst().clear_bit());
 
                 #[cfg(feature = "rm0455")]
-                bdcr.modify(|_, w| w.vswrst().set_bit());
+                bdcr().modify(|_, w| w.vswrst().set_bit());
                 #[cfg(feature = "rm0455")]
-                bdcr.modify(|_, w| w.vswrst().set_bit());
+                bdcr().modify(|_, w| w.vswrst().set_bit());
             });
             self
         }
     }
 
     /// RTC kernel clock source selection
-    pub type RtcClkSel = crate::stm32::rcc::bdcr::RTCSEL_A;
+    pub type RtcClkSel = crate::stm32::rcc::bdcr::RTCSEL;
 
     impl Rtc {
         /// Returns true if the RTC is enabled.
         pub fn is_enabled(&self) -> bool {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
                 bdcr.read().rtcen().bit_is_set()
             })
         }
@@ -136,7 +136,7 @@ mod rtc {
         pub fn kernel_clk_mux(&mut self, sel: RtcClkSel) {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
                 bdcr.modify(|_, w| w.rtcsel().variant(sel));
             });
         }
@@ -144,7 +144,7 @@ mod rtc {
         /// Return the current kernel clock selection
         pub fn get_kernel_clk_mux(&self) -> RtcClkSel {
             // unsafe: We only read from this bitfield
-            let bdcr = unsafe { &(*RCC::ptr()).bdcr };
+            let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
             bdcr.read().rtcsel().variant()
         }
     }

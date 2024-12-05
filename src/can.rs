@@ -94,15 +94,15 @@ macro_rules! message_ram_layout {
         let mut word_adr: u16 = $start_word_addr;
 
         // 11-bit filter
-        $can.sidfc
+        $can.sidfc()
             .modify(|_, w| unsafe { w.flssa().bits(word_adr) });
         word_adr += STANDARD_FILTER_MAX as u16;
         // 29-bit filter
-        $can.xidfc
+        $can.xidfc()
             .modify(|_, w| unsafe { w.flesa().bits(word_adr) });
         word_adr += 2 * EXTENDED_FILTER_MAX as u16;
         // Rx FIFO 0
-        $can.rxf0c.modify(|_, w| unsafe {
+        $can.rxf0c().modify(|_, w| unsafe {
             w.f0sa()
                 .bits(word_adr)
                 .f0s()
@@ -112,7 +112,7 @@ macro_rules! message_ram_layout {
         });
         word_adr += 18 * RX_FIFO_MAX as u16;
         // Rx FIFO 1
-        $can.rxf1c.modify(|_, w| unsafe {
+        $can.rxf1c().modify(|_, w| unsafe {
             w.f1sa()
                 .bits(word_adr)
                 .f1s()
@@ -123,7 +123,7 @@ macro_rules! message_ram_layout {
         word_adr += 18 * RX_FIFO_MAX as u16;
         // Rx buffer - see below
         // Tx event FIFO
-        $can.txefc.modify(|_, w| unsafe {
+        $can.txefc().modify(|_, w| unsafe {
             w.efsa()
                 .bits(word_adr)
                 .efs()
@@ -133,22 +133,23 @@ macro_rules! message_ram_layout {
         });
         word_adr += 2 * TX_EVENT_MAX as u16;
         // Tx buffers
-        $can.txbc.modify(|_, w| unsafe {
+        $can.txbc().modify(|_, w| unsafe {
             w.tbsa().bits(word_adr).tfqs().bits(TX_FIFO_MAX)
         });
         word_adr += 18 * TX_FIFO_MAX as u16;
 
         // Rx Buffer - not used
-        $can.rxbc.modify(|_, w| unsafe { w.rbsa().bits(word_adr) });
+        $can.rxbc()
+            .modify(|_, w| unsafe { w.rbsa().bits(word_adr) });
 
         // TX event FIFO?
         // Trigger memory?
 
         // Set the element sizes to 16 bytes
-        $can.rxesc.modify(|_, w| unsafe {
+        $can.rxesc().modify(|_, w| unsafe {
             w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111)
         });
-        $can.txesc.modify(|_, w| unsafe { w.tbds().bits(0b111) });
+        $can.txesc().modify(|_, w| unsafe { w.tbds().bits(0b111) });
     };
 }
 

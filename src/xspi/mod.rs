@@ -447,13 +447,13 @@ mod common {
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     macro_rules! fmode_reg {
         ($e:expr) => {
-            $e.rb.ccr
+            $e.rb.ccr()
         };
     }
     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
     macro_rules! fmode_reg {
         ($e:expr) => {
-            $e.rb.cr
+            $e.rb.cr()
         };
     }
 
@@ -487,7 +487,7 @@ mod common {
             /// Check if the XSPI peripheral is currently busy with a
             /// transaction
             pub fn is_busy(&self) -> Result<(), XspiError> {
-                if self.rb.sr.read().busy().bit_is_set() {
+                if self.rb.sr().read().busy().bit_is_set() {
                     Err(XspiError::Busy)
                 } else {
                     Ok(())
@@ -496,7 +496,7 @@ mod common {
 
             /// Enable interrupts for the given `event`
             pub fn listen(&mut self, event: Event) {
-                self.rb.cr.modify(|_, w| match event {
+                self.rb.cr().modify(|_, w| match event {
                     Event::FIFOThreashold => w.ftie().set_bit(),
                     Event::Complete => w.tcie().set_bit(),
                     Event::Error => w.teie().set_bit(),
@@ -505,13 +505,13 @@ mod common {
 
             /// Disable interrupts for the given `event`
             pub fn unlisten(&mut self, event: Event) {
-                self.rb.cr.modify(|_, w| match event {
+                self.rb.cr().modify(|_, w| match event {
                     Event::FIFOThreashold => w.ftie().clear_bit(),
                     Event::Complete => w.tcie().clear_bit(),
                     Event::Error => w.teie().clear_bit(),
                 });
-                let _ = self.rb.cr.read();
-                let _ = self.rb.cr.read(); // Delay 2 peripheral clocks
+                let _ = self.rb.cr().read();
+                let _ = self.rb.cr().read(); // Delay 2 peripheral clocks
             }
 
             pub fn kernel_clk_unwrap(clocks: &CoreClocks) -> Hertz {
@@ -521,24 +521,24 @@ mod common {
                 use stm32::rcc::cdccipr as ccipr;
 
                 #[cfg(not(feature = "rm0455"))]
-                let ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr.read() };
+                let ccipr = unsafe { (*stm32::RCC::ptr()).d1ccipr().read() };
                 #[cfg(feature = "rm0455")]
-                let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr.read() };
+                let ccipr = unsafe { (*stm32::RCC::ptr()).cdccipr().read() };
 
                 match ccipr.$ccip().variant() {
-                    ccipr::[< $ccip:upper _A >]::RccHclk3 => clocks.hclk(),
-                    ccipr::[< $ccip:upper _A >]::Pll1Q => {
+                    ccipr::FMCSEL::RccHclk3 => clocks.hclk(),
+                    ccipr::FMCSEL::Pll1Q => {
                         clocks.pll1_q_ck().expect(
                             concat!(stringify!($peripheral), ": PLL1_Q must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::Pll2R
+                    ccipr::FMCSEL::Pll2R
                         => {
                         clocks.pll2_r_ck().expect(
                             concat!(stringify!($peripheral), ": PLL2_R must be enabled")
                         )
                     }
-                    ccipr::[< $ccip:upper _A >]::Per => {
+                    ccipr::FMCSEL::Per => {
                         clocks.per_ck().expect(
                             concat!(stringify!($peripheral), ": PER clock must be enabled")
                         )
@@ -577,7 +577,7 @@ mod common {
             /// Sets the interface to 8-bit address and data only using the
             /// current operational mode (number of bits).
             fn set_mode_address_data_only(&mut self) {
-                self.rb.ccr.modify(|_, w| unsafe {
+                self.rb.ccr().modify(|_, w| unsafe {
                     w.imode()     // NO instruction phase
                         .bits(0)
                         .admode() // address phase
@@ -611,7 +611,7 @@ mod common {
 
                 //writing to ccr will trigger the start of a transaction if there is no address or
                 //data rm0433 pg 894, so we do it all in one go
-                self.rb.ccr.modify(|_, w| unsafe {
+                self.rb.ccr().modify(|_, w| unsafe {
                     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
                     let w = {
                         let ir = instruction.bits_u8().unwrap();
@@ -637,18 +637,18 @@ mod common {
 
                 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
                 {
-                    self.rb.tcr.write(|w| unsafe { w.dcyc().bits(dummy_cycles) });
-                    self.rb.cr.modify(|_, w| unsafe { w.fmode().bits(fmode) });
+                    self.rb.tcr().write(|w| unsafe { w.dcyc().bits(dummy_cycles) });
+                    self.rb.cr().modify(|_, w| unsafe { w.fmode().bits(fmode) });
                 }
 
                 // Write alternate-bytes
-                self.rb.abr.write(|w| unsafe {
+                self.rb.abr().write(|w| unsafe {
                     w.alternate().bits(alternate_bytes.bits())
                 });
 
                 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
                 if instruction != XspiWord::None {
-                    self.rb.ir.write(|w| unsafe {
+                    self.rb.ir().write(|w| unsafe {
                         w.instruction().bits(instruction.bits())
                     });
                 }
@@ -657,7 +657,7 @@ mod common {
                     // Write the address. The transaction starts on the next write
                     // to DATA, unless there is no DATA phase configured, in which
                     // case it starts here.
-                    self.rb.ar.write(|w| unsafe { w.address().bits(address.bits()) });
+                    self.rb.ar().write(|w| unsafe { w.address().bits(address.bits()) });
                 }
             }
 
@@ -681,11 +681,11 @@ mod common {
                 self.set_mode_address_data_only();
 
                 // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
+                self.rb.fcr().write(|w| w.ctcf().set_bit());
 
                 // Write the length
                 self.rb
-                    .dlr
+                    .dlr()
                     .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
 
                 // Configure the mode to indirect write.
@@ -694,7 +694,7 @@ mod common {
                 // Write the address. The transaction starts on the next write
                 // to DATA, unless there is no DATA phase configured, in which
                 // case it starts here.
-                self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+                self.rb.ar().write(|w| unsafe { w.address().bits(addr) });
 
                 Ok(())
             }
@@ -724,14 +724,14 @@ mod common {
                 // Write data to the FIFO in a byte-wise manner.
                 unsafe {
                     for byte in data {
-                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+                        let dr = self.rb.dr().as_ptr() as *const UnsafeCell<u8>;
 
                         ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 
                 // Wait for the transaction to complete
-                while self.rb.sr.read().tcf().bit_is_clear() {}
+                while self.rb.sr().read().tcf().bit_is_clear() {}
 
                 // Wait for the peripheral to indicate it is no longer busy.
                 while self.is_busy().is_err() {}
@@ -762,12 +762,12 @@ mod common {
                 self.is_busy()?;
 
                 // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
+                self.rb.fcr().write(|w| w.ctcf().set_bit());
 
                 // Data length
                 if length > 0 {
                     self.rb
-                        .dlr
+                        .dlr()
                         .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
                 }
 
@@ -808,14 +808,14 @@ mod common {
                 // Transaction starts here
                 unsafe {
                     for byte in data {
-                        let dr = &self.rb.dr as *const _ as *const UnsafeCell<u8>;
+                        let dr = self.rb.dr().as_ptr() as *const UnsafeCell<u8>;
 
                         ptr::write_volatile(UnsafeCell::raw_get(dr), *byte);
                     }
                 }
 
                 // Wait for the transaction to complete
-                while self.rb.sr.read().tcf().bit_is_clear() {}
+                while self.rb.sr().read().tcf().bit_is_clear() {}
 
                 // Wait for the peripheral to indicate it is no longer busy.
                 while self.is_busy().is_err() {}
@@ -843,18 +843,18 @@ mod common {
                 self.set_mode_address_data_only();
 
                 // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
+                self.rb.fcr().write(|w| w.ctcf().set_bit());
 
                 // Write the length that should be read.
                 self.rb
-                    .dlr
+                    .dlr()
                     .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
 
                 // Configure the mode to indirect read.
                 fmode_reg!(self).modify(|_, w| unsafe { w.fmode().bits(0b01) });
 
                 // Write the address to force the read to start.
-                self.rb.ar.write(|w| unsafe { w.address().bits(addr) });
+                self.rb.ar().write(|w| unsafe { w.address().bits(addr) });
 
                 Ok(())
             }
@@ -883,10 +883,10 @@ mod common {
                 self.begin_read(addr as u32, dest.len())?;
 
                 // Wait for the transaction to complete
-                while self.rb.sr.read().tcf().bit_is_clear() {}
+                while self.rb.sr().read().tcf().bit_is_clear() {}
 
                 // Check for underflow on the FIFO.
-                if (self.rb.sr.read().flevel().bits() as usize) < dest.len() {
+                if (self.rb.sr().read().flevel().bits() as usize) < dest.len() {
                     return Err(XspiError::Underflow);
                 }
 
@@ -894,7 +894,7 @@ mod common {
                 unsafe {
                     for location in dest {
                         *location =
-                            ptr::read_volatile(&self.rb.dr as *const _ as *const u8);
+                            ptr::read_volatile(&self.rb.dr() as *const _ as *const u8);
                     }
                 }
 
@@ -940,11 +940,11 @@ mod common {
                 self.is_busy()?;
 
                 // Clear the transfer complete flag.
-                self.rb.fcr.write(|w| w.ctcf().set_bit());
+                self.rb.fcr().write(|w| w.ctcf().set_bit());
 
                 // Write the length that should be read.
                 self.rb
-                    .dlr
+                    .dlr()
                     .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
 
                 // Setup extended mode. Read operations always have a data phase.
@@ -987,10 +987,10 @@ mod common {
                                          alternate_bytes, dummy_cycles, dest.len())?;
 
                 // Wait for the transaction to complete
-                while self.rb.sr.read().tcf().bit_is_clear() {}
+                while self.rb.sr().read().tcf().bit_is_clear() {}
 
                 // Check for underflow on the FIFO.
-                if (self.rb.sr.read().flevel().bits() as usize) < dest.len() {
+                if (self.rb.sr().read().flevel().bits() as usize) < dest.len() {
                     return Err(XspiError::Underflow);
                 }
 
@@ -998,7 +998,7 @@ mod common {
                 unsafe {
                     for location in dest {
                         *location =
-                            ptr::read_volatile(&self.rb.dr as *const _ as *const u8);
+                            ptr::read_volatile(&self.rb.dr() as *const _ as *const u8);
                     }
                 }
 

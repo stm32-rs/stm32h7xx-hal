@@ -240,11 +240,11 @@ impl Qspi<stm32::QUADSPI> {
             return Err(QspiError::Busy);
         };
 
-        self.rb.cr.modify(|_, w| w.dfm().clear_bit());
+        self.rb.cr().modify(|_, w| w.dfm().clear_bit());
         match bank {
-            BankSelect::One => self.rb.cr.modify(|_, w| w.fsel().clear_bit()),
-            BankSelect::Two => self.rb.cr.modify(|_, w| w.fsel().set_bit()),
-        }
+            BankSelect::One => self.rb.cr().modify(|_, w| w.fsel().clear_bit()),
+            BankSelect::Two => self.rb.cr().modify(|_, w| w.fsel().set_bit()),
+        };
         Ok(())
     }
 
@@ -261,20 +261,20 @@ impl Qspi<stm32::QUADSPI> {
         prec.enable();
 
         // Disable QUADSPI before configuring it.
-        regs.cr.write(|w| w.en().clear_bit());
+        regs.cr().write(|w| w.en().clear_bit());
 
         let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
-        while regs.sr.read().busy().bit_is_set() {}
+        while regs.sr().read().busy().bit_is_set() {}
 
         let config: Config = config.into();
 
         // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
         // flash size violation may still trigger.
-        regs.dcr.write(|w| unsafe { w.fsize().bits(0x1F) });
+        regs.dcr().write(|w| unsafe { w.fsize().bits(0x1F) });
 
         // Clear all pending flags.
-        regs.fcr.write(|w| {
+        regs.fcr().write(|w| {
             w.ctof()
                 .set_bit()
                 .csmf()
@@ -286,7 +286,7 @@ impl Qspi<stm32::QUADSPI> {
         });
 
         // Configure the communication method for QSPI.
-        regs.ccr.write(|w| unsafe {
+        regs.ccr().write(|w| unsafe {
             w.fmode()
                 .bits(0) // indirect mode
                 .dmode()
@@ -317,7 +317,7 @@ impl Qspi<stm32::QUADSPI> {
         // more information
         //
         // SSHIFT must not be set in DDR mode.
-        regs.cr.write(|w| unsafe {
+        regs.cr().write(|w| unsafe {
             w.prescaler()
                 .bits(divisor as u8)
                 .sshift()
@@ -327,13 +327,13 @@ impl Qspi<stm32::QUADSPI> {
         });
 
         match bank {
-            Bank::One => regs.cr.modify(|_, w| w.fsel().clear_bit()),
-            Bank::Two => regs.cr.modify(|_, w| w.fsel().set_bit()),
-            Bank::Dual => regs.cr.modify(|_, w| w.dfm().set_bit()),
-        }
+            Bank::One => regs.cr().modify(|_, w| w.fsel().clear_bit()),
+            Bank::Two => regs.cr().modify(|_, w| w.fsel().set_bit()),
+            Bank::Dual => regs.cr().modify(|_, w| w.dfm().set_bit()),
+        };
 
         // Enable ther peripheral
-        regs.cr.modify(|_, w| w.en().set_bit());
+        regs.cr().modify(|_, w| w.en().set_bit());
 
         Qspi {
             rb: regs,

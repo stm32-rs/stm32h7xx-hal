@@ -210,13 +210,13 @@ macro_rules! smps_en {
 #[cfg(not(feature = "rm0455"))]
 macro_rules! d3cr {
     ($e:expr) => {
-        $e.d3cr
+        $e.d3cr()
     };
 }
 #[cfg(feature = "rm0455")]
 macro_rules! d3cr {
     ($e:expr) => {
-        $e.srdcr
+        $e.srdcr()
     };
 }
 
@@ -227,7 +227,7 @@ pub(crate) fn current_vos() -> VoltageScale {
         feature = "revision_v",
         any(feature = "rm0433", feature = "rm0399")
     ))]
-    if unsafe { (*SYSCFG::ptr()).pwrcr.read().oden().bit_is_set() } {
+    if unsafe { (*SYSCFG::ptr()).pwrcr().read().oden().bit_is_set() } {
         return VoltageScale::Scale0;
     }
 
@@ -276,42 +276,74 @@ impl Pwr {
         match self.supply_configuration {
             LDOSupply => {
                 assert!(
-                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    smps_en!(self.rb.cr3().read()).bit_is_clear(),
                     "{}",
                     error
                 );
-                assert!(self.rb.cr3.read().ldoen().bit_is_set(), "{}", error);
+                assert!(self.rb.cr3().read().ldoen().bit_is_set(), "{}", error);
             }
             DirectSMPS => {
-                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
+                assert!(
+                    smps_en!(self.rb.cr3().read()).bit_is_set(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    self.rb.cr3().read().ldoen().bit_is_clear(),
+                    "{}",
+                    error
+                );
             }
             SMPSFeedsIntoLDO1V8 => {
-                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
-                    smps_level!(self.rb.cr3.read()).bits() == 1,
+                    smps_en!(self.rb.cr3().read()).bit_is_set(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    self.rb.cr3().read().ldoen().bit_is_clear(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    smps_level!(self.rb.cr3().read()).bits() == 1,
                     "{}",
                     error
                 );
             }
             SMPSFeedsIntoLDO2V5 => {
-                assert!(smps_en!(self.rb.cr3.read()).bit_is_set(), "{}", error);
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
                 assert!(
-                    smps_level!(self.rb.cr3.read()).bits() == 2,
+                    smps_en!(self.rb.cr3().read()).bit_is_set(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    self.rb.cr3().read().ldoen().bit_is_clear(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    smps_level!(self.rb.cr3().read()).bits() == 2,
                     "{}",
                     error
                 );
             }
             Bypass => {
                 assert!(
-                    smps_en!(self.rb.cr3.read()).bit_is_clear(),
+                    smps_en!(self.rb.cr3().read()).bit_is_clear(),
                     "{}",
                     error
                 );
-                assert!(self.rb.cr3.read().ldoen().bit_is_clear(), "{}", error);
-                assert!(self.rb.cr3.read().bypass().bit_is_set(), "{}", error);
+                assert!(
+                    self.rb.cr3().read().ldoen().bit_is_clear(),
+                    "{}",
+                    error
+                );
+                assert!(
+                    self.rb.cr3().read().bypass().bit_is_set(),
+                    "{}",
+                    error
+                );
             }
             Default => {} // Default configuration is NOT verified
         }
@@ -445,12 +477,12 @@ impl Pwr {
         // know what happened between the previous POR and here.
 
         #[cfg(not(feature = "smps"))]
-        self.rb.cr3.modify(|_, w| {
+        self.rb.cr3().modify(|_, w| {
             w.scuen().set_bit().ldoen().set_bit().bypass().clear_bit()
         });
 
         #[cfg(feature = "smps")]
-        self.rb.cr3.modify(|_, w| {
+        self.rb.cr3().modify(|_, w| {
             use SupplyConfiguration::*;
 
             match self.supply_configuration {
@@ -489,7 +521,7 @@ impl Pwr {
         // in the D3CR.VOS and CR3.SDLEVEL fields.  By default after reset
         // VOS = Scale 3, so check that the voltage on the VCAP pins =
         // 1.0V.
-        while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+        while self.rb.csr1().read().actvosrdy().bit_is_clear() {}
 
         // We have now entered Run mode. See RM0433 Rev 7 Section 6.6.1
 
@@ -510,9 +542,13 @@ impl Pwr {
         ))]
         if matches!(self.target_vos, VoltageScale::Scale0) {
             unsafe {
-                (*RCC::ptr()).apb4enr.modify(|_, w| w.syscfgen().enabled())
+                (*RCC::ptr())
+                    .apb4enr()
+                    .modify(|_, w| w.syscfgen().enabled())
             };
-            unsafe { (*SYSCFG::ptr()).pwrcr.modify(|_, w| w.oden().set_bit()) };
+            unsafe {
+                (*SYSCFG::ptr()).pwrcr().modify(|_, w| w.oden().set_bit())
+            };
             while d3cr!(self.rb).read().vosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
         }
@@ -525,27 +561,27 @@ impl Pwr {
             // RM0468 section 6.8.6 says that before being able to use VOS0,
             // D3CR.VOS must equal CSR1.ACTVOS and CSR1.ACTVOSRDY must be set.
             while d3cr!(self.rb).read().vos().bits()
-                != self.rb.csr1.read().actvos().bits()
+                != self.rb.csr1().read().actvos().bits()
             {}
-            while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+            while self.rb.csr1().read().actvosrdy().bit_is_clear() {}
         }
 
         #[cfg(all(feature = "revision_v", feature = "rm0455"))]
         if matches!(self.target_vos, VoltageScale::Scale0) {
             // RM0455 section 6.8.6 says that CSR1.ACTVOSRDY must be set,
             // before VOS0 can be changed.
-            while self.rb.csr1.read().actvosrdy().bit_is_clear() {}
+            while self.rb.csr1().read().actvosrdy().bit_is_clear() {}
             vos = VoltageScale::Scale0;
             self.voltage_scaling_transition(vos);
         }
 
         // Disable backup power domain write protection
-        self.rb.cr1.modify(|_, w| w.dbp().set_bit());
-        while self.rb.cr1.read().dbp().bit_is_clear() {}
+        self.rb.cr1().modify(|_, w| w.dbp().set_bit());
+        while self.rb.cr1().read().dbp().bit_is_clear() {}
 
         if self.backup_regulator {
-            self.rb.cr2.modify(|_, w| w.bren().set_bit());
-            while self.rb.cr2.read().brrdy().bit_is_clear() {}
+            self.rb.cr2().modify(|_, w| w.bren().set_bit());
+            while self.rb.cr2().read().brrdy().bit_is_clear() {}
         }
 
         let backup = unsafe { BackupREC::new_singleton(self.backup_regulator) };

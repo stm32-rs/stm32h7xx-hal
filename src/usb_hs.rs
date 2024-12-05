@@ -129,14 +129,14 @@ macro_rules! usb_peripheral {
 
                 cortex_m::interrupt::free(|_| {
                     // USB Regulator in BYPASS mode
-                    pwr.cr3.modify(|_, w| w.usb33den().set_bit());
+                    pwr.cr3().modify(|_, w| w.usb33den().set_bit());
 
                     // Enable USB peripheral
-                    rcc.ahb1enr.modify(|_, w| w.$en().set_bit());
+                    rcc.ahb1enr().modify(|_, w| w.$en().set_bit());
 
                     // Reset USB peripheral
-                    rcc.ahb1rstr.modify(|_, w| w.$rst().set_bit());
-                    rcc.ahb1rstr.modify(|_, w| w.$rst().clear_bit());
+                    rcc.ahb1rstr().modify(|_, w| w.$rst().set_bit());
+                    rcc.ahb1rstr().modify(|_, w| w.$rst().clear_bit());
                 });
             }
 
@@ -305,14 +305,14 @@ unsafe impl UsbPeripheral for USB1_ULPI {
 
         cortex_m::interrupt::free(|_| {
             // Enable USB peripheral
-            rcc.ahb1enr.modify(|_, w| w.usb1otgen().enabled());
+            rcc.ahb1enr().modify(|_, w| w.usb1otgen().enabled());
 
             // Enable ULPI Clock
-            rcc.ahb1enr.modify(|_, w| w.usb1ulpien().enabled());
+            rcc.ahb1enr().modify(|_, w| w.usb1ulpien().enabled());
 
             // Reset USB peripheral
-            rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().set_bit());
-            rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().clear_bit());
+            rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().set_bit());
+            rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().clear_bit());
         });
     }
 

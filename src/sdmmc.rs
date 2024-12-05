@@ -496,12 +496,12 @@ macro_rules! sdmmc {
                     self.clock = new_clock;
 
                     // CPSMACT and DPSMACT must be 0 to set CLKDIV
-                    while self.sdmmc.star.read().dpsmact().bit_is_set()
-                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    while self.sdmmc.star().read().dpsmact().bit_is_set()
+                        || self.sdmmc.star().read().cpsmact().bit_is_set()
                     {}
 
                     self.sdmmc
-                        .clkcr
+                        .clkcr()
                         .modify(|_, w| unsafe { w.clkdiv().bits(clkdiv) });
 
                     Ok(())
@@ -542,7 +542,7 @@ macro_rules! sdmmc {
                         .expect("SDMMC too slow. Cannot be generated from ker_ck");
 
                     // Configure clock
-                    sdmmc.clkcr.write(|w| unsafe {
+                    sdmmc.clkcr().write(|w| unsafe {
                         w.widbus()
                             .bits(0) // 1-bit wide bus
                             .clkdiv()
@@ -558,7 +558,7 @@ macro_rules! sdmmc {
                     // Power off, writen 00: Clock to the card is stopped;
                     // D[7:0], CMD, and CK are driven high.
                     sdmmc
-                        .power
+                        .power()
                         .modify(|_, w| unsafe { w.pwrctrl().bits(PowerCtrl::Off as u8) });
 
                     Sdmmc {
@@ -578,7 +578,7 @@ macro_rules! sdmmc {
 
                 fn power_card(&mut self, state : PowerCtrl) {
                     self.sdmmc
-                        .power
+                        .power()
                         .modify(|_, w| unsafe { w.pwrctrl().bits(state as u8) });
 
                 }
@@ -609,7 +609,7 @@ macro_rules! sdmmc {
                     assert!(block_size <= 14, "Block size up to 2^14 bytes");
 
                     // Block Size must be greater than 0 ( != 1 byte) in DDR mode
-                    let ddr = self.sdmmc.clkcr.read().ddr().bit_is_set();
+                    let ddr = self.sdmmc.clkcr().read().ddr().bit_is_set();
                     assert!(
                         !ddr || block_size != 0,
                         "Block size must be >= 1, or >= 2 in DDR mode"
@@ -621,20 +621,20 @@ macro_rules! sdmmc {
                     };
 
                     // Command AND Data state machines must be idle
-                    while self.sdmmc.star.read().dpsmact().bit_is_set()
-                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    while self.sdmmc.star().read().dpsmact().bit_is_set()
+                        || self.sdmmc.star().read().cpsmact().bit_is_set()
                     {}
 
                     // Data timeout, in bus cycles
                     self.sdmmc
-                        .dtimer
+                        .dtimer()
                         .write(|w| unsafe { w.datatime().bits(5_000_000) });
                     // Data length, in bytes
                     self.sdmmc
-                        .dlenr
+                        .dlenr()
                         .write(|w| unsafe { w.datalength().bits(length_bytes) });
                     // Transfer
-                    self.sdmmc.dctrl.write(|w| unsafe {
+                    self.sdmmc.dctrl().write(|w| unsafe {
                         w.dblocksize()
                             .bits(block_size) // 2^n bytes block size
                             .dtdir()
@@ -665,7 +665,7 @@ macro_rules! sdmmc {
                     let mut i = 0;
                     let mut status;
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
                         !(status.rxoverr().bit()
                           || status.dcrcfail().bit()
                           || status.dtimeout().bit()
@@ -673,7 +673,7 @@ macro_rules! sdmmc {
                     } {
                         if status.rxfifohf().bit() {
                             for _ in 0..8 {
-                                let bytes = self.sdmmc.fifor.read().bits().to_le_bytes();
+                                let bytes = self.sdmmc.fifor().read().bits().to_le_bytes();
                                 buffer[i..i + 4].copy_from_slice(&bytes);
                                 i += 4;
                             }
@@ -715,7 +715,7 @@ macro_rules! sdmmc {
                     let mut i = 0;
                     let mut status;
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
                         !(status.rxoverr().bit()
                           || status.dcrcfail().bit()
                           || status.dtimeout().bit()
@@ -723,7 +723,7 @@ macro_rules! sdmmc {
                     } {
                         if status.rxfifohf().bit() {
                             for _ in 0..8 {
-                                let bytes = self.sdmmc.fifor.read().bits().to_le_bytes();
+                                let bytes = self.sdmmc.fifor().read().bits().to_le_bytes();
                                 buffer[i..i + 4].copy_from_slice(&bytes);
                                 i += 4;
                             }
@@ -760,7 +760,7 @@ macro_rules! sdmmc {
                     let mut i = 0;
                     let mut status;
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
                         !(status.txunderr().bit()
                           || status.dcrcfail().bit()
                           || status.dtimeout().bit()
@@ -771,7 +771,7 @@ macro_rules! sdmmc {
                                 let mut wb = [0u8; 4];
                                 wb.copy_from_slice(&buffer[i..i + 4]);
                                 let word = u32::from_le_bytes(wb);
-                                self.sdmmc.fifor.write(|w| unsafe { w.bits(word) });
+                                self.sdmmc.fifor().write(|w| unsafe { w.bits(word) });
                                 i += 4;
                             }
                         }
@@ -837,7 +837,7 @@ macro_rules! sdmmc {
                     let mut i = 0;
                     let mut status;
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
                         !(status.txunderr().bit()
                           || status.dcrcfail().bit()
                           || status.dtimeout().bit()
@@ -848,7 +848,7 @@ macro_rules! sdmmc {
                                 let mut wb = [0u8; 4];
                                 wb.copy_from_slice(&buffer[i..i + 4]);
                                 let word = u32::from_le_bytes(wb);
-                                self.sdmmc.fifor.write(|w| unsafe { w.bits(word) });
+                                self.sdmmc.fifor().write(|w| unsafe { w.bits(word) });
                                 i += 4;
                             }
                         }
@@ -863,7 +863,7 @@ macro_rules! sdmmc {
                     let mut status;
 
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
                         !(status.txunderr().bit()
                           || status.dcrcfail().bit()
                           || status.dtimeout().bit()
@@ -893,7 +893,7 @@ macro_rules! sdmmc {
                     // CMD13
                     self.cmd(common_cmd::card_status(self.card_rca, false))?;
 
-                    let r1 = self.sdmmc.resp1r.read().bits();
+                    let r1 = self.sdmmc.resp1r().read().bits();
                     Ok(CardStatus::from(r1))
                 }
 
@@ -920,7 +920,7 @@ macro_rules! sdmmc {
 
                 /// Clear "static flags" in interrupt clear register
                 fn clear_static_interrupt_flags(&self) {
-                    self.sdmmc.icr.modify(|_, w| {
+                    self.sdmmc.icr().modify(|_, w| {
                         w.dcrcfailc()
                             .set_bit()
                             .dtimeoutc()
@@ -947,7 +947,7 @@ macro_rules! sdmmc {
                 /// Send command to card
                 fn cmd<R: common_cmd::Resp>(&self, cmd: Cmd<R>) -> Result<(), Error> {
                     // Clear interrupts
-                    self.sdmmc.icr.modify(|_, w| {
+                    self.sdmmc.icr().modify(|_, w| {
                         w.ccrcfailc() // CRC FAIL
                             .set_bit()
                             .ctimeoutc() // TIMEOUT
@@ -973,11 +973,11 @@ macro_rules! sdmmc {
                     });
 
                     // CP state machine must be idle
-                    while self.sdmmc.star.read().cpsmact().bit_is_set() {}
+                    while self.sdmmc.star().read().cpsmact().bit_is_set() {}
 
                     // Command arg
                     self.sdmmc
-                        .argr
+                        .argr()
                         .write(|w| unsafe { w.cmdarg().bits(cmd.arg) });
 
                     // Determine what kind of response the CPSM should wait for
@@ -992,7 +992,7 @@ macro_rules! sdmmc {
                     let cpsm_stop_transmission = (cmd.cmd == 12);
 
                     // Command index and start CP State Machine
-                    self.sdmmc.cmdr.write(|w| unsafe {
+                    self.sdmmc.cmdr().write(|w| unsafe {
                         w.waitint()
                             .clear_bit()
                             .waitresp() // No / Short / Long
@@ -1011,7 +1011,7 @@ macro_rules! sdmmc {
                     if cmd.response_len() == ResponseLen::Zero {
                         // Wait for CMDSENT or a timeout
                         while {
-                            status = self.sdmmc.star.read();
+                            status = self.sdmmc.star().read();
                             !(status.ctimeout().bit() || status.cmdsent().bit())
                                 && timeout > 0
                         } {
@@ -1020,7 +1020,7 @@ macro_rules! sdmmc {
                     } else {
                         // Wait for CMDREND or CCRCFAIL or a timeout
                         while {
-                            status = self.sdmmc.star.read();
+                            status = self.sdmmc.star().read();
                             !(status.ctimeout().bit()
                               || status.cmdrend().bit()
                               || status.ccrcfail().bit())
@@ -1056,7 +1056,7 @@ macro_rules! sdmmc {
 
                     // Check if cards supports CMD8 (with pattern)
                     self.cmd(sd_cmd::send_if_cond(1, 0xAA))?;
-                    let cic = CIC::from(self.sdmmc.resp1r.read().bits());
+                    let cic = CIC::from(self.sdmmc.resp1r().read().bits());
 
                     let mut card = if cic.pattern() == 0xAA {
                         // Card echoed back the pattern. Must be at least v2
@@ -1077,7 +1077,7 @@ macro_rules! sdmmc {
                             Err(Error::Crc) => (),
                             Err(err) => return Err(err),
                         }
-                        let ocr = OCR::from(self.sdmmc.resp1r.read().bits());
+                        let ocr = OCR::from(self.sdmmc.resp1r().read().bits());
                         if !ocr.is_busy() {
                             // Power up done
                             break ocr;
@@ -1094,22 +1094,22 @@ macro_rules! sdmmc {
 
                     // Get CID
                     self.cmd(common_cmd::all_send_cid())?; // CMD2
-                    let cid = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
-                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
-                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
-                        | self.sdmmc.resp4r.read().bits() as u128;
+                    let cid = ((self.sdmmc.resp1r().read().bits() as u128) << 96)
+                        | ((self.sdmmc.resp2r().read().bits() as u128) << 64)
+                        | ((self.sdmmc.resp3r().read().bits() as u128) << 32)
+                        | self.sdmmc.resp4r().read().bits() as u128;
                     card.cid = cid.into();
 
                     // Get RCA
                     self.cmd(sd_cmd::send_relative_address())?;
-                    card.rca = RCA::from(self.sdmmc.resp1r.read().bits());
+                    card.rca = RCA::from(self.sdmmc.resp1r().read().bits());
 
                     // Get CSD
                     self.cmd(common_cmd::send_csd(card.rca.address()))?;
-                    let csd = ((self.sdmmc.resp1r.read().bits() as u128) << 96)
-                        | ((self.sdmmc.resp2r.read().bits() as u128) << 64)
-                        | ((self.sdmmc.resp3r.read().bits() as u128) << 32)
-                        | self.sdmmc.resp4r.read().bits() as u128;
+                    let csd = ((self.sdmmc.resp1r().read().bits() as u128) << 96)
+                        | ((self.sdmmc.resp2r().read().bits() as u128) << 64)
+                        | ((self.sdmmc.resp3r().read().bits() as u128) << 32)
+                        | self.sdmmc.resp4r().read().bits() as u128;
                     card.csd = csd.into();
 
                     // Select and get RCA
@@ -1130,10 +1130,10 @@ macro_rules! sdmmc {
                     self.app_cmd(sd_cmd::cmd6(acmd_arg))?; // ACMD6: Bus Width
 
                     // CPSMACT and DPSMACT must be 0 to set WIDBUS
-                    while self.sdmmc.star.read().dpsmact().bit_is_set()
-                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    while self.sdmmc.star().read().dpsmact().bit_is_set()
+                        || self.sdmmc.star().read().cpsmact().bit_is_set()
                     {}
-                    self.sdmmc.clkcr.modify(|_, w| unsafe {
+                    self.sdmmc.clkcr().modify(|_, w| unsafe {
                         w.widbus().bits(match width {
                             Buswidth::One => 0,
                             Buswidth::Four => 1,
@@ -1186,7 +1186,7 @@ macro_rules! sdmmc {
                     let mut idx = 0;
                     let mut sta_reg;
                     while {
-                        sta_reg = self.sdmmc.star.read();
+                        sta_reg = self.sdmmc.star().read();
                         !(sta_reg.rxoverr().bit()
                           || sta_reg.dcrcfail().bit()
                           || sta_reg.dtimeout().bit()
@@ -1195,7 +1195,7 @@ macro_rules! sdmmc {
                         if sta_reg.rxfifohf().bit() {
                             for _ in 0..8 {
                                 status[15-idx] = u32::from_be(
-                                    self.sdmmc.fifor.read().bits());
+                                    self.sdmmc.fifor().read().bits());
 
                                 idx += 1;
                             }
@@ -1227,7 +1227,7 @@ macro_rules! sdmmc {
                     let mut i = 0;
                     let mut status;
                     while {
-                        status = self.sdmmc.star.read();
+                        status = self.sdmmc.star().read();
 
                         !(status.rxoverr().bit()
                           || status.dcrcfail().bit()
@@ -1236,7 +1236,7 @@ macro_rules! sdmmc {
                     } {
                         if status.rxfifoe().bit_is_clear() {
                             // FIFO not empty
-                            scr[i] = self.sdmmc.fifor.read().bits();
+                            scr[i] = self.sdmmc.fifor().read().bits();
                             i += 1;
                         }
 
@@ -1280,7 +1280,7 @@ macro_rules! sdmmc {
                     let mut idx = 0;
                     let mut sta_reg;
                     while {
-                        sta_reg = self.sdmmc.star.read();
+                        sta_reg = self.sdmmc.star().read();
                         !(sta_reg.rxoverr().bit()
                           || sta_reg.dcrcfail().bit()
                           || sta_reg.dtimeout().bit()
@@ -1288,7 +1288,7 @@ macro_rules! sdmmc {
                     } {
                         if sta_reg.rxfifohf().bit() {
                             for _ in 0..8 {
-                                status[idx] = self.sdmmc.fifor.read().bits();
+                                status[idx] = self.sdmmc.fifor().read().bits();
                                 idx += 1;
                             }
                         }
@@ -1393,7 +1393,7 @@ macro_rules! sdmmc {
                     let mut idx = 0;
                     let mut sta_reg;
                     while {
-                        sta_reg = self.sdmmc.star.read();
+                        sta_reg = self.sdmmc.star().read();
                         !(sta_reg.rxoverr().bit()
                           || sta_reg.dcrcfail().bit()
                           || sta_reg.dtimeout().bit()
@@ -1402,7 +1402,7 @@ macro_rules! sdmmc {
                         if sta_reg.rxfifohf().bit() {
                             for _ in 0..8 {
                                 buffer[idx] = u32::from_be(
-                                    self.sdmmc.fifor.read().bits());
+                                    self.sdmmc.fifor().read().bits());
 
                                 idx += 1;
                             }
@@ -1443,7 +1443,7 @@ macro_rules! sdmmc {
                             Err(Error::Crc) => (),
                             Err(err) => return Err(err),
                         };
-                        let ocr = OCR::from(self.sdmmc.resp1r.read().bits());
+                        let ocr = OCR::from(self.sdmmc.resp1r().read().bits());
                         if !ocr.is_busy() {
                             break ocr;
                         }
@@ -1452,10 +1452,10 @@ macro_rules! sdmmc {
                     // CMD2: Get CID
                     self.cmd(common_cmd::all_send_cid())?;
                     let mut cid = [0; 4];
-                    cid[3] = self.sdmmc.resp1r.read().bits();
-                    cid[2] = self.sdmmc.resp2r.read().bits();
-                    cid[1] = self.sdmmc.resp3r.read().bits();
-                    cid[0] = self.sdmmc.resp4r.read().bits();
+                    cid[3] = self.sdmmc.resp1r().read().bits();
+                    cid[2] = self.sdmmc.resp2r().read().bits();
+                    cid[1] = self.sdmmc.resp3r().read().bits();
+                    cid[0] = self.sdmmc.resp4r().read().bits();
                     let cid = CID::from(cid);
 
                     // CMD3: Assign address
@@ -1466,10 +1466,10 @@ macro_rules! sdmmc {
                     self.cmd(common_cmd::send_csd(self.card_rca))?;
 
                     let mut csd = [0; 4];
-                    csd[3] = self.sdmmc.resp1r.read().bits();
-                    csd[2] = self.sdmmc.resp2r.read().bits();
-                    csd[1] = self.sdmmc.resp3r.read().bits();
-                    csd[0] = self.sdmmc.resp4r.read().bits();
+                    csd[3] = self.sdmmc.resp1r().read().bits();
+                    csd[2] = self.sdmmc.resp2r().read().bits();
+                    csd[1] = self.sdmmc.resp3r().read().bits();
+                    csd[0] = self.sdmmc.resp4r().read().bits();
                     let csd = CSD::from(csd);
 
                     // CMD7: Place card in the transfer state
@@ -1546,12 +1546,12 @@ macro_rules! sdmmc {
                     while !self.card_ready()? {}
 
                     // CPSMACT and DPSMACT must be 0 to set WIDBUS and DDR
-                    while self.sdmmc.star.read().dpsmact().bit_is_set()
-                        || self.sdmmc.star.read().cpsmact().bit_is_set()
+                    while self.sdmmc.star().read().dpsmact().bit_is_set()
+                        || self.sdmmc.star().read().cpsmact().bit_is_set()
                     {}
 
                     // Set WIDBUS
-                    self.sdmmc.clkcr.modify(|_, w| unsafe {
+                    self.sdmmc.clkcr().modify(|_, w| unsafe {
                         w.widbus().bits(match width {
                             Buswidth::One => 0,
                             Buswidth::Four => 1,
@@ -1567,7 +1567,7 @@ macro_rules! sdmmc {
 
                     // Check the achieved clkdiv in DDR mode
                     if matches!(signaling, EmmcSignaling::DDR52) &&
-                        self.sdmmc.clkcr.read().clkdiv().bits() == 0 {
+                        self.sdmmc.clkcr().read().clkdiv().bits() == 0 {
                         return Err(Error::InvalidConfiguration);
                     }
 

@@ -665,7 +665,7 @@ fn i2s_config_channel(
 
     let mode_bits = (mode as u8) | (config.dir as u8);
     unsafe {
-        audio_ch.cr1.modify(|_, w| {
+        audio_ch.cr1().modify(|_, w| {
             w.mode()
                 .bits(mode_bits)
                 .prtcfg()
@@ -687,7 +687,7 @@ fn i2s_config_channel(
                 .osr()
                 .bit(config.oversampling)
         });
-        audio_ch.cr2.modify(|_, w| {
+        audio_ch.cr2().modify(|_, w| {
             w.fth()
                 .quarter1()
                 .tris()
@@ -703,7 +703,7 @@ fn i2s_config_channel(
                 .comp()
                 .bits(config.companding as u8)
         });
-        audio_ch.frcr.modify(|_, w| {
+        audio_ch.frcr().modify(|_, w| {
             w.frl()
                 .bits(frame_size - 1)
                 .fsall()
@@ -715,7 +715,7 @@ fn i2s_config_channel(
                 .fsoff()
                 .bit(config.frame_sync_before)
         });
-        audio_ch.slotr.modify(|_, w| {
+        audio_ch.slotr().modify(|_, w| {
             w.fboff()
                 .bits(config.first_bit_offset)
                 .slotsz()
@@ -729,20 +729,20 @@ fn i2s_config_channel(
 }
 
 fn enable_ch(audio_ch: &CH) {
-    unsafe { audio_ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS)) };
-    audio_ch.cr2.modify(|_, w| w.fflush().flush());
-    audio_ch.cr1.modify(|_, w| w.saien().enabled());
+    unsafe { audio_ch.clrfr().write(|w| w.bits(CLEAR_ALL_FLAGS_BITS)) };
+    audio_ch.cr2().modify(|_, w| w.fflush().flush());
+    audio_ch.cr1().modify(|_, w| w.saien().enabled());
 }
 
 fn disable_ch(audio_ch: &CH) {
-    audio_ch.cr1.modify(|_, w| w.saien().disabled());
-    while audio_ch.cr1.read().saien().bit_is_set() {}
+    audio_ch.cr1().modify(|_, w| w.saien().disabled());
+    while audio_ch.cr1().read().saien().bit_is_set() {}
 }
 
 fn read(audio_ch: &CH) -> nb::Result<(u32, u32), I2SError> {
-    match audio_ch.sr.read().flvl().variant() {
-        Some(sr::FLVL_A::Empty) => Err(nb::Error::WouldBlock),
-        _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
+    match audio_ch.sr().read().flvl().variant() {
+        Some(sr::FLVLR::Empty) => Err(nb::Error::WouldBlock),
+        _ => Ok((audio_ch.dr().read().bits(), audio_ch.dr().read().bits())),
     }
 }
 
@@ -753,13 +753,13 @@ fn send(
 ) -> nb::Result<(), I2SError> {
     // The FIFO is 8 words long. A write consists of 2 words, in stereo mode.
     // Therefore you need to wait for 3/4s to ensure 2 words are available for writing.
-    match audio_ch.sr.read().flvl().variant() {
-        Some(sr::FLVL_A::Full) => Err(nb::Error::WouldBlock),
-        Some(sr::FLVL_A::Quarter4) => Err(nb::Error::WouldBlock),
+    match audio_ch.sr().read().flvl().variant() {
+        Some(sr::FLVLR::Full) => Err(nb::Error::WouldBlock),
+        Some(sr::FLVLR::Quarter4) => Err(nb::Error::WouldBlock),
         _ => {
             unsafe {
-                audio_ch.dr.write(|w| w.bits(left_word));
-                audio_ch.dr.write(|w| w.bits(right_word));
+                audio_ch.dr().write(|w| w.bits(left_word));
+                audio_ch.dr().write(|w| w.bits(right_word));
             }
             Ok(())
         }

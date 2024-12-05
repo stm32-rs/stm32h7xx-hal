@@ -43,22 +43,22 @@ where
         let offset = 4 * (i % 4);
         match i {
             0..=3 => {
-                syscfg.exticr1.modify(|r, w| unsafe {
+                syscfg.exticr1().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0xf << offset)) | (port << offset))
                 });
             }
             4..=7 => {
-                syscfg.exticr2.modify(|r, w| unsafe {
+                syscfg.exticr2().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0xf << offset)) | (port << offset))
                 });
             }
             8..=11 => {
-                syscfg.exticr3.modify(|r, w| unsafe {
+                syscfg.exticr3().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0xf << offset)) | (port << offset))
                 });
             }
             12..=15 => {
-                syscfg.exticr4.modify(|r, w| unsafe {
+                syscfg.exticr4().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0xf << offset)) | (port << offset))
                 });
             }
@@ -72,21 +72,21 @@ where
         let i = self.pin_id();
         match edge {
             Edge::Rising => {
-                exti.rtsr1
+                exti.rtsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.ftsr1
+                exti.ftsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
             }
             Edge::Falling => {
-                exti.ftsr1
+                exti.ftsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.rtsr1
+                exti.rtsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
             }
             Edge::RisingFalling => {
-                exti.rtsr1
+                exti.rtsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.ftsr1
+                exti.ftsr1()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
             }
         }
@@ -96,7 +96,7 @@ where
     #[inline(always)]
     fn enable_interrupt(&mut self, exti: &mut EXTI) {
         #[cfg(not(feature = "rm0399"))]
-        let imr1 = &exti.cpuimr1;
+        let imr1 = &exti.cpuimr1();
         #[cfg(all(feature = "rm0399", feature = "cm7"))]
         let imr1 = &exti.c1imr1;
         #[cfg(all(feature = "rm0399", feature = "cm4"))]
@@ -109,11 +109,11 @@ where
     #[inline(always)]
     fn disable_interrupt(&mut self, exti: &mut EXTI) {
         #[cfg(not(feature = "rm0399"))]
-        let imr1 = &exti.cpuimr1;
+        let imr1 = &exti.cpuimr1();
         #[cfg(all(feature = "rm0399", feature = "cm7"))]
-        let imr1 = &exti.c1imr1;
+        let imr1 = &exti.c1imr1();
         #[cfg(all(feature = "rm0399", feature = "cm4"))]
-        let imr1 = &exti.c2imr1;
+        let imr1 = &exti.c2imr1();
 
         imr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.pin_id())) });
     }
@@ -123,11 +123,11 @@ where
     fn clear_interrupt_pending_bit(&mut self) {
         unsafe {
             #[cfg(not(feature = "rm0399"))]
-            let pr1 = &(*EXTI::ptr()).cpupr1;
+            let pr1 = &(*EXTI::ptr()).cpupr1();
             #[cfg(all(feature = "rm0399", feature = "cm7"))]
-            let pr1 = &(*EXTI::ptr()).c1pr1;
+            let pr1 = &(*EXTI::ptr()).c1pr1();
             #[cfg(all(feature = "rm0399", feature = "cm4"))]
-            let pr1 = &(*EXTI::ptr()).c2pr1;
+            let pr1 = &(*EXTI::ptr()).c2pr1();
 
             pr1.write(|w| w.bits(1 << self.pin_id()));
             let _ = pr1.read();
@@ -140,7 +140,7 @@ where
     fn check_interrupt(&self) -> bool {
         unsafe {
             #[cfg(not(feature = "rm0399"))]
-            let pr1 = &(*EXTI::ptr()).cpupr1;
+            let pr1 = &(*EXTI::ptr()).cpupr1();
             #[cfg(all(feature = "rm0399", feature = "cm7"))]
             let pr1 = &(*EXTI::ptr()).c1pr1;
             #[cfg(all(feature = "rm0399", feature = "cm4"))]

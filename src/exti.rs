@@ -106,31 +106,31 @@ pub enum Event {
 #[cfg(not(feature = "rm0399"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
-        $self.cpuimr1
+        $self.cpuimr1()
     };
     ($self:ident, imr2) => {
-        $self.cpuimr2
+        $self.cpuimr2()
     };
     ($self:ident, imr3) => {
-        $self.cpuimr3
+        $self.cpuimr3()
     };
     ($self:ident, emr1) => {
-        $self.cpuemr1
+        $self.cpuemr1()
     };
     ($self:ident, emr2) => {
-        $self.cpuemr2
+        $self.cpuemr2()
     };
     ($self:ident, emr3) => {
-        $self.cpuemr3
+        $self.cpuemr3()
     };
     ($self:ident, pr1) => {
-        $self.cpupr1
+        $self.cpupr1()
     };
     ($self:ident, pr2) => {
-        $self.cpupr2
+        $self.cpupr2()
     };
     ($self:ident, pr3) => {
-        $self.cpupr3
+        $self.cpupr3()
     };
 }
 
@@ -216,8 +216,8 @@ impl ExtiExt for EXTI {
                     .modify(|r, w| w.bits(r.bits() | (1 << (line - 32)))),
                 64..=80 | 82 | 84..=88 => reg_for_cpu!(self, imr3)
                     .modify(|r, w| w.bits(r.bits() | (1 << (line - 64)))),
-                _ => {}
-            }
+                _ => 0,
+            };
         }
     }
 

@@ -342,19 +342,22 @@ trait InstanceStream {
 
 impl<I: Instance, const S: u8> StreamX<I, S> {
     unsafe fn stream() -> &'static pac::dma1::ST {
-        &(*I::ptr()).st[S as usize]
+        &(*I::ptr()).st(S as usize)
     }
     unsafe fn dmamux_ccr() -> &'static pac::dmamux1::CCR {
         let dmamux = &*I::mux_ptr();
-        &dmamux.ccr[S as usize + I::DMA_MUX_STREAM_OFFSET]
+        &dmamux.ccr(S as usize + I::DMA_MUX_STREAM_OFFSET)
     }
 
     #[inline(always)]
     fn set_fifo_threshold(&mut self, fifo_threshold: config::FifoThreshold) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }
-            .fcr
-            .modify(|_, w| w.fth().bits(fifo_threshold.bits()));
+        //NOTE(unsafe) We only write valid bit patterns
+        unsafe {
+            Self::stream()
+                .fcr()
+                .modify(|_, w| w.fth().bits(fifo_threshold.bits()));
+        }
     }
 
     #[inline(always)]
@@ -362,30 +365,36 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         //Register is actually direct mode disable rather than fifo enable
         unsafe { Self::stream() }
-            .fcr
+            .fcr()
             .modify(|_, w| w.dmdis().bit(fifo_enable));
     }
 
     #[inline(always)]
     fn set_memory_burst(&mut self, memory_burst: config::BurstMode) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }
-            .cr
-            .modify(|_, w| w.mburst().bits(memory_burst.bits()));
+        //NOTE(unsafe) We only write valid bit patterns
+        unsafe {
+            Self::stream()
+                .cr()
+                .modify(|_, w| w.mburst().bits(memory_burst.bits()));
+        }
     }
 
     #[inline(always)]
     fn set_peripheral_burst(&mut self, peripheral_burst: config::BurstMode) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }
-            .cr
-            .modify(|_, w| w.pburst().bits(peripheral_burst.bits()));
+        //NOTE(unsafe) We only write valid bit patterns
+        unsafe {
+            Self::stream()
+                .cr()
+                .modify(|_, w| w.pburst().bits(peripheral_burst.bits()));
+        }
     }
 
     #[inline(always)]
     pub fn fifo_level() -> FifoLevel {
         //NOTE(unsafe) Atomic read with no side effects
-        unsafe { Self::stream() }.fcr.read().fs().bits().into()
+        unsafe { Self::stream() }.fcr().read().fs().bits().into()
     }
 
     #[inline(always)]
@@ -394,7 +403,7 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         direct_mode_error_interrupt: bool,
     ) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let dmacr = &unsafe { Self::stream() }.cr;
+        let dmacr = &unsafe { Self::stream() }.cr();
         dmacr.modify(|_, w| w.dmeie().bit(direct_mode_error_interrupt));
         let _ = dmacr.read();
         let _ = dmacr.read(); // Delay 2 peripheral clocks
@@ -406,7 +415,7 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         fifo_error_interrupt: bool,
     ) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let dmafcr = &unsafe { Self::stream() }.fcr;
+        let dmafcr = &unsafe { Self::stream() }.fcr();
         dmafcr.modify(|_, w| w.feie().bit(fifo_error_interrupt));
         let _ = dmafcr.read();
         let _ = dmafcr.read(); // Delay 2 peripheral clocks
@@ -467,13 +476,13 @@ where
     #[inline(always)]
     unsafe fn enable(&mut self) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        Self::stream().cr.modify(|_, w| w.en().set_bit());
+        Self::stream().cr().modify(|_, w| w.en().set_bit());
     }
 
     #[inline(always)]
     fn is_enabled() -> bool {
         //NOTE(unsafe) Atomic read with no side effects
-        unsafe { Self::stream() }.cr.read().en().bit_is_set()
+        unsafe { Self::stream() }.cr().read().en().bit_is_set()
     }
 
     fn disable(&mut self) {
@@ -485,7 +494,7 @@ where
 
             //NOTE(unsafe) We only access the registers that belongs to the StreamX
             unsafe { Self::stream() }
-                .cr
+                .cr()
                 .modify(|_, w| w.en().clear_bit());
             while Self::is_enabled() {}
 
@@ -505,15 +514,18 @@ where
     #[inline(always)]
     fn set_priority(&mut self, priority: config::Priority) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }
-            .cr
-            .modify(|_, w| w.pl().bits(priority.bits()));
+        //NOTE(unsafe) We only write valid bit patterns
+        unsafe {
+            Self::stream()
+                .cr()
+                .modify(|_, w| w.pl().bits(priority.bits()));
+        }
     }
 
     #[inline(always)]
     fn disable_interrupts(&mut self) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }.cr.modify(|_, w| {
+        unsafe { Self::stream() }.cr().modify(|_, w| {
             w.tcie()
                 .clear_bit()
                 .teie()
@@ -523,7 +535,7 @@ where
                 .dmeie()
                 .clear_bit()
         });
-        let dmafcr = &unsafe { Self::stream() }.fcr;
+        let dmafcr = &unsafe { Self::stream() }.fcr();
         dmafcr.modify(|_, w| w.feie().clear_bit());
         let _ = dmafcr.read();
         let _ = dmafcr.read(); // Delay 2 peripheral clocks
@@ -532,7 +544,7 @@ where
     #[inline(always)]
     fn enable_interrupts(&mut self, interrupt: DmaInterrupts) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }.cr.modify(|_, w| {
+        unsafe { Self::stream() }.cr().modify(|_, w| {
             w.tcie()
                 .bit(interrupt.transfer_complete)
                 .htie()
@@ -543,15 +555,15 @@ where
                 .bit(interrupt.direct_mode_error)
         });
         unsafe { Self::stream() }
-            .fcr
+            .fcr()
             .modify(|_, w| w.feie().bit(interrupt.fifo_error));
     }
 
     #[inline(always)]
     fn get_interrupts_enable() -> DmaInterrupts {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let cr = unsafe { Self::stream() }.cr.read();
-        let fcr = unsafe { Self::stream() }.fcr.read();
+        let cr = unsafe { Self::stream() }.cr().read();
+        let fcr = unsafe { Self::stream() }.fcr().read();
 
         DmaInterrupts {
             transfer_complete: cr.tcie().bit_is_set(),
@@ -568,7 +580,7 @@ where
         transfer_complete_interrupt: bool,
     ) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let dmacr = &unsafe { Self::stream() }.cr;
+        let dmacr = &unsafe { Self::stream() }.cr();
         dmacr.modify(|_, w| w.tcie().bit(transfer_complete_interrupt));
         let _ = dmacr.read();
         let _ = dmacr.read(); // Delay 2 peripheral clocks
@@ -580,7 +592,7 @@ where
         transfer_error_interrupt: bool,
     ) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let dmacr = &unsafe { Self::stream() }.cr;
+        let dmacr = &unsafe { Self::stream() }.cr();
         dmacr.modify(|_, w| w.teie().bit(transfer_error_interrupt));
         let _ = dmacr.read();
         let _ = dmacr.read(); // Delay 2 peripheral clocks
@@ -594,7 +606,7 @@ where
     #[inline(always)]
     unsafe fn set_peripheral_address(&mut self, value: usize) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        Self::stream().par.write(|w| w.pa().bits(value as u32));
+        Self::stream().par().write(|w| w.pa().bits(value as u32));
     }
 
     #[inline(always)]
@@ -606,12 +618,12 @@ where
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         match buffer {
             CurrentBuffer::Buffer0 => {
-                Self::stream().m0ar.write(|w| w.m0a().bits(value as u32))
+                Self::stream().m0ar().write(|w| w.m0a().bits(value as u32))
             }
             CurrentBuffer::Buffer1 => {
-                Self::stream().m1ar.write(|w| w.m1a().bits(value as u32))
+                Self::stream().m1ar().write(|w| w.m1a().bits(value as u32))
             }
-        }
+        };
     }
 
     #[inline(always)]
@@ -619,10 +631,10 @@ where
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         let addr = match buffer {
             CurrentBuffer::Buffer0 => {
-                unsafe { Self::stream() }.m0ar.read().m0a().bits()
+                unsafe { Self::stream() }.m0ar().read().m0a().bits()
             }
             CurrentBuffer::Buffer1 => {
-                unsafe { Self::stream() }.m1ar.read().m1a().bits()
+                unsafe { Self::stream() }.m1ar().read().m1a().bits()
             }
         };
         addr as usize
@@ -631,33 +643,34 @@ where
     #[inline(always)]
     fn set_number_of_transfers(&mut self, value: u16) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }
-            .ndtr
-            .write(|w| w.ndt().bits(value));
+        //NOTE(unsafe) All bit pattern for ndt are valid
+        unsafe {
+            Self::stream().ndtr().write(|w| w.ndt().bits(value));
+        }
     }
 
     #[inline(always)]
     fn get_number_of_transfers() -> u16 {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }.ndtr.read().ndt().bits()
+        unsafe { Self::stream() }.ndtr().read().ndt().bits()
     }
     #[inline(always)]
     unsafe fn set_memory_size(&mut self, size: u8) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        Self::stream().cr.modify(|_, w| w.msize().bits(size));
+        Self::stream().cr().modify(|_, w| w.msize().bits(size));
     }
 
     #[inline(always)]
     unsafe fn set_peripheral_size(&mut self, size: u8) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        Self::stream().cr.modify(|_, w| w.psize().bits(size));
+        Self::stream().cr().modify(|_, w| w.psize().bits(size));
     }
 
     #[inline(always)]
     fn set_memory_increment(&mut self, increment: bool) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         unsafe { Self::stream() }
-            .cr
+            .cr()
             .modify(|_, w| w.minc().bit(increment));
     }
 
@@ -665,14 +678,14 @@ where
     fn set_peripheral_increment(&mut self, increment: bool) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         unsafe { Self::stream() }
-            .cr
+            .cr()
             .modify(|_, w| w.pinc().bit(increment));
     }
 
     #[inline(always)]
     fn set_direction(&mut self, direction: DmaDirection) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        unsafe { Self::stream() }.cr.modify(|_, w| unsafe {
+        unsafe { Self::stream() }.cr().modify(|_, w| unsafe {
             match direction {
                 DmaDirection::PeripheralToMemory => w.dir().bits(0),
                 DmaDirection::MemoryToPeripheral => w.dir().bits(1),
@@ -686,7 +699,7 @@ where
     fn set_trbuff(&mut self, trbuff: bool) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         unsafe { Self::stream() }
-            .cr
+            .cr()
             .modify(|_, w| w.trbuff().bit(trbuff));
     }
 
@@ -694,7 +707,7 @@ where
     fn set_circular_buffer(&mut self, circular_buffer: bool) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         unsafe { Self::stream() }
-            .cr
+            .cr()
             .modify(|_, w| w.circ().bit(circular_buffer));
     }
 
@@ -702,7 +715,7 @@ where
     fn set_double_buffer(&mut self, double_buffer: bool) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         unsafe { Self::stream() }
-            .cr
+            .cr()
             .modify(|_, w| w.dbm().bit(double_buffer));
     }
 
@@ -710,7 +723,7 @@ where
     fn get_current_buffer() -> CurrentBuffer {
         //NOTE(unsafe) Atomic read with no side effects
 
-        if unsafe { Self::stream() }.cr.read().ct().bit_is_set() {
+        if unsafe { Self::stream() }.cr().read().ct().bit_is_set() {
             CurrentBuffer::Buffer0
         } else {
             CurrentBuffer::Buffer1
@@ -720,7 +733,7 @@ where
     #[inline(always)]
     fn get_inactive_buffer() -> Option<CurrentBuffer> {
         //NOTE(unsafe) Atomic read with no side effects
-        let cr = unsafe { Self::stream() }.cr.read();
+        let cr = unsafe { Self::stream() }.cr().read();
         if cr.dbm().bit_is_set() {
             Some(if cr.ct().bit_is_set() {
                 CurrentBuffer::Buffer0
@@ -738,7 +751,7 @@ where
         half_transfer_interrupt: bool,
     ) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        let dmacr = &unsafe { Self::stream() }.cr;
+        let dmacr = &unsafe { Self::stream() }.cr();
         dmacr.modify(|_, w| w.htie().bit(half_transfer_interrupt));
         let _ = dmacr.read();
         let _ = dmacr.read(); // Delay 2 peripheral clocks
@@ -770,15 +783,15 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w
+                    dma.$ifcr().write(|w| w
                                     .$tcif().set_bit() //Clear transfer complete interrupt flag
                                     .$htif().set_bit() //Clear half transfer interrupt flag
                                     .$teif().set_bit() //Clear transfer error interrupt flag
                                     .$dmeif().set_bit() //Clear direct mode error interrupt flag
                                     .$feif().set_bit() //Clear fifo error interrupt flag
                     );
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -786,7 +799,7 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$tcif().set_bit());
+                    dma.$ifcr().write(|w| w.$tcif().set_bit());
                 }
 
                 #[inline(always)]
@@ -794,8 +807,8 @@ macro_rules! dma_stream {
                     self.stream_clear_transfer_complete_flag();
                     //NOTE(unsafe) Atomic read with no side-effects.
                     let dma = unsafe { &*I::ptr() };
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
@@ -803,23 +816,23 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$teif().set_bit());
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    dma.$ifcr().write(|w| w.$teif().set_bit());
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
 
                 #[inline(always)]
                 fn stream_get_transfer_complete_flag() -> bool {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
-                    dma.$isr.read().$tcisr().bit_is_set()
+                    dma.$isr().read().$tcisr().bit_is_set()
                 }
 
                 #[inline(always)]
                 fn stream_get_half_transfer_flag() -> bool {
                     //NOTE(unsafe) Atomic read with no side effects
                     let dma = unsafe { &*I::ptr() };
-                    dma.$isr.read().$htisr().bit_is_set()
+                    dma.$isr().read().$htisr().bit_is_set()
                 }
 
                 #[inline(always)]
@@ -827,9 +840,9 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$htif().set_bit());
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    dma.$ifcr().write(|w| w.$htif().set_bit());
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
             }
 
@@ -839,18 +852,18 @@ macro_rules! dma_stream {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$dmeif().set_bit());
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    dma.$ifcr().write(|w| w.$dmeif().set_bit());
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
                 #[inline(always)]
                 pub fn clear_fifo_error_interrupt(&mut self) {
                     //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
                     // that belongs to the StreamX
                     let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr.write(|w| w.$feif().set_bit());
-                    let _ = dma.$isr.read();
-                    let _ = dma.$isr.read(); // Delay 2 peripheral clocks
+                    dma.$ifcr().write(|w| w.$feif().set_bit());
+                    let _ = dma.$isr().read();
+                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
                 }
             }
         )+
@@ -914,7 +927,7 @@ macro_rules! peripheral_register_markers {
 peripheral_register_markers!(CCR1, CCR2, CCR3, CCR4, DMAR, ARR);
 
 /// Type alias for the DMA Request Multiplexer
-pub type DMAReq = pac::dmamux1::ccr::DMAREQ_ID_A;
+pub type DMAReq = pac::dmamux1::ccr::DMAREQ_ID;
 
 type P2M = PeripheralToMemory;
 type M2P = MemoryToPeripheral;

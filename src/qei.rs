@@ -171,7 +171,7 @@ macro_rules! tim_hal {
                     });
 
                     // enable and configure to capture on rising edge
-                    tim.ccer.write(|w| {
+                    tim.ccer().write(|w| {
                         w.cc1e()
                             .set_bit()
                             .cc1p()
@@ -183,11 +183,12 @@ macro_rules! tim_hal {
                     });
 
                     // configure as quadrature encoder
-                    tim.smcr.write(|w| { w.sms().bits(3) });
+                    //NOTE(unsafe) 3 is a valid bit patterns for w.sms()
+                    tim.smcr().write(|w| unsafe { w.sms().bits(3) });
 
                     #[allow(unused_unsafe)] // method is safe for some timers
-                    tim.arr.write(|w| unsafe { w.bits(u32::MAX) });
-                    tim.cr1.write(|w| w.cen().set_bit());
+                    tim.arr().write(|w| unsafe { w.bits(u32::MAX) });
+                    tim.cr1().write(|w| w.cen().set_bit());
 
                     Qei { tim }
                 }
@@ -214,11 +215,11 @@ macro_rules! tim_hal {
                 type Count = $bits;
 
                 fn count(&self) -> $bits {
-                    self.tim.cnt.read().bits() as $bits
+                    self.tim.cnt().read().bits() as $bits
                 }
 
                 fn direction(&self) -> Direction {
-                    if self.tim.cr1.read().dir().bit_is_clear() {
+                    if self.tim.cr1().read().dir().bit_is_clear() {
                         hal::Direction::Upcounting
                     } else {
                         hal::Direction::Downcounting

@@ -52,7 +52,7 @@ impl NorFlashError for Error {
 
 impl Error {
     fn read(flash_bank: &BANK) -> Option<Self> {
-        let sr = flash_bank.sr.read();
+        let sr = flash_bank.sr().read();
         if sr.pgserr().bit() {
             Some(Error::ProgrammingSequence)
         } else if sr.wrperr().bit() {
@@ -75,7 +75,7 @@ impl Error {
     }
 }
 fn clear_error_flags(regs: &BANK) {
-    regs.sr.modify(|_, w| {
+    regs.sr().modify(|_, w| {
         w.pgserr()
             .set_bit()
             .wrperr()
@@ -92,7 +92,7 @@ fn clear_error_flags(regs: &BANK) {
             .set_bit()
             .dbeccerr()
             .set_bit()
-    })
+    });
 }
 
 /// Result of `FlashExt::unlocked()`
@@ -129,7 +129,7 @@ pub struct UnlockedFlashBank<'a> {
 /// Automatically lock flash erase/program when leaving scope
 impl Drop for UnlockedFlashBank<'_> {
     fn drop(&mut self) {
-        self.bank.cr.modify(|_, w| w.lock().set_bit());
+        self.bank.cr().modify(|_, w| w.lock().set_bit());
     }
 }
 
@@ -166,7 +166,7 @@ impl UnlockedFlashBank<'_> {
         clear_error_flags(self.bank);
 
         #[rustfmt::skip]
-        self.bank.cr.modify(|_, w| unsafe {
+        self.bank.cr().modify(|_, w| unsafe {
             w
                 // start
                 .start().set_bit()
@@ -213,7 +213,7 @@ impl UnlockedFlashBank<'_> {
         while bytes.peek().is_some() {
             #[rustfmt::skip]
             #[allow(unused_unsafe)]
-            self.bank.cr.modify(|_, w| unsafe {
+            self.bank.cr().modify(|_, w| unsafe {
                 w
                     // double-word parallelism
                     .psize().bits(0b11)
@@ -250,19 +250,19 @@ impl UnlockedFlashBank<'_> {
             // The write buffer should be empty (WBNE=0) immediately, but wait
             // for this nonetheless. Then wait for the write queue
             while {
-                let sr = self.bank.sr.read();
+                let sr = self.bank.sr().read();
                 sr.wbne().bit_is_set() | sr.qw().bit_is_set()
             } {}
             self.ok()?;
         }
-        self.bank.cr.modify(|_, w| w.pg().clear_bit());
+        self.bank.cr().modify(|_, w| w.pg().clear_bit());
         self.wait_ready();
 
         self.ok()
     }
 
     fn wait_ready(&self) {
-        while self.bank.sr.read().bsy().bit() {}
+        while self.bank.sr().read().bsy().bit() {}
     }
 
     fn ok(&self) -> Result<(), Error> {

@@ -111,13 +111,16 @@ pub trait I2cExt<I2C>: Sized {
 macro_rules! flush_txdr {
     ($i2c:expr) => {
         // If a pending TXIS flag is set, write dummy data to TXDR
-        if $i2c.isr.read().txis().bit_is_set() {
-            $i2c.txdr.write(|w| w.txdata().bits(0));
+        if $i2c.isr().read().txis().bit_is_set() {
+            unsafe {
+                //NOTE(unsafe) 0 is a valid bit pattern
+                $i2c.txdr().write(|w| w.txdata().bits(0));
+            }
         }
 
         // If TXDR is not flagged as empty, write 1 to flush it
-        if $i2c.isr.read().txe().is_not_empty() {
-            $i2c.isr.write(|w| w.txe().set_bit());
+        if $i2c.isr().read().txe().is_not_empty() {
+            $i2c.isr().write(|w| w.txe().set_bit());
         }
     };
 }
@@ -125,18 +128,19 @@ macro_rules! flush_txdr {
 macro_rules! busy_wait {
     ($i2c:expr, $flag:ident, $variant:ident) => {
         loop {
-            let isr = $i2c.isr.read();
+            let isr = $i2c.isr().read();
 
             if isr.$flag().$variant() {
                 break;
             } else if isr.berr().is_error() {
-                $i2c.icr.write(|w| w.berrcf().set_bit());
+                $i2c.icr().write(|w| w.berrcf().set_bit());
                 return Err(Error::Bus);
             } else if isr.arlo().is_lost() {
-                $i2c.icr.write(|w| w.arlocf().set_bit());
+                $i2c.icr().write(|w| w.arlocf().set_bit());
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
-                $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+                $i2c.icr()
+                    .write(|w| w.stopcf().set_bit().nackcf().set_bit());
                 flush_txdr!($i2c);
                 return Err(Error::NotAcknowledge);
             } else {
@@ -291,16 +295,17 @@ macro_rules! i2c {
                     let i2c_clk: u32 = clocks.$pclkX().raw();
 
                     // Clear PE bit in I2C_CR1
-                    i2c.cr1.modify(|_, w| w.pe().clear_bit());
+                    i2c.cr1().modify(|_, w| w.pe().clear_bit());
 
                     // Enable the Analog Noise Filter by setting
                     // ANFOFF (Analog Noise Filter OFF) to 0.  This is
                     // usually enabled by default
-                    i2c.cr1.modify(|_, w| w.anfoff().clear_bit());
+                    i2c.cr1().modify(|_, w| w.anfoff().clear_bit());
 
                     // Configure timing
                     let (presc_reg, scll, sclh, sdadel, scldel) = i2c_timing!(i2c_clk, freq);
-                    i2c.timingr.write(|w|
+                    //NOTE(unsafe) Only valid bit patterns written, checked by i2c_timing
+                    i2c.timingr().write(|w| unsafe {
                         w.presc()
                             .bits(presc_reg)
                             .scll()
@@ -311,10 +316,10 @@ macro_rules! i2c {
                             .bits(sdadel)
                             .scldel()
                             .bits(scldel)
-                    );
+                    });
 
                     // Enable the peripheral
-                    i2c.cr1.write(|w| w.pe().set_bit());
+                    i2c.cr1().write(|w| w.pe().set_bit());
 
                     I2c { i2c }
                 }
@@ -331,17 +336,17 @@ macro_rules! i2c {
 
                 /// Enable or disable the DMA mode for reception
                 pub fn rx_dma(&mut self, enable: bool) {
-                    self.i2c.cr1.modify(|_,w| w.rxdmaen().bit(enable));
+                    self.i2c.cr1().modify(|_,w| w.rxdmaen().bit(enable));
                 }
 
                 /// Enable or disable the DMA mode for transmission
                 pub fn tx_dma(&mut self, enable: bool) {
-                    self.i2c.cr1.modify(|_,w| w.txdmaen().bit(enable));
+                    self.i2c.cr1().modify(|_,w| w.txdmaen().bit(enable));
                 }
 
                 /// Start listening for `event`
                 pub fn listen(&mut self, event: Event) {
-                    self.i2c.cr1.modify(|_,w| {
+                    self.i2c.cr1().modify(|_,w| {
                         match event {
                             Event::Transmit => w.txie().set_bit(),
                             Event::Receive => w.rxie().set_bit(),
@@ -355,7 +360,7 @@ macro_rules! i2c {
 
                 /// Stop listening for `event`
                 pub fn unlisten(&mut self, event: Event) {
-                    self.i2c.cr1.modify(|_,w| {
+                    self.i2c.cr1().modify(|_,w| {
                         match event {
                             Event::Transmit => w.txie().clear_bit(),
                             Event::Receive => w.rxie().clear_bit(),
@@ -365,13 +370,13 @@ macro_rules! i2c {
                             Event::NotAcknowledge => w.nackie().clear_bit(),
                         }
                     });
-                    let _ = self.i2c.cr1.read();
-                    let _ = self.i2c.cr1.read(); // Delay 2 peripheral clocks
+                    let _ = self.i2c.cr1().read();
+                    let _ = self.i2c.cr1().read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears interrupt flag for `event`
                 pub fn clear_irq(&mut self, event: Event) {
-                    self.i2c.icr.write(|w| {
+                    self.i2c.icr().write(|w| {
                         match event {
                             Event::Stop => w.stopcf().set_bit(),
                             Event::Errors => w
@@ -382,8 +387,8 @@ macro_rules! i2c {
                             _ => w
                         }
                     });
-                    let _ = self.i2c.isr.read();
-                    let _ = self.i2c.isr.read(); // Delay 2 peripheral clocks
+                    let _ = self.i2c.isr().read();
+                    let _ = self.i2c.isr().read(); // Delay 2 peripheral clocks
                 }
 
                 /// Releases the I2C peripheral
@@ -420,12 +425,13 @@ macro_rules! i2c {
                     // Wait for any previous address sequence to end
                     // automatically. This could be up to 50% of a bus
                     // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
+                    while self.i2c.cr2().read().start().bit_is_set() {};
 
                     // Set START and prepare to receive bytes into
                     // `buffer`. The START bit can be set even if the bus
                     // is BUSY or I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
+                    //NOTE(unsafe) Only valid bit patterns written
+                    self.i2c.cr2().write(|w| unsafe {
                         w.sadd()
                             .bits((addr << 1 | 0) as u16)
                             .rd_wrn()
@@ -452,12 +458,13 @@ macro_rules! i2c {
                     // Wait for any previous address sequence to end
                     // automatically. This could be up to 50% of a bus
                     // cycle (ie. up to 0.5/freq)
-                    while self.i2c.cr2.read().start().bit_is_set() {};
+                    while self.i2c.cr2().read().start().bit_is_set() {};
 
                     // Set START and prepare to send `bytes`. The
                     // START bit can be set even if the bus is BUSY or
                     // I2C is in slave mode.
-                    self.i2c.cr2.write(|w| {
+                    //NOTE(unsafe) Only valid bit patterns written
+                    self.i2c.cr2().write(|w| unsafe {
                         w.start()
                             .set_bit()
                             .sadd()
@@ -485,7 +492,8 @@ macro_rules! i2c {
                 pub fn master_re_start(&mut self, addr: u8, length: usize, stop: Stop) {
                     assert!(length < 256 && length > 0);
 
-                    self.i2c.cr2.write(|w| {
+                    //NOTE(unsafe) Only valid bit patterns written
+                    self.i2c.cr2().write(|w| unsafe {
                         w.sadd()
                             .bits(u16(addr << 1 | 1))
                             .add10().clear_bit()
@@ -509,7 +517,7 @@ macro_rules! i2c {
                 /// Slave:  ...
                 /// ```
                 pub fn master_stop(&mut self) {
-                    self.i2c.cr2.write(|w| w.stop().set_bit());
+                    self.i2c.cr2().write(|w| w.stop().set_bit());
                 }
             }
 
@@ -576,7 +584,10 @@ macro_rules! i2c {
                         busy_wait!(self.i2c, txis, is_empty);
 
                         // Put byte on the wire
-                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+                        //NOTE(unsafe) All bit bit patterns are valid
+                        unsafe {
+                            self.i2c.txdr().write(|w| w.txdata().bits(*byte));
+                        }
                     }
 
                     // Wait until the write finishes
@@ -616,7 +627,10 @@ macro_rules! i2c {
                         busy_wait!(self.i2c, txis, is_empty);
 
                         // Put byte on the wire
-                        self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+                        //NOTE(unsafe) All bit patterns are valid
+                        unsafe {
+                            self.i2c.txdr().write(|w| w.txdata().bits(*byte));
+                        }
                     }
 
                     // Wait until the write finishes before beginning to read.
@@ -631,7 +645,7 @@ macro_rules! i2c {
                         // Wait until we have received something
                         busy_wait!(self.i2c, rxne, is_not_empty);
 
-                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                        *byte = self.i2c.rxdr().read().rxdata().bits();
                     }
 
                     // Wait for automatic stop
@@ -658,7 +672,7 @@ macro_rules! i2c {
                         // Wait until we have received something
                         busy_wait!(self.i2c, rxne, is_not_empty);
 
-                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                        *byte = self.i2c.rxdr().read().rxdata().bits();
                     }
 
                     // Wait for automatic stop
