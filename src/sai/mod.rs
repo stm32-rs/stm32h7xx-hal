@@ -201,7 +201,7 @@ macro_rules! sai_hal {
                 fn master_channel<F, T>(&self, func: F) -> T
                     where F: FnOnce(&CH) -> T,
                 {
-                    func(&self.rb.ch[self.master_channel as usize])
+                    func(&self.rb.ch(self.master_channel as usize))
                 }
 
                 /// Access to the current slave channel, if set
@@ -209,76 +209,76 @@ macro_rules! sai_hal {
                     where F: FnOnce(&CH) -> T,
                 {
                     match self.slave_channel {
-                        Some(channel) => Some(func(&self.rb.ch[channel as usize])),
+                        Some(channel) => Some(func(&self.rb.ch(channel as usize))),
                         None => None
                     }
                 }
 
                 /// Start listening for `event` on a given `channel`
                 pub fn listen(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch[channel as usize];
+                    let ch = &self.rb.ch(channel as usize);
                     match event {
-                        Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().set_bit()),
-                        Event::Muted                => ch.im.modify(|_, w| w.mutedetie().set_bit()),
-                        Event::WrongClock           => ch.im.modify(|_, w| w.wckcfgie().set_bit()),
-                        Event::Data                 => ch.im.modify(|_, w| w.freqie().set_bit()),
-                        Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().set_bit()),
-                        Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().set_bit()),
-                    }
+                        Event::Overdue              => ch.im().modify(|_, w| w.ovrudrie().set_bit()),
+                        Event::Muted                => ch.im().modify(|_, w| w.mutedetie().set_bit()),
+                        Event::WrongClock           => ch.im().modify(|_, w| w.wckcfgie().set_bit()),
+                        Event::Data                 => ch.im().modify(|_, w| w.freqie().set_bit()),
+                        Event::AnticipatedFrameSync => ch.im().modify(|_, w| w.afsdetie().set_bit()),
+                        Event::LateFrameSync        => ch.im().modify(|_, w| w.lfsdetie().set_bit()),
+                    };
                 }
 
                 /// Stop listening for `event` on a given `channel`
                 pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch[channel as usize];
+                    let ch = &self.rb.ch(channel as usize);
                     match event {
-                        Event::Overdue              => ch.im.modify(|_, w| w.ovrudrie().clear_bit()),
-                        Event::Muted                => ch.im.modify(|_, w| w.mutedetie().clear_bit()),
-                        Event::WrongClock           => ch.im.modify(|_, w| w.wckcfgie().clear_bit()),
-                        Event::Data                 => ch.im.modify(|_, w| w.freqie().clear_bit()),
-                        Event::AnticipatedFrameSync => ch.im.modify(|_, w| w.afsdetie().clear_bit()),
-                        Event::LateFrameSync        => ch.im.modify(|_, w| w.lfsdetie().clear_bit()),
-                    }
-                    let _ = ch.im.read();
-                    let _ = ch.im.read(); // Delay 2 peripheral clocks
+                        Event::Overdue              => ch.im().modify(|_, w| w.ovrudrie().clear_bit()),
+                        Event::Muted                => ch.im().modify(|_, w| w.mutedetie().clear_bit()),
+                        Event::WrongClock           => ch.im().modify(|_, w| w.wckcfgie().clear_bit()),
+                        Event::Data                 => ch.im().modify(|_, w| w.freqie().clear_bit()),
+                        Event::AnticipatedFrameSync => ch.im().modify(|_, w| w.afsdetie().clear_bit()),
+                        Event::LateFrameSync        => ch.im().modify(|_, w| w.lfsdetie().clear_bit()),
+                    };
+                    let _ = ch.im().read();
+                    let _ = ch.im().read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears interrupt flag `event` on the `channel`
                 ///
                 /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
                 pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch[channel as usize];
+                    let ch = &self.rb.ch(channel as usize);
                     match event {
-                        Event::Overdue              => ch.clrfr.write(|w| w.covrudr().set_bit()),
-                        Event::Muted                => ch.clrfr.write(|w| w.cmutedet().set_bit()),
-                        Event::WrongClock           => ch.clrfr.write(|w| w.cwckcfg().set_bit()),
-                        Event::Data                 => (), // Cleared by reading/writing data
-                        Event::AnticipatedFrameSync => ch.clrfr.write(|w| w.cafsdet().set_bit()),
-                        Event::LateFrameSync        => ch.clrfr.write(|w| w.clfsdet().set_bit()),
-                    }
-                    let _ = ch.sr.read();
-                    let _ = ch.sr.read(); // Delay 2 peripheral clocks
+                        Event::Overdue              => ch.clrfr().write(|w| w.covrudr().set_bit()),
+                        Event::Muted                => ch.clrfr().write(|w| w.cmutedet().set_bit()),
+                        Event::WrongClock           => ch.clrfr().write(|w| w.cwckcfg().set_bit()),
+                        Event::Data                 => 0, // Cleared by reading/writing data
+                        Event::AnticipatedFrameSync => ch.clrfr().write(|w| w.cafsdet().set_bit()),
+                        Event::LateFrameSync        => ch.clrfr().write(|w| w.clfsdet().set_bit()),
+                    };
+                    let _ = ch.sr().read();
+                    let _ = ch.sr().read(); // Delay 2 peripheral clocks
                 }
 
                 /// Clears all interrupts on the `channel`
                 pub fn clear_all_irq(&mut self, channel: SaiChannel) {
-                    let ch = &self.rb.ch[channel as usize];
+                    let ch = &self.rb.ch(channel as usize);
                     unsafe {
-                        ch.clrfr.write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
+                        ch.clrfr().write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
                     }
-                    let _ = ch.sr.read();
-                    let _ = ch.sr.read(); // Delay 2 peripheral clocks
+                    let _ = ch.sr().read();
+                    let _ = ch.sr().read(); // Delay 2 peripheral clocks
                 }
 
                 /// Mute `channel`, this is checked at the start of each frame
                 /// Meaningful only in Tx mode
                 pub fn mute(&mut self, channel: SaiChannel) {
-                    self.rb.ch[channel as usize].cr2.modify(|_, w| w.mute().enabled());
+                    self.rb.ch(channel as usize).cr2().modify(|_, w| w.mute().enabled());
                 }
 
                 /// Unmute `channel`, this is checked at the start of each frame
                 /// Meaningful only in Tx mode
                 pub fn unmute(&mut self, channel: SaiChannel) {
-                    self.rb.ch[channel as usize].cr2.modify(|_, w| w.mute().disabled());
+                    self.rb.ch(channel as usize).cr2().modify(|_, w| w.mute().disabled());
                 }
 
                 /// Used to operate the audio block(s) with an external SAI for synchronization
@@ -288,21 +288,21 @@ macro_rules! sai_hal {
                 /// e.g. for SAI1 1-3 are valid and 0 is invalid
                 pub fn set_sync_input(&mut self, selection: u8) {
                     assert!(selection < 0b1_00);
-                    unsafe { self.rb.gcr.modify(|_, w| w.syncout().bits(selection)) };
+                    unsafe { self.rb.gcr().modify(|_, w| w.syncout().bits(selection)) };
                 }
 
                 /// Synchronization output for other SAI blocks
                 pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
                     match channel {
-                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b01) ) },
-                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b10) ) },
-                        None                       => unsafe { &self.rb.gcr.modify(|_, w| w.syncout().bits(0b00) ) },
+                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b01) ) },
+                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b10) ) },
+                        None                       => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b00) ) },
                     };
                 }
 
                 /// Enable DMA for the SAI peripheral.
                 pub fn enable_dma(&mut self, channel: SaiChannel) {
-                    self.rb.ch[channel as usize].cr1.modify(|_, w| w.dmaen().enabled());
+                    self.rb.ch(channel as usize).cr1().modify(|_, w| w.dmaen().enabled());
                 }
 
                 /// Releases the SAI peripheral
@@ -311,23 +311,23 @@ macro_rules! sai_hal {
 
                     // Master: Clear SAIEN
                     self.master_channel(|ch| {
-                        ch.cr1.modify(|_, w| w.saien().disabled())
+                        ch.cr1().modify(|_, w| w.saien().disabled())
                     });
 
                     // Master: Wait for SAI to clear at the end of the
                     // frame
                     while self.master_channel(|ch| {
-                        ch.cr1.read().saien().bit_is_set()
+                        ch.cr1().read().saien().bit_is_set()
                     }) {}
 
                     // Slave: Clear SAIEN
                     self.slave_channel(|ch| {
-                        ch.cr1.modify(|_, w| w.saien().disabled())
+                        ch.cr1().modify(|_, w| w.saien().disabled())
                     });
 
                     // Slave: Wait for SAI to clear
                     while self.slave_channel(|ch| {
-                        ch.cr1.read().saien().bit_is_set()
+                        ch.cr1().read().saien().bit_is_set()
                     }).unwrap_or(false) {}
 
 

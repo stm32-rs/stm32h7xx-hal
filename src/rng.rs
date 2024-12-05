@@ -61,7 +61,7 @@ impl RngExt for RNG {
         // See RM0433 Rev 6 Section 33.3.6
         assert!(rng_clk > hclk / 32, "RNG: Clock too slow");
 
-        self.cr.modify(|_, w| w.ced().enabled().rngen().enabled());
+        self.cr().modify(|_, w| w.ced().enabled().rngen().enabled());
 
         Rng { rb: self }
     }
@@ -80,7 +80,7 @@ impl Rng {
     /// Returns 32 bits of randomness, or error
     pub fn value(&mut self) -> Result<u32, ErrorKind> {
         loop {
-            let status = self.rb.sr.read();
+            let status = self.rb.sr().read();
             if status.cecs().bit() {
                 return Err(ErrorKind::ClockError);
             }
@@ -88,7 +88,7 @@ impl Rng {
                 return Err(ErrorKind::SeedError);
             }
             if status.drdy().bit() {
-                return Ok(self.rb.dr.read().rndata().bits());
+                return Ok(self.rb.dr().read().rndata().bits());
             }
         }
     }

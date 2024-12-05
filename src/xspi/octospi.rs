@@ -419,16 +419,16 @@ macro_rules! octospi_impl {
                 prec.enable();
 
                 // Disable OCTOSPI before configuring it.
-                regs.cr.write(|w| w.en().clear_bit());
+                regs.cr().write(|w| w.en().clear_bit());
 
                 let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
-                while regs.sr.read().busy().bit_is_set() {}
+                while regs.sr().read().busy().bit_is_set() {}
 
                 let config: Config = config.into();
 
                 // Clear all pending flags.
-                regs.fcr.write(|w| {
+                regs.fcr().write(|w| {
                     w.ctof()
                         .set_bit()
                         .csmf()
@@ -440,14 +440,14 @@ macro_rules! octospi_impl {
                 });
 
                 // Configure the communication method for OCTOSPI.
-                regs.cr.write(|w| unsafe {
+                regs.cr().write(|w| unsafe {
                     w.fmode()
                         .bits(0) // indirect mode
                         .fthres()
                         .bits(config.fifo_threshold - 1)
                 });
 
-                regs.dcr1.write(|w| unsafe {
+                regs.dcr1().write(|w| unsafe {
                     w.mtyp()
                         .bits(2) // standard mode
                         // Configure the FSIZE to maximum. It appears that even when addressing
@@ -457,7 +457,7 @@ macro_rules! octospi_impl {
                 });
 
                 // Communications configuration register
-                regs.ccr.write(|w| unsafe {
+                regs.ccr().write(|w| unsafe {
                     w.dmode()
                         .bits(config.modes.data.reg_value())
                         .admode()
@@ -486,7 +486,7 @@ macro_rules! octospi_impl {
                 // more information
                 //
                 // SSHIFT must not be set in DDR mode.
-                regs.tcr.write(|w| unsafe {
+                regs.tcr().write(|w| unsafe {
                     w.sshift()
                         .bit(config.sampling_edge == SamplingEdge::Falling)
                         .dcyc()
@@ -494,7 +494,7 @@ macro_rules! octospi_impl {
                 });
 
                 // Enable the peripheral
-                regs.cr.modify(|_, w| w.en().set_bit());
+                regs.cr().modify(|_, w| w.en().set_bit());
 
                 Octospi {
                     rb: regs,
@@ -514,7 +514,7 @@ macro_rules! octospi_impl {
                 prec.enable().reset();
 
                 // Disable OCTOSPI before configuring it.
-                regs.cr.write(|w| w.en().clear_bit());
+                regs.cr().write(|w| w.en().clear_bit());
 
                 let spi_kernel_ck = Self::kernel_clk_unwrap(clocks).raw();
 
@@ -532,10 +532,10 @@ macro_rules! octospi_impl {
                 let period_ns = 1e9 * (divisor as f32) / (spi_kernel_ck as f32);
                 let period_ns = period_ns as u32; // floor
 
-                while regs.sr.read().busy().bit_is_set() {}
+                while regs.sr().read().busy().bit_is_set() {}
 
                 // Clear all pending flags.
-                regs.fcr.write(|w| {
+                regs.fcr().write(|w| {
                     w.ctof()
                         .set_bit()
                         .csmf()
@@ -547,14 +547,14 @@ macro_rules! octospi_impl {
                 });
 
                 // Configure the communication method for OCTOSPI
-                regs.cr.write(|w| unsafe {
+                regs.cr().write(|w| unsafe {
                     w.fmode()
                         .bits(3) // Memory-mapped
                         .fthres()
                         .bits(4 - 1) // TODO?
                 });
 
-                regs.dcr1.write(|w| unsafe {
+                regs.dcr1().write(|w| unsafe {
                     w.mtyp()
                         .bits(4) // Hyperbus memory mode
                         .devsize()
@@ -571,7 +571,7 @@ macro_rules! octospi_impl {
                 // the memory. These are separate dies on some parts (thus
                 // separate transactions may be required) and has a very minimal
                 // performance penalty if not.
-                regs.dcr3.write(|w| unsafe {
+                regs.dcr3().write(|w| unsafe {
                     w.csbound().bits(hyperbus.size_order - 1)
                 });
                 // Release nCS for refresh
@@ -584,7 +584,7 @@ macro_rules! octospi_impl {
                     .write(|w| unsafe { w.refresh().bits(refresh_cycles) });
 
                 // 8-wide, DDR
-                regs.ccr.write(|w| unsafe {
+                regs.ccr().write(|w| unsafe {
                     w.dqse()
                         .set_bit() // DQS enable
                         .ddtr()
@@ -599,7 +599,7 @@ macro_rules! octospi_impl {
                         .bits(4) // 8-wide
                 });
                 // 8-wide, DDR
-                regs.wccr.write(|w| unsafe {
+                regs.wccr().write(|w| unsafe {
                     w.dqse()
                         .set_bit() // DQS enable
                         .ddtr()
@@ -614,12 +614,12 @@ macro_rules! octospi_impl {
                         .bits(4) // 8-wide
                 });
                 // TCR
-                regs.tcr.write(|w| {
+                regs.tcr().write(|w| {
                     w.dhqc().set_bit() // Delay hold quarter cycle
                 });
 
                 // Hyperbus
-                regs.hlcr.modify(|_, w| unsafe {
+                regs.hlcr().modify(|_, w| unsafe {
                     w.trwr()
                         .bits(hyperbus.read_write_recovery)
                         .tacc()
@@ -670,18 +670,18 @@ macro_rules! octospi_impl {
             /// pointer to the memory
             pub fn init(self) -> *mut u32 {
                 // Enable the peripheral
-                self.rb.cr.modify(|_, w| w.en().set_bit());
+                self.rb.cr().modify(|_, w| w.en().set_bit());
 
                 // Wait for the peripheral to indicate it is no longer busy
-                while self.rb.sr.read().busy().bit_is_set() {}
+                while self.rb.sr().read().busy().bit_is_set() {}
 
                 // Transition to memory-mapped mode
-                self.rb.cr.modify(|_, w| unsafe {
+                self.rb.cr().modify(|_, w| unsafe {
                     w.fmode().bits(3) // Memory mapped
                 });
 
                 // Wait for the peripheral to indicate it is no longer busy
-                while self.rb.sr.read().busy().bit_is_set() {}
+                while self.rb.sr().read().busy().bit_is_set() {}
 
                 // Mapped to memory
                 $memaddr as *mut u32

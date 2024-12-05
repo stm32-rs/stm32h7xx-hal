@@ -76,6 +76,8 @@ use super::Rcc;
 use crate::stm32::{rcc, RCC};
 use cortex_m::interrupt;
 
+//const X: stm32h7::stm32h743v::rcc::d1ccipr::FMCSEL = ();
+
 /// A trait for Resetting, Enabling and Disabling a single peripheral
 pub trait ResetEnable {
     /// Enable this peripheral
@@ -134,8 +136,8 @@ macro_rules! peripheral_reset_and_enable_control {
         $(
             $( #[ $pmeta:meta ] )*
                 $(($Auto:ident))* $p:ident
-                $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
-                $([ group clk: $pk_g:ident $( $(($Variant_g:ident))* $ccip_g:ident $clk_doc_g:expr )* ])*
+                $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $pk_alias:ident $ccip:ident $clk_doc:expr ])*
+                $([ group clk: $pk_g:ident $( $(($Variant_g:ident))* $pk_g_alias:ident $ccip_g:ident $clk_doc_g:expr )* ])*
                 $([ fixed clk: $clk_doc_f:expr ])*
         ),*
     ];)+) => {
@@ -182,10 +184,10 @@ macro_rules! peripheral_reset_and_enable_control {
                         $AXBn, $(($Auto))* $p, [< $p:upper >], [< $p:lower >],
                         $( $pmeta )*
                         $(
-                            [kernel $clk: $pk $(($Variant))* $ccip $clk_doc]
+                            [kernel $clk: $pk $(($Variant))* $pk_alias $ccip $clk_doc]
                         )*
                         $(
-                            [group clk: $pk_g [< $pk_g:lower >] $( $(($Variant_g))* $ccip_g $clk_doc_g )* ]
+                            [group clk: $pk_g [< $pk_g:lower >] $( $(($Variant_g))* $pk_g_alias $ccip_g $clk_doc_g )* ]
                         )*
                         $(
                             [fixed clk: $clk_doc_f]
@@ -211,8 +213,8 @@ macro_rules! peripheral_reset_and_enable_control_generator {
         $p_lower:ident,         // comments, equivalent to with the paste macro.
 
         $( $pmeta:meta )*
-        $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $ccip:ident $clk_doc:expr ])*
-        $([ group clk: $pk_g:ident $pk_g_lower:ident $( $(($Variant_g:ident))* $ccip_g:ident $clk_doc_g:expr )* ])*
+        $([ kernel $clk:ident: $pk:ident $(($Variant:ident))* $pk_alias:ident $ccip:ident $clk_doc:expr ])*
+        $([ group clk: $pk_g:ident $pk_g_lower:ident $( $(($Variant_g:ident))* $pk_g_alias:ident $ccip_g:ident $clk_doc_g:expr )* ])*
         $([ fixed clk: $clk_doc_f:expr ])*
     ) => {
         paste::item! {
@@ -285,7 +287,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     interrupt::free(|_| {
                         // LPEN
                         let lpenr = unsafe {
-                            &(*RCC::ptr()).[< $AXBn:lower lpenr >]
+                            &(*RCC::ptr()).[< $AXBn:lower lpenr >]()
                         };
                         lpenr.modify(|_, w| w.[< $p:lower lpen >]()
                                      .bit(lpm != LowPowerMode::Off));
@@ -308,7 +310,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     // unsafe: Owned exclusive access to this bitfield
                     interrupt::free(|_| {
                         let enr = unsafe {
-                            &(*RCC::ptr()).[< $AXBn:lower enr >]
+                            &(*RCC::ptr()).[< $AXBn:lower enr >]()
                         };
                         enr.modify(|_, w| w.
                                    [< $p:lower en >]().set_bit());
@@ -320,7 +322,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     // unsafe: Owned exclusive access to this bitfield
                     interrupt::free(|_| {
                         let enr = unsafe {
-                            &(*RCC::ptr()).[< $AXBn:lower enr >]
+                            &(*RCC::ptr()).[< $AXBn:lower enr >]()
                         };
                         enr.modify(|_, w| w.
                                    [< $p:lower en >]().clear_bit());
@@ -332,7 +334,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     // unsafe: Owned exclusive access to this bitfield
                     interrupt::free(|_| {
                         let rstr = unsafe {
-                            &(*RCC::ptr()).[< $AXBn:lower rstr >]
+                            &(*RCC::ptr()).[< $AXBn:lower rstr >]()
                         };
                         rstr.modify(|_, w| w.
                                     [< $p:lower rst >]().set_bit());
@@ -359,7 +361,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                         // unsafe: Owned exclusive access to this bitfield
                         interrupt::free(|_| {
                             let ccip = unsafe {
-                                &(*RCC::ptr()).[< $ccip r >]
+                                &(*RCC::ptr()).[< $ccip r >]()
                             };
                             ccip.modify(|_, w| w.
                                         [< $pk:lower sel >]().variant(sel));
@@ -374,7 +376,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     {
                         // unsafe: We only read from this bitfield
                         let ccip = unsafe {
-                            &(*RCC::ptr()).[< $ccip r >]
+                            &(*RCC::ptr()).[< $ccip r >]()
                         };
                         ccip.read().[< $pk:lower sel >]().variant()
                     }
@@ -384,7 +386,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                 #[doc=$clk_doc]
                 /// kernel clock source selection
                 pub type [< $pk ClkSel >] =
-                    rcc::[< $ccip r >]::[< $pk:upper SEL_A >];
+                    rcc::[< $ccip r >]::[< $pk_alias SEL >];
             )*
             $(          // Group kernel clocks
                 impl [< $pk_g ClkSelGetter >] for $p {}
@@ -394,7 +396,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                     #[doc=$clk_doc_g]
                     /// kernel clock source selection.
                     pub type [< $pk_g ClkSel >] =
-                        rcc::[< $ccip_g r >]::[< $pk_g:upper SEL_A >];
+                        rcc::[< $ccip_g r >]::[< $pk_g_alias SEL >];
 
                     /// Can return
                     #[doc=$clk_doc_g]
@@ -410,7 +412,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                         {
                             // unsafe: We only read from this bitfield
                             let ccip = unsafe {
-                                &(*RCC::ptr()).[< $ccip_g r >]
+                                &(*RCC::ptr()).[< $ccip_g r >]()
                             };
                             ccip.read().[< $pk_g:lower sel >]().variant()
                         }
@@ -432,7 +434,7 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                             // unsafe: Owned exclusive access to this bitfield
                             interrupt::free(|_| {
                                 let ccip = unsafe {
-                                    &(*RCC::ptr()).[< $ccip_g r >]
+                                    &(*RCC::ptr()).[< $ccip_g r >]()
                                 };
                                 ccip.modify(|_, w| w.
                                             [< $pk_g:lower sel >]().variant(sel));
@@ -459,13 +461,13 @@ macro_rules! variant_return_type {
 #[cfg(not(feature = "rm0455"))]
 macro_rules! autonomous {
     ($Auto:ident) => {
-        &(*RCC::ptr()).d3amr
+        &(*RCC::ptr()).d3amr()
     };
 }
 #[cfg(feature = "rm0455")]
 macro_rules! autonomous {
     ($Auto:ident) => {
-        &(*RCC::ptr()).srdamr
+        &(*RCC::ptr()).srdamr()
     };
 }
 
@@ -494,8 +496,8 @@ peripheral_reset_and_enable_control! {
     AHB1, "" => [
         Eth1Mac,
         #[cfg(any(feature = "rm0399"))] Art,
-        Adc12 [group clk: Adc(Variant) d3ccip "ADC"],
-        Usb1Otg [group clk: Usb d2ccip2 "USB"]
+        Adc12 [group clk: Adc(Variant) ADC d3ccip "ADC"],
+        Usb1Otg [group clk: Usb USB d2ccip2 "USB"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     AHB1, "" => [
@@ -504,8 +506,8 @@ peripheral_reset_and_enable_control! {
     #[cfg(feature = "rm0455")]
     AHB1, "" => [
         Crc,
-        Usb1Otg [group clk: Usb cdccip2 "USB"],
-        Adc12 [group clk: Adc(Variant) srdccip "ADC"]
+        Usb1Otg [group clk: Usb USB cdccip2 "USB"],
+        Adc12 [group clk: Adc(Variant) ADC12 srdccip "ADC"]
     ];
 
 
@@ -516,11 +518,11 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB2, "" => [
-        Rng [kernel clk: Rng d2ccip2 "RNG"]
+        Rng [kernel clk: Rng RNG d2ccip2 "RNG"]
     ];
     #[cfg(feature = "rm0455")]
     AHB2, "" => [
-        Rng [kernel clk: Rng cdccip2 "RNG"]
+        Rng [kernel clk: Rng RNG cdccip2 "RNG"]
     ];
     #[cfg(feature = "rm0468")]
     AHB2, "" => [
@@ -534,25 +536,25 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     AHB3, "" => [
-        Sdmmc1 [group clk: Sdmmc d1ccip "SDMMC"],
-        Fmc [kernel clk: Fmc d1ccip "FMC"]
+        Sdmmc1 [group clk: Sdmmc SDMMC d1ccip "SDMMC"],
+        Fmc [kernel clk: Fmc FMC d1ccip "FMC"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     AHB3, "" => [
         Jpgdec,
-        Qspi [kernel clk: Qspi d1ccip "QUADSPI"]
+        Qspi [kernel clk: Qspi FMC d1ccip "QUADSPI"]
     ];
     #[cfg(feature = "rm0455")]
     AHB3, "" => [
         Jpgdec,
-        Sdmmc1 [group clk: Sdmmc cdccip "SDMMC"],
-        Fmc [kernel clk: Fmc cdccip "FMC"],
-        Octospi1 [group clk: Octospi cdccip "OCTOSPI"],
+        Sdmmc1 [group clk: Sdmmc SDMMC cdccip "SDMMC"],
+        Fmc [kernel clk: Fmc FMC cdccip "FMC"],
+        Octospi1 [group clk: Octospi FMC cdccip "OCTOSPI"],
         Octospi2 [group clk: Octospi]
     ];
     #[cfg(feature = "rm0468")]
     AHB3, "" => [
-        Octospi1 [group clk: Octospi d1ccip "OCTOSPI"],
+        Octospi1 [group clk: Octospi FMC d1ccip "OCTOSPI"],
         Octospi2 [group clk: Octospi]
     ];
 
@@ -590,13 +592,13 @@ peripheral_reset_and_enable_control! {
     APB1L, "" => [
         Dac12,
 
-        Cec [kernel clk: Cec(Variant) d2ccip2 "CEC"],
-        Lptim1 [kernel clk: Lptim1(Variant) d2ccip2 "LPTIM1"],
-        Usart2 [group clk: Usart234578(Variant) d2ccip2 "USART2/3/4/5/7/8"]
+        Cec [kernel clk: Cec(Variant) CEC d2ccip2 "CEC"],
+        Lptim1 [kernel clk: Lptim1(Variant) LPTIM1 d2ccip2 "LPTIM1"],
+        Usart2 [group clk: Usart234578(Variant) USART234578 d2ccip2 "USART2/3/4/5/7/8"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     APB1L, "" => [
-        I2c1 [group clk: I2c123 d2ccip2 "I2C1/2/3"],
+        I2c1 [group clk: I2c123 I2C123 d2ccip2 "I2C1/2/3"],
         I2c2 [group clk: I2c123],
         I2c3 [group clk: I2c123]
     ];
@@ -604,16 +606,16 @@ peripheral_reset_and_enable_control! {
     APB1L, "" => [
         Dac1,
 
-        I2c1 [group clk: I2c123 cdccip2 "I2C1/2/3"],
+        I2c1 [group clk: I2c123 I2C123 cdccip2 "I2C1/2/3"],
         I2c2 [group clk: I2c123],
         I2c3 [group clk: I2c123],
-        Cec [kernel clk: Cec(Variant) cdccip2 "CEC"],
-        Lptim1 [kernel clk: Lptim1(Variant) cdccip2 "LPTIM1"],
-        Usart2 [group clk: Usart234578(Variant) cdccip2 "USART2/3/4/5/7/8"]
+        Cec [kernel clk: Cec(Variant) CEC cdccip2 "CEC"],
+        Lptim1 [kernel clk: Lptim1(Variant) LPTIM1 cdccip2 "LPTIM1"],
+        Usart2 [group clk: Usart234578(Variant) USART234578 cdccip2 "USART2/3/4/5/7/8"]
     ];
     #[cfg(feature = "rm0468")]
     APB1L, "" => [
-        I2c1 [group clk: I2c1235 d2ccip2 "I2C1/2/3/5"],
+        I2c1 [group clk: I2c1235 I2C1235 d2ccip2 "I2C1/2/3/5"],
         I2c2 [group clk: I2c1235],
         I2c3 [group clk: I2c1235],
         I2c5 [group clk: I2c1235]
@@ -626,20 +628,20 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     APB1H, "" => [
-        Fdcan [kernel clk: Fdcan(Variant) d2ccip1 "FDCAN"]
+        Fdcan [kernel clk: Fdcan(Variant) FDCAN d2ccip1 "FDCAN"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     APB1H, "" => [
-        Swp [kernel clk: Swp d2ccip1 "SWPMI"]
+        Swp [kernel clk: Swp SWP d2ccip1 "SWPMI"]
     ];
     #[cfg(feature = "rm0455")]
     APB1H, "" => [
-        Fdcan [kernel clk: Fdcan(Variant) cdccip1 "FDCAN"],
-        Swpmi [kernel clk: Swpmi cdccip1 "SWPMI"]
+        Fdcan [kernel clk: Fdcan(Variant) FDCAN cdccip1 "FDCAN"],
+        Swpmi [kernel clk: Swpmi SWPMI cdccip1 "SWPMI"]
     ];
     #[cfg(feature = "rm0468")]
     APB1H, "" => [
-        Swpmi [kernel clk: Swpmi d2ccip1 "SWPMI"],
+        Swpmi [kernel clk: Swpmi SWPMI d2ccip1 "SWPMI"],
 
         Tim23, Tim24
     ];
@@ -647,50 +649,48 @@ peripheral_reset_and_enable_control! {
 
     #[cfg(all())]
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Tim1, Tim8, Tim15, Tim16, Tim17
+        Tim1, Tim8, Tim15, Tim16, Tim17, Hrtim
     ];
     #[cfg(not(feature = "rm0455"))]
     APB2, "" => [
-        Dfsdm1 [kernel clk: Dfsdm1 d2ccip1 "DFSDM1"],
+        Dfsdm1 [kernel clk: Dfsdm1 DFSDM1 d2ccip1 "DFSDM1"],
 
-        Sai1 [kernel clk: Sai1(Variant) d2ccip1 "SAI1"],
+        Sai1 [kernel clk: Sai1(Variant) SAI1 d2ccip1 "SAI1"],
 
-        Spi1 [group clk: Spi123(Variant) d2ccip1 "SPI1/2/3"],
-        Spi4 [group clk: Spi45(Variant) d2ccip1 "SPI4/5"],
+        Spi1 [group clk: Spi123(Variant) SAI1 d2ccip1 "SPI1/2/3"],
+        Spi4 [group clk: Spi45(Variant) SPI45 d2ccip1 "SPI4/5"],
         Spi5 [group clk: Spi45]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     APB2, "" => [
-        Hrtim,
-
-        Sai2 [group clk: Sai23(Variant) d2ccip1 "SAI2/3"],
+        Sai2 [group clk: Sai23(Variant) SAI1 d2ccip1 "SAI2/3"],
         Sai3 [group clk: Sai23],
 
-        Usart1 [group clk: Usart16(Variant) d2ccip2 "USART1/6"],
+        Usart1 [group clk: Usart16(Variant) USART16 d2ccip2 "USART1/6"],
         Usart6 [group clk: Usart16]
     ];
     #[cfg(feature = "rm0455")]
     APB2, "" => [
-        Dfsdm1 [kernel clk: Dfsdm1 cdccip1 "DFSDM1"],
+        Dfsdm1 [kernel clk: Dfsdm1 DFSDM1 cdccip1 "DFSDM1"],
 
-        Sai1 [kernel clk: Sai1(Variant) cdccip1 "SAI1"],
-        Sai2 [kernel clk_a: Sai2A(Variant) cdccip1
+        Sai1 [kernel clk: Sai1(Variant) SAI1 cdccip1 "SAI1"],
+        Sai2 [kernel clk_a: Sai2A(Variant) SAI1 cdccip1
             "Sub-Block A of SAI2"]
-            [kernel clk_b: Sai2B(Variant) cdccip1
+            [kernel clk_b: Sai2B(Variant) SAI1 cdccip1
             "Sub-Block B of SAI2"],
 
-        Spi1 [group clk: Spi123(Variant) cdccip1 "SPI1/2/3"],
-        Spi4 [group clk: Spi45(Variant) cdccip1 "SPI4/5"],
+        Spi1 [group clk: Spi123(Variant) SAI1 cdccip1 "SPI1/2/3"],
+        Spi4 [group clk: Spi45(Variant) SPI45 cdccip1 "SPI4/5"],
         Spi5 [group clk: Spi45],
 
-        Usart1 [group clk: Usart16910(Variant) cdccip2 "USART1/6/9/10"],
+        Usart1 [group clk: Usart16910(Variant) USART16 cdccip2 "USART1/6/9/10"],
         Usart6 [group clk: Usart16910],
         Uart9 [group clk: Usart16910],
         Usart10 [group clk: Usart16910]
     ];
     #[cfg(feature = "rm0468")]
     APB2, "" => [
-        Usart1 [group clk: Usart16910(Variant) d2ccip2 "USART1/6/9/10"],
+        Usart1 [group clk: Usart16910(Variant) USART16910 d2ccip2 "USART1/6/9/10"],
         Usart6 [group clk: Usart16910],
         Uart9 [group clk: Usart16910],
         Usart10 [group clk: Usart16910]
@@ -711,26 +711,26 @@ peripheral_reset_and_enable_control! {
     ];
     #[cfg(not(feature = "rm0455"))]
     APB4, "" => [
-        (Auto) Lptim2 [kernel clk: Lptim2(Variant) d3ccip "LPTIM2"],
-        (Auto) Lptim3 [group clk: Lptim345(Variant) d3ccip "LPTIM3/4/5"],
+        (Auto) Lptim2 [kernel clk: Lptim2(Variant) LPTIM2 d3ccip "LPTIM2"],
+        (Auto) Lptim3 [group clk: Lptim345(Variant) LPTIM2 d3ccip "LPTIM3/4/5"],
         (Auto) Lptim4 [group clk: Lptim345],
         (Auto) Lptim5 [group clk: Lptim345],
 
-        (Auto) I2c4 [kernel clk: I2c4 d3ccip "I2C4"],
-        (Auto) Spi6 [kernel clk: Spi6(Variant) d3ccip "SPI6"],
-        (Auto) Sai4 [kernel clk_a: Sai4A(Variant) d3ccip
+        (Auto) I2c4 [kernel clk: I2c4 I2C4 d3ccip "I2C4"],
+        (Auto) Spi6 [kernel clk: Spi6(Variant) SPI6 d3ccip "SPI6"],
+        (Auto) Sai4 [kernel clk_a: Sai4A(Variant) SAI4A d3ccip
             "Sub-Block A of SAI4"]
-            [kernel clk_b: Sai4B(Variant) d3ccip
+            [kernel clk_b: Sai4B(Variant) SAI4A d3ccip
             "Sub-Block B of SAI4"]
     ];
     #[cfg(feature = "rm0455")]
     APB4, "" => [
         (Auto) Dac2,
 
-        (Auto) Lptim2 [kernel clk: Lptim2(Variant) srdccip "LPTIM2"],
+        (Auto) Lptim2 [kernel clk: Lptim2(Variant) LPTIM2 srdccip "LPTIM2"],
         (Auto) Lptim3,// TODO [group clk: Lptim3(Variant) srdccip "LPTIM3"],
 
-        (Auto) I2c4 [kernel clk: I2c4 srdccip "I2C4"],
-        (Auto) Spi6 [kernel clk: Spi6(Variant) srdccip "SPI6"]
+        (Auto) I2c4 [kernel clk: I2c4 I2C4 srdccip "I2C4"],
+        (Auto) Spi6 [kernel clk: Spi6(Variant) SPI6 srdccip "SPI6"]
     ];
 }

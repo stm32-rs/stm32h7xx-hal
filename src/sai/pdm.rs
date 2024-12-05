@@ -194,20 +194,20 @@ macro_rules! hal {
                 pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
                     while self.interface.invalid_countdown > 0 {
                         // Check for words to read
-                        if self.rb.cha().sr.read().freq().bit_is_clear() {
+                        if self.rb.cha().sr().read().freq().bit_is_clear() {
                             return Err(nb::Error::WouldBlock);
                         }
 
-                        let _ = self.rb.cha().dr.read(); // Flush
+                        let _ = self.rb.cha().dr().read(); // Flush
                         self.interface.invalid_countdown -= 1;
                     }
 
                     // Check for words to read
-                    if self.rb.cha().sr.read().freq().bit_is_clear() {
+                    if self.rb.cha().sr().read().freq().bit_is_clear() {
                         return Err(nb::Error::WouldBlock);
                     }
 
-                    Ok(self.rb.cha().dr.read().bits() & 0xFFFF)
+                    Ok(self.rb.cha().dr().read().bits() & 0xFFFF)
                 }
 
                 /// Initialise SAI in PDM mode
@@ -261,7 +261,7 @@ macro_rules! hal {
                     let audio_ch_a = &s.rb.cha();
 
                     unsafe {
-                        audio_ch_a.cr1.modify(|_, w| {
+                        audio_ch_a.cr1().modify(|_, w| {
                             w.mode()
                                 .master_rx() // Master receiver
                                 .prtcfg()
@@ -280,7 +280,7 @@ macro_rules! hal {
                                 .bits(kernel_clock_divider - 1)
                         });
 
-                        audio_ch_a.frcr.modify(|_, w| {
+                        audio_ch_a.frcr().modify(|_, w| {
                             w.fsoff()
                                 .clear_bit()
                                 .fspol()
@@ -293,7 +293,7 @@ macro_rules! hal {
                                 .bits(frl)
                         });
 
-                        audio_ch_a.slotr.modify(|_, w| {
+                        audio_ch_a.slotr().modify(|_, w| {
                             w.fboff()
                                 .bits(0) // No offset on slot
                                 .slotsz()
@@ -306,26 +306,26 @@ macro_rules! hal {
 
                         // PDM Control Register
                         if PINS::ENABLE_BITSTREAM_CLOCK_1 {
-                            s.rb.pdmcr.modify(|_, w| {
+                            s.rb.pdmcr().modify(|_, w| {
                                 w.cken1().set_bit() // CKEN1
                             });
                         }
                         if PINS::ENABLE_BITSTREAM_CLOCK_2 {
-                            s.rb.pdmcr.modify(|_, w| {
+                            s.rb.pdmcr().modify(|_, w| {
                                 w.cken2().set_bit() // CKEN2
                             });
                         }
                         if PINS::ENABLE_BITSTREAM_CLOCK_3 {
-                            s.rb.pdmcr.modify(|_, w| {
+                            s.rb.pdmcr().modify(|_, w| {
                                 w.cken3().set_bit() // CKEN3
                             });
                         }
                         if PINS::ENABLE_BITSTREAM_CLOCK_4 {
-                            s.rb.pdmcr.modify(|_, w| {
+                            s.rb.pdmcr().modify(|_, w| {
                                 w.cken4().set_bit() // CKEN4
                             });
                         }
-                        s.rb.pdmcr.modify(|_, w| {
+                        s.rb.pdmcr().modify(|_, w| {
                             w.micnbr()
                                 .bits(micnbr) // 2, 4, 6 or 8 microphones
                                 .pdmen()
@@ -334,7 +334,7 @@ macro_rules! hal {
                     }
 
                     // Enable SAI_A
-                    audio_ch_a.cr1.modify(|_, w| w.saien().enabled());
+                    audio_ch_a.cr1().modify(|_, w| w.saien().enabled());
 
                     // SAI
                     s

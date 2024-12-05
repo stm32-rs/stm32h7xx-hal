@@ -171,7 +171,7 @@ unsafe impl FmcPeripheral for FMC {
     fn memory_controller_enable(&mut self) {
         // The FMCEN bit of the FMC_BCR2..4 registers is don’t
         // care. It is only enabled through the FMC_BCR1 register.
-        self.fmc.bcr1.modify(|_, w| w.fmcen().set_bit());
+        self.fmc.bcr1().modify(|_, w| w.fmcen().set_bit());
     }
 
     fn source_clock_hz(&self) -> u32 {

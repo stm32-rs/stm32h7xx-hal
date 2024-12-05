@@ -44,7 +44,7 @@ macro_rules! declare_layer {
                 type Target = stm32::ltdc::LAYER;
                 #[inline(always)]
                 fn deref(&self) -> &Self::Target {
-                    unsafe { &(*LTDC::ptr()).$layer }
+                    unsafe { &(*LTDC::ptr()).$layer() }
                 }
             }
             #[doc=$doc]
@@ -97,13 +97,13 @@ impl Ltdc {
 
     /// Enables the shadow register reload interrupt
     pub fn listen(&mut self) {
-        self.ltdc.ier.modify(|_, w| w.rrie().set_bit());
+        self.ltdc.ier().modify(|_, w| w.rrie().set_bit());
     }
 
     /// Clear interrupt flags
     pub fn unpend() {
         // unsafe: clear write-one interrupt flag
-        unsafe { (*LTDC::ptr()).icr.write(|w| w.crrif().set_bit()) };
+        unsafe { (*LTDC::ptr()).icr().write(|w| w.crrif().clear()) };
     }
 
     /// Returns a reference to the inner peripheral
@@ -127,10 +127,10 @@ impl DisplayController for Ltdc {
     /// function will stall the bus.
     fn init(&mut self, config: DisplayConfiguration) {
         // Check bus access
-        assert!(self.ltdc.gcr.read().bits() == 0x2220); // Reset value
+        assert!(self.ltdc.gcr().read().bits() == 0x2220); // Reset value
 
         // Configure the HS, VS, DE and PC polarity
-        self.ltdc.gcr.modify(|_, w| {
+        self.ltdc.gcr().modify(|_, w| {
             w.hspol()
                 .bit(config.h_sync_pol)
                 .vspol()
@@ -142,7 +142,8 @@ impl DisplayController for Ltdc {
         });
 
         // Set synchronization pulse width
-        self.ltdc.sscr.modify(|_, w| {
+        // TODO: The h_sync and v_sync values are not checked
+        self.ltdc.sscr().modify(|_, w| unsafe {
             w.vsh()
                 .bits(config.v_sync - 1)
                 .hsw()
@@ -150,7 +151,8 @@ impl DisplayController for Ltdc {
         });
 
         // Set accumulated back porch
-        self.ltdc.bpcr.modify(|_, w| {
+        // TODO: The values are not checked
+        self.ltdc.bpcr().modify(|_, w| unsafe {
             w.avbp()
                 .bits(config.v_sync + config.v_back_porch - 1)
                 .ahbp()
@@ -162,9 +164,9 @@ impl DisplayController for Ltdc {
             config.v_sync + config.v_back_porch + config.active_height - 1;
         let aa_width =
             config.h_sync + config.h_back_porch + config.active_width - 1;
-        self.ltdc
-            .awcr
-            .modify(|_, w| w.aah().bits(aa_height).aaw().bits(aa_width));
+        self.ltdc.awcr().modify(|_, w| unsafe {
+            w.aah().bits(aa_height).aaw().bits(aa_width)
+        });
 
         // Set total width and height
         let total_height: u16 = config.v_sync
@@ -177,20 +179,21 @@ impl DisplayController for Ltdc {
             + config.active_width
             + config.h_front_porch
             - 1;
-        self.ltdc.twcr.modify(|_, w| {
+        // TODO: total_width is not checked
+        self.ltdc.twcr().modify(|_, w| unsafe {
             w.totalh().bits(total_height).totalw().bits(total_width)
         });
 
         // Set the background color value
-        self.ltdc.bccr.reset();
+        self.ltdc.bccr().reset();
 
         // Enable the Transfer Error and FIFO underrun interrupts
         self.ltdc
-            .ier
+            .ier()
             .modify(|_, w| w.terrie().set_bit().fuie().set_bit());
 
         // Enable LTDC by setting LTDCEN bit
-        self.ltdc.gcr.modify(|_, w| w.ltdcen().set_bit());
+        self.ltdc.gcr().modify(|_, w| w.ltdcen().set_bit());
 
         // Save config
         self.config = Some(config);
@@ -249,44 +252,46 @@ macro_rules! impl_layer {
 
                     // Configure the horizontal start and stop position
                     let h_win_start =
-                        self.window_x0 + ltdc.bpcr.read().ahbp().bits() + 1;
+                        self.window_x0 + ltdc.bpcr().read().ahbp().bits() + 1;
                     let h_win_stop =
-                        self.window_x1 + ltdc.bpcr.read().ahbp().bits();
-                    layer.whpcr.modify(|_, w| {
+                        self.window_x1 + ltdc.bpcr().read().ahbp().bits();
+                    layer.whpcr().modify(|_, w| {
                         w.whstpos().bits(h_win_start).whsppos().bits(h_win_stop)
                     });
 
                     // Configure the vertical start and stop position
                     let v_win_start =
-                        self.window_y0 + ltdc.bpcr.read().avbp().bits() + 1;
+                        self.window_y0 + ltdc.bpcr().read().avbp().bits() + 1;
                     let v_win_stop =
-                        self.window_y1 + ltdc.bpcr.read().avbp().bits();
-                    layer.wvpcr.modify(|_, w| {
+                        self.window_y1 + ltdc.bpcr().read().avbp().bits();
+                    layer.wvpcr().modify(|_, w| {
                         w.wvstpos().bits(v_win_start).wvsppos().bits(v_win_stop)
                     });
                 }
 
                 // Set the pixel format
-                layer.pfcr.modify(|_, w| w.pf().bits(pixel_format as u8));
+                layer.pfcr().modify(|_, w| w.pf().bits(pixel_format as u8));
 
                 // Set the default color value
-                layer.dccr.reset(); // Transparent black
+                layer.dccr().reset(); // Transparent black
 
                 // Set the global constant alpha value
                 let alpha = 0xFF;
-                layer.cacr.modify(|_, w| w.consta().bits(alpha));
+                layer.cacr().modify(|_, w| w.consta().bits(alpha));
 
                 // Set the blending factors
                 let blending_factor1 =
                     ltdc_blending_options::LTDC_BLENDING_FACTOR1_PA_X_CA;
                 let blending_factor2 =
                     ltdc_blending_options::LTDC_BLENDING_FACTOR2_PA_X_CA;
-                layer.bfcr.modify(|_, w| {
+                layer.bfcr().modify(|_, w| {
                     w.bf1().bits(blending_factor1).bf2().bits(blending_factor2)
                 });
 
                 // Set frame buffer
-                layer.cfbar.modify(|_, w| w.cfbadd().bits(start_ptr as u32));
+                layer
+                    .cfbar()
+                    .modify(|_, w| w.cfbadd().bits(start_ptr as u32));
 
                 // Calculate framebuffer pitch in bytes
                 self.bytes_per_pixel = match pixel_format {
@@ -300,7 +305,7 @@ macro_rules! impl_layer {
                 let height = self.window_y1 - self.window_y0;
 
                 // Framebuffer pitch and line length
-                layer.cfblr.modify(|_, w| {
+                layer.cfblr().modify(|_, w| {
                     w.cfbp()
                         .bits(width * self.bytes_per_pixel)
                         .cfbll()
@@ -308,13 +313,13 @@ macro_rules! impl_layer {
                 });
 
                 // Framebuffer line number
-                layer.cfblnr.modify(|_, w| w.cfblnbr().bits(height));
+                layer.cfblnr().modify(|_, w| w.cfblnbr().bits(height));
 
                 // Enable LTDC_Layer by setting LEN bit
-                layer.cr.modify(|_, w| w.len().set_bit());
+                layer.cr().modify(|_, w| w.len().set_bit());
 
                 // Reload this layer immediately
-                (*LTDC::ptr()).srcr.write(|w| w.imr().set_bit());
+                (*LTDC::ptr()).srcr().write(|w| w.imr().set_bit());
             }
 
             /// Resizes the framebuffer pitch. This does not change the output window
@@ -341,10 +346,10 @@ macro_rules! impl_layer {
                 );
 
                 // Modify CFBP
-                self.layer.cfblr.modify(|_, w| w.cfbp().bits(pitch_bytes));
+                self.layer.cfblr().modify(|_, w| w.cfbp().bits(pitch_bytes));
 
                 // Immediate reload
-                (*LTDC::ptr()).srcr.write(|w| w.imr().set_bit());
+                (*LTDC::ptr()).srcr().write(|w| w.imr().set_bit());
             }
 
             /// Swap the framebuffer to a new one.
@@ -359,11 +364,11 @@ macro_rules! impl_layer {
             ) {
                 // Set the new frame buffer address
                 self.layer
-                    .cfbar
+                    .cfbar()
                     .modify(|_, w| w.cfbadd().bits(start_ptr as u32));
 
                 // Configure a shadow reload for the next blanking period
-                (*LTDC::ptr()).srcr.write(|w| w.vbr().set_bit());
+                (*LTDC::ptr()).srcr().write(|w| w.vbr().set_bit());
             }
 
             /// Indicates if a framebuffer swap is pending. In this situation,
@@ -375,7 +380,7 @@ macro_rules! impl_layer {
                 cortex_m::asm::dsb();
 
                 // unsafe: Read bit
-                unsafe { (*LTDC::ptr()).srcr.read().vbr().bit_is_set() }
+                unsafe { (*LTDC::ptr()).srcr().read().vbr().bit_is_set() }
             }
         }
     };
