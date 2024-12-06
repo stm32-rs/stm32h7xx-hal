@@ -6,9 +6,6 @@ pub use fugit::{
     NanosDurationU32 as NanoSeconds,
 };
 
-//use core::time::Duration;
-use cortex_m::peripheral::DWT;
-
 /// Bits per second
 pub type Bps = Hertz;
 
