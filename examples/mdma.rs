@@ -195,7 +195,7 @@ fn main() -> ! {
         Transfer::init_master(
             streams.1,
             MemoryToMemory::new(),
-            unsafe { mem::transmute(&mut target_buffer[..]) }, // Dest: TCM (stack)
+            unsafe { mem::transmute::<&mut [u8], &mut [u8]>(&mut target_buffer[..]) }, // Dest: TCM (stack)
             Some(source_buffer), // Source: TCM (stack)
             config,
         )
