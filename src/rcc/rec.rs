@@ -649,7 +649,8 @@ peripheral_reset_and_enable_control! {
 
     #[cfg(all())]
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Tim1, Tim8, Tim15, Tim16, Tim17, Hrtim
+        Tim1, Tim8, Tim15, Tim16, Tim17,
+        Hrtim [kernel clk: Hrtim HRTIM cfg "HRTIM"]
     ];
     #[cfg(not(feature = "rm0455"))]
     APB2, "" => [
