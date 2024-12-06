@@ -302,8 +302,7 @@ impl Qspi<stm32::QUADSPI> {
         });
 
         let spi_frequency = config.frequency.raw();
-        let divisor = match spi_kernel_ck.div_ceil(spi_frequency)
-        {
+        let divisor = match spi_kernel_ck.div_ceil(spi_frequency) {
             divisor @ 1..=256 => divisor - 1,
             _ => panic!("Invalid QSPI frequency requested"),
         };
