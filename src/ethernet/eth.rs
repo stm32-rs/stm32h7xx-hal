@@ -133,10 +133,10 @@ impl<const TD: usize> TDesRing<TD> {
         // before the DMA engine is enabled.)
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-            dma.dmactx_dlar
+            dma.dmactx_dlar()
                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
-            dma.dmactx_rlr.write(|w| w.tdrl().bits(TD as u16 - 1));
-            dma.dmactx_dtpr
+            dma.dmactx_rlr().write(|w| w.tdrl().bits(TD as u16 - 1));
+            dma.dmactx_dtpr()
                 .write(|w| w.bits(&self.td[0] as *const _ as u32));
         }
     }
@@ -171,7 +171,7 @@ impl<const TD: usize> TDesRing<TD> {
         let x = (x + 1) % TD;
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-            dma.dmactx_dtpr
+            dma.dmactx_dtpr()
                 .write(|w| w.bits(&(self.td[x]) as *const _ as u32));
         }
 
@@ -280,9 +280,9 @@ impl<const RD: usize> RDesRing<RD> {
         // Initialise pointers in the DMA engine
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-            dma.dmacrx_dlar
+            dma.dmacrx_dlar()
                 .write(|w| w.bits(&self.rd[0] as *const _ as u32));
-            dma.dmacrx_rlr.write(|w| w.rdrl().bits(RD as u16 - 1));
+            dma.dmacrx_rlr().write(|w| w.rdrl().bits(RD as u16 - 1));
         }
 
         // Release descriptors to the DMA engine
@@ -324,7 +324,7 @@ impl<const RD: usize> RDesRing<RD> {
         // Move the tail pointer (TPR) to this descriptor
         unsafe {
             let dma = &*stm32::ETHERNET_DMA::ptr();
-            dma.dmacrx_dtpr
+            dma.dmacrx_dtpr()
                 .write(|w| w.bits(&(self.rd[x]) as *const _ as u32));
         }
 
@@ -457,7 +457,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         let syscfg = &*stm32::SYSCFG::ptr();
 
         // Ensure syscfg is enabled (for PMCR)
-        rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+        rcc.apb4enr().modify(|_, w| w.syscfgen().set_bit());
 
         // AHB1 ETH1MACEN
         prec.enable();
@@ -465,28 +465,28 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         // Also need to enable the transmission and reception clocks, which
         // don't have prec objects. They don't have prec objects because they
         // can't be reset.
-        rcc.ahb1enr
+        rcc.ahb1enr()
             .modify(|_, w| w.eth1txen().set_bit().eth1rxen().set_bit());
 
-        syscfg.pmcr.modify(|_, w| w.epis().bits(0b100)); // RMII
+        syscfg.pmcr().modify(|_, w| w.epis().bits(0b100)); // RMII
     }
 
     // reset ETH_MAC - write 1 then 0
-    //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().set_bit());
-    //rcc.ahb1rstr.modify(|_, w| w.eth1macrst().clear_bit());
+    //rcc.ahb1rstr().modify(|_, w| w.eth1macrst().set_bit());
+    //rcc.ahb1rstr().modify(|_, w| w.eth1macrst().clear_bit());
 
     cortex_m::interrupt::free(|_cs| {
         // reset ETH_DMA - write 1 and wait for 0
-        eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
-        while eth_dma.dmamr.read().swr().bit_is_set() {}
+        eth_dma.dmamr().modify(|_, w| w.swr().set_bit());
+        while eth_dma.dmamr().read().swr().bit_is_set() {}
 
         // 200 MHz
         eth_mac
-            .mac1ustcr
+            .mac1ustcr()
             .modify(|_, w| w.tic_1us_cntr().bits(200 - 1));
 
         // Configuration Register
-        eth_mac.maccr.modify(|_, w| {
+        eth_mac.maccr().modify(|_, w| {
             w.arpen()
                 .clear_bit()
                 .ipc()
@@ -517,7 +517,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .dr()
                 .set_bit()
         });
-        eth_mac.macecr.modify(|_, w| {
+        eth_mac.macecr().modify(|_, w| {
             w.eipgen()
                 .clear_bit()
                 .usp()
@@ -530,12 +530,12 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         // Set the MAC address.
         // Writes to LR trigger both registers to be loaded into the MAC,
         // so write to LR last.
-        eth_mac.maca0hr.write(|w| {
+        eth_mac.maca0hr().write(|w| {
             w.addrhi().bits(
                 u16::from(mac_addr.0[4]) | (u16::from(mac_addr.0[5]) << 8),
             )
         });
-        eth_mac.maca0lr.write(|w| {
+        eth_mac.maca0lr().write(|w| {
             w.addrlo().bits(
                 u32::from(mac_addr.0[0])
                     | (u32::from(mac_addr.0[1]) << 8)
@@ -544,7 +544,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
             )
         });
         // frame filter register
-        eth_mac.macpfr.modify(|_, w| {
+        eth_mac.macpfr().modify(|_, w| {
             w.dntu()
                 .clear_bit()
                 .ipfe()
@@ -576,20 +576,20 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .pr()
                 .clear_bit()
         });
-        eth_mac.macwtr.write(|w| w.pwe().clear_bit());
+        eth_mac.macwtr().write(|w| w.pwe().clear_bit());
         // Flow Control Register
-        eth_mac.macqtx_fcr.modify(|_, w| {
+        eth_mac.macqtx_fcr().modify(|_, w| {
             // Pause time
             w.pt().bits(0x100)
         });
-        eth_mac.macrx_fcr.modify(|_, w| w);
+        eth_mac.macrx_fcr().modify(|_, w| w);
 
         // Mask away Ethernet MAC MMC RX/TX interrupts. These are statistics
         // counter interrupts and are enabled by default. We need to manually
         // disable various ethernet interrupts so they don't unintentionally
         // hang the device. The user is free to re-enable them later to provide
         // ethernet MAC-related statistics
-        eth_mac.mmc_rx_interrupt_mask.modify(|_, w| {
+        eth_mac.mmc_rx_interrupt_mask().modify(|_, w| {
             w.rxlpiuscim()
                 .set_bit()
                 .rxucgpim()
@@ -600,7 +600,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .set_bit()
         });
 
-        eth_mac.mmc_tx_interrupt_mask.modify(|_, w| {
+        eth_mac.mmc_tx_interrupt_mask().modify(|_, w| {
             w.txlpiuscim()
                 .set_bit()
                 .txgpktim()
@@ -615,13 +615,13 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         // modify them. Instead, as a workaround, we manually manipulate the
         // bits
         eth_mac
-            .mmc_tx_interrupt_mask
+            .mmc_tx_interrupt_mask()
             .modify(|r, w| w.bits(r.bits() | (1 << 27)));
         eth_mac
-            .mmc_rx_interrupt_mask
+            .mmc_rx_interrupt_mask()
             .modify(|r, w| w.bits(r.bits() | (1 << 27)));
 
-        eth_mtl.mtlrx_qomr.modify(|_, w| {
+        eth_mtl.mtlrx_qomr().modify(|_, w| {
             w
                 // Receive store and forward
                 .rsf()
@@ -636,7 +636,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .fup()
                 .clear_bit()
         });
-        eth_mtl.mtltx_qomr.modify(|_, w| {
+        eth_mtl.mtltx_qomr().modify(|_, w| {
             w
                 // Transmit store and forward
                 .tsf()
@@ -644,7 +644,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         });
 
         // operation mode register
-        eth_dma.dmamr.modify(|_, w| {
+        eth_dma.dmamr().modify(|_, w| {
             w.intm()
                 .bits(0b00)
                 // Rx Tx priority ratio 1:1
@@ -656,7 +656,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .clear_bit()
         });
         // bus mode register
-        eth_dma.dmasbmr.modify(|_, w| {
+        eth_dma.dmasbmr().modify(|_, w| {
             // Address-aligned beats
             w.aal()
                 .set_bit()
@@ -665,9 +665,9 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .set_bit()
         });
         eth_dma
-            .dmaccr
+            .dmaccr()
             .modify(|_, w| w.dsl().bits(0).pblx8().clear_bit().mss().bits(536));
-        eth_dma.dmactx_cr.modify(|_, w| {
+        eth_dma.dmactx_cr().modify(|_, w| {
             w
                 // Tx DMA PBL
                 .txpbl()
@@ -679,7 +679,7 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
                 .clear_bit()
         });
 
-        eth_dma.dmacrx_cr.modify(|_, w| {
+        eth_dma.dmacrx_cr().modify(|_, w| {
             w
                 // receive buffer size
                 .rbsz()
@@ -700,20 +700,20 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         cortex_m::asm::dsb();
 
         // Manage MAC transmission and reception
-        eth_mac.maccr.modify(|_, w| {
+        eth_mac.maccr().modify(|_, w| {
             w.re()
                 .bit(true) // Receiver Enable
                 .te()
                 .bit(true) // Transmiter Enable
         });
-        eth_mtl.mtltx_qomr.modify(|_, w| w.ftq().set_bit());
+        eth_mtl.mtltx_qomr().modify(|_, w| w.ftq().set_bit());
 
         // Manage DMA transmission and reception
-        eth_dma.dmactx_cr.modify(|_, w| w.st().set_bit());
-        eth_dma.dmacrx_cr.modify(|_, w| w.sr().set_bit());
+        eth_dma.dmactx_cr().modify(|_, w| w.st().set_bit());
+        eth_dma.dmacrx_cr().modify(|_, w| w.sr().set_bit());
 
         eth_dma
-            .dmacsr
+            .dmacsr()
             .modify(|_, w| w.tps().set_bit().rps().set_bit());
     });
 
@@ -760,8 +760,8 @@ impl EthernetMAC {
 impl StationManagement for EthernetMAC {
     /// Read a register over SMI.
     fn smi_read(&mut self, reg: u8) -> u16 {
-        while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
-        self.eth_mac.macmdioar.modify(|_, w| unsafe {
+        while self.eth_mac.macmdioar().read().mb().bit_is_set() {}
+        self.eth_mac.macmdioar().modify(|_, w| unsafe {
             w.pa()
                 .bits(self.eth_phy_addr)
                 .rda()
@@ -773,17 +773,17 @@ impl StationManagement for EthernetMAC {
                 .mb()
                 .set_bit()
         });
-        while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
-        self.eth_mac.macmdiodr.read().md().bits()
+        while self.eth_mac.macmdioar().read().mb().bit_is_set() {}
+        self.eth_mac.macmdiodr().read().md().bits()
     }
 
     /// Write a register over SMI.
     fn smi_write(&mut self, reg: u8, val: u16) {
-        while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
+        while self.eth_mac.macmdioar().read().mb().bit_is_set() {}
         self.eth_mac
-            .macmdiodr
+            .macmdiodr()
             .write(|w| unsafe { w.md().bits(val) });
-        self.eth_mac.macmdioar.modify(|_, w| unsafe {
+        self.eth_mac.macmdioar().modify(|_, w| unsafe {
             w.pa()
                 .bits(self.eth_phy_addr)
                 .rda()
@@ -795,7 +795,7 @@ impl StationManagement for EthernetMAC {
                 .mb()
                 .set_bit()
         });
-        while self.eth_mac.macmdioar.read().mb().bit_is_set() {}
+        while self.eth_mac.macmdioar().read().mb().bit_is_set() {}
     }
 }
 
@@ -874,7 +874,7 @@ impl<const TD: usize, const RD: usize> EthernetDMA<TD, RD> {
     /// Return the number of packets dropped since this method was
     /// last called
     pub fn number_packets_dropped(&self) -> u32 {
-        self.eth_dma.dmacmfcr.read().mfc().bits() as u32
+        self.eth_dma.dmacmfcr().read().mfc().bits() as u32
     }
 }
 
@@ -886,10 +886,10 @@ impl<const TD: usize, const RD: usize> EthernetDMA<TD, RD> {
 pub unsafe fn interrupt_handler() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
-        .dmacsr
+        .dmacsr()
         .write(|w| w.nis().set_bit().ri().set_bit().ti().set_bit());
-    let _ = eth_dma.dmacsr.read();
-    let _ = eth_dma.dmacsr.read(); // Delay 2 peripheral clocks
+    let _ = eth_dma.dmacsr().read();
+    let _ = eth_dma.dmacsr().read(); // Delay 2 peripheral clocks
 }
 
 /// Enables the Ethernet Interrupt. The following interrupts are enabled:
@@ -904,6 +904,6 @@ pub unsafe fn interrupt_handler() {
 pub unsafe fn enable_interrupt() {
     let eth_dma = &*stm32::ETHERNET_DMA::ptr();
     eth_dma
-        .dmacier
+        .dmacier()
         .modify(|_, w| w.nie().set_bit().rie().set_bit().tie().set_bit());
 }

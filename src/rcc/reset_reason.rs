@@ -6,24 +6,24 @@ use core::fmt::Display;
 /// Gets and clears the reason of why the mcu was reset
 #[rustfmt::skip]
 pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
-    let reset_reason = rcc.rsr.read();
+    let reset_reason = rcc.rsr().read();
 
     // Clear the register
-    rcc.rsr.modify(|_, w| w.rmvf().clear());
+    rcc.rsr().modify(|_, w| w.rmvf().clear_bit());
 
     #[cfg(not(feature = "rm0455"))]
     // See R0433 Rev 7 Section 8.4.4 Reset source identification
     match (
-        reset_reason.lpwrrstf().is_reset_occourred(),
-        reset_reason.wwdg1rstf().is_reset_occourred(),
-        reset_reason.iwdg1rstf().is_reset_occourred(),
-        reset_reason.sftrstf().is_reset_occourred(),
-        reset_reason.porrstf().is_reset_occourred(),
-        reset_reason.pinrstf().is_reset_occourred(),
-        reset_reason.borrstf().is_reset_occourred(),
-        reset_reason.d2rstf().is_reset_occourred(),
-        reset_reason.d1rstf().is_reset_occourred(),
-        reset_reason.cpurstf().is_reset_occourred(),
+        reset_reason.lpwrrstf().is_reset_occurred(),
+        reset_reason.wwdg1rstf().is_reset_occurred(),
+        reset_reason.iwdg1rstf().is_reset_occurred(),
+        reset_reason.sftrstf().is_reset_occurred(),
+        reset_reason.porrstf().is_reset_occurred(),
+        reset_reason.pinrstf().is_reset_occurred(),
+        reset_reason.borrstf().is_reset_occurred(),
+        reset_reason.d2rstf().is_reset_occurred(),
+        reset_reason.d1rstf().is_reset_occurred(),
+        reset_reason.cpurstf().is_reset_occurred(),
     ) {
         (false, false, false, false, true, true, true, true, true, true) => {
             ResetReason::PowerOnReset

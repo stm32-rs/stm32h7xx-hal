@@ -105,7 +105,7 @@ macro_rules! vco_setup {
          assert!((1_000_000..=2_000_000).contains(&ref_x_ck));
 
          // Configure VCO
-         $rcc.pllcfgr.modify(|_, w| {
+         $rcc.pllcfgr().modify(|_, w| {
              w.$pllXvcosel()
                  .medium_vco() // 150 - 420MHz Medium VCO
                  .$pllXrge()
@@ -158,11 +158,11 @@ macro_rules! vco_setup {
          assert!((2_000_000..=16_000_000).contains(&ref_x_ck));
 
          // Configure VCO
-         $rcc.pllcfgr.modify(|_, w| {
+         $rcc.pllcfgr().modify(|_, w| {
              w.$pllXvcosel()
                  .wide_vco() // Wide Range VCO
          });
-         $rcc.pllcfgr.modify(|_, w| {
+         $rcc.pllcfgr().modify(|_, w| {
              match ref_x_ck {
                  2_000_000 ..= 3_999_999 => // ref_x_ck is 2 - 4 MHz
                      w.$pllXrge().range2(),
@@ -226,13 +226,14 @@ macro_rules! pll_setup {
                 let pll_x_n = vco_ck_target / ref_x_ck;
 
                 // Write dividers
-                rcc.pllckselr.modify(|_, w| {
+                //NOTE(unsafe) Only valid bit patterns written, checked by vco_setup
+                rcc.pllckselr().modify(|_, w| unsafe {
                     w.$divmX().bits(pll_x_m as u8) // ref prescaler
                 });
                 // unsafe as not all values are permitted: see RM0433
                 assert!(pll_x_n >= 4);
                 assert!(pll_x_n <= 512);
-                rcc.$pllXdivr
+                rcc.$pllXdivr()
                     .modify(|_, w| unsafe { w.$divnX().bits((pll_x_n - 1) as u16) });
 
                 // Configure N divider. Returns the resulting VCO frequency
@@ -241,12 +242,13 @@ macro_rules! pll_setup {
                         // Calculate FRACN
                         let pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x as f32, output as f32);
                         //RCC_PLL1FRACR
-                        rcc.$pllXfracr.modify(|_, w| {
+                        //NOTE(unsafe) Only valid bit patterns written, checked by calc_fracn
+                        rcc.$pllXfracr().modify(|_, w| unsafe {
                             w.$fracnx().bits(pll_x_fracn)
                         });
                         // Enable FRACN
-                        rcc.pllcfgr.modify(|_, w| {
-                            w.$pllXfracen().set()
+                        rcc.pllcfgr().modify(|_, w| {
+                            w.$pllXfracen().set_()
                         });
 
                         calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
@@ -257,12 +259,14 @@ macro_rules! pll_setup {
                         // Round up instead of down for FractionalNotLess
                         pll_x_fracn += 1;
                         //RCC_PLL1FRACR
-                        rcc.$pllXfracr.modify(|_, w| {
+                        // TODO: This cant be right, calc_fracn only checks that pll_x_fracn <= the max value,
+                        // since we have now incremented it by 1, that check does no longer hold?
+                        rcc.$pllXfracr().modify(|_, w| unsafe {
                             w.$fracnx().bits(pll_x_fracn)
                         });
                         // Enable FRACN
-                        rcc.pllcfgr.modify(|_, w| {
-                            w.$pllXfracen().set()
+                        rcc.pllcfgr().modify(|_, w| {
+                            w.$pllXfracen().set_()
                         });
 
                         calc_vco_ck(ref_x_ck, pll_x_n, pll_x_fracn)
@@ -271,7 +275,7 @@ macro_rules! pll_setup {
                     // Iterative
                     _ => {
                         // No FRACN
-                        rcc.pllcfgr.modify(|_, w| {
+                        rcc.pllcfgr().modify(|_, w| {
                             w.$pllXfracen().reset()
                         });
 
@@ -301,16 +305,16 @@ macro_rules! pll_setup {
                                     "Cannot achieve output frequency this low: Maximum PLL divider is 128");
 
                             // Setup divider
-                            rcc.$pllXdivr
+                            rcc.$pllXdivr()
                                 .modify(|_, w| $($unsafe)* {
                                     w.$div().bits((dividers.$DD - 1) as u8)
                                 });
 
-                            rcc.pllcfgr.modify(|_, w| w.$diven().enabled());
+                            rcc.pllcfgr().modify(|_, w| w.$diven().enabled());
                             Some(Hertz::from_raw(vco_ck / dividers.$DD))
                         },
                         None => {
-                            rcc.pllcfgr.modify(|_, w| w.$diven().disabled());
+                            rcc.pllcfgr().modify(|_, w| w.$diven().disabled());
                             None
                         }
                     },
@@ -372,23 +376,23 @@ impl Rcc {
                  OUTPUTS: [
                       // unsafe as not all values are permitted: see RM0433
                      p_ck: (divp1, divp1en, 0, unsafe),
-                     q_ck: (divq1, divq1en, 1),
-                     r_ck: (divr1, divr1en, 2) ],
+                     q_ck: (divq1, divq1en, 1, unsafe),
+                     r_ck: (divr1, divr1en, 2, unsafe) ],
                  pll1_p)
     }
     pll_setup! {
     pll2_setup: (pll2vcosel, pll2rge, pll2fracen, pll2divr, divn2, divm2, pll2fracr, fracn2,
                  OUTPUTS: [
-                     p_ck: (divp2, divp2en, 0),
-                     q_ck: (divq2, divq2en, 1),
-                     r_ck: (divr2, divr2en, 2)])
+                     p_ck: (divp2, divp2en, 0, unsafe),
+                     q_ck: (divq2, divq2en, 1, unsafe),
+                     r_ck: (divr2, divr2en, 2, unsafe)])
     }
     pll_setup! {
     pll3_setup: (pll3vcosel, pll3rge, pll3fracen, pll3divr, divn3, divm3, pll3fracr, fracn3,
                  OUTPUTS: [
-                     p_ck: (divp3, divp3en, 0),
-                     q_ck: (divq3, divq3en, 1),
-                     r_ck: (divr3, divr3en, 2)])
+                     p_ck: (divp3, divp3en, 0, unsafe),
+                     q_ck: (divq3, divq3en, 1, unsafe),
+                     r_ck: (divr3, divr3en, 2, unsafe)])
     }
 }
 

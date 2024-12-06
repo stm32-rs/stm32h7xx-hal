@@ -3,8 +3,8 @@
 use super::Rcc;
 use crate::time::Hertz;
 
-pub use crate::stm32::rcc::cfgr::MCO1_A as MCO1;
-pub use crate::stm32::rcc::cfgr::MCO2_A as MCO2;
+pub use crate::stm32::rcc::cfgr::MCO1;
+pub use crate::stm32::rcc::cfgr::MCO2;
 
 /// Clock settings for Micro-Controller Out 1 (MCO1)
 pub struct MCO1Config {

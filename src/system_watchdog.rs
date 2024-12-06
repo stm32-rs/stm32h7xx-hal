@@ -56,9 +56,9 @@ impl SystemWindowWatchdog {
     pub fn new(wwdg: WWDG, ccdr: &Ccdr) -> Self {
         // enable the peripheral inside the APB3
         #[cfg(not(feature = "rm0455"))]
-        ccdr.rb.apb3enr.modify(|_, w| w.wwdg1en().set_bit());
+        ccdr.rb.apb3enr().modify(|_, w| w.wwdg1en().set_bit());
         #[cfg(feature = "rm0455")]
-        ccdr.rb.apb3enr.modify(|_, w| w.wwdgen().set_bit());
+        ccdr.rb.apb3enr().modify(|_, w| w.wwdgen().set_bit());
 
         SystemWindowWatchdog {
             wwdg,
@@ -76,7 +76,7 @@ impl SystemWindowWatchdog {
                 // which would immediately call the interrupt.
                 assert!(self.down_counter != 0);
                 // Set the ewi bit
-                self.wwdg.cfr.modify(|_, w| w.ewi().enable());
+                self.wwdg.cfr().modify(|_, w| w.ewi().enable());
             }
         }
     }
@@ -91,7 +91,7 @@ impl SystemWindowWatchdog {
     /// Returns `true` if `event` is pending
     pub fn is_pending(&self, event: Event) -> bool {
         match event {
-            Event::EarlyWakeup => self.wwdg.sr.read().ewif().is_pending(),
+            Event::EarlyWakeup => self.wwdg.sr().read().ewif().is_pending(),
         }
     }
 
@@ -99,7 +99,7 @@ impl SystemWindowWatchdog {
     pub fn unpend(&mut self, event: Event) {
         match event {
             Event::EarlyWakeup => {
-                self.wwdg.sr.write(|w| w.ewif().finished());
+                self.wwdg.sr().write(|w| w.ewif().finished());
             }
         }
     }
@@ -121,7 +121,10 @@ impl Watchdog for SystemWindowWatchdog {
     fn feed(&mut self) {
         // if this value is 0 it is assumed that the watchdog has not yet been started
         assert!(self.down_counter != 0);
-        self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
+        //NOTE(unsafe) Only valid bit patterns written, checked on start
+        self.wwdg
+            .cr()
+            .modify(|_, w| unsafe { w.t().bits(self.down_counter) });
     }
 }
 
@@ -160,13 +163,24 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
-        self.wwdg.cfr.modify(|_, w| w.wdgtb().bits(wdgtb));
-        self.wwdg.cfr.modify(|_, w| w.w().bits(self.down_counter));
-        self.wwdg.cr.modify(|_, w| w.t().bits(self.down_counter));
+        //NOTE(unsafe) Only valid bit patterns written
+        self.wwdg
+            .cfr()
+            .modify(|_, w| unsafe { w.wdgtb().bits(wdgtb) });
+
+        //NOTE(unsafe) Only valid bit patterns written, checked above
+        self.wwdg
+            .cfr()
+            .modify(|_, w| unsafe { w.w().bits(self.down_counter) });
+
+        //NOTE(unsafe) Only valid bit patterns written, checked above
+        self.wwdg
+            .cr()
+            .modify(|_, w| unsafe { w.t().bits(self.down_counter) });
         // For some reason, setting the t value makes the early wakeup pending.
         // That's bad behaviour, so lets turn it off again.
         self.unpend(Event::EarlyWakeup);
         // enable the watchdog
-        self.wwdg.cr.modify(|_, w| w.wdga().set_bit());
+        self.wwdg.cr().modify(|_, w| w.wdga().set_bit());
     }
 }

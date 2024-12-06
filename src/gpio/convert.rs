@@ -259,7 +259,7 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
         unsafe {
             if MODE::OTYPER != M::OTYPER {
                 if let Some(otyper) = M::OTYPER {
-                    (*Gpio::<P>::ptr()).otyper.modify(|r, w| {
+                    (*Gpio::<P>::ptr()).otyper().modify(|r, w| {
                         w.bits(r.bits() & !(0b1 << N) | (otyper << N))
                     });
                 }
@@ -269,7 +269,7 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
                 if let Some(afr) = M::AFR {
                     if N < 8 {
                         let offset2 = 4 * { N };
-                        (*Gpio::<P>::ptr()).afrl.modify(|r, w| {
+                        (*Gpio::<P>::ptr()).afrl().modify(|r, w| {
                             w.bits(
                                 (r.bits() & !(0b1111 << offset2))
                                     | (afr << offset2),
@@ -277,7 +277,7 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
                         });
                     } else {
                         let offset2 = 4 * { N - 8 };
-                        (*Gpio::<P>::ptr()).afrh.modify(|r, w| {
+                        (*Gpio::<P>::ptr()).afrh().modify(|r, w| {
                             w.bits(
                                 (r.bits() & !(0b1111 << offset2))
                                     | (afr << offset2),
@@ -288,7 +288,7 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
             }
 
             if MODE::MODER != M::MODER {
-                (*Gpio::<P>::ptr()).moder.modify(|r, w| {
+                (*Gpio::<P>::ptr()).moder().modify(|r, w| {
                     w.bits(
                         (r.bits() & !(0b11 << offset)) | (M::MODER << offset),
                     )
