@@ -12,6 +12,7 @@
 //!
 //! `cargo flash --example ethernet-rtic-nucleo-h723zg --features=ethernet,stm32h735 --chip=STM32H723ZGTx`
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 

@@ -9,6 +9,7 @@
 //! NUCLEO-H743ZI2 board.
 //!
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_std]
 #![no_main]
 
