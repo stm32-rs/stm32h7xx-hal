@@ -111,8 +111,6 @@ pub use stm32h7::stm32h753v as stm32;
 // Dual core
 #[cfg(feature = "stm32h747cm7")]
 pub use stm32h7::stm32h747cm7 as stm32;
-#[cfg(feature = "stm32h757cm7")]
-pub use stm32h7::stm32h757cm7 as stm32;
 // TODO(rm0399): soundness of PeripheralREC macro in rcc/rec.rs
 
 // High Memory Integration

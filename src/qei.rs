@@ -186,7 +186,7 @@ macro_rules! tim_hal {
                     tim.smcr.write(|w| { w.sms().bits(3) });
 
                     #[allow(unused_unsafe)] // method is safe for some timers
-                    tim.arr.write(|w| unsafe { w.bits(core::u32::MAX) });
+                    tim.arr.write(|w| unsafe { w.bits(u32::MAX) });
                     tim.cr1.write(|w| w.cen().set_bit());
 
                     Qei { tim }

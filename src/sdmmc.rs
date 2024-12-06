@@ -435,7 +435,7 @@ impl<S, P: SdmmcPeripheral> Sdmmc<S, P> {
     /// Returns `(clk_div, clk_f)`, where `clk_div` is the divisor register
     /// value and `clk_f` is the resulting new clock frequency.
     fn clk_div(ker_ck: Hertz, sdmmc_ck: u32) -> Result<(u16, Hertz), Error> {
-        match (ker_ck.raw() + sdmmc_ck - 1) / sdmmc_ck {
+        match ker_ck.raw().div_ceil(sdmmc_ck) {
             0 | 1 => Ok((0, ker_ck)),
             x @ 2..=2046 => {
                 let clk_div = ((x + 1) / 2) as u16;

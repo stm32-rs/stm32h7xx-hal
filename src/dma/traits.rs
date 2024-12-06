@@ -193,7 +193,6 @@ pub trait MasterStream: Stream + Sealed {
     /// # Safety
     ///
     /// Must have the same alignment as configured for the transfer
-
     unsafe fn set_source_address(&mut self, value: usize);
 
     /// Set the destination for the Master DMA stream

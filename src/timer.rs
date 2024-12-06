@@ -418,7 +418,7 @@ macro_rules! hal {
                         clk * timeout.as_secs() +
                         clk * u64::from(timeout.subsec_nanos()) / NANOS_PER_SECOND,
                     )
-                    .unwrap_or(u32::max_value());
+                    .unwrap_or(u32::MAX);
 
                     self.set_timeout_ticks(ticks.max(1));
                 }
@@ -841,7 +841,7 @@ macro_rules! lptim_hal {
                 {
                     // Calculate prescaler
                     let frequency = frequency.raw();
-                    let ticks = (self.clk + frequency - 1) / frequency;
+                    let ticks = self.clk.div_ceil(frequency);
                     assert!(ticks <= 128,
                             "LPTIM input clock is too slow to achieve this frequency");
 

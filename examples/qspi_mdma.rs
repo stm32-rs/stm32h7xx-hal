@@ -108,8 +108,10 @@ fn main() -> ! {
         _,
     > = Transfer::init_master(
         streams.0,
-        qspi,                                          // Dest: QSPI
-        unsafe { mem::transmute(&mut source_buffer) }, // Source: TCM (stack)
+        qspi, // Dest: QSPI
+        unsafe {
+            mem::transmute::<&mut [u8; 80], &mut [u8; 80]>(&mut source_buffer)
+        }, // Source: TCM (stack)
         None,
         config,
     );

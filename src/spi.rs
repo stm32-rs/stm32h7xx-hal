@@ -201,7 +201,7 @@ impl Config {
     ///
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
-    /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
+    ///   as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
     #[must_use]
     pub fn swap_mosi_miso(mut self) -> Self {
         self.swap_miso_mosi = true;
@@ -251,7 +251,7 @@ pub struct HardwareCS {
     ///
     /// Note:
     /// * This value introduces a delay on SCK from the initiation of the transaction. The delay
-    /// is specified as a number of SCK cycles, so the actual delay may vary.
+    ///   is specified as a number of SCK cycles, so the actual delay may vary.
     pub assertion_delay: f32,
     /// The polarity of the CS pin.
     pub polarity: Polarity,
@@ -274,8 +274,8 @@ pub enum HardwareCSMode {
     ///
     /// Note:
     /// * This mode does require some maintenance. Before sending, you must setup
-    /// the frame with [Spi::setup_transaction]. After everything has been sent,
-    /// you must also clean it up with [Spi::end_transaction].
+    ///   the frame with [Spi::setup_transaction]. After everything has been sent,
+    ///   you must also clean it up with [Spi::end_transaction].
     FrameTransaction,
 }
 
@@ -716,7 +716,7 @@ macro_rules! spi {
 
                         let spi_freq = freq.raw();
 	                    let spi_ker_ck = Self::kernel_clk_unwrap(clocks).raw();
-                        let mbr = match (spi_ker_ck + spi_freq - 1) / spi_freq {
+                        let mbr = match spi_ker_ck.div_ceil(spi_freq) {
                             1..=2 => MBR::Div2,
                             3..=4 => MBR::Div4,
                             5..=8 => MBR::Div8,

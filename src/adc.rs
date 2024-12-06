@@ -597,7 +597,7 @@ macro_rules! adc_hal {
                     #[cfg(not(feature = "revision_v"))]
                     let f_target = f_adc.raw();
 
-                    let (divider, presc) = match (ker_ck.raw() + f_target - 1) / f_target {
+                    let (divider, presc) = match ker_ck.raw().div_ceil(f_target) {
                         1 => (1, PRESC_A::Div1),
                         2 => (2, PRESC_A::Div2),
                         3..=4 => (4, PRESC_A::Div4),

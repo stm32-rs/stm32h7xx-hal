@@ -270,10 +270,10 @@ impl UnlockedFlashBank<'_> {
     }
 }
 
-impl<'a> ErrorType for UnlockedFlashBank<'a> {
+impl ErrorType for UnlockedFlashBank<'_> {
     type Error = Error;
 }
-impl<'a> ReadNorFlash for UnlockedFlashBank<'a> {
+impl ReadNorFlash for UnlockedFlashBank<'_> {
     const READ_SIZE: usize = 1;
 
     fn read(
@@ -291,7 +291,7 @@ impl<'a> ReadNorFlash for UnlockedFlashBank<'a> {
     }
 }
 
-impl<'a> NorFlash for UnlockedFlashBank<'a> {
+impl NorFlash for UnlockedFlashBank<'_> {
     const WRITE_SIZE: usize = super::WRITE_SIZE;
     const ERASE_SIZE: usize = super::SECTOR_SIZE;
 
