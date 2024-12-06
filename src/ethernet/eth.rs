@@ -69,8 +69,12 @@ use self::emac_consts::*;
 /// Note that Copy and Clone are derived to support initialising an
 /// array of TDes, but you may not move a TDes after its address has
 /// been given to the ETH_DMA engine.
+///
+/// Both order and alignment is required by the ETH peripheral. The repr(C)
+/// ensures that alignment of the members is 4 with no padding on the target
+/// platform.
 #[derive(Copy, Clone)]
-#[repr(C, packed)]
+#[repr(C)]
 struct TDes {
     tdes0: u32,
     tdes1: u32,
@@ -94,7 +98,6 @@ impl TDes {
 }
 
 /// Store a ring of TDes and associated buffers
-#[repr(C, packed)]
 struct TDesRing<const TD: usize> {
     td: [TDes; TD],
     tbuf: [[u32; ETH_BUF_SIZE / 4]; TD],
@@ -187,7 +190,7 @@ impl<const TD: usize> TDesRing<TD> {
         self.td[x].tdes2 = (length as u32) & EMAC_TDES2_B1L;
 
         // Create a raw pointer in place without an intermediate reference. Use
-        // this to return a slice from the packed buffer
+        // this to return a slice from the buffer
         let addr = ptr::addr_of_mut!(self.tbuf[x]) as *mut _;
         core::slice::from_raw_parts_mut(addr, len)
     }
@@ -203,8 +206,12 @@ impl<const TD: usize> TDesRing<TD> {
 /// Note that Copy and Clone are derived to support initialising an
 /// array of RDes, but you may not move a RDes after its address has
 /// been given to the ETH_DMA engine.
+///
+/// Both order and alignment is required by the ETH peripheral. The repr(C)
+/// ensures that alignment of the members is 4 with no padding on the target
+/// platform.
 #[derive(Copy, Clone)]
-#[repr(C, packed)]
+#[repr(C)]
 struct RDes {
     rdes0: u32,
     rdes1: u32,
@@ -239,7 +246,6 @@ impl RDes {
 }
 
 /// Store a ring of RDes and associated buffers
-#[repr(C, packed)]
 struct RDesRing<const RD: usize> {
     rd: [RDes; RD],
     rbuf: [[u32; ETH_BUF_SIZE / 4]; RD],
