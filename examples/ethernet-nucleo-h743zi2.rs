@@ -9,12 +9,10 @@
 //! This demo does not use smoltcp - see the ethernet-rtic-stm32h747i-disco demo
 //! for an example of smoltcp
 #![deny(warnings)]
-#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 
 extern crate cortex_m_rt as rt;
-use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicU32, Ordering};
 use rt::{entry, exception};
 
@@ -23,6 +21,7 @@ extern crate cortex_m;
 #[macro_use]
 mod utilities;
 use log::info;
+use static_cell::StaticCell;
 
 use stm32h7xx_hal::rcc::CoreClocks;
 use stm32h7xx_hal::{ethernet, ethernet::PHY};
@@ -53,8 +52,7 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
-    MaybeUninit::uninit();
+static DES_RING: StaticCell<ethernet::DesRing<4, 4>> = StaticCell::new();
 
 // the program entry point
 #[entry]
@@ -114,30 +112,26 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
-    let (_eth_dma, eth_mac) = unsafe {
-        DES_RING.write(ethernet::DesRing::new());
-
-        ethernet::new(
-            dp.ETHERNET_MAC,
-            dp.ETHERNET_MTL,
-            dp.ETHERNET_DMA,
-            (
-                rmii_ref_clk,
-                rmii_mdio,
-                rmii_mdc,
-                rmii_crs_dv,
-                rmii_rxd0,
-                rmii_rxd1,
-                rmii_tx_en,
-                rmii_txd0,
-                rmii_txd1,
-            ),
-            DES_RING.assume_init_mut(),
-            mac_addr,
-            ccdr.peripheral.ETH1MAC,
-            &ccdr.clocks,
-        )
-    };
+    let (_eth_dma, eth_mac) = ethernet::new(
+        dp.ETHERNET_MAC,
+        dp.ETHERNET_MTL,
+        dp.ETHERNET_DMA,
+        (
+            rmii_ref_clk,
+            rmii_mdio,
+            rmii_mdc,
+            rmii_crs_dv,
+            rmii_rxd0,
+            rmii_rxd1,
+            rmii_tx_en,
+            rmii_txd0,
+            rmii_txd1,
+        ),
+        DES_RING.init_with(ethernet::DesRing::new),
+        mac_addr,
+        ccdr.peripheral.ETH1MAC,
+        &ccdr.clocks,
+    );
 
     // Initialise ethernet PHY...
     let mut lan8742a = ethernet::phy::LAN8742A::new(eth_mac.set_phy_addr(0));
