@@ -6,6 +6,7 @@
 //! beats/burst. The latter gives an approximately 25% speedup.
 
 #![deny(warnings)]
+#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 
