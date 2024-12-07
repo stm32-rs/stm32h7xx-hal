@@ -9,11 +9,8 @@
 //! NUCLEO-H743ZI2 board.
 //!
 #![deny(warnings)]
-#![allow(static_mut_refs)]
 #![no_std]
 #![no_main]
-
-use core::mem::MaybeUninit;
 
 #[macro_use]
 #[allow(unused)]
@@ -25,9 +22,10 @@ use stm32h7xx_hal::rcc::rec::UsbClkSel;
 use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
 use stm32h7xx_hal::{prelude::*, stm32};
 
+use static_cell::StaticCell;
 use usb_device::prelude::*;
 
-static mut EP_MEMORY: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
+static EP_MEMORY: StaticCell<[u32; 1024]> = StaticCell::new();
 
 #[entry]
 fn main() -> ! {
@@ -77,16 +75,10 @@ fn main() -> ! {
     );
 
     // Initialise EP_MEMORY to zero
-    unsafe {
-        let buf: &mut [MaybeUninit<u32>; 1024] =
-            &mut *(core::ptr::addr_of_mut!(EP_MEMORY) as *mut _);
-        for value in buf.iter_mut() {
-            value.as_mut_ptr().write(0);
-        }
-    }
+    let ep_memory = EP_MEMORY.init_with(|| [0; 1024]);
 
     // Now we may assume that EP_MEMORY is initialised
-    let usb_bus = UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() });
+    let usb_bus = UsbBus::new(usb, ep_memory);
 
     let mut serial = usbd_serial::SerialPort::new(&usb_bus);
 

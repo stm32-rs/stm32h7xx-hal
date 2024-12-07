@@ -8,11 +8,10 @@
 //! the transfer.
 
 #![deny(warnings)]
-#![allow(static_mut_refs)]
 #![no_main]
 #![no_std]
 
-use core::{mem, mem::MaybeUninit};
+use core::{array, mem};
 
 use cortex_m_rt::entry;
 #[macro_use]
@@ -25,6 +24,7 @@ use stm32h7xx_hal::dma::{
 };
 
 use log::info;
+use static_cell::StaticCell;
 
 // DMA1/DMA2 cannot interact with our stack. Instead, buffers for use with the
 // DMA must be placed somewhere that DMA1/DMA2 can access. In this case we use
@@ -32,10 +32,10 @@ use log::info;
 //
 // The runtime does not initialise these SRAM banks
 #[link_section = ".axisram.buffers"]
-static mut SHORT_BUFFER: MaybeUninit<[u8; 10]> = MaybeUninit::uninit();
+static SHORT_BUFFER: StaticCell<[u8; 10]> = StaticCell::new();
 
 #[link_section = ".axisram.buffers"]
-static mut LONG_BUFFER: MaybeUninit<[u32; 0x8000]> = MaybeUninit::uninit();
+static LONG_BUFFER: StaticCell<[u32; 0x8000]> = StaticCell::new();
 
 #[entry]
 fn main() -> ! {
@@ -81,30 +81,12 @@ fn main() -> ! {
 
     // Initialise the source buffer, without taking any references to
     // uninitialised memory
-    let short_buffer: &'static mut [u8; 10] = {
-        let buf: &mut [MaybeUninit<u8>; 10] =
-            unsafe { &mut *(core::ptr::addr_of_mut!(SHORT_BUFFER) as *mut _) };
+    let short_buffer: &'static mut [u8; 10] =
+        SHORT_BUFFER.init_with(|| array::from_fn(|i| i as u8 + 0x60));
 
-        for (i, value) in buf.iter_mut().enumerate() {
-            unsafe {
-                value.as_mut_ptr().write(i as u8 + 96); // 0x60, 0x61, 0x62...
-            }
-        }
-        unsafe { SHORT_BUFFER.assume_init_mut() }
-    };
     // view u32 buffer as u8. Endianess is undefined (little-endian on STM32H7)
-    let long_buffer: &'static mut [u8; 0x2_0010] = {
-        let buf: &mut [MaybeUninit<u32>; 0x8004] =
-            unsafe { &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut _) };
-
-        for (i, value) in buf.iter_mut().enumerate() {
-            unsafe {
-                value.as_mut_ptr().write(i as u32);
-            }
-        }
-        unsafe {
-            &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut [u8; 0x2_0010])
-        }
+    let long_buffer: &'static mut [u8; 0x2_0010] = unsafe {
+        mem::transmute(LONG_BUFFER.init_with(|| array::from_fn(|i| i as u32)))
     };
 
     // Setup the DMA transfer on stream 0

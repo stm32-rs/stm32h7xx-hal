@@ -3,12 +3,13 @@
 //!
 //! This example demonstrates using DMA to write data over a TX-only SPI interface.
 #![deny(warnings)]
-#![allow(static_mut_refs)]
 #![allow(clippy::type_complexity)]
 #![no_main]
 #![no_std]
 
-use core::mem::MaybeUninit;
+use core::array;
+
+use static_cell::StaticCell;
 
 #[macro_use]
 mod utilities;
@@ -22,7 +23,7 @@ const BUFFER_SIZE: usize = 100;
 //
 // The runtime does not initialise these SRAM banks
 #[link_section = ".axisram.buffers"]
-static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
+static BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
 
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
@@ -96,20 +97,8 @@ mod app {
         cs.set_high();
 
         // Initialize our transmit buffer.
-        let buffer: &'static mut [u8; BUFFER_SIZE] = {
-            let buf: &mut [MaybeUninit<u8>; BUFFER_SIZE] = unsafe {
-                &mut *(core::ptr::addr_of_mut!(BUFFER)
-                    as *mut [MaybeUninit<u8>; BUFFER_SIZE])
-            };
-
-            for (i, value) in buf.iter_mut().enumerate() {
-                unsafe {
-                    value.as_mut_ptr().write(i as u8 + 0x60); // 0x60, 0x61, 0x62...
-                }
-            }
-
-            unsafe { BUFFER.assume_init_mut() }
-        };
+        let buffer: &'static mut [u8; BUFFER_SIZE] =
+            BUFFER.init_with(|| array::from_fn(|i| i as u8 + 0x60));
 
         let streams = hal::dma::dma::StreamsTuple::new(
             ctx.device.DMA1,
