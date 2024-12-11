@@ -83,6 +83,7 @@ tinybmp = "0.5"
 embedded-graphics = "0.8"
 otm8009a = "0.1"
 eg-seven-segment = "0.2.0"
+static_cell = "2.1.0"
 
 [features]
 default = ["rt"]
