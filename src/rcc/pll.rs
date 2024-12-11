@@ -347,7 +347,7 @@ fn calc_ck_div(
     vco_ck: u32,
     target_ck: u32,
 ) -> u32 {
-    let mut div = (vco_ck + target_ck - 1) / target_ck;
+    let mut div = vco_ck.div_ceil(target_ck);
     // If the divider takes us under the target clock, then increase it
     if strategy == PllConfigStrategy::FractionalNotLess
         && target_ck * div > vco_ck

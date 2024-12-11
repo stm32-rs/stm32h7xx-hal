@@ -41,12 +41,20 @@ pub trait PulseDensityPins<SAI> {
     const ENABLE_BITSTREAM_CLOCK_4: bool = false;
 }
 pub trait PulseDensityPinD1<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinD2<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinD3<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinD4<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinCK1<SAI> {}
+
+#[allow(dead_code)]
 pub trait PulseDensityPinCK2<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinCK3<SAI> {}
+#[allow(dead_code)]
 pub trait PulseDensityPinCK4<SAI> {}
 
 // Pin sets

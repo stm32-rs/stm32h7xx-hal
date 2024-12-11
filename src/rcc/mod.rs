@@ -35,10 +35,10 @@
 //! * `use_hse(a)` implies `sys_ck(a)`
 //!
 //! * `sys_ck(b)` implies `pll1_p_ck(b)` unless `b` equals HSI or
-//! `use_hse(b)` was specified
+//!   `use_hse(b)` was specified
 //!
 //! * `pll1_p_ck(c)` implies `pll1_r_ck(c/2)`, including when
-//! `pll1_p_ck` was implied by `sys_ck(c)` or `mco2_from_pll1_p_ck(c)`.
+//!   `pll1_p_ck` was implied by `sys_ck(c)` or `mco2_from_pll1_p_ck(c)`.
 //!
 //! Implied clock specifications can always be overridden by explicitly
 //! specifying that clock. If this results in a configuration that cannot
@@ -416,7 +416,7 @@ macro_rules! ppre_calculate {
                 .unwrap_or_else(|| core::cmp::min($max, $hclk / 2));
 
             // Calculate suitable divider
-            let ($bits, $ppre) = match ($hclk + $pclk - 1) / $pclk
+            let ($bits, $ppre) = match $hclk.div_ceil($pclk)
             {
                 0 => unreachable!(),
                 1 => (0b000, 1 as u8),
@@ -763,19 +763,18 @@ impl Rcc {
         assert!(rcc_hclk <= rcc_hclk_max);
 
         // Estimate divisor
-        let (hpre_bits, hpre_div) =
-            match (sys_d1cpre_ck + rcc_hclk - 1) / rcc_hclk {
-                0 => unreachable!(),
-                1 => (HPRE::Div1, 1),
-                2 => (HPRE::Div2, 2),
-                3..=5 => (HPRE::Div4, 4),
-                6..=11 => (HPRE::Div8, 8),
-                12..=39 => (HPRE::Div16, 16),
-                40..=95 => (HPRE::Div64, 64),
-                96..=191 => (HPRE::Div128, 128),
-                192..=383 => (HPRE::Div256, 256),
-                _ => (HPRE::Div512, 512),
-            };
+        let (hpre_bits, hpre_div) = match sys_d1cpre_ck.div_ceil(rcc_hclk) {
+            0 => unreachable!(),
+            1 => (HPRE::Div1, 1),
+            2 => (HPRE::Div2, 2),
+            3..=5 => (HPRE::Div4, 4),
+            6..=11 => (HPRE::Div8, 8),
+            12..=39 => (HPRE::Div16, 16),
+            40..=95 => (HPRE::Div64, 64),
+            96..=191 => (HPRE::Div128, 128),
+            192..=383 => (HPRE::Div256, 256),
+            _ => (HPRE::Div512, 512),
+        };
 
         // Calculate real AXI and AHB clock
         let rcc_hclk = sys_d1cpre_ck / hpre_div;

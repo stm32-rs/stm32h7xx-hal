@@ -110,7 +110,7 @@ impl<'a> Countdown<'a> {
     }
 }
 
-impl<'a> CountDown for Countdown<'a> {
+impl CountDown for Countdown<'_> {
     type Time = fugit::MicrosDurationU32;
 
     fn start<T>(&mut self, count: T)

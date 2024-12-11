@@ -44,7 +44,7 @@ macro_rules! calculate_prescaler {
             // Running?
             if let Some(freq) = self.frequency {
                 // Calculate prescaler
-                let prescaler = match (in_ck + freq - 1) / freq {
+                let prescaler = match in_ck.div_ceil(freq) {
                     0 => unreachable!(),
                     x @ 1..=15 => x,
                     _ => {

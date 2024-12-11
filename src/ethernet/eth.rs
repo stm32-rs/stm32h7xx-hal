@@ -802,7 +802,7 @@ impl StationManagement for EthernetMAC {
 /// Define TxToken type and implement consume method
 pub struct TxToken<'a, const TD: usize>(&'a mut TDesRing<TD>);
 
-impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
+impl<const TD: usize> phy::TxToken for TxToken<'_, TD> {
     fn consume<R, F>(self, len: usize, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
@@ -818,7 +818,7 @@ impl<'a, const TD: usize> phy::TxToken for TxToken<'a, TD> {
 /// Define RxToken type and implement consume method
 pub struct RxToken<'a, const RD: usize>(&'a mut RDesRing<RD>);
 
-impl<'a, const RD: usize> phy::RxToken for RxToken<'a, RD> {
+impl<const RD: usize> phy::RxToken for RxToken<'_, RD> {
     fn consume<R, F>(self, f: F) -> R
     where
         F: FnOnce(&[u8]) -> R,
