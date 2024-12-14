@@ -98,7 +98,7 @@ where
         #[cfg(not(feature = "rm0399"))]
         let imr1 = &exti.cpuimr1();
         #[cfg(all(feature = "rm0399", feature = "cm7"))]
-        let imr1 = &exti.c1imr1;
+        let imr1 = &exti.c1imr1();
         #[cfg(all(feature = "rm0399", feature = "cm4"))]
         let imr1 = &exti.c2imr1;
 
@@ -142,7 +142,7 @@ where
             #[cfg(not(feature = "rm0399"))]
             let pr1 = &(*EXTI::ptr()).cpupr1();
             #[cfg(all(feature = "rm0399", feature = "cm7"))]
-            let pr1 = &(*EXTI::ptr()).c1pr1;
+            let pr1 = &(*EXTI::ptr()).c1pr1();
             #[cfg(all(feature = "rm0399", feature = "cm4"))]
             let pr1 = &(*EXTI::ptr()).c2pr1;
 

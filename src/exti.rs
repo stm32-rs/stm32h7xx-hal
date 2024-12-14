@@ -137,31 +137,31 @@ macro_rules! reg_for_cpu {
 #[cfg(all(feature = "rm0399", feature = "cm7"))]
 macro_rules! reg_for_cpu {
     ($self:ident, imr1) => {
-        $self.c1imr1
+        $self.c1imr1()
     };
     ($self:ident, imr2) => {
-        $self.c1imr2
+        $self.c1imr2()
     };
     ($self:ident, imr3) => {
-        $self.c1imr3
+        $self.c1imr3()
     };
     ($self:ident, emr1) => {
-        $self.c1emr1
+        $self.c1emr1()
     };
     ($self:ident, emr2) => {
-        $self.c1emr2
+        $self.c1emr2()
     };
     ($self:ident, emr3) => {
-        $self.c1emr3
+        $self.c1emr3()
     };
     ($self:ident, pr1) => {
-        $self.c1pr1
+        $self.c1pr1()
     };
     ($self:ident, pr2) => {
-        $self.c1pr2
+        $self.c1pr2()
     };
     ($self:ident, pr3) => {
-        $self.c1pr3
+        $self.c1pr3()
     };
 }
 

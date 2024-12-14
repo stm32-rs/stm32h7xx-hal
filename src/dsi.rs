@@ -202,11 +202,11 @@ impl DsiHost {
         );
 
         // Configure the number of active data lanes
-        dsi.pconfr
+        dsi.pconfr()
             .modify(|_, w| unsafe { w.nl().bits(dsi_config.lane_count as u8) }); // 0b00 - 1 lanes, 0b01 - 2 lanes
 
         // Set TX escape clock division factor
-        dsi.ccr
+        dsi.ccr()
             .modify(|_, w| unsafe { w.txeckdiv().bits(pll_config.eckdiv) });
 
         // Set the bit period in high speed mode
@@ -232,7 +232,7 @@ impl DsiHost {
             f_pix_khz,
             uix4
         );
-        dsi.wpcr0
+        dsi.wpcr0()
             .modify(|_, w| unsafe { w.uix4().bits(uix4 as u8) });
         // debug!("f_phy={}, uix4=override=8", f_phy);
         // dsi.wpcr0().modify(|_, w| unsafe { w.uix4().bits(8) });
@@ -395,12 +395,12 @@ impl DsiHost {
                 });
 
                 // Tearing effect acknowledge request
-                dsi.cmcr().modify(|_, w| w.teare().set_bit())
+                dsi.cmcr().modify(|_, w| w.teare().set_bit());
             }
         }
 
         // Select virtual channel for the LTDC interface traffic
-        dsi.lvcidr
+        dsi.lvcidr()
             .modify(|_, w| unsafe { w.vcid().bits(dsi_config.channel as u8) });
 
         // Polarity
@@ -636,8 +636,8 @@ impl DsiHostCtrlIo for DsiHost {
     ) -> Result<(), Error> {
         // println!("DSI read: {:x?}", kind);
         if buf.len() > 2 && buf.len() <= 65_535 {
-            self().write(DsiWriteCommand::SetMaximumReturnPacketSize(
-                buf.len() as u16,
+            self.write(DsiWriteCommand::SetMaximumReturnPacketSize(
+                buf.len() as u16
             ))?;
         } else if buf.len() > 65_535 {
             return Err(Error::BufferIsToBig);
