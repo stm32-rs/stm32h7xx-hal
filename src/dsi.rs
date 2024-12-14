@@ -104,6 +104,7 @@ pub struct DsiPllConfig {
 }
 
 impl DsiPllConfig {
+    /// # Safety: TODO
     pub unsafe fn manual(ndiv: u8, idf: u8, odf: u8, eckdiv: u8) -> Self {
         DsiPllConfig {
             ndiv,
