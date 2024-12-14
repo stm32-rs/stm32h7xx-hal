@@ -114,6 +114,7 @@ fn main() -> ! {
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
     let (_eth_dma, eth_mac) = unsafe {
+        #[allow(static_mut_refs)] // TODO: Fix this
         DES_RING.write(ethernet::DesRing::new());
 
         ethernet::new(
@@ -131,6 +132,7 @@ fn main() -> ! {
                 rmii_txd0,
                 rmii_txd1,
             ),
+            #[allow(static_mut_refs)] // TODO: Fix this
             DES_RING.assume_init_mut(),
             mac_addr,
             ccdr.peripheral.ETH1MAC,

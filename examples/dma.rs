@@ -66,7 +66,10 @@ fn main() -> ! {
                 value.as_mut_ptr().write(rng.gen().unwrap());
             }
         }
-        unsafe { SOURCE_BUFFER.assume_init_mut() }
+        #[allow(static_mut_refs)] // TODO: Fix this
+        unsafe {
+            SOURCE_BUFFER.assume_init_mut()
+        }
     };
     // Save a copy on the stack so we can check it later
     let source_buffer_cloned = *source_buffer;
@@ -102,6 +105,7 @@ fn main() -> ! {
     while !transfer.get_transfer_complete_flag() {}
 
     // Now the target memory is actually initialised
+    #[allow(static_mut_refs)] // TODO: Fix this
     let target_buffer: &'static mut [u32; 20] =
         unsafe { TARGET_BUFFER.assume_init_mut() };
 

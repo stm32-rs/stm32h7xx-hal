@@ -157,11 +157,17 @@ unsafe fn main() -> ! {
         }
     }
 
-    USB_BUS_ALLOCATOR = Some(UsbBus::new(usb, USB_MEMORY_1.assume_init_mut()));
+    #[allow(static_mut_refs)] // TODO: Fix this
+    {
+        USB_BUS_ALLOCATOR =
+            Some(UsbBus::new(usb, USB_MEMORY_1.assume_init_mut()));
+    }
 
+    #[allow(static_mut_refs)] // TODO: Fix this
     let usb_serial =
         usbd_serial::SerialPort::new(USB_BUS_ALLOCATOR.as_ref().unwrap());
 
+    #[allow(static_mut_refs)] // TODO: Fix this
     let usb_dev = UsbDeviceBuilder::new(
         USB_BUS_ALLOCATOR.as_ref().unwrap(),
         UsbVidPid(VID, PID),

@@ -107,7 +107,10 @@ mod app {
                 }
             }
 
-            unsafe { BUFFER.assume_init_mut() }
+            #[allow(static_mut_refs)] // TODO: Fix this
+            unsafe {
+                BUFFER.assume_init_mut()
+            }
         };
 
         let streams = hal::dma::dma::StreamsTuple::new(

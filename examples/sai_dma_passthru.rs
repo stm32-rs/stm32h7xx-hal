@@ -110,6 +110,7 @@ fn main() -> ! {
         dma::dma::StreamsTuple::new(dp.DMA1, ccdr.peripheral.DMA1);
 
     // dma1 stream 0
+    #[allow(static_mut_refs)] // TODO: Fix this
     let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
         unsafe { TX_BUFFER.assume_init_mut() }; // uninitialised memory
     let dma_config = dma::dma::DmaConfig::default()
@@ -128,6 +129,7 @@ fn main() -> ! {
         );
 
     // dma1 stream 1
+    #[allow(static_mut_refs)] // TODO: Fix this
     let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
         unsafe { RX_BUFFER.assume_init_mut() }; // uninitialised memory
     let dma_config = dma_config
@@ -179,6 +181,7 @@ fn main() -> ! {
     static mut TRANSFER_DMA1_STR1: MaybeUninit<Option<TransferDma1Str1>> =
         MaybeUninit::uninit();
     unsafe {
+        #[allow(static_mut_refs)] // TODO: Fix this
         TRANSFER_DMA1_STR1.write(None);
     }
 
@@ -220,6 +223,7 @@ fn main() -> ! {
     >;
 
     unsafe {
+        #[allow(static_mut_refs)] // TODO: Fix this
         TRANSFER_DMA1_STR1.write(Some(dma1_str1)); // drops previous None
         info!(
             "{:?}, {:?}",
@@ -230,13 +234,16 @@ fn main() -> ! {
 
     #[interrupt]
     fn DMA1_STR1() {
+        #[allow(static_mut_refs)] // TODO: Fix this
         let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
             unsafe { TX_BUFFER.assume_init_mut() };
+        #[allow(static_mut_refs)] // TODO: Fix this
         let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
             unsafe { RX_BUFFER.assume_init_mut() };
 
         let stereo_block_length = tx_buffer.len() / 2;
 
+        #[allow(static_mut_refs)] // TODO: Fix this
         if let Some(transfer) = unsafe { TRANSFER_DMA1_STR1.assume_init_mut() }
         {
             let skip = if transfer.get_half_transfer_flag() {

@@ -158,6 +158,7 @@ mod app {
 
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
+            #[allow(static_mut_refs)] // TODO: Fix this
             DES_RING.write(ethernet::DesRing::new());
 
             ethernet::new(
@@ -175,6 +176,7 @@ mod app {
                     rmii_txd0,
                     rmii_txd1,
                 ),
+                #[allow(static_mut_refs)] // TODO: Fix this
                 DES_RING.assume_init_mut(),
                 mac_addr,
                 ccdr.peripheral.ETH1MAC,
@@ -192,6 +194,7 @@ mod app {
 
         // unsafe: mutable reference to static storage, we only do this once
         let store = unsafe {
+            #[allow(static_mut_refs)] // TODO: Fix this
             let store_ptr = STORE.as_mut_ptr();
 
             // Initialise the socket_storage field. Using `write` instead of
@@ -202,6 +205,7 @@ mod app {
 
             // Now that all fields are initialised we can safely use
             // assume_init_mut to return a mutable reference to STORE
+            #[allow(static_mut_refs)] // TODO: Fix this
             STORE.assume_init_mut()
         };
 

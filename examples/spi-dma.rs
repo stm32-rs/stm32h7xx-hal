@@ -91,7 +91,10 @@ fn main() -> ! {
                 value.as_mut_ptr().write(i as u8 + 96); // 0x60, 0x61, 0x62...
             }
         }
-        unsafe { SHORT_BUFFER.assume_init_mut() }
+        #[allow(static_mut_refs)] // TODO: Fix this
+        unsafe {
+            SHORT_BUFFER.assume_init_mut()
+        }
     };
     // view u32 buffer as u8. Endianess is undefined (little-endian on STM32H7)
     let long_buffer: &'static mut [u8; 0x2_0010] = {

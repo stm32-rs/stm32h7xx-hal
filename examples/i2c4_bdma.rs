@@ -104,7 +104,10 @@ fn main() -> ! {
         Transfer::init(
             streams.0,
             i2c,
-            unsafe { BUFFER.assume_init_mut() },
+            #[allow(static_mut_refs)] // TODO: Fix this
+            unsafe {
+                BUFFER.assume_init_mut()
+            },
             None,
             config,
         );
@@ -136,6 +139,7 @@ fn I2C4_EV() {
     info!("I2C transfer complete!");
 
     // Look at BUFFER, which we expect to be initialised
+    #[allow(static_mut_refs)] // TODO: Fix this
     let buffer: &'static [u8; 10] = unsafe { BUFFER.assume_init_mut() };
 
     assert_eq!(buffer[0], 0xBE);

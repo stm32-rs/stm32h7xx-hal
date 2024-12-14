@@ -73,7 +73,10 @@ fn main() -> ! {
                 value.as_mut_ptr().write(0x11223344u32);
             }
         }
-        unsafe { SOURCE_BUFFER.assume_init_mut() }
+        #[allow(static_mut_refs)] // TODO: Fix this
+        unsafe {
+            SOURCE_BUFFER.assume_init_mut()
+        }
     };
 
     // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
@@ -92,8 +95,10 @@ fn main() -> ! {
         let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> = {
             // unsafe: Both source and destination live at least as long as this
             // transfer
+            #[allow(static_mut_refs)] // TODO: Fix this
             let source: &'static mut [u32; 200] =
                 unsafe { SOURCE_BUFFER.assume_init_mut() };
+            #[allow(static_mut_refs)] // TODO: Fix this
             let target: &'static mut [u32; 200] =
                 unsafe { TARGET_BUFFER.assume_init_mut() }; // uninitialised memory
 
