@@ -408,11 +408,10 @@ impl DsiHost {
         });
 
         // Color coding for the host
-        let lpe = match dsi_config.color_coding_host {
-            ColorCoding::EighteenBitsConfig1 => true,
-            ColorCoding::EighteenBitsConfig2 => true,
-            _ => false,
-        };
+        let lpe = matches!(
+            dsi_config.color_coding_host,
+            ColorCoding::EighteenBitsConfig1 | ColorCoding::EighteenBitsConfig2
+        );
         dsi.lcolcr.modify(|_, w| unsafe {
             w.lpe()
                 .bit(lpe) // loosely packed: 18bits
