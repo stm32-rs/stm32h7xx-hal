@@ -89,6 +89,7 @@ fn main() -> ! {
     }
 
     // Port 1
+    #[allow(static_mut_refs)] // TODO: Fix this
     let usb1_bus = UsbBus::new(usb1, unsafe { EP_MEMORY_1.assume_init_mut() });
     let mut serial1 = usbd_serial::SerialPort::new(&usb1_bus);
     let mut usb1_dev =
@@ -102,6 +103,7 @@ fn main() -> ! {
             .build();
 
     // Port 2
+    #[allow(static_mut_refs)] // TODO: Fix this
     let usb2_bus = UsbBus::new(usb2, unsafe { EP_MEMORY_2.assume_init_mut() });
     let mut serial2 = usbd_serial::SerialPort::new(&usb2_bus);
     let mut usb2_dev =

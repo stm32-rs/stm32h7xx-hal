@@ -95,6 +95,7 @@ mod app {
         }
 
         // Now we may assume that EP_MEMORY is initialised
+        #[allow(static_mut_refs)] // TODO: Fix this
         let usb_bus = cortex_m::singleton!(
             : usb_device::class_prelude::UsbBusAllocator<UsbBus<USB1>> =
                 UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() })

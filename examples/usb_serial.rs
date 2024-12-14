@@ -85,6 +85,7 @@ fn main() -> ! {
     }
 
     // Now we may assume that EP_MEMORY is initialised
+    #[allow(static_mut_refs)] // TODO: Fix this
     let usb_bus = UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() });
 
     let mut serial = usbd_serial::SerialPort::new(&usb_bus);
