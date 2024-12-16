@@ -439,6 +439,10 @@ mod tests {
                 pllcfgr: MockPllCfgr {},
             }
         }
+
+        pub fn pllcfgr(&self) -> &MockPllCfgr {
+            &self.pllcfgr
+        }
     }
 
     #[test]
