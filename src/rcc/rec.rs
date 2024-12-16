@@ -659,8 +659,7 @@ peripheral_reset_and_enable_control! {
 
         Spi1 [group clk: Spi123(Variant) SAI1 d2ccip1 "SPI1/2/3"],
         Spi4 [group clk: Spi45(Variant) SPI45 d2ccip1 "SPI4/5"],
-        Spi5 [group clk: Spi45],
-        Hrtim [kernel clk: Hrtim HRTIM cfg "HRTIM"]
+        Spi5 [group clk: Spi45]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     APB2, "" => [
@@ -668,7 +667,8 @@ peripheral_reset_and_enable_control! {
         Sai3 [group clk: Sai23],
 
         Usart1 [group clk: Usart16(Variant) USART16 d2ccip2 "USART1/6"],
-        Usart6 [group clk: Usart16]
+        Usart6 [group clk: Usart16],
+        Hrtim [kernel clk: Hrtim HRTIM cfg "HRTIM"]
     ];
     #[cfg(feature = "rm0455")]
     APB2, "" => [
