@@ -342,11 +342,11 @@ trait InstanceStream {
 
 impl<I: Instance, const S: u8> StreamX<I, S> {
     unsafe fn stream() -> &'static pac::dma1::ST {
-        &(*I::ptr()).st(S as usize)
+        (*I::ptr()).st(S as usize)
     }
     unsafe fn dmamux_ccr() -> &'static pac::dmamux1::CCR {
         let dmamux = &*I::mux_ptr();
-        &dmamux.ccr(S as usize + I::DMA_MUX_STREAM_OFFSET)
+        dmamux.ccr(S as usize + I::DMA_MUX_STREAM_OFFSET)
     }
 
     #[inline(always)]
