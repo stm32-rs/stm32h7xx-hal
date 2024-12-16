@@ -69,7 +69,7 @@ fn main() -> ! {
 
     // Initialise SRAM3
     info!("Setup RCC...                  ");
-    dp.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
+    dp.RCC.ahb2enr().modify(|_, w| w.sram3en().set_bit());
 
     // Initialise clocks...
     let rcc = dp.RCC.constrain();
