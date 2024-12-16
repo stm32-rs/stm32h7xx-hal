@@ -127,7 +127,7 @@ mod app {
         let pwrcfg = pwr.smps().freeze();
 
         // Link the SRAM3 power state to CPU1
-        ctx.device.RCC.ahb2enr.modify(|_, w| w.sram3en().set_bit());
+        ctx.device.RCC.ahb2enr().modify(|_, w| w.sram3en().set_bit());
 
         // Initialise clocks...
         let rcc = ctx.device.RCC.constrain();

@@ -34,7 +34,7 @@ use cortex_m_rt::{entry, exception};
 use crate::utilities_display::display_target::BufferedDisplay;
 use stm32h7xx_hal::gpio::Speed;
 use stm32h7xx_hal::ltdc;
-use stm32h7xx_hal::stm32::rcc::d1ccipr::FMCSEL_A;
+use stm32h7xx_hal::stm32::rcc::d1ccipr::FMCSEL;
 use stm32h7xx_hal::{prelude::*, stm32};
 
 use embedded_display_controller::DisplayController;
@@ -186,7 +186,7 @@ fn main() -> ! {
         gpioh.ph5               // SDNWE
     };
 
-    let fmc_ccdr = ccdr.peripheral.FMC.kernel_clk_mux(FMCSEL_A::Pll2R);
+    let fmc_ccdr = ccdr.peripheral.FMC.kernel_clk_mux(FMCSEL::Pll2R);
     // TODO: incorrect for disco!
     let sdram_chip = stm32_fmc::devices::is42s32800g_6::Is42s32800g {};
     let mut sdram = dp.FMC.sdram(
