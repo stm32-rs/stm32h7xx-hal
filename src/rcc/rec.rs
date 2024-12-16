@@ -507,7 +507,7 @@ peripheral_reset_and_enable_control! {
     AHB1, "" => [
         Crc,
         Usb1Otg [group clk: Usb USB cdccip2 "USB"],
-        Adc12 [group clk: Adc(Variant) ADC12 srdccip "ADC"]
+        Adc12 [group clk: Adc(Variant) ADC srdccip "ADC"]
     ];
 
 
@@ -649,8 +649,7 @@ peripheral_reset_and_enable_control! {
 
     #[cfg(all())]
     APB2, "Advanced Peripheral Bus 2 (APB2) peripherals" => [
-        Tim1, Tim8, Tim15, Tim16, Tim17,
-        Hrtim [kernel clk: Hrtim HRTIM cfg "HRTIM"]
+        Tim1, Tim8, Tim15, Tim16, Tim17
     ];
     #[cfg(not(feature = "rm0455"))]
     APB2, "" => [
@@ -660,7 +659,8 @@ peripheral_reset_and_enable_control! {
 
         Spi1 [group clk: Spi123(Variant) SAI1 d2ccip1 "SPI1/2/3"],
         Spi4 [group clk: Spi45(Variant) SPI45 d2ccip1 "SPI4/5"],
-        Spi5 [group clk: Spi45]
+        Spi5 [group clk: Spi45],
+        Hrtim [kernel clk: Hrtim HRTIM cfg "HRTIM"]
     ];
     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
     APB2, "" => [
@@ -675,16 +675,16 @@ peripheral_reset_and_enable_control! {
         Dfsdm1 [kernel clk: Dfsdm1 DFSDM1 cdccip1 "DFSDM1"],
 
         Sai1 [kernel clk: Sai1(Variant) SAI1 cdccip1 "SAI1"],
-        Sai2 [kernel clk_a: Sai2A(Variant) SAI1 cdccip1
+        Sai2 [kernel clk_a: Sai2A(Variant) SAI2A cdccip1
             "Sub-Block A of SAI2"]
-            [kernel clk_b: Sai2B(Variant) SAI1 cdccip1
+            [kernel clk_b: Sai2B(Variant) SAI2A cdccip1
             "Sub-Block B of SAI2"],
 
         Spi1 [group clk: Spi123(Variant) SAI1 cdccip1 "SPI1/2/3"],
         Spi4 [group clk: Spi45(Variant) SPI45 cdccip1 "SPI4/5"],
         Spi5 [group clk: Spi45],
 
-        Usart1 [group clk: Usart16910(Variant) USART16 cdccip2 "USART1/6/9/10"],
+        Usart1 [group clk: Usart16910(Variant) USART16910 cdccip2 "USART1/6/9/10"],
         Usart6 [group clk: Usart16910],
         Uart9 [group clk: Usart16910],
         Usart10 [group clk: Usart16910]
@@ -697,13 +697,11 @@ peripheral_reset_and_enable_control! {
         Usart10 [group clk: Usart16910]
     ];
 
-
     #[cfg(all())]
     APB3, "Advanced Peripheral Bus 3 (APB3) peripherals" => [
         Ltdc [fixed clk: "pll3_r_ck"],
         #[cfg(any(feature = "rm0399"))] Dsi
     ];
-
 
     #[cfg(all())]
     APB4, "Advanced Peripheral Bus 4 (APB4) peripherals" => [

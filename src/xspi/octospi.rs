@@ -475,7 +475,7 @@ macro_rules! octospi_impl {
                         divisor @ 1..=256 => divisor - 1,
                         _ => panic!("Invalid OCTOSPI frequency requested"),
                     };
-                regs.dcr2
+                regs.dcr2()
                     .write(|w| unsafe { w.prescaler().bits(divisor as u8) });
 
                 // Note that we default to setting SSHIFT (sampling on the falling
@@ -564,7 +564,7 @@ macro_rules! octospi_impl {
                 });
 
                 // Prescaler
-                regs.dcr2
+                regs.dcr2()
                     .write(|w| unsafe { w.prescaler().bits(divisor - 1) });
                 // CS boundary. We actually use this feature to ensure the
                 // transcation is re-started when crossing between each half of
@@ -580,7 +580,7 @@ macro_rules! octospi_impl {
                         (1000 * hyperbus.refresh_interval.ticks() as u32);
                     (interval_ns + period_ns - 1) / period_ns
                 };
-                regs.dcr4
+                regs.dcr4()
                     .write(|w| unsafe { w.refresh().bits(refresh_cycles) });
 
                 // 8-wide, DDR

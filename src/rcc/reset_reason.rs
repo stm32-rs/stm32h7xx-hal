@@ -65,14 +65,14 @@ pub fn get_reset_reason(rcc: &mut crate::stm32::RCC) -> ResetReason {
     #[cfg(feature = "rm0455")]
     // See RM0455 Rev 6 Section 8.4.4 Reset source identification
     match (
-        reset_reason.lpwrrstf().is_reset_occourred(),
-        reset_reason.wwdgrstf().is_reset_occourred(),
-        reset_reason.iwdgrstf().is_reset_occourred(),
-        reset_reason.sftrstf().is_reset_occourred(),
-        reset_reason.porrstf().is_reset_occourred(),
-        reset_reason.pinrstf().is_reset_occourred(),
-        reset_reason.borrstf().is_reset_occourred(),
-        reset_reason.cdrstf().is_reset_occourred(),
+        reset_reason.lpwrrstf().is_reset_occurred(),
+        reset_reason.wwdgrstf().is_reset_occurred(),
+        reset_reason.iwdgrstf().is_reset_occurred(),
+        reset_reason.sftrstf().is_reset_occurred(),
+        reset_reason.porrstf().is_reset_occurred(),
+        reset_reason.pinrstf().is_reset_occurred(),
+        reset_reason.borrstf().is_reset_occurred(),
+        reset_reason.cdrstf().is_reset_occurred(),
     ) {
         (false, false, false, false, true, true, true, true) => {
             ResetReason::PowerOnReset

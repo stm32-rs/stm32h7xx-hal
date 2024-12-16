@@ -1016,16 +1016,16 @@ impl Rcc {
                 let cdcfgr1 = rcc.cdcfgr1().read();
                 debug!(
                     "CDCFGR1 register: CDCPRE={:?} HPRE={:?} CDPPRE={:?}",
-                    cdcfgr1.cdcpre().variant().unwrap(),
-                    cdcfgr1.hpre().variant().unwrap(),
-                    cdcfgr1.cdppre().variant().unwrap(),
+                    cdcfgr1.cdcpre().variant(),
+                    cdcfgr1.hpre().variant(),
+                    cdcfgr1.cdppre().variant(),
                 );
 
                 let cdcfgr2 = rcc.cdcfgr2().read();
                 debug!(
                     "CDCFGR2 register: CDPPRE1={:?} CDPPRE1={:?}",
-                    cdcfgr2.cdppre1().variant().unwrap(),
-                    cdcfgr2.cdppre2().variant().unwrap(),
+                    cdcfgr2.cdppre1().variant(),
+                    cdcfgr2.cdppre2().variant(),
                 );
 
                 let srdcfgr = rcc.srdcfgr().read();

@@ -96,7 +96,7 @@ mod rtc {
         fn reset(self) -> Self {
             // unsafe: Owned exclusive access to this bitfield
             interrupt::free(|_| {
-                let bdcr = unsafe { &(*RCC::ptr()).bdcr() };
+                let bdcr = unsafe { (*RCC::ptr()).bdcr() };
 
                 #[cfg(not(feature = "rm0455"))]
                 bdcr.modify(|_, w| w.bdrst().set_bit());
@@ -104,9 +104,9 @@ mod rtc {
                 bdcr.modify(|_, w| w.bdrst().clear_bit());
 
                 #[cfg(feature = "rm0455")]
-                bdcr().modify(|_, w| w.vswrst().set_bit());
+                bdcr.modify(|_, w| w.vswrst().set_bit());
                 #[cfg(feature = "rm0455")]
-                bdcr().modify(|_, w| w.vswrst().set_bit());
+                bdcr.modify(|_, w| w.vswrst().set_bit());
             });
             self
         }
