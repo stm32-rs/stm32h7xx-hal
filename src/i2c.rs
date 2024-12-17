@@ -112,10 +112,7 @@ macro_rules! flush_txdr {
     ($i2c:expr) => {
         // If a pending TXIS flag is set, write dummy data to TXDR
         if $i2c.isr().read().txis().bit_is_set() {
-            unsafe {
-                //NOTE(unsafe) 0 is a valid bit pattern
-                $i2c.txdr().write(|w| w.txdata().bits(0));
-            }
+            $i2c.txdr().write(|w| w.txdata().set(0));
         }
 
         // If TXDR is not flagged as empty, write 1 to flush it
@@ -304,18 +301,18 @@ macro_rules! i2c {
 
                     // Configure timing
                     let (presc_reg, scll, sclh, sdadel, scldel) = i2c_timing!(i2c_clk, freq);
-                    //NOTE(unsafe) Only valid bit patterns written, checked by i2c_timing
-                    i2c.timingr().write(|w| unsafe {
+
+                    i2c.timingr().write(|w| {
                         w.presc()
-                            .bits(presc_reg)
+                            .set(presc_reg)
                             .scll()
-                            .bits(scll)
+                            .set(scll)
                             .sclh()
-                            .bits(sclh)
+                            .set(sclh)
                             .sdadel()
-                            .bits(sdadel)
+                            .set(sdadel)
                             .scldel()
-                            .bits(scldel)
+                            .set(scldel)
                     });
 
                     // Enable the peripheral
@@ -431,13 +428,13 @@ macro_rules! i2c {
                     // `buffer`. The START bit can be set even if the bus
                     // is BUSY or I2C is in slave mode.
                     //NOTE(unsafe) Only valid bit patterns written
-                    self.i2c.cr2().write(|w| unsafe {
+                    self.i2c.cr2().write(|w| {
                         w.sadd()
-                            .bits((addr << 1 | 0) as u16)
+                            .set((addr << 1 | 0) as u16)
                             .rd_wrn()
                             .read()
                             .nbytes()
-                            .bits(length as u8)
+                            .set(length as u8)
                             .start()
                             .set_bit()
                             .autoend()
@@ -464,16 +461,16 @@ macro_rules! i2c {
                     // START bit can be set even if the bus is BUSY or
                     // I2C is in slave mode.
                     //NOTE(unsafe) Only valid bit patterns written
-                    self.i2c.cr2().write(|w| unsafe {
+                    self.i2c.cr2().write(|w| {
                         w.start()
                             .set_bit()
                             .sadd()
-                            .bits(u16(addr << 1 | 0))
+                            .set(u16(addr << 1 | 0))
                             .add10().clear_bit()
                             .rd_wrn()
                             .write()
                             .nbytes()
-                            .bits(length as u8)
+                            .set(length as u8)
                             .autoend()
                             .bit(stop == Stop::Automatic)
                     });
@@ -493,14 +490,14 @@ macro_rules! i2c {
                     assert!(length < 256 && length > 0);
 
                     //NOTE(unsafe) Only valid bit patterns written
-                    self.i2c.cr2().write(|w| unsafe {
+                    self.i2c.cr2().write(|w| {
                         w.sadd()
-                            .bits(u16(addr << 1 | 1))
+                            .set(u16(addr << 1 | 1))
                             .add10().clear_bit()
                             .rd_wrn()
                             .read()
                             .nbytes()
-                            .bits(length as u8)
+                            .set(length as u8)
                             .start()
                             .set_bit()
                             .autoend()
@@ -584,10 +581,7 @@ macro_rules! i2c {
                         busy_wait!(self.i2c, txis, is_empty);
 
                         // Put byte on the wire
-                        //NOTE(unsafe) All bit bit patterns are valid
-                        unsafe {
-                            self.i2c.txdr().write(|w| w.txdata().bits(*byte));
-                        }
+                        self.i2c.txdr().write(|w| w.txdata().set(*byte));
                     }
 
                     // Wait until the write finishes
@@ -627,10 +621,7 @@ macro_rules! i2c {
                         busy_wait!(self.i2c, txis, is_empty);
 
                         // Put byte on the wire
-                        //NOTE(unsafe) All bit patterns are valid
-                        unsafe {
-                            self.i2c.txdr().write(|w| w.txdata().bits(*byte));
-                        }
+                        self.i2c.txdr().write(|w| w.txdata().set(*byte));
                     }
 
                     // Wait until the write finishes before beginning to read.

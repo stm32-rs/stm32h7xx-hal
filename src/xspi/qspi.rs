@@ -271,7 +271,7 @@ impl Qspi<stm32::QUADSPI> {
 
         // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
         // flash size violation may still trigger.
-        regs.dcr().write(|w| unsafe { w.fsize().bits(0x1F) });
+        regs.dcr().write(|w| w.fsize().set(0x1F));
 
         // Clear all pending flags.
         regs.fcr().write(|w| {
@@ -286,19 +286,19 @@ impl Qspi<stm32::QUADSPI> {
         });
 
         // Configure the communication method for QSPI.
-        regs.ccr().write(|w| unsafe {
+        regs.ccr().write(|w| {
             w.fmode()
-                .bits(0) // indirect mode
+                .set(0) // indirect mode
                 .dmode()
-                .bits(config.modes.data.reg_value())
+                .set(config.modes.data.reg_value())
                 .admode()
-                .bits(config.modes.address.reg_value())
+                .set(config.modes.address.reg_value())
                 .adsize()
-                .bits(0) // Eight-bit address
+                .set(0) // Eight-bit address
                 .imode()
-                .bits(0) // No instruction phase
+                .set(0) // No instruction phase
                 .dcyc()
-                .bits(config.dummy_cycles)
+                .set(config.dummy_cycles)
         });
 
         let spi_frequency = config.frequency.raw();
@@ -319,7 +319,7 @@ impl Qspi<stm32::QUADSPI> {
         // SSHIFT must not be set in DDR mode.
         regs.cr().write(|w| unsafe {
             w.prescaler()
-                .bits(divisor as u8)
+                .set(divisor as u8)
                 .sshift()
                 .bit(config.sampling_edge == SamplingEdge::Falling)
                 .fthres()

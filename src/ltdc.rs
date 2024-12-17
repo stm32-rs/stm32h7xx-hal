@@ -142,21 +142,16 @@ impl DisplayController for Ltdc {
         });
 
         // Set synchronization pulse width
-        // TODO: The h_sync and v_sync values are not checked
-        self.ltdc.sscr().modify(|_, w| unsafe {
-            w.vsh()
-                .bits(config.v_sync - 1)
-                .hsw()
-                .bits(config.h_sync - 1)
+        self.ltdc.sscr().modify(|_, w| {
+            w.vsh().set(config.v_sync - 1).hsw().set(config.h_sync - 1)
         });
 
         // Set accumulated back porch
-        // TODO: The values are not checked
-        self.ltdc.bpcr().modify(|_, w| unsafe {
+        self.ltdc.bpcr().modify(|_, w| {
             w.avbp()
-                .bits(config.v_sync + config.v_back_porch - 1)
+                .set(config.v_sync + config.v_back_porch - 1)
                 .ahbp()
-                .bits(config.h_sync + config.h_back_porch - 1)
+                .set(config.h_sync + config.h_back_porch - 1)
         });
 
         // Set accumulated active width
@@ -164,9 +159,9 @@ impl DisplayController for Ltdc {
             config.v_sync + config.v_back_porch + config.active_height - 1;
         let aa_width =
             config.h_sync + config.h_back_porch + config.active_width - 1;
-        self.ltdc.awcr().modify(|_, w| unsafe {
-            w.aah().bits(aa_height).aaw().bits(aa_width)
-        });
+        self.ltdc
+            .awcr()
+            .modify(|_, w| w.aah().set(aa_height).aaw().set(aa_width));
 
         // Set total width and height
         let total_height: u16 = config.v_sync
@@ -179,9 +174,9 @@ impl DisplayController for Ltdc {
             + config.active_width
             + config.h_front_porch
             - 1;
-        // TODO: total_width is not checked
-        self.ltdc.twcr().modify(|_, w| unsafe {
-            w.totalh().bits(total_height).totalw().bits(total_width)
+
+        self.ltdc.twcr().modify(|_, w| {
+            w.totalh().set(total_height).totalw().set(total_width)
         });
 
         // Set the background color value
@@ -256,7 +251,7 @@ macro_rules! impl_layer {
                     let h_win_stop =
                         self.window_x1 + ltdc.bpcr().read().ahbp().bits();
                     layer.whpcr().modify(|_, w| {
-                        w.whstpos().bits(h_win_start).whsppos().bits(h_win_stop)
+                        w.whstpos().set(h_win_start).whsppos().set(h_win_stop)
                     });
 
                     // Configure the vertical start and stop position
@@ -265,19 +260,19 @@ macro_rules! impl_layer {
                     let v_win_stop =
                         self.window_y1 + ltdc.bpcr().read().avbp().bits();
                     layer.wvpcr().modify(|_, w| {
-                        w.wvstpos().bits(v_win_start).wvsppos().bits(v_win_stop)
+                        w.wvstpos().set(v_win_start).wvsppos().set(v_win_stop)
                     });
                 }
 
                 // Set the pixel format
-                layer.pfcr().modify(|_, w| w.pf().bits(pixel_format as u8));
+                layer.pfcr().modify(|_, w| w.pf().set(pixel_format as u8));
 
                 // Set the default color value
                 layer.dccr().reset(); // Transparent black
 
                 // Set the global constant alpha value
                 let alpha = 0xFF;
-                layer.cacr().modify(|_, w| w.consta().bits(alpha));
+                layer.cacr().modify(|_, w| w.consta().set(alpha));
 
                 // Set the blending factors
                 let blending_factor1 =
@@ -291,7 +286,7 @@ macro_rules! impl_layer {
                 // Set frame buffer
                 layer
                     .cfbar()
-                    .modify(|_, w| w.cfbadd().bits(start_ptr as u32));
+                    .modify(|_, w| w.cfbadd().set(start_ptr as u32));
 
                 // Calculate framebuffer pitch in bytes
                 self.bytes_per_pixel = match pixel_format {
@@ -307,13 +302,13 @@ macro_rules! impl_layer {
                 // Framebuffer pitch and line length
                 layer.cfblr().modify(|_, w| {
                     w.cfbp()
-                        .bits(width * self.bytes_per_pixel)
+                        .set(width * self.bytes_per_pixel)
                         .cfbll()
-                        .bits(width * self.bytes_per_pixel + 7)
+                        .set(width * self.bytes_per_pixel + 7)
                 });
 
                 // Framebuffer line number
-                layer.cfblnr().modify(|_, w| w.cfblnbr().bits(height));
+                layer.cfblnr().modify(|_, w| w.cfblnbr().set(height));
 
                 // Enable LTDC_Layer by setting LEN bit
                 layer.cr().modify(|_, w| w.len().set_bit());
@@ -346,7 +341,7 @@ macro_rules! impl_layer {
                 );
 
                 // Modify CFBP
-                self.layer.cfblr().modify(|_, w| w.cfbp().bits(pitch_bytes));
+                self.layer.cfblr().modify(|_, w| w.cfbp().set(pitch_bytes));
 
                 // Immediate reload
                 (*LTDC::ptr()).srcr().write(|w| w.imr().set_bit());
@@ -365,7 +360,7 @@ macro_rules! impl_layer {
                 // Set the new frame buffer address
                 self.layer
                     .cfbar()
-                    .modify(|_, w| w.cfbadd().bits(start_ptr as u32));
+                    .modify(|_, w| w.cfbadd().set(start_ptr as u32));
 
                 // Configure a shadow reload for the next blanking period
                 (*LTDC::ptr()).srcr().write(|w| w.vbr().set_bit());

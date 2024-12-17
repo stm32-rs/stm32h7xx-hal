@@ -226,9 +226,8 @@ macro_rules! pll_setup {
                 let pll_x_n = vco_ck_target / ref_x_ck;
 
                 // Write dividers
-                //NOTE(unsafe) Only valid bit patterns written, checked by vco_setup
-                rcc.pllckselr().modify(|_, w| unsafe {
-                    w.$divmX().bits(pll_x_m as u8) // ref prescaler
+                rcc.pllckselr().modify(|_, w| {
+                    w.$divmX().set(pll_x_m as u8) // ref prescaler
                 });
                 // unsafe as not all values are permitted: see RM0433
                 assert!(pll_x_n >= 4);
@@ -242,9 +241,8 @@ macro_rules! pll_setup {
                         // Calculate FRACN
                         let pll_x_fracn = calc_fracn(ref_x_ck as f32, pll_x_n as f32, pll_x as f32, output as f32);
                         //RCC_PLL1FRACR
-                        //NOTE(unsafe) Only valid bit patterns written, checked by calc_fracn
-                        rcc.$pllXfracr().modify(|_, w| unsafe {
-                            w.$fracnx().bits(pll_x_fracn)
+                        rcc.$pllXfracr().modify(|_, w| {
+                            w.$fracnx().set(pll_x_fracn)
                         });
                         // Enable FRACN
                         rcc.pllcfgr().modify(|_, w| {
@@ -261,9 +259,7 @@ macro_rules! pll_setup {
                         //RCC_PLL1FRACR
                         // TODO: This cant be right, calc_fracn only checks that pll_x_fracn <= the max value,
                         // since we have now incremented it by 1, that check does no longer hold?
-                        rcc.$pllXfracr().modify(|_, w| unsafe {
-                            w.$fracnx().bits(pll_x_fracn)
-                        });
+                        rcc.$pllXfracr().modify(|_, w| w.$fracnx().set(pll_x_fracn));
                         // Enable FRACN
                         rcc.pllcfgr().modify(|_, w| {
                             w.$pllXfracen().set_()

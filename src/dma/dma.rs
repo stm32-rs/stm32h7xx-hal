@@ -356,7 +356,7 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         unsafe {
             Self::stream()
                 .fcr()
-                .modify(|_, w| w.fth().bits(fifo_threshold.bits()));
+                .modify(|_, w| w.fth().set(fifo_threshold.bits()));
         }
     }
 
@@ -376,7 +376,7 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         unsafe {
             Self::stream()
                 .cr()
-                .modify(|_, w| w.mburst().bits(memory_burst.bits()));
+                .modify(|_, w| w.mburst().set(memory_burst.bits()));
         }
     }
 
@@ -387,7 +387,7 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
         unsafe {
             Self::stream()
                 .cr()
-                .modify(|_, w| w.pburst().bits(peripheral_burst.bits()));
+                .modify(|_, w| w.pburst().set(peripheral_burst.bits()));
         }
     }
 
@@ -518,7 +518,7 @@ where
         unsafe {
             Self::stream()
                 .cr()
-                .modify(|_, w| w.pl().bits(priority.bits()));
+                .modify(|_, w| w.pl().set(priority.bits()));
         }
     }
 
@@ -645,7 +645,7 @@ where
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         //NOTE(unsafe) All bit pattern for ndt are valid
         unsafe {
-            Self::stream().ndtr().write(|w| w.ndt().bits(value));
+            Self::stream().ndtr().write(|w| w.ndt().set(value));
         }
     }
 

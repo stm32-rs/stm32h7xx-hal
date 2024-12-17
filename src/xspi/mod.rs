@@ -615,7 +615,7 @@ mod common {
                     #[cfg(any(feature = "rm0433", feature = "rm0399"))]
                     let w = {
                         let ir = instruction.bits_u8().unwrap();
-                        w.dcyc().bits(dummy_cycles).instruction().bits(ir).fmode().bits(fmode)
+                        w.dcyc().set(dummy_cycles).instruction().set(ir).fmode().set(fmode)
                     };
 
                     #[cfg(any(feature = "rm0455", feature = "rm0468"))]
@@ -694,7 +694,7 @@ mod common {
                 // Write the address. The transaction starts on the next write
                 // to DATA, unless there is no DATA phase configured, in which
                 // case it starts here.
-                self.rb.ar().write(|w| unsafe { w.address().bits(addr) });
+                self.rb.ar().write(|w| unsafe { w.address().bits(addr)});
 
                 Ok(())
             }
@@ -945,7 +945,7 @@ mod common {
                 // Write the length that should be read.
                 self.rb
                     .dlr()
-                    .write(|w| unsafe { w.dl().bits(length as u32 - 1) });
+                    .write(|w| unsafe { w.dl().bits(length as u32 - 1)});
 
                 // Setup extended mode. Read operations always have a data phase.
                 // Transaction starts here

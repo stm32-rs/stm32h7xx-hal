@@ -767,33 +767,31 @@ macro_rules! adc_hal {
                 fn set_chan_smp(&mut self, chan: u8) {
                     let t = self.get_sample_time().into();
                     if chan <= 9 {
-                        //NOTE(unsafe) Only valid bit patterns written
-                        self.rb.smpr1().modify(|_, w| unsafe { match chan {
-                            0 => w.smp0().bits(t),
-                            1 => w.smp1().bits(t),
-                            2 => w.smp2().bits(t),
-                            3 => w.smp3().bits(t),
-                            4 => w.smp4().bits(t),
-                            5 => w.smp5().bits(t),
-                            6 => w.smp6().bits(t),
-                            7 => w.smp7().bits(t),
-                            8 => w.smp8().bits(t),
-                            9 => w.smp9().bits(t),
+                        self.rb.smpr1().modify(|_, w| { match chan {
+                            0 => w.smp0().set(t),
+                            1 => w.smp1().set(t),
+                            2 => w.smp2().set(t),
+                            3 => w.smp3().set(t),
+                            4 => w.smp4().set(t),
+                            5 => w.smp5().set(t),
+                            6 => w.smp6().set(t),
+                            7 => w.smp7().set(t),
+                            8 => w.smp8().set(t),
+                            9 => w.smp9().set(t),
                             _ => unreachable!(),
                         }});
                     } else {
-                        //NOTE(unsafe) Only valid bit patterns written
-                        self.rb.smpr2().modify(|_, w| unsafe { match chan {
-                            10 => w.smp10().bits(t),
-                            11 => w.smp11().bits(t),
-                            12 => w.smp12().bits(t),
-                            13 => w.smp13().bits(t),
-                            14 => w.smp14().bits(t),
-                            15 => w.smp15().bits(t),
-                            16 => w.smp16().bits(t),
-                            17 => w.smp17().bits(t),
-                            18 => w.smp18().bits(t),
-                            19 => w.smp19().bits(t),
+                        self.rb.smpr2().modify(|_, w| { match chan {
+                            10 => w.smp10().set(t),
+                            11 => w.smp11().set(t),
+                            12 => w.smp12().set(t),
+                            13 => w.smp13().set(t),
+                            14 => w.smp14().set(t),
+                            15 => w.smp15().set(t),
+                            16 => w.smp16().set(t),
+                            17 => w.smp17().set(t),
+                            18 => w.smp18().set(t),
+                            19 => w.smp19().set(t),
                             _ => unreachable!(),
                         }});
                     }
@@ -805,16 +803,14 @@ macro_rules! adc_hal {
 
                     // Set LSHIFT[3:0]
                     //NOTE(unsafe) Only valid bit patterns written
-                    unsafe {
-                        self.rb.cfgr2().modify(|_, w| w.lshift().bits(self.get_lshift().value()));
-                    }
+                    self.rb.cfgr2().modify(|_, w| w.lshift().set(self.get_lshift().value()));
 
                     // Select channel (with preselection, refer to RM0433 Rev 7 - Chapter 25.4.12)
                     self.rb.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
                     self.set_chan_smp(chan);
                     self.rb.sqr1().modify(|_, w| unsafe {
                         w.sq1().bits(chan)
-                            .l().bits(0)
+                            .l().set(0)
                     });
                     self.current_channel = Some(chan);
 
@@ -854,14 +850,10 @@ macro_rules! adc_hal {
                     // Set resolution
                     self.rb.cfgr().modify(|_, w| unsafe { w.res().bits(self.get_resolution().into()) });
 
-
-                    //NOTE(unsafe) Only valid bit patterns written
-                    unsafe {
-                        self.rb.cfgr().modify(|_, w| w.dmngt().bits(match mode {
-                            AdcDmaMode::OneShot => 0b01,
-                            AdcDmaMode::Circular => 0b11,
-                        }));
-                    }
+                    self.rb.cfgr().modify(|_, w| w.dmngt().set(match mode {
+                        AdcDmaMode::OneShot => 0b01,
+                        AdcDmaMode::Circular => 0b11,
+                    }));
 
                     // Set continuous mode
                     self.rb.cfgr().modify(|_, w| w.cont().set_bit().discen().clear_bit() );

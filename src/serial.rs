@@ -634,8 +634,7 @@ macro_rules! usart {
 
                     // 16 times oversampling, OVER8 = 0
                     let brr = usartdiv as u16;
-                    //NOTE(unsafe) Only valid bit patterns written, checked above
-                    self.usart.brr().write(|w| unsafe { w.brr().bits(brr) });
+                    self.usart.brr().write(|w| w.brr().set(brr));
 
                     // Reset registers to disable advanced USART features
                     self.usart.cr2().reset();

@@ -38,24 +38,18 @@ impl Crc {
         // manual says unit must be reset (or DR read) before change of polynomial
         // (technically only in case of ongoing calculation, but DR is buffered)
         //NOTE(unsafe) Only valid bit patterns are written
-        self.reg.cr().modify(|_, w| unsafe {
+        self.reg.cr().modify(|_, w| {
             w.polysize()
-                .bits(config.poly.polysize())
+                .set(config.poly.polysize())
                 .rev_in()
-                .bits(config.get_reverse_input())
+                .set(config.get_reverse_input())
                 .rev_out()
                 .bit(config.reverse_output)
                 .reset()
                 .set_bit()
         });
-        //NOTE(unsafe) All bit patterns are valid
-        self.reg
-            .pol()
-            .write(|w| unsafe { w.pol().bits(config.poly.pol()) });
-        //NOTE(unsafe) All bit patterns are valid
-        self.reg
-            .init()
-            .write(|w| unsafe { w.init().bits(config.initial) });
+        self.reg.pol().write(|w| w.pol().set(config.poly.pol()));
+        self.reg.init().write(|w| w.init().set(config.initial));
         // writing to INIT sets DR to its value
     }
 
@@ -67,23 +61,18 @@ impl Crc {
         let mut words = data.chunks_exact(4);
         for word in words.by_ref() {
             let word = u32::from_be_bytes(word.try_into().unwrap());
-            //NOTE(unsafe) All bit patterns are valid
-            self.reg.dr().write(|w| unsafe { w.dr().bits(word) });
+            self.reg.dr().write(|w| w.dr().set(word));
         }
 
         // there will be at most 3 bytes remaining, so 1 half-word and 1 byte
         let mut half_word = words.remainder().chunks_exact(2);
         if let Some(half_word) = half_word.next() {
             let half_word = u16::from_be_bytes(half_word.try_into().unwrap());
-            //NOTE(unsafe) All bit patterns are valid
-            self.reg
-                .dr16()
-                .write(|w| unsafe { w.dr16().bits(half_word) });
+            self.reg.dr16().write(|w| w.dr16().set(half_word));
         }
 
         if let Some(byte) = half_word.remainder().first() {
-            //NOTE(unsafe) All bit patterns are valid
-            self.reg.dr8().write(|w| unsafe { w.dr8().bits(*byte) });
+            self.reg.dr8().write(|w| w.dr8().set(*byte));
         }
     }
 
@@ -136,7 +125,7 @@ impl Crc {
     /// The IDR is not involved with CRC calculation.
     pub fn set_idr(&mut self, value: u32) {
         //NOTE(unsafe) All bit patterns are valid
-        self.reg.idr().write(|w| unsafe { w.idr().bits(value) });
+        self.reg.idr().write(|w| w.idr().set(value));
     }
 
     /// Get the current value of the independent data register.

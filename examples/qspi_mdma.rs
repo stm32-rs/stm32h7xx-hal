@@ -70,9 +70,7 @@ fn main() -> ! {
     );
     qspi.configure_mode(QspiMode::FourBit).unwrap();
     // Disable address phase
-    qspi.inner_mut()
-        .ccr()
-        .modify(|_, w| unsafe { w.admode().bits(0) });
+    qspi.inner_mut().ccr().modify(|_, w| w.admode().set(0));
 
     // Source buffer in TCM
     let mut source_buffer: [u8; 80] = [0x4A; 80];

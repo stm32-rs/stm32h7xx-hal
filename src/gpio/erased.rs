@@ -82,18 +82,14 @@ impl<MODE> ErasedPin<Output<MODE>> {
     #[inline(always)]
     pub fn set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { self.block().bsrr().write(|w| w.bits(1 << self.pin_id())) };
+        self.block().bsrr().write(|w| w.bs(self.pin_id()).set_bit());
     }
 
     /// Drives the pin low
     #[inline(always)]
     pub fn set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe {
-            self.block()
-                .bsrr()
-                .write(|w| w.bits(1 << (self.pin_id() + 16)))
-        };
+        self.block().bsrr().write(|w| w.br(self.pin_id()).set_bit());
     }
 
     /// Is the pin in drive high or low mode?
@@ -124,7 +120,7 @@ impl<MODE> ErasedPin<Output<MODE>> {
     /// Is the pin in drive low mode?
     #[inline(always)]
     pub fn is_set_low(&self) -> bool {
-        self.block().odr().read().bits() & (1 << self.pin_id()) == 0
+        self.block().odr().read().odr(self.pin_id()).is_low()
     }
 
     /// Toggle pin output
@@ -151,6 +147,6 @@ where
     /// Is the input pin low?
     #[inline(always)]
     pub fn is_low(&self) -> bool {
-        self.block().idr().read().bits() & (1 << self.pin_id()) == 0
+        self.block().idr().read().idr(self.pin_id()).is_low()
     }
 }

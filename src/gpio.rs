@@ -317,11 +317,9 @@ where
         let offset = 2 * { N };
 
         unsafe {
-            (*Gpio::<P>::ptr()).ospeedr().modify(|r, w| {
-                w.bits(
-                    (r.bits() & !(0b11 << offset)) | ((speed as u32) << offset),
-                )
-            });
+            (*Gpio::<P>::ptr())
+                .ospeedr()
+                .modify(|_, w| w.ospeedr(offset).set(speed as u8));
         }
     }
 
@@ -339,11 +337,11 @@ where
     /// Set the internal pull-up and pull-down resistor
     pub fn set_internal_resistor(&mut self, resistor: Pull) {
         let offset = 2 * { N };
-        let value = resistor as u32;
+        let value = resistor as u8;
         unsafe {
-            (*Gpio::<P>::ptr()).pupdr().modify(|r, w| {
-                w.bits((r.bits() & !(0b11 << offset)) | (value << offset))
-            });
+            (*Gpio::<P>::ptr())
+                .pupdr()
+                .modify(|_, w| w.pupdr(offset).bits(value));
         }
     }
 
@@ -428,25 +426,25 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     fn _set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe {
-            (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << N));
+            (*Gpio::<P>::ptr()).bsrr().write(|w| w.bs(N).set_bit());
         }
     }
     #[inline(always)]
     fn _set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe {
-            (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << (16 + N)));
+            (*Gpio::<P>::ptr()).bsrr().write(|w| w.br(N).set_bit());
         }
     }
     #[inline(always)]
     fn _is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr().read().bits() & (1 << N) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).odr().read().odr(N).is_low() }
     }
     #[inline(always)]
     fn _is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << N) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr().read().idr(N).is_low() }
     }
 }
 

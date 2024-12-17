@@ -119,12 +119,9 @@ impl IndependentWatchdog {
             cortex_m::asm::nop();
         }
 
-        //NOTE(unsafe) 0xFFF is a valid bit patterns for w.win()
-        unsafe {
-            self.iwdg
-                .winr()
-                .write(|w| w.win().bits(Self::MAX_COUNTER_VALUE as u16));
-        }
+        self.iwdg
+            .winr()
+            .write(|w| w.win().set(Self::MAX_COUNTER_VALUE as u16));
 
         // Calculate the counter values
         let reload_value = max_window_time.to_millis()
@@ -138,10 +135,8 @@ impl IndependentWatchdog {
         while self.iwdg.sr().read().rvu().bit_is_set() {
             cortex_m::asm::nop();
         }
-        //NOTE(unsafe) Only valid bit patterns written, values are checked above for maximum value
-        unsafe {
-            self.iwdg.rlr().write(|w| w.rl().bits(reload_value as u16));
-        }
+
+        self.iwdg.rlr().write(|w| w.rl().set(reload_value as u16));
 
         self.feed();
         // Enable register access
@@ -153,11 +148,9 @@ impl IndependentWatchdog {
         }
 
         // TODO: There is nothing preventing this from underflowing right?
-        unsafe {
-            self.iwdg
-                .winr()
-                .write(|w| w.win().bits((reload_value - window_value) as u16));
-        }
+        self.iwdg
+            .winr()
+            .write(|w| w.win().set((reload_value - window_value) as u16));
 
         // Wait until everything is set
         while self.iwdg.sr().read().bits() != 0 {

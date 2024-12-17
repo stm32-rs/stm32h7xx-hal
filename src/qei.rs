@@ -183,8 +183,7 @@ macro_rules! tim_hal {
                     });
 
                     // configure as quadrature encoder
-                    //NOTE(unsafe) 3 is a valid bit patterns for w.sms()
-                    tim.smcr().write(|w| unsafe { w.sms().bits(3) });
+                    tim.smcr().write(|w| w.sms().set(3));
 
                     #[allow(unused_unsafe)] // method is safe for some timers
                     tim.arr().write(|w| unsafe { w.bits(u32::MAX) });

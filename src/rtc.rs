@@ -169,9 +169,7 @@ impl Rtc {
             RtcClock::Hse { divider } => {
                 // Set HSE divider
                 assert!(divider < 64, "HSE Divider larger than 63");
-                //NOTE(unsafe) Value is checked above
-                rcc.cfgr()
-                    .modify(|_, w| unsafe { w.rtcpre().bits(divider) });
+                rcc.cfgr().modify(|_, w| w.rtcpre().set(divider));
 
                 clocks.hse_ck().map(|x| x / u32(divider))
             }
@@ -233,11 +231,11 @@ impl Rtc {
         );
 
         //NOTE(unsafe) Only valid bit patterns are writte, values are checked above
-        rtc.prer().write(|w| unsafe {
+        rtc.prer().write(|w| {
             w.prediv_s()
-                .bits(u16(s_pre - 1).unwrap())
+                .set(u16(s_pre - 1).unwrap())
                 .prediv_a()
-                .bits(u8(a_pre - 1).unwrap())
+                .set(u8(a_pre - 1).unwrap())
         });
 
         // Exit initialization mode
@@ -262,9 +260,7 @@ impl Rtc {
     /// Panics if `reg` is greater than 31.
     pub fn write_backup_reg(&mut self, reg: u8, value: u32) {
         //NOTE(unsafe) All bit patterns are valid
-        self.reg
-            .bkpr(reg as usize)
-            .write(|w| unsafe { w.bkp().bits(value) });
+        self.reg.bkpr(reg as usize).write(|w| w.bkp().set(value));
     }
 
     /// Sets the date and time of the RTC
@@ -291,21 +287,21 @@ impl Rtc {
         let su = second % 10;
 
         //NOTE(unsafe) Only valid bit patterns are written
-        self.reg.tr().write(|w| unsafe {
+        self.reg.tr().write(|w| {
             w.pm()
                 .clear_bit()
                 .ht()
-                .bits(ht)
+                .set(ht)
                 .hu()
-                .bits(hu)
+                .set(hu)
                 .mnt()
-                .bits(mnt)
+                .set(mnt)
                 .mnu()
-                .bits(mnu)
+                .set(mnu)
                 .st()
-                .bits(st)
+                .set(st)
                 .su()
-                .bits(su)
+                .set(su)
         });
 
         let year = date_time.year();
@@ -325,19 +321,19 @@ impl Rtc {
 
         self.reg.dr().write(|w| unsafe {
             w.yt()
-                .bits(yt)
+                .set(yt)
                 .yu()
-                .bits(yu)
+                .set(yu)
                 .wdu()
                 .bits(wdu)
                 .mt()
                 .bit(mt)
                 .mu()
-                .bits(mu)
+                .set(mu)
                 .dt()
-                .bits(dt)
+                .set(dt)
                 .du()
-                .bits(du)
+                .set(du)
         });
 
         // Exit initialization mode
@@ -579,16 +575,16 @@ impl Rtc {
                 .modify(|_, w| unsafe { w.wucksel().bits(0b110) });
             let interval = u16(interval - (1 << 16) - 1)
                 .expect("Interval was too large for wakeup timer");
-            //NOTE(unsafe) Value is checked before being written
-            self.reg.wutr().write(|w| unsafe { w.wut().bits(interval) });
+
+            self.reg.wutr().write(|w| w.wut().set(interval));
         } else {
             self.reg
                 .cr()
                 .modify(|_, w| unsafe { w.wucksel().bits(0b100) });
             let interval = u16(interval - 1)
                 .expect("Interval was too large for wakeup timer");
-            //NOTE(unsafe) Value is checked before being written
-            self.reg.wutr().write(|w| unsafe { w.wut().bits(interval) });
+
+            self.reg.wutr().write(|w| w.wut().set(interval));
         }
 
         self.reg.cr().modify(|_, w| w.wute().set_bit());

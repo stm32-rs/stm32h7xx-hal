@@ -259,9 +259,9 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
         unsafe {
             if MODE::OTYPER != M::OTYPER {
                 if let Some(otyper) = M::OTYPER {
-                    (*Gpio::<P>::ptr()).otyper().modify(|r, w| {
-                        w.bits(r.bits() & !(0b1 << N) | (otyper << N))
-                    });
+                    (*Gpio::<P>::ptr())
+                        .otyper()
+                        .modify(|_, w| w.ot(N).bit(otyper));
                 }
             }
 
@@ -269,30 +269,22 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
                 if let Some(afr) = M::AFR {
                     if N < 8 {
                         let offset2 = 4 * { N };
-                        (*Gpio::<P>::ptr()).afrl().modify(|r, w| {
-                            w.bits(
-                                (r.bits() & !(0b1111 << offset2))
-                                    | (afr << offset2),
-                            )
-                        });
+                        (*Gpio::<P>::ptr())
+                            .afrl()
+                            .modify(|_, w| w.afr(offset2).set(afr));
                     } else {
                         let offset2 = 4 * { N - 8 };
-                        (*Gpio::<P>::ptr()).afrh().modify(|r, w| {
-                            w.bits(
-                                (r.bits() & !(0b1111 << offset2))
-                                    | (afr << offset2),
-                            )
-                        });
+                        (*Gpio::<P>::ptr())
+                            .afrh()
+                            .modify(|_, w| w.afr(offset2).set(afr));
                     }
                 }
             }
 
             if MODE::MODER != M::MODER {
-                (*Gpio::<P>::ptr()).moder().modify(|r, w| {
-                    w.bits(
-                        (r.bits() & !(0b11 << offset)) | (M::MODER << offset),
-                    )
-                });
+                (*Gpio::<P>::ptr())
+                    .moder()
+                    .modify(|_, w| w.moder(offset).set(M::MODER));
             }
         }
     }
@@ -435,43 +427,43 @@ pub trait PinMode: crate::Sealed {
     // They are not part of public API.
 
     #[doc(hidden)]
-    const MODER: u32 = u32::MAX;
+    const MODER: u8 = u8::MAX;
     #[doc(hidden)]
-    const OTYPER: Option<u32> = None;
+    const OTYPER: Option<bool> = None;
     #[doc(hidden)]
-    const AFR: Option<u32> = None;
+    const AFR: Option<u8> = None;
 }
 
 impl crate::Sealed for Input {}
 impl PinMode for Input {
-    const MODER: u32 = 0b00;
+    const MODER: u8 = 0b00;
 }
 
 impl crate::Sealed for Analog {}
 impl PinMode for Analog {
-    const MODER: u32 = 0b11;
+    const MODER: u8 = 0b11;
 }
 
 impl<Otype> crate::Sealed for Output<Otype> {}
 impl PinMode for Output<OpenDrain> {
-    const MODER: u32 = 0b01;
-    const OTYPER: Option<u32> = Some(0b1);
+    const MODER: u8 = 0b01;
+    const OTYPER: Option<bool> = Some(true);
 }
 
 impl PinMode for Output<PushPull> {
-    const MODER: u32 = 0b01;
-    const OTYPER: Option<u32> = Some(0b0);
+    const MODER: u8 = 0b01;
+    const OTYPER: Option<bool> = Some(false);
 }
 
 impl<const A: u8, Otype> crate::Sealed for Alternate<A, Otype> {}
 impl<const A: u8> PinMode for Alternate<A, OpenDrain> {
-    const MODER: u32 = 0b10;
-    const OTYPER: Option<u32> = Some(0b1);
-    const AFR: Option<u32> = Some(A as _);
+    const MODER: u8 = 0b10;
+    const OTYPER: Option<bool> = Some(true);
+    const AFR: Option<u8> = Some(A as _);
 }
 
 impl<const A: u8> PinMode for Alternate<A, PushPull> {
-    const MODER: u32 = 0b10;
-    const OTYPER: Option<u32> = Some(0b0);
-    const AFR: Option<u32> = Some(A as _);
+    const MODER: u8 = 0b10;
+    const OTYPER: Option<bool> = Some(false);
+    const AFR: Option<u8> = Some(A as _);
 }

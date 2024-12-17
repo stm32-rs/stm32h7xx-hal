@@ -835,16 +835,15 @@ impl Rcc {
         //
         // It is highly recommended to configure these bits only after
         // reset, before enabling the external oscillators and the PLLs.
-        //NOTE(unsafe) Only valid bit patterns written
-        rcc.cfgr().modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| {
             w.mco1()
                 .variant(self.config.mco1.source)
                 .mco1pre()
-                .bits(mco_1_pre)
+                .set(mco_1_pre)
                 .mco2()
                 .variant(self.config.mco2.source)
                 .mco2pre()
-                .bits(mco_2_pre)
+                .set(mco_2_pre)
         });
 
         // HSE
@@ -892,20 +891,20 @@ impl Rcc {
 
         // Core Prescaler / AHB Prescaler / APB3 Prescaler
         #[cfg(not(feature = "rm0455"))]
-        rcc.d1cfgr().modify(|_, w| unsafe {
+        rcc.d1cfgr().modify(|_, w| {
             w.d1cpre()
-                .bits(d1cpre_bits)
+                .set(d1cpre_bits)
                 .d1ppre() // D1 contains APB3
-                .bits(ppre3_bits)
+                .set(ppre3_bits)
                 .hpre()
                 .variant(hpre_bits)
         });
         #[cfg(feature = "rm0455")]
-        rcc.cdcfgr1().modify(|_, w| unsafe {
+        rcc.cdcfgr1().modify(|_, w| {
             w.cdcpre()
-                .bits(d1cpre_bits)
+                .set(d1cpre_bits)
                 .cdppre() // D1/CD contains APB3
-                .bits(ppre3_bits)
+                .set(ppre3_bits)
                 .hpre()
                 .variant(hpre_bits)
         });
@@ -918,25 +917,25 @@ impl Rcc {
 
         // APB1 / APB2 Prescaler
         #[cfg(not(feature = "rm0455"))]
-        rcc.d2cfgr().modify(|_, w| unsafe {
+        rcc.d2cfgr().modify(|_, w| {
             w.d2ppre1() // D2 contains APB1
-                .bits(ppre1_bits)
+                .set(ppre1_bits)
                 .d2ppre2() // D2 also contains APB2
-                .bits(ppre2_bits)
+                .set(ppre2_bits)
         });
         #[cfg(feature = "rm0455")]
-        rcc.cdcfgr2().modify(|_, w| unsafe {
+        rcc.cdcfgr2().modify(|_, w| {
             w.cdppre1() // D2/CD contains APB1
-                .bits(ppre1_bits)
+                .set(ppre1_bits)
                 .cdppre2() // D2/CD also contains APB2
-                .bits(ppre2_bits)
+                .set(ppre2_bits)
         });
 
         // APB4 Prescaler
         #[cfg(not(feature = "rm0455"))]
-        rcc.d3cfgr().modify(|_, w| unsafe {
+        rcc.d3cfgr().modify(|_, w| {
             w.d3ppre() // D3 contains APB4
-                .bits(ppre4_bits)
+                .set(ppre4_bits)
         });
         #[cfg(feature = "rm0455")]
         rcc.srdcfgr().modify(|_, w| unsafe {

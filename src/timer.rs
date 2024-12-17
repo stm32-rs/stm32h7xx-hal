@@ -116,7 +116,7 @@ impl GetClk for LPTIM3 {
         // unsafe: read only
         let srdccipr = &unsafe { &*stm32::RCC::ptr() }.srdccipr();
 
-        match srdccipr.read().lptim3sel().bits() {
+        match srdccipr.read().lptim3sel().set() {
             0 => Some(clocks.pclk4()),
             1 => clocks.pll2_p_ck(),
             2 => clocks.pll3_r_ck(),
@@ -439,8 +439,7 @@ macro_rules! hal {
                 fn set_timeout_ticks(&mut self, ticks: u32) {
                     let (psc, arr) = calculate_timeout_ticks_register_values(ticks);
                     //NOTE(unsafe) All bit patterns are valid
-                    self.tim.psc().write(|w| unsafe { w.psc().bits(psc) });
-                    #[allow(unused_unsafe)] // method is safe for some timers
+                    self.tim.psc().write(|w| w.psc().set(psc));
                     self.tim.arr().write(|w| unsafe { w.bits(u32(arr)) });
                 }
 
@@ -454,10 +453,10 @@ macro_rules! hal {
 
                     let psc = u16(div - 1).unwrap();
                     //NOTE(unsafe) All bit patterns are valid
-                    self.tim.psc().write(|w| unsafe { w.psc().bits(psc) });
+                    self.tim.psc().write(|w| w.psc().set(psc));
 
                     let counter_max = u32(<$cntType>::MAX);
-                    #[allow(unused_unsafe)] // method is safe for some timers
+                    //NOTE(unsafe) All bit patterns are valid
                     self.tim.arr().write(|w| unsafe { w.bits(counter_max) });
                 }
 
@@ -830,7 +829,7 @@ macro_rules! lptim_hal {
 
                     // Write ARR: LPTIM must be enabled
                     //NOTE(unsafe) All bit patterns are valid
-                    self.tim.arr().write(|w| unsafe { w.arr().bits(arr as u16) });
+                    self.tim.arr().write(|w| w.arr().set(arr as u16));
                     while self.tim.isr().read().arrok().bit_is_clear() {}
                     self.tim.icr().write(|w| w.arrokcf().clear());
                 }
@@ -868,8 +867,7 @@ macro_rules! lptim_hal {
                     // Set ARR = max
 
                     // Write ARR: LPTIM must be enabled
-                    //NOTE(unsafe) 0xFFFF is a valid bit pattern
-                    self.tim.arr().write(|w| unsafe { w.arr().bits(0xFFFF as u16) });
+                    self.tim.arr().write(|w| w.arr().set(0xFFFF as u16));
                     while self.tim.isr().read().arrok().bit_is_clear() {}
                     self.tim.icr().write(|w| w.arrokcf().clear());
                 }

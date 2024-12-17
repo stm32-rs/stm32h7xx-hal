@@ -121,10 +121,8 @@ impl Watchdog for SystemWindowWatchdog {
     fn feed(&mut self) {
         // if this value is 0 it is assumed that the watchdog has not yet been started
         assert!(self.down_counter != 0);
-        //NOTE(unsafe) Only valid bit patterns written, checked on start
-        self.wwdg
-            .cr()
-            .modify(|_, w| unsafe { w.t().bits(self.down_counter) });
+
+        self.wwdg.cr().modify(|_, w| w.t().set(self.down_counter));
     }
 }
 
@@ -163,20 +161,11 @@ impl WatchdogEnable for SystemWindowWatchdog {
         self.down_counter = u8(t).unwrap() | (1 << 6);
 
         // write the config values, matching the set timeout the most
-        //NOTE(unsafe) Only valid bit patterns written
-        self.wwdg
-            .cfr()
-            .modify(|_, w| unsafe { w.wdgtb().bits(wdgtb) });
+        self.wwdg.cfr().modify(|_, w| w.wdgtb().set(wdgtb));
 
-        //NOTE(unsafe) Only valid bit patterns written, checked above
-        self.wwdg
-            .cfr()
-            .modify(|_, w| unsafe { w.w().bits(self.down_counter) });
+        self.wwdg.cfr().modify(|_, w| w.w().set(self.down_counter));
 
-        //NOTE(unsafe) Only valid bit patterns written, checked above
-        self.wwdg
-            .cr()
-            .modify(|_, w| unsafe { w.t().bits(self.down_counter) });
+        self.wwdg.cr().modify(|_, w| w.t().set(self.down_counter));
         // For some reason, setting the t value makes the early wakeup pending.
         // That's bad behaviour, so lets turn it off again.
         self.unpend(Event::EarlyWakeup);

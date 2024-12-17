@@ -1142,12 +1142,10 @@ macro_rules! tim_hal {
                 };
 
                 // Write prescale
-                //NOTE(unsafe) Only valid bit patterns written, checked by calculate_frequency_{16,32}bit
-                tim.psc().write(|w| unsafe { w.psc().bits(prescale as u16) });
+                tim.psc().write(|w| w.psc().set(prescale as u16));
 
                 // Write period
-                //NOTE(unsafe) Only valid bit patterns written, checked by calculate_frequency_{16,32}bit
-                tim.arr().write(|w| unsafe { w.arr().bits(period as $typ) });
+                tim.arr().write(|w| w.arr().set(period as $typ));
 
                 // BDTR: Advanced-control timers
                 $(
@@ -1210,12 +1208,10 @@ macro_rules! tim_hal {
                     };
 
                     // Write prescaler
-                    //NOTE(unsafe) Only valid bit patterns written, checked by calculate_frequency_{16,32}bit
-                    tim.psc().write(|w| unsafe { w.psc().bits(prescaler as u16) });
+                    tim.psc().write(|w| w.psc().set(prescaler as u16));
 
                     // Write period
-                    //NOTE(unsafe) Only valid bit patterns written, checked by calculate_frequency_{16,32}bit
-                    tim.arr().write(|w| unsafe { w.arr().bits(period as $typ) });
+                    tim.arr().write(|w| w.arr().set(period as $typ));
 
                     $(
                         let (dtg, ckd) = calculate_deadtime(self.base_freq, self.deadtime);
@@ -1255,7 +1251,7 @@ macro_rules! tim_hal {
                                 //  BK2E = 1 -> break is enabled
                                 //  BK2P = 0 for active low, 1 for active high
                                 // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
-                                unsafe { tim.$bdtr().write(|w| w.dtg().bits(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
+                                unsafe { tim.$bdtr().write(|w| w.dtg().set(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
 
                                 // AF1:
                                 //  BKINE = 1 -> break input enabled
@@ -1501,8 +1497,7 @@ macro_rules! tim_pin_hal {
                 fn set_duty(&mut self, duty: Self::Duty) {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    //NOTE(unsafe) All bit patterns are valid
-                    tim.ccr($CH as usize).write(|w| unsafe { w.ccr().bits(duty) });
+                    tim.ccr($CH as usize).write(|w| { w.ccr().set(duty) });
                 }
             }
 
@@ -1754,8 +1749,7 @@ macro_rules! lptim_hal {
                 tim.cr().modify(|_, w| w.enable().enabled());
 
                 // Write ARR: LPTIM must be enabled
-                //NOTE(unsafe) All bit patterns are valid
-                tim.arr().write(|w| unsafe { w.arr().bits(arr as u16) });
+                tim.arr().write(|w| { w.arr().set(arr as u16) });
                 while !tim.isr().read().arrok().is_set() {}
                 tim.icr().write(|w| w.arrokcf().clear());
 
@@ -1802,8 +1796,7 @@ macro_rules! lptim_hal {
                 fn set_duty(&mut self, duty: u16) {
                     let tim = unsafe { &*<$TIMX>::ptr() };
 
-                    //NOTE(unsafe) All bit patterns are valid
-                    tim.cmp().write(|w| unsafe { w.cmp().bits(duty) });
+                    tim.cmp().write(|w| { w.cmp().set(duty) });
                     while !tim.isr().read().cmpok().is_set() {}
                     tim.icr().write(|w| w.cmpokcf().clear());
                 }

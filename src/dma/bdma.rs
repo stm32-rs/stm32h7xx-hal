@@ -357,7 +357,7 @@ where
         unsafe {
             Self::stream()
                 .cr()
-                .modify(|_, w| w.pl().bits(priority.bits()));
+                .modify(|_, w| w.pl().set(priority.bits()));
         }
     }
 
@@ -466,7 +466,7 @@ where
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
         //NOTE(unsafe) All bit patterns are valid for ndt
         unsafe {
-            Self::stream().ndtr().write(|w| w.ndt().bits(value));
+            Self::stream().ndtr().write(|w| w.ndt().set(value));
         }
     }
     #[inline(always)]

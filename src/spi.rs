@@ -670,24 +670,21 @@ pub trait HalSpi: Sized {
 
 macro_rules! spi {
     (DSIZE, $spi:ident,  u8) => {
-        //NOTE(unsafe) 7 is a valid bit patterns
-        $spi.cfg1().modify(|_, w| unsafe {
+        $spi.cfg1().modify(|_, w| {
             w.dsize()
-                .bits(8 - 1) // 8 bit words
+                .set(8 - 1) // 8 bit words
         });
     };
     (DSIZE, $spi:ident, u16) => {
-        //NOTE(unsafe) 15 is a valid bit pattern
-        $spi.cfg1().modify(|_, w| unsafe {
+        $spi.cfg1().modify(|_, w| {
             w.dsize()
-                .bits(16 - 1) // 16 bit words
+                .set(16 - 1) // 16 bit words
         });
     };
     (DSIZE, $spi:ident, u32) => {
-        //NOTE(unsafe) 31 is a valid bit pattern
-        $spi.cfg1().modify(|_, w| unsafe {
+        $spi.cfg1().modify(|_, w| {
             w.dsize()
-                .bits(32 - 1) // 32 bit words
+                .set(32 - 1) // 32 bit words
         });
     };
 	($($SPIX:ident: ($spiX:ident, $Rec:ident, $pclkX:ident)
@@ -776,8 +773,7 @@ macro_rules! spi {
                         // mstr: master configuration
                         // lsbfrst: MSB first
                         // comm: full-duplex
-                        //NOTE(unsafe) Only valid bit patterns written, checked above
-                        spi.cfg2().write(|w| unsafe {
+                        spi.cfg2().write(|w| {
                             w.cpha()
                                 .bit(config.mode.phase ==
                                      Phase::CaptureOnSecondTransition)
@@ -794,9 +790,9 @@ macro_rules! spi {
                                 .ssoe()
                                 .bit(config.hardware_cs.enabled() == true)
                                 .mssi()
-                                .bits(assertion_delay)
+                                .set(assertion_delay)
                                 .midi()
-                                .bits(inter_word_delay)
+                                .set(inter_word_delay)
                                 .ioswp()
                                 .bit(config.swap_miso_mosi == true)
                                 .comm()
@@ -807,9 +803,8 @@ macro_rules! spi {
 
                         // Reset to default (might have been set if previously used by a frame transaction)
                         // So that is 1 when it's a frame transaction and 0 when in another mode
-                        //NOTE(unsafe) Only valid bit patterns written
-                        spi.cr2().write(|w| unsafe {
-                            w.tsize().bits(matches!(config.hardware_cs.mode, HardwareCSMode::FrameTransaction) as u16)
+                        spi.cr2().write(|w| {
+                            w.tsize().set(matches!(config.hardware_cs.mode, HardwareCSMode::FrameTransaction) as u16)
                         });
 
                         // spe: enable the SPI bus
@@ -869,8 +864,7 @@ macro_rules! spi {
                         self.spi.cr1().write(|w| w.ssi().slave_not_selected().spe().disabled());
 
                         // Set the frame size
-                        //NOTE(unsafe) Only valid bit patterns are written
-                        self.spi.cr2().write(|w| unsafe { w.tsize().bits(words.get())});
+                        self.spi.cr2().write(|w| w.tsize().set(words.get()));
 
                         // Re-enable
                         self.clear_modf(); // SPE cannot be set when MODF is set
