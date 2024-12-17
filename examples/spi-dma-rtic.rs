@@ -147,7 +147,7 @@ mod app {
             transfer.pause(|spi| {
                 // At this point, the DMA transfer is done, but the data is still in the SPI output
                 // FIFO. Wait for it to complete before disabling CS.
-                while spi.inner().sr.read().txc().bit_is_clear() {}
+                while spi.inner().sr().read().txc().bit_is_clear() {}
                 cs.set_high();
             });
         });
@@ -163,8 +163,8 @@ mod app {
 
                 // Enable TX DMA support, enable the SPI peripheral, and start the transaction.
                 spi.enable_dma_tx();
-                spi.inner_mut().cr1.modify(|_, w| w.spe().enabled());
-                spi.inner_mut().cr1.modify(|_, w| w.cstart().started());
+                spi.inner_mut().cr1().modify(|_, w| w.spe().enabled());
+                spi.inner_mut().cr1().modify(|_, w| w.cstart().started());
 
                 // The transaction immediately begins as the TX FIFO is now being filled by DMA.
             });
