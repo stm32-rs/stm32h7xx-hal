@@ -230,7 +230,6 @@ impl Rtc {
             "Invalid RTC prescaler value"
         );
 
-        //NOTE(unsafe) Only valid bit patterns are writte, values are checked above
         rtc.prer().write(|w| {
             w.prediv_s()
                 .set(u16(s_pre - 1).unwrap())
@@ -259,7 +258,6 @@ impl Rtc {
     ///
     /// Panics if `reg` is greater than 31.
     pub fn write_backup_reg(&mut self, reg: u8, value: u32) {
-        //NOTE(unsafe) All bit patterns are valid
         self.reg.bkpr(reg as usize).write(|w| w.bkp().set(value));
     }
 
@@ -286,7 +284,6 @@ impl Rtc {
         let st = second / 10;
         let su = second % 10;
 
-        //NOTE(unsafe) Only valid bit patterns are written
         self.reg.tr().write(|w| {
             w.pm()
                 .clear_bit()

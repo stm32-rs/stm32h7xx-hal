@@ -116,7 +116,7 @@ impl GetClk for LPTIM3 {
         // unsafe: read only
         let srdccipr = &unsafe { &*stm32::RCC::ptr() }.srdccipr();
 
-        match srdccipr.read().lptim3sel().set() {
+        match srdccipr.read().lptim3sel().bits() {
             0 => Some(clocks.pclk4()),
             1 => clocks.pll2_p_ck(),
             2 => clocks.pll3_r_ck(),
@@ -452,7 +452,6 @@ macro_rules! hal {
                     let div = self.clk / frequency.raw();
 
                     let psc = u16(div - 1).unwrap();
-                    //NOTE(unsafe) All bit patterns are valid
                     self.tim.psc().write(|w| w.psc().set(psc));
 
                     let counter_max = u32(<$cntType>::MAX);

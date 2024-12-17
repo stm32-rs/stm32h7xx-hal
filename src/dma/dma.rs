@@ -352,7 +352,6 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
     #[inline(always)]
     fn set_fifo_threshold(&mut self, fifo_threshold: config::FifoThreshold) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) We only write valid bit patterns
         unsafe {
             Self::stream()
                 .fcr()
@@ -372,7 +371,6 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
     #[inline(always)]
     fn set_memory_burst(&mut self, memory_burst: config::BurstMode) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) We only write valid bit patterns
         unsafe {
             Self::stream()
                 .cr()
@@ -383,7 +381,6 @@ impl<I: Instance, const S: u8> StreamX<I, S> {
     #[inline(always)]
     fn set_peripheral_burst(&mut self, peripheral_burst: config::BurstMode) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) We only write valid bit patterns
         unsafe {
             Self::stream()
                 .cr()
@@ -514,7 +511,6 @@ where
     #[inline(always)]
     fn set_priority(&mut self, priority: config::Priority) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) We only write valid bit patterns
         unsafe {
             Self::stream()
                 .cr()
@@ -643,7 +639,6 @@ where
     #[inline(always)]
     fn set_number_of_transfers(&mut self, value: u16) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) All bit pattern for ndt are valid
         unsafe {
             Self::stream().ndtr().write(|w| w.ndt().set(value));
         }

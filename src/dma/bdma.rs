@@ -353,7 +353,6 @@ where
     #[inline(always)]
     fn set_priority(&mut self, priority: config::Priority) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) We only write valid bit patterns
         unsafe {
             Self::stream()
                 .cr()
@@ -464,7 +463,6 @@ where
     #[inline(always)]
     fn set_number_of_transfers(&mut self, value: u16) {
         //NOTE(unsafe) We only access the registers that belongs to the StreamX
-        //NOTE(unsafe) All bit patterns are valid for ndt
         unsafe {
             Self::stream().ndtr().write(|w| w.ndt().set(value));
         }

@@ -37,7 +37,6 @@ impl Crc {
 
         // manual says unit must be reset (or DR read) before change of polynomial
         // (technically only in case of ongoing calculation, but DR is buffered)
-        //NOTE(unsafe) Only valid bit patterns are written
         self.reg.cr().modify(|_, w| {
             w.polysize()
                 .set(config.poly.polysize())
@@ -124,7 +123,6 @@ impl Crc {
     ///
     /// The IDR is not involved with CRC calculation.
     pub fn set_idr(&mut self, value: u32) {
-        //NOTE(unsafe) All bit patterns are valid
         self.reg.idr().write(|w| w.idr().set(value));
     }
 

@@ -162,9 +162,7 @@ impl WatchdogEnable for SystemWindowWatchdog {
 
         // write the config values, matching the set timeout the most
         self.wwdg.cfr().modify(|_, w| w.wdgtb().set(wdgtb));
-
         self.wwdg.cfr().modify(|_, w| w.w().set(self.down_counter));
-
         self.wwdg.cr().modify(|_, w| w.t().set(self.down_counter));
         // For some reason, setting the t value makes the early wakeup pending.
         // That's bad behaviour, so lets turn it off again.

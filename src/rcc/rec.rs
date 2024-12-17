@@ -76,8 +76,6 @@ use super::Rcc;
 use crate::stm32::{rcc, RCC};
 use cortex_m::interrupt;
 
-//const X: stm32h7::stm32h743v::rcc::d1ccipr::FMCSEL = ();
-
 /// A trait for Resetting, Enabling and Disabling a single peripheral
 pub trait ResetEnable {
     /// Enable this peripheral
