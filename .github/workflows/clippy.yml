@@ -8,6 +8,9 @@ name: Clippy
 jobs:
   clippy_check:
     runs-on: ubuntu-latest
+    env:
+      FLAGS: rt,defmt,log
+      PERIPHERAL: xspi,sdmmc,sdmmc-fatfs,fmc,usb_hs,rtc,ethernet,ltdc,crc,rand,can,dsi
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -17,4 +20,4 @@ jobs:
           components: clippy
       - uses: clechasseur/rs-clippy-check@v3
         with:
-          args: --examples --target thumbv7em-none-eabihf --features=rt,stm32h743v -- -D warnings
+          args: --examples --target thumbv7em-none-eabihf --features=stm32h743v,${{ env.FLAGS }},${{ env.PERIPHERAL }} -- -D warnings
