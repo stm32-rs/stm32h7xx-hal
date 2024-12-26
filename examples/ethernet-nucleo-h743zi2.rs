@@ -39,9 +39,9 @@ fn systick_init(syst: &mut stm32::SYST, clocks: CoreClocks) {
     syst.enable_counter();
 }
 
-/// ======================================================================
-/// Entry point
-/// ======================================================================
+// ======================================================================
+// Entry point
+// ======================================================================
 
 /// TIME is an atomic u32 that counts milliseconds. Although not used
 /// here, it is very useful to have for network protocols

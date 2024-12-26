@@ -339,7 +339,7 @@ fn main() -> ! {
             let mut buf = WriteTo::new(&mut buf);
             write!(&mut buf, "f: {frame}").unwrap();
             frame += 1;
-            colored_label(buf.as_str().unwrap(), 50, 20, Rgb888::RED, draw)
+            colored_label(buf.into_str().unwrap(), 50, 20, Rgb888::RED, draw)
                 .unwrap();
 
             display_test(draw).unwrap();

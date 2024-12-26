@@ -48,18 +48,16 @@ fn main() -> ! {
     let mut delay = cp.SYST.delay(ccdr.clocks);
 
     loop {
-        loop {
-            led1.set_high();
-            led2.set_low();
-            led3.set_high();
-            led4.set_low();
-            delay.delay_ms(500_u16);
+        led1.set_high();
+        led2.set_low();
+        led3.set_high();
+        led4.set_low();
+        delay.delay_ms(500_u16);
 
-            led1.set_low();
-            led2.set_high();
-            led3.set_low();
-            led4.set_high();
-            delay.delay_ms(500_u16);
-        }
+        led1.set_low();
+        led2.set_high();
+        led3.set_low();
+        led4.set_high();
+        delay.delay_ms(500_u16);
     }
 }
