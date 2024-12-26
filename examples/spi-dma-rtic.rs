@@ -12,23 +12,27 @@ use core::mem::MaybeUninit;
 #[macro_use]
 mod utilities;
 
-// The number of bytes to transfer.
-const BUFFER_SIZE: usize = 100;
-
-// DMA1/DMA2 cannot interact with our stack. Instead, buffers for use with the
-// DMA must be placed somewhere that DMA1/DMA2 can access. In this case we use
-// AXI SRAM.
-//
-// The runtime does not initialise these SRAM banks
-#[link_section = ".axisram.buffers"]
-static mut BUFFER: MaybeUninit<[u8; BUFFER_SIZE]> = MaybeUninit::uninit();
-
 #[rtic::app(device = stm32h7xx_hal::stm32, peripherals = true)]
 mod app {
     use hal::prelude::*;
     use stm32h7xx_hal as hal;
 
     use super::*;
+
+    // TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+    use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
+    // The number of bytes to transfer.
+    const BUFFER_SIZE: usize = 100;
+
+    // DMA1/DMA2 cannot interact with our stack. Instead, buffers for use with the
+    // DMA must be placed somewhere that DMA1/DMA2 can access. In this case we use
+    // AXI SRAM.
+    //
+    // The runtime does not initialise these SRAM banks
+    #[link_section = ".axisram.buffers"]
+    static BUFFER: MaybeUninit<SyncUnsafeCell<[u8; BUFFER_SIZE]>> =
+        MaybeUninit::uninit();
 
     #[shared]
     struct SharedResources {
@@ -94,24 +98,19 @@ mod app {
             .speed(hal::gpio::Speed::VeryHigh);
         cs.set_high();
 
-        // Initialize our transmit buffer.
-        let buffer: &'static mut [u8; BUFFER_SIZE] = {
-            let buf: &mut [MaybeUninit<u8>; BUFFER_SIZE] = unsafe {
-                &mut *(core::ptr::addr_of_mut!(BUFFER)
-                    as *mut [MaybeUninit<u8>; BUFFER_SIZE])
-            };
-
-            for (i, value) in buf.iter_mut().enumerate() {
-                unsafe {
-                    value.as_mut_ptr().write(i as u8 + 0x60); // 0x60, 0x61, 0x62...
-                }
+        // BUFFER is located in .axisram.buffers, which is not initialized by the
+        // runtime. We must manually initialize it to a valid value, without taking
+        // a reference to the uninitialized value
+        unsafe {
+            let cell = BUFFER.as_ptr();
+            for i in 0..BUFFER_SIZE {
+                core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                    .write(i as u8 + 96); // 0x60, 0x61, 0x62...
             }
-
-            #[allow(static_mut_refs)] // TODO: Fix this
-            unsafe {
-                BUFFER.assume_init_mut()
-            }
-        };
+        }
+        // Now we can take a mutable reference to BUFFER. To avoid aliasing,
+        // this reference must only be taken once
+        let buffer = unsafe { &mut *SyncUnsafeCell::raw_get(BUFFER.as_ptr()) };
 
         let streams = hal::dma::dma::StreamsTuple::new(
             ctx.device.DMA1,

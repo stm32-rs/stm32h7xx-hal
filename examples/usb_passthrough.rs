@@ -8,9 +8,13 @@
 #![no_std]
 #![no_main]
 
-use panic_itm as _;
+#[allow(unused)]
+mod utilities;
 
 use core::mem::MaybeUninit;
+
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
 
 use cortex_m_rt::entry;
 
@@ -20,8 +24,10 @@ use stm32h7xx_hal::{prelude::*, stm32};
 
 use usb_device::prelude::*;
 
-static mut EP_MEMORY_1: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
-static mut EP_MEMORY_2: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
+static EP_MEMORY_1: MaybeUninit<SyncUnsafeCell<[u32; 1024]>> =
+    MaybeUninit::uninit();
+static EP_MEMORY_2: MaybeUninit<SyncUnsafeCell<[u32; 1024]>> =
+    MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -73,24 +79,32 @@ fn main() -> ! {
 
     // Initialise EP_MEMORY_1 to zero
     unsafe {
-        let buf: &mut [MaybeUninit<u32>; 1024] =
-            &mut *(core::ptr::addr_of_mut!(EP_MEMORY_1) as *mut _);
-        for value in buf.iter_mut() {
-            value.as_mut_ptr().write(0);
+        let cell = EP_MEMORY_1.as_ptr();
+        for i in 0..1024 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
         }
     }
+    // Now we can take a mutable reference to EP_MEMORY_1. To avoid
+    // aliasing, this reference must only be taken once
+    let ep_memory_1 =
+        unsafe { &mut *SyncUnsafeCell::raw_get(EP_MEMORY_1.as_ptr()) };
+
     // Initialise EP_MEMORY_2 to zero
     unsafe {
-        let buf: &mut [MaybeUninit<u32>; 1024] =
-            &mut *(core::ptr::addr_of_mut!(EP_MEMORY_2) as *mut _);
-        for value in buf.iter_mut() {
-            value.as_mut_ptr().write(0);
+        let cell = EP_MEMORY_2.as_ptr();
+        for i in 0..1024 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
         }
     }
+    // Now we can take a mutable reference to EP_MEMORY_1. To avoid
+    // aliasing, this reference must only be taken once
+    let ep_memory_2 =
+        unsafe { &mut *SyncUnsafeCell::raw_get(EP_MEMORY_2.as_ptr()) };
 
     // Port 1
-    #[allow(static_mut_refs)] // TODO: Fix this
-    let usb1_bus = UsbBus::new(usb1, unsafe { EP_MEMORY_1.assume_init_mut() });
+    let usb1_bus = UsbBus::new(usb1, ep_memory_1);
     let mut serial1 = usbd_serial::SerialPort::new(&usb1_bus);
     let mut usb1_dev =
         UsbDeviceBuilder::new(&usb1_bus, UsbVidPid(0x16c0, 0x27dd))
@@ -103,8 +117,7 @@ fn main() -> ! {
             .build();
 
     // Port 2
-    #[allow(static_mut_refs)] // TODO: Fix this
-    let usb2_bus = UsbBus::new(usb2, unsafe { EP_MEMORY_2.assume_init_mut() });
+    let usb2_bus = UsbBus::new(usb2, ep_memory_2);
     let mut serial2 = usbd_serial::SerialPort::new(&usb2_bus);
     let mut usb2_dev =
         UsbDeviceBuilder::new(&usb2_bus, UsbVidPid(0x16c0, 0x27dd))

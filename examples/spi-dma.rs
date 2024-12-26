@@ -6,12 +6,14 @@
 //! hardware. The second part of this example demonstrates splitting a transfer
 //! into chunks and using the `next_transfer_with` method to start each part of
 //! the transfer.
-
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
 use core::{mem, mem::MaybeUninit};
+
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
 
 use cortex_m_rt::entry;
 #[macro_use]
@@ -31,10 +33,12 @@ use log::info;
 //
 // The runtime does not initialise these SRAM banks
 #[link_section = ".axisram.buffers"]
-static mut SHORT_BUFFER: MaybeUninit<[u8; 10]> = MaybeUninit::uninit();
+static SHORT_BUFFER: MaybeUninit<SyncUnsafeCell<[u8; 10]>> =
+    MaybeUninit::uninit();
 
 #[link_section = ".axisram.buffers"]
-static mut LONG_BUFFER: MaybeUninit<[u32; 0x8000]> = MaybeUninit::uninit();
+static LONG_BUFFER: MaybeUninit<SyncUnsafeCell<[u8; 0x2_0010]>> =
+    MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -80,36 +84,35 @@ fn main() -> ! {
     // SPI must be disabled to configure DMA
     let spi = spi.disable();
 
-    // Initialise the source buffer, without taking any references to
-    // uninitialisated memory
-    let short_buffer: &'static mut [u8; 10] = {
-        let buf: &mut [MaybeUninit<u8>; 10] =
-            unsafe { &mut *(core::ptr::addr_of_mut!(SHORT_BUFFER) as *mut _) };
+    // SHORT_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = SHORT_BUFFER.as_ptr();
+        for i in 0..10 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(i as u8 + 96); // 0x60, 0x61, 0x62...
+        }
+    }
+    // Now we can take a mutable reference to SHORT_BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let short_buffer: &mut [u8; 10] =
+        unsafe { &mut *SyncUnsafeCell::raw_get(SHORT_BUFFER.as_ptr()) };
 
-        for (i, value) in buf.iter_mut().enumerate() {
-            unsafe {
-                value.as_mut_ptr().write(i as u8 + 96); // 0x60, 0x61, 0x62...
-            }
+    // LONG_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = LONG_BUFFER.as_ptr();
+        for i in 0..0x2_0010 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(i as u8);
         }
-        #[allow(static_mut_refs)] // TODO: Fix this
-        unsafe {
-            SHORT_BUFFER.assume_init_mut()
-        }
-    };
-    // view u32 buffer as u8. Endianess is undefined (little-endian on STM32H7)
-    let long_buffer: &'static mut [u8; 0x2_0010] = {
-        let buf: &mut [MaybeUninit<u32>; 0x8004] =
-            unsafe { &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut _) };
-
-        for (i, value) in buf.iter_mut().enumerate() {
-            unsafe {
-                value.as_mut_ptr().write(i as u32);
-            }
-        }
-        unsafe {
-            &mut *(core::ptr::addr_of_mut!(LONG_BUFFER) as *mut [u8; 0x2_0010])
-        }
-    };
+    }
+    // Now we can take a mutable reference to LONG_BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let long_buffer: &mut [u8; 0x2_0010] =
+        unsafe { &mut *SyncUnsafeCell::raw_get(LONG_BUFFER.as_ptr()) };
 
     // Setup the DMA transfer on stream 0
     //
