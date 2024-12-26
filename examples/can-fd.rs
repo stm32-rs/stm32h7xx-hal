@@ -163,14 +163,13 @@ fn main() -> ! {
     block!(can.transmit(header, &buffer)).unwrap();
 
     loop {
-        if let Ok(rxheader) = block!(can.receive0(&mut buffer)) {
-            info!("Received Header: {:#X?}", rxheader);
-            info!("received data: {:X?}", &buffer);
+        let rxheader = block!(can.receive0(&mut buffer)).unwrap();
+        info!("Received Header: {:#X?}", rxheader);
+        info!("received data: {:X?}", &buffer);
 
-            delay.delay_ms(1_u16);
-            block!(can.transmit(rxheader.unwrap().to_tx_header(None), &buffer))
-                .unwrap();
-            info!("Transmit: {:X?}", buffer);
-        }
+        delay.delay_ms(1_u16);
+        block!(can.transmit(rxheader.unwrap().to_tx_header(None), &buffer))
+            .unwrap();
+        info!("Transmit: {:X?}", buffer);
     }
 }

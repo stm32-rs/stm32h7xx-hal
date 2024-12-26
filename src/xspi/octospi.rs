@@ -183,30 +183,30 @@ impl<OSPI> fmt::Display for Hyperbus<OSPI> {
     }
 }
 
+#[allow(unused)]
 pub trait PinClk<OSPI> {}
+#[allow(unused)]
 pub trait PinNclk<OSPI> {}
+#[allow(unused)]
 pub trait PinDQS<OSPI> {}
+#[allow(unused)]
 pub trait PinNCS<OSPI> {}
+#[allow(unused)]
 pub trait PinIo0<OSPI> {}
+#[allow(unused)]
 pub trait PinIo1<OSPI> {}
+#[allow(unused)]
 pub trait PinIo2<OSPI> {}
+#[allow(unused)]
 pub trait PinIo3<OSPI> {}
+#[allow(unused)]
 pub trait PinIo4<OSPI> {}
+#[allow(unused)]
 pub trait PinIo5<OSPI> {}
+#[allow(unused)]
 pub trait PinIo6<OSPI> {}
+#[allow(unused)]
 pub trait PinIo7<OSPI> {}
-
-// impl<OSPI, CLK, NCS, IO0, IO1, IO2, IO3> PinsQuad<OSPI>
-//     for (CLK, NCS, IO0, IO1, IO2, IO3)
-// where
-//     CLK: PinClk<OSPI>,
-//     NCS: PinNCS<OSPI>,
-//     IO0: PinIo0<OSPI>,
-//     IO1: PinIo1<OSPI>,
-//     IO2: PinIo2<OSPI>,
-//     IO3: PinIo3<OSPI>,
-// {
-// }
 
 macro_rules! pins {
     (
@@ -470,11 +470,10 @@ macro_rules! octospi_impl {
 
                 // Prescaler
                 let spi_frequency = config.frequency.raw();
-                let divisor =
-                    match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
-                        divisor @ 1..=256 => divisor - 1,
-                        _ => panic!("Invalid OCTOSPI frequency requested"),
-                    };
+                let divisor = match spi_kernel_ck.div_ceil(spi_frequency) {
+                    divisor @ 1..=256 => divisor - 1,
+                    _ => panic!("Invalid OCTOSPI frequency requested"),
+                };
                 regs.dcr2
                     .write(|w| unsafe { w.prescaler().bits(divisor as u8) });
 
@@ -521,11 +520,10 @@ macro_rules! octospi_impl {
                 // Configure clock
                 let hyperbus: HyperbusConfig = hyperbus.into();
                 let spi_frequency = hyperbus.frequency.raw();
-                let divisor =
-                    match (spi_kernel_ck + spi_frequency - 1) / spi_frequency {
-                        divisor @ 1..=256 => divisor as u8,
-                        _ => panic!("Invalid OCTOSPI frequency requested"),
-                    };
+                let divisor = match spi_kernel_ck.div_ceil(spi_frequency) {
+                    divisor @ 1..=256 => divisor as u8,
+                    _ => panic!("Invalid OCTOSPI frequency requested"),
+                };
                 let frequency = Hertz::from_raw(spi_kernel_ck / divisor as u32);
 
                 // Calculate the achieved clock period in ns
@@ -578,7 +576,7 @@ macro_rules! octospi_impl {
                 let refresh_cycles = {
                     let interval_ns =
                         (1000 * hyperbus.refresh_interval.ticks() as u32);
-                    (interval_ns + period_ns - 1) / period_ns
+                    interval_ns.div_ceil(period_ns)
                 };
                 regs.dcr4
                     .write(|w| unsafe { w.refresh().bits(refresh_cycles) });

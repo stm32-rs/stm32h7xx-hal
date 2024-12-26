@@ -16,7 +16,7 @@ pub mod write_to {
         }
 
         #[allow(dead_code)]
-        pub fn as_str(self) -> Option<&'a str> {
+        pub fn into_str(self) -> Option<&'a str> {
             if self.used <= self.buffer.len() {
                 // only successful concats of str - must be a valid str.
                 use core::str::from_utf8_unchecked;
@@ -27,7 +27,7 @@ pub mod write_to {
         }
     }
 
-    impl<'a> fmt::Write for WriteTo<'a> {
+    impl fmt::Write for WriteTo<'_> {
         fn write_str(&mut self, s: &str) -> fmt::Result {
             if self.used > self.buffer.len() {
                 return Err(fmt::Error);
@@ -52,6 +52,6 @@ pub mod write_to {
     ) -> Result<&'a str, fmt::Error> {
         let mut w = WriteTo::new(buffer);
         fmt::write(&mut w, args)?;
-        w.as_str().ok_or(fmt::Error)
+        w.into_str().ok_or(fmt::Error)
     }
 }

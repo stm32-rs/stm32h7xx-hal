@@ -331,7 +331,7 @@ fn main() -> ! {
             time_circuit(
                 NaiveDateTime::new(
                     NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(),
-                    NaiveTime::from_hms_opt(01, 21, 0).unwrap(),
+                    NaiveTime::from_hms_opt(1, 21, 0).unwrap(),
                 ),
                 tc_x,
                 100,
@@ -355,7 +355,7 @@ fn main() -> ! {
             time_circuit(
                 NaiveDateTime::new(
                     NaiveDate::from_ymd_opt(1985, 10, 26).unwrap(),
-                    NaiveTime::from_hms_opt(01, 20, 0).unwrap(),
+                    NaiveTime::from_hms_opt(1, 20, 0).unwrap(),
                 ),
                 tc_x,
                 400,

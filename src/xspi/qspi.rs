@@ -11,6 +11,7 @@ use crate::{
 use super::{common::BankSelect, Bank, Config, Qspi, QspiError, SamplingEdge};
 
 /// Used to indicate that an IO pin is not used by the QSPI interface.
+#[allow(unused)]
 pub struct NoIo {}
 
 /// Indicates a set of pins can be used for the QSPI interface on bank 1.
@@ -22,6 +23,7 @@ pub trait PinIo3Bank1 {}
 
 /// Indicates a set of pins can be used for the QSPI interface on bank 2.
 pub trait PinsBank2 {}
+#[allow(unused)]
 pub trait PinSckBank2 {}
 pub trait PinIo0Bank2 {}
 pub trait PinIo1Bank2 {}

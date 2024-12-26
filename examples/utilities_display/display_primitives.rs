@@ -154,7 +154,7 @@ where
         dt.time().minute()
     )
     .unwrap();
-    Text::new(buf.as_str().unwrap(), Point::new(x, y), fg_text_style)
+    Text::new(buf.into_str().unwrap(), Point::new(x, y), fg_text_style)
         .draw(target)?;
     date_labels(y - 75, target)?;
     colored_label(
