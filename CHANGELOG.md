@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 * MSRV increased to Rust 1.80.0
+* **Breaking** Rename export `stm32h7xx-hal::hal` to `stm32h7xx-hal::hal_02` [#504]
 * **Breaking** Update `smoltcp` to `0.12.0` (from `0.11.0`) [#508]
 * ethernet: Fix eth::DesRing alignment [#510]
 * flash: Add `access_banks` method [#489]
@@ -419,5 +420,6 @@
 [#488]: https://github.com/stm32-rs/stm32h7xx-hal/pull/488
 [#489]: https://github.com/stm32-rs/stm32h7xx-hal/pull/489
 [#491]: https://github.com/stm32-rs/stm32h7xx-hal/pull/491
+[#504]: https://github.com/stm32-rs/stm32h7xx-hal/pull/504
 [#508]: https://github.com/stm32-rs/stm32h7xx-hal/pull/508
 [#510]: https://github.com/stm32-rs/stm32h7xx-hal/pull/510
