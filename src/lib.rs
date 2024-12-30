@@ -82,7 +82,7 @@ compile_error!(
 "
 );
 
-pub use embedded_hal as hal;
+pub use embedded_hal_02 as hal_02;
 pub mod traits;
 
 pub use nb;

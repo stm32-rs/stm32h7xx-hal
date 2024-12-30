@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::gpio::{self, Analog};
-use crate::hal::blocking::delay::DelayUs;
+use crate::hal_02::blocking::delay::DelayUs;
 use crate::rcc::{rec, ResetEnable};
 #[cfg(not(feature = "rm0455"))]
 use crate::stm32::DAC as DAC1;
