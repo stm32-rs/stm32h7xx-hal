@@ -17,6 +17,9 @@ use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicU32, Ordering};
 use rt::{entry, exception};
 
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 extern crate cortex_m;
 
 #[macro_use]
@@ -52,7 +55,7 @@ const MAC_ADDRESS: [u8; 6] = [0x02, 0x00, 0x11, 0x22, 0x33, 0x44];
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]
-static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> =
+static DES_RING: MaybeUninit<SyncUnsafeCell<ethernet::DesRing<4, 4>>> =
     MaybeUninit::uninit();
 
 // the program entry point
@@ -113,9 +116,18 @@ fn main() -> ! {
     assert_eq!(ccdr.clocks.pclk4().raw(), 100_000_000); // PCLK 100MHz
 
     let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
-    let (_eth_dma, eth_mac) = unsafe {
-        #[allow(static_mut_refs)] // TODO: Fix this
-        DES_RING.write(ethernet::DesRing::new());
+    let (_eth_dma, eth_mac) = {
+        // DES_RING is located in .axisram.eth, which is not initialized by
+        // the runtime. We must manually initialize it to a valid value,
+        // without taking a reference to the uninitialized value
+        unsafe {
+            SyncUnsafeCell::raw_get(DES_RING.as_ptr())
+                .write(ethernet::DesRing::new());
+        }
+        // Now we can take a mutable reference to DES_RING. To avoid
+        // aliasing, this reference must only be taken once
+        let des_ring =
+            unsafe { &mut *SyncUnsafeCell::raw_get(DES_RING.as_ptr()) };
 
         ethernet::new(
             dp.ETHERNET_MAC,
@@ -132,8 +144,7 @@ fn main() -> ! {
                 rmii_txd0,
                 rmii_txd1,
             ),
-            #[allow(static_mut_refs)] // TODO: Fix this
-            DES_RING.assume_init_mut(),
+            des_ring,
             mac_addr,
             ccdr.peripheral.ETH1MAC,
             &ccdr.clocks,
