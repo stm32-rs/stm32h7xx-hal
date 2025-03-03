@@ -141,6 +141,7 @@ mod app {
         let gpioc = ctx.device.GPIOC.split(ccdr.peripheral.GPIOC);
         let gpioe = ctx.device.GPIOE.split(ccdr.peripheral.GPIOE);
         let gpiob = ctx.device.GPIOB.split(ccdr.peripheral.GPIOB);
+        let gpiog = ctx.device.GPIOG.split(ccdr.peripheral.GPIOG);
         let mut link_led = gpioe.pe1.into_push_pull_output(); // USR LED1
         link_led.set_high();
 
@@ -150,8 +151,8 @@ mod app {
         let rmii_crs_dv = gpioa.pa7.into_alternate();
         let rmii_rxd0 = gpioc.pc4.into_alternate();
         let rmii_rxd1 = gpioc.pc5.into_alternate();
-        let rmii_tx_en = gpiob.pb11.into_alternate();
-        let rmii_txd0 = gpiob.pb12.into_alternate();
+        let rmii_tx_en = gpiog.pg11.into_alternate();
+        let rmii_txd0 = gpiog.pg13.into_alternate();
         let rmii_txd1 = gpiob.pb13.into_alternate();
 
         // Initialise ethernet...
