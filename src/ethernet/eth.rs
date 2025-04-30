@@ -459,6 +459,12 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
         // Ensure syscfg is enabled (for PMCR)
         rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
 
+        #[cfg(feature = "early-eth-dma-reset")]
+        {
+            eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
+            while eth_dma.dmamr.read().swr().bit_is_set() {}
+        }
+
         // AHB1 ETH1MACEN
         prec.enable();
 
@@ -477,8 +483,11 @@ pub unsafe fn new_unchecked<const TD: usize, const RD: usize>(
 
     cortex_m::interrupt::free(|_cs| {
         // reset ETH_DMA - write 1 and wait for 0
-        eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
-        while eth_dma.dmamr.read().swr().bit_is_set() {}
+        #[cfg(not(feature = "early-eth-dma-reset"))]
+        {
+            eth_dma.dmamr.modify(|_, w| w.swr().set_bit());
+            while eth_dma.dmamr.read().swr().bit_is_set() {}
+        }
 
         // 200 MHz
         eth_mac
