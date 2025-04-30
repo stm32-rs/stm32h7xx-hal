@@ -6,6 +6,9 @@
 
 use core::{mem, mem::MaybeUninit};
 
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
@@ -24,7 +27,8 @@ use log::info;
 //
 // The runtime does not initialise AXI SRAM banks.
 #[link_section = ".axisram.buffers"]
-static mut SOURCE_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
+static SOURCE_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; 200]>> =
+    MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -48,24 +52,20 @@ fn main() -> ! {
     info!("stm32h7xx-hal example - Memory to TCM with Master DMA");
     info!("");
 
-    // Initialise the source buffer without taking any references to
-    // uninitialisated memory
-    let source_buffer: &'static mut [u32; 200] = {
-        let buf: &mut [MaybeUninit<u32>; 200] = unsafe {
-            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
-                as *mut [MaybeUninit<u32>; 200])
-        };
-
-        for value in buf.iter_mut() {
-            unsafe {
-                value.as_mut_ptr().write(0x11223344u32);
-            }
+    // SOURCE_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = SOURCE_BUFFER.as_ptr();
+        for i in 0..200 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0x11223344u32);
         }
-        #[allow(static_mut_refs)] // TODO: Fix this
-        unsafe {
-            SOURCE_BUFFER.assume_init_mut()
-        }
-    };
+    }
+    // Now we can take a mutable reference to SOURCE_BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let source_buffer =
+        unsafe { &mut *SyncUnsafeCell::raw_get(SOURCE_BUFFER.as_ptr()) };
 
     //
     // Example 1: Memory to TCM
@@ -108,7 +108,7 @@ fn main() -> ! {
     while !transfer.get_transfer_complete_flag() {}
 
     // Decompose the stream to get the source buffer back
-    let (stream, _mem2mem, _target, _) = transfer.free();
+    let (stream, _mem2mem, _target, source) = transfer.free();
 
     for a in target_buffer.iter() {
         assert_eq!(*a, 0x11223344);
@@ -121,8 +121,7 @@ fn main() -> ! {
     //
 
     // Reset source buffer
-    #[allow(static_mut_refs)] // TODO: Fix this
-    let source_buffer = unsafe { SOURCE_BUFFER.assume_init_mut() };
+    let source_buffer = source.unwrap();
     *source_buffer = [0xAABBCCDD; 200];
 
     // New target buffer on the stack

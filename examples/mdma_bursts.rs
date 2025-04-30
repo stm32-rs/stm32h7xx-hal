@@ -11,6 +11,9 @@
 
 use core::mem::MaybeUninit;
 
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
@@ -29,9 +32,11 @@ use log::info;
 //
 // The runtime does not initialise AXI SRAM banks.
 #[link_section = ".axisram.buffers"]
-static mut SOURCE_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
+static SOURCE_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; 200]>> =
+    MaybeUninit::uninit();
 #[link_section = ".axisram.buffers"]
-static mut TARGET_BUFFER: MaybeUninit<[u32; 200]> = MaybeUninit::uninit();
+static TARGET_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; 200]>> =
+    MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -62,25 +67,27 @@ fn main() -> ! {
 
     // Initialise the source buffer without taking any references to
     // uninitialised memory
-    let _source_buffer: &'static mut [u32; 200] = {
-        let buf: &mut [MaybeUninit<u32>; 200] = unsafe {
-            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
-                as *mut [MaybeUninit<u32>; 200])
-        };
 
-        for value in buf.iter_mut() {
-            unsafe {
-                value.as_mut_ptr().write(0x11223344u32);
-            }
+    // SOURCE_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = SOURCE_BUFFER.as_ptr();
+        for i in 0..200 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0x11223344u32);
         }
-        #[allow(static_mut_refs)] // TODO: Fix this
-        unsafe {
-            SOURCE_BUFFER.assume_init_mut()
+    }
+    // TARGET_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = TARGET_BUFFER.as_ptr();
+        for i in 0..200 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
         }
-    };
-
-    // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
-    // behaviour (taking a mutable reference to uninitialised memory)
+    }
 
     // Setup DMA
     let streams = StreamsTuple::new(dp.MDMA, ccdr.peripheral.MDMA);
@@ -93,20 +100,23 @@ fn main() -> ! {
         config: MdmaConfig,
     ) {
         let mut transfer: Transfer<_, _, MemoryToMemory<u32>, _, _> = {
-            // unsafe: Both source and destination live at least as long as this
-            // transfer
-            #[allow(static_mut_refs)] // TODO: Fix this
-            let source: &'static mut [u32; 200] =
-                unsafe { SOURCE_BUFFER.assume_init_mut() };
-            #[allow(static_mut_refs)] // TODO: Fix this
-            let target: &'static mut [u32; 200] =
-                unsafe { TARGET_BUFFER.assume_init_mut() }; // uninitialised memory
+            // SOURCE_BUFFER and TARGET_BUFFER are initialized, so we can take a
+            // mutable reference. To avoid aliasing, this reference must only be
+            // taken once, but here we take it multiple times as we know it will
+            // be dropped later in this method
+            let source_buffer = unsafe {
+                &mut *SyncUnsafeCell::raw_get(SOURCE_BUFFER.as_ptr())
+            };
+
+            let target_buffer = unsafe {
+                &mut *SyncUnsafeCell::raw_get(TARGET_BUFFER.as_ptr())
+            };
 
             Transfer::init_master(
                 stream,
                 MemoryToMemory::new(),
-                target,       // Destination: AXISRAM
-                Some(source), // Source: AXISRAM
+                target_buffer,       // Destination: AXISRAM
+                Some(source_buffer), // Source: AXISRAM
                 config,
             )
         };

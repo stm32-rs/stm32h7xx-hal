@@ -1,7 +1,6 @@
 //! I2C4 in low power mode.
 //!
 //!
-
 #![deny(warnings)]
 #![no_std]
 #![no_main]
@@ -10,6 +9,9 @@ use core::mem::MaybeUninit;
 
 #[macro_use]
 mod utilities;
+
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
 
 use stm32h7xx_hal::dma::{
     bdma::{BdmaConfig, StreamsTuple},
@@ -27,7 +29,7 @@ use log::info;
 //
 // The runtime does not initialise this SRAM bank
 #[link_section = ".sram4.buffers"]
-static mut BUFFER: MaybeUninit<[u8; 10]> = MaybeUninit::uninit();
+static BUFFER: MaybeUninit<SyncUnsafeCell<[u8; 10]>> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -91,26 +93,23 @@ fn main() -> ! {
 
     let config = BdmaConfig::default().memory_increment(true);
 
-    // Initialise buffer
+    // BUFFER is located in .sram4.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
     unsafe {
-        // Convert an uninitialised array into an array of uninitialised
-        let buf: &mut [core::mem::MaybeUninit<u8>; 10] =
-            &mut *(core::ptr::addr_of_mut!(BUFFER) as *mut _);
-        buf.iter_mut().for_each(|x| x.as_mut_ptr().write(0));
+        let cell = BUFFER.as_ptr();
+        for i in 0..10 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
+        }
     }
+    // Now we can take a mutable reference to BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let buffer = unsafe { &mut *SyncUnsafeCell::raw_get(BUFFER.as_ptr()) };
 
     // We need to specify the direction with a type annotation
     let mut transfer: Transfer<_, _, PeripheralToMemory, &mut [u8; 10], _> =
-        Transfer::init(
-            streams.0,
-            i2c,
-            #[allow(static_mut_refs)] // TODO: Fix this
-            unsafe {
-                BUFFER.assume_init_mut()
-            },
-            None,
-            config,
-        );
+        Transfer::init(streams.0, i2c, buffer, None, config);
 
     transfer.start(|i2c| {
         // This closure runs right after enabling the stream
@@ -138,9 +137,11 @@ fn main() -> ! {
 fn I2C4_EV() {
     info!("I2C transfer complete!");
 
-    // Look at BUFFER, which we expect to be initialised
-    #[allow(static_mut_refs)] // TODO: Fix this
-    let buffer: &'static [u8; 10] = unsafe { BUFFER.assume_init_mut() };
+    // Take a second(!) reference to the buffer. Because the transfer has
+    // stopped, we can reason that the first reference is no longer
+    // active. Therefore we can take another reference without causing aliasing
+    let buffer: &[u8; 10] =
+        unsafe { &*SyncUnsafeCell::raw_get(BUFFER.as_ptr()) };
 
     assert_eq!(buffer[0], 0xBE);
 

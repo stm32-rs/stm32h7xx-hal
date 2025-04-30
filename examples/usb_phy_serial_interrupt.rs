@@ -7,9 +7,13 @@
 #![no_std]
 #![no_main]
 
+use core::cell::RefCell;
+use core::mem::MaybeUninit;
+
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 use {
-    core::cell::RefCell,
-    core::mem::MaybeUninit,
     cortex_m::interrupt::{free as interrupt_free, Mutex},
     stm32h7xx_hal::{
         interrupt, pac,
@@ -32,9 +36,17 @@ mod utilities;
 pub const VID: u16 = 0x2341;
 pub const PID: u16 = 0x025b;
 
-pub static mut USB_MEMORY_1: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
-pub static mut USB_BUS_ALLOCATOR: Option<UsbBusAllocator<UsbBus<USB1_ULPI>>> =
-    None;
+// It's safe to use the link_section attribute to place this in an alternative
+// memory area. MaybeUninit is used to mark that the contents are not
+// initialized, and they are explictly initialized before use.
+pub static USB_MEMORY_1: MaybeUninit<SyncUnsafeCell<[u32; 1024]>> =
+    MaybeUninit::uninit();
+
+// Not safe to use link_section attribute here, see above.
+pub static mut USB_BUS_ALLOCATOR: SyncUnsafeCell<
+    Option<UsbBusAllocator<UsbBus<USB1_ULPI>>>,
+> = SyncUnsafeCell::new(None);
+
 pub static SERIAL_PORT: Mutex<
     RefCell<
         Option<
@@ -148,28 +160,32 @@ unsafe fn main() -> ! {
         &ccdr.clocks,
     );
 
-    // Initialise USB_MEMORY_1 to zero
-    {
-        let buf: &mut [MaybeUninit<u32>; 1024] =
-            &mut *(core::ptr::addr_of_mut!(USB_MEMORY_1) as *mut _);
-        for value in buf.iter_mut() {
-            value.as_mut_ptr().write(0);
+    // Initialize USB_MEMORY_1 to zero
+    unsafe {
+        let cell = USB_MEMORY_1.as_ptr();
+        for i in 0..1024 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
         }
     }
+    // Now we can take a mutable reference to USB_MEMORY_1. To avoid aliasing,
+    // this reference must only be taken once
+    let usb_memory_1 =
+        unsafe { &mut *SyncUnsafeCell::raw_get(USB_MEMORY_1.as_ptr()) };
 
-    #[allow(static_mut_refs)] // TODO: Fix this
-    {
-        USB_BUS_ALLOCATOR =
-            Some(UsbBus::new(usb, USB_MEMORY_1.assume_init_mut()));
-    }
+    // USB bus
+    let usb_bus_allocator: &Option<UsbBusAllocator<_>> = unsafe {
+        // Initialize
+        SyncUnsafeCell::raw_get(core::ptr::addr_of!(USB_BUS_ALLOCATOR))
+            .write(Some(UsbBus::new(usb, usb_memory_1)));
+        // Get reference
+        &*SyncUnsafeCell::raw_get(core::ptr::addr_of!(USB_BUS_ALLOCATOR))
+    };
 
-    #[allow(static_mut_refs)] // TODO: Fix this
     let usb_serial =
-        usbd_serial::SerialPort::new(USB_BUS_ALLOCATOR.as_ref().unwrap());
-
-    #[allow(static_mut_refs)] // TODO: Fix this
+        usbd_serial::SerialPort::new(usb_bus_allocator.as_ref().unwrap());
     let usb_dev = UsbDeviceBuilder::new(
-        USB_BUS_ALLOCATOR.as_ref().unwrap(),
+        usb_bus_allocator.as_ref().unwrap(),
         UsbVidPid(VID, PID),
     )
     .strings(&[usb_device::device::StringDescriptors::default()

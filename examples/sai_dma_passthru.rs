@@ -8,6 +8,9 @@
 
 use core::mem::MaybeUninit;
 
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 use cortex_m::asm;
 
 use cortex_m_rt::entry;
@@ -45,10 +48,10 @@ const PLL3_P_HZ: Hertz = Hertz::from_raw(AUDIO_SAMPLE_HZ.raw() * 257);
 // = static data ==============================================================
 
 #[link_section = ".sram3"]
-static mut TX_BUFFER: MaybeUninit<[u32; DMA_BUFFER_LENGTH]> =
+static TX_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; DMA_BUFFER_LENGTH]>> =
     MaybeUninit::uninit();
 #[link_section = ".sram3"]
-static mut RX_BUFFER: MaybeUninit<[u32; DMA_BUFFER_LENGTH]> =
+static RX_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; DMA_BUFFER_LENGTH]>> =
     MaybeUninit::uninit();
 pub const CLOCK_RATE_HZ: Hertz = Hertz::MHz(400);
 
@@ -110,9 +113,12 @@ fn main() -> ! {
         dma::dma::StreamsTuple::new(dp.DMA1, ccdr.peripheral.DMA1);
 
     // dma1 stream 0
-    #[allow(static_mut_refs)] // TODO: Fix this
+    //
+    // SRAM3 is not initialised by the runtime, so here we are creating a
+    // reference to uninitialised memory. This is UB!
     let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-        unsafe { TX_BUFFER.assume_init_mut() }; // uninitialised memory
+        unsafe { &mut *SyncUnsafeCell::raw_get(TX_BUFFER.as_ptr()) };
+
     let dma_config = dma::dma::DmaConfig::default()
         .priority(dma::config::Priority::High)
         .memory_increment(true)
@@ -129,9 +135,12 @@ fn main() -> ! {
         );
 
     // dma1 stream 1
-    #[allow(static_mut_refs)] // TODO: Fix this
+    //
+    // SRAM3 is not initialised by the runtime, so here we are creating a
+    // reference to uninitialised memory. This is UB!
     let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-        unsafe { RX_BUFFER.assume_init_mut() }; // uninitialised memory
+        unsafe { &mut *SyncUnsafeCell::raw_get(RX_BUFFER.as_ptr()) };
+
     let dma_config = dma_config
         .transfer_complete_interrupt(true)
         .half_transfer_interrupt(true);
@@ -178,12 +187,8 @@ fn main() -> ! {
         pac::NVIC::unmask(pac::Interrupt::DMA1_STR1);
     }
 
-    static mut TRANSFER_DMA1_STR1: MaybeUninit<Option<TransferDma1Str1>> =
-        MaybeUninit::uninit();
-    unsafe {
-        #[allow(static_mut_refs)] // TODO: Fix this
-        TRANSFER_DMA1_STR1.write(None);
-    }
+    static mut TRANSFER_DMA1_STR1: SyncUnsafeCell<Option<TransferDma1Str1>> =
+        SyncUnsafeCell::new(None);
 
     dma1_str1.start(|_sai1_rb| {
         sai1.enable_dma(SaiChannel::ChannelB);
@@ -223,29 +228,38 @@ fn main() -> ! {
     >;
 
     unsafe {
-        #[allow(static_mut_refs)] // TODO: Fix this
-        TRANSFER_DMA1_STR1.write(Some(dma1_str1)); // drops previous None
+        // Write to TRANSFER_DMA1_STR1, without taking a reference to it
+        SyncUnsafeCell::raw_get(core::ptr::addr_of!(TRANSFER_DMA1_STR1))
+            .write(Some(dma1_str1));
+
+        let tx_buffer = &*SyncUnsafeCell::raw_get(TX_BUFFER.as_ptr());
+        let rx_buffer = &*SyncUnsafeCell::raw_get(RX_BUFFER.as_ptr());
         info!(
             "{:?}, {:?}",
-            TX_BUFFER.assume_init()[0] as *const u32,
-            RX_BUFFER.assume_init()[0] as *const u32
+            tx_buffer[0] as *const u32, rx_buffer[0] as *const u32
         );
     }
 
     #[interrupt]
     fn DMA1_STR1() {
-        #[allow(static_mut_refs)] // TODO: Fix this
+        // Here we take mutable references to static variables. We assert that
+        // any previous references are no longer in scope and that these
+        // references are unique
+
         let tx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-            unsafe { TX_BUFFER.assume_init_mut() };
-        #[allow(static_mut_refs)] // TODO: Fix this
+            unsafe { &mut *SyncUnsafeCell::raw_get(TX_BUFFER.as_ptr()) };
         let rx_buffer: &'static mut [u32; DMA_BUFFER_LENGTH] =
-            unsafe { RX_BUFFER.assume_init_mut() };
+            unsafe { &mut *SyncUnsafeCell::raw_get(RX_BUFFER.as_ptr()) };
+        let transfer_dma1_str1 = unsafe {
+            &mut *SyncUnsafeCell::raw_get(core::ptr::addr_of!(
+                TRANSFER_DMA1_STR1
+            ))
+        };
 
         let stereo_block_length = tx_buffer.len() / 2;
 
         #[allow(static_mut_refs)] // TODO: Fix this
-        if let Some(transfer) = unsafe { TRANSFER_DMA1_STR1.assume_init_mut() }
-        {
+        if let Some(transfer) = transfer_dma1_str1 {
             let skip = if transfer.get_half_transfer_flag() {
                 transfer.clear_half_transfer_interrupt();
                 (0, stereo_block_length)

@@ -23,8 +23,12 @@ mod app {
     use stm32h7xx_hal::usb_hs::{UsbBus, USB1};
     use usb_device::prelude::*;
 
-    static mut EP_MEMORY: MaybeUninit<[u32; 1024]> = MaybeUninit::uninit();
     use super::utilities;
+    // TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+    use super::utilities::sync_unsafe_cell::SyncUnsafeCell;
+
+    static EP_MEMORY: MaybeUninit<SyncUnsafeCell<[u32; 1024]>> =
+        MaybeUninit::uninit();
 
     #[shared]
     struct SharedResources {}
@@ -85,18 +89,18 @@ mod app {
 
         // Initialise EP_MEMORY to zero
         unsafe {
-            let buf: &mut [MaybeUninit<u32>; 1024] =
-                &mut *(core::ptr::addr_of_mut!(EP_MEMORY) as *mut _);
-            for value in buf.iter_mut() {
-                value.as_mut_ptr().write(0);
+            let cell = EP_MEMORY.as_ptr();
+            for i in 0..1024 {
+                core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                    .write(0);
             }
         }
+        // Now we can take a mutable reference to EP_MEMORY. To avoid
+        // aliasing, this reference must only be taken once
 
-        // Now we may assume that EP_MEMORY is initialised
-        #[allow(static_mut_refs)] // TODO: Fix this
         let usb_bus = cortex_m::singleton!(
             : usb_device::class_prelude::UsbBusAllocator<UsbBus<USB1>> =
-                UsbBus::new(usb, unsafe { EP_MEMORY.assume_init_mut() })
+                UsbBus::new(usb, unsafe { &mut *SyncUnsafeCell::raw_get(EP_MEMORY.as_ptr()) })
         )
         .unwrap();
         let serial = usbd_serial::SerialPort::new(usb_bus);

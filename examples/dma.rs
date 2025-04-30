@@ -6,6 +6,9 @@
 
 use core::mem::MaybeUninit;
 
+// TODO: use core::cell::SyncUnsafeCell when stabilized rust-lang/rust#95439
+use utilities::sync_unsafe_cell::SyncUnsafeCell;
+
 use cortex_m_rt::entry;
 #[macro_use]
 mod utilities;
@@ -24,9 +27,11 @@ use log::info;
 //
 // The runtime does not initialise these SRAM banks.
 #[link_section = ".sram4.buffers"]
-static mut SOURCE_BUFFER: MaybeUninit<[u32; 20]> = MaybeUninit::uninit();
+static SOURCE_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; 20]>> =
+    MaybeUninit::uninit();
 #[link_section = ".axisram.buffers"]
-static mut TARGET_BUFFER: MaybeUninit<[u32; 20]> = MaybeUninit::uninit();
+static TARGET_BUFFER: MaybeUninit<SyncUnsafeCell<[u32; 20]>> =
+    MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -53,29 +58,37 @@ fn main() -> ! {
     info!("stm32h7xx-hal example - Memory to Memory DMA");
     info!("");
 
-    // Initialise the source buffer with truly random data, without taking any
-    // references to uninitialisated memory
-    let source_buffer: &'static mut [u32; 20] = {
-        let buf: &mut [MaybeUninit<u32>; 20] = unsafe {
-            &mut *(core::ptr::addr_of_mut!(SOURCE_BUFFER)
-                as *mut [MaybeUninit<u32>; 20])
-        };
-
-        for value in buf.iter_mut() {
-            unsafe {
-                value.as_mut_ptr().write(rng.gen().unwrap());
-            }
+    // SOURCE_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = SOURCE_BUFFER.as_ptr();
+        for i in 0..20 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(rng.gen().unwrap());
         }
-        #[allow(static_mut_refs)] // TODO: Fix this
-        unsafe {
-            SOURCE_BUFFER.assume_init_mut()
-        }
-    };
+    }
+    // Now we can take a mutable reference to SOURCE_BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let source_buffer =
+        unsafe { &mut *SyncUnsafeCell::raw_get(SOURCE_BUFFER.as_ptr()) };
     // Save a copy on the stack so we can check it later
     let source_buffer_cloned = *source_buffer;
 
-    // NOTE(unsafe): TARGET_BUFFER must also be initialised to prevent undefined
-    // behaviour (taking a mutable reference to uninitialised memory)
+    // TARGET_BUFFER is located in .axisram.buffers, which is not initialized by
+    // the runtime. We must manually initialize it to a valid value, without
+    // taking a reference to the uninitialized value
+    unsafe {
+        let cell = TARGET_BUFFER.as_ptr();
+        for i in 0..20 {
+            core::ptr::addr_of_mut!((*SyncUnsafeCell::raw_get(cell))[i])
+                .write(0);
+        }
+    }
+    // Now we can take a mutable reference to TARGET_BUFFER. To avoid aliasing,
+    // this reference must only be taken once
+    let target_buffer =
+        unsafe { &mut *SyncUnsafeCell::raw_get(TARGET_BUFFER.as_ptr()) };
 
     // Setup DMA
     //
@@ -92,9 +105,7 @@ fn main() -> ! {
         Transfer::init(
             streams.4,
             MemoryToMemory::new(),
-            unsafe {
-                (*core::ptr::addr_of_mut!(TARGET_BUFFER)).assume_init_mut()
-            }, // Uninitialised memory
+            target_buffer,
             Some(source_buffer),
             config,
         );
@@ -104,10 +115,11 @@ fn main() -> ! {
     // Wait for transfer to complete
     while !transfer.get_transfer_complete_flag() {}
 
-    // Now the target memory is actually initialised
-    #[allow(static_mut_refs)] // TODO: Fix this
-    let target_buffer: &'static mut [u32; 20] =
-        unsafe { TARGET_BUFFER.assume_init_mut() };
+    // Take a second(!) reference to the target buffer. Because the transfer has
+    // stopped, we can reason that the first reference is no longer
+    // active. Therefore we can take another reference without causing aliasing
+    let target_buffer: &[u32; 20] =
+        unsafe { &*SyncUnsafeCell::raw_get(TARGET_BUFFER.as_ptr()) };
 
     // Comparison check
     assert_eq!(&source_buffer_cloned, target_buffer);
