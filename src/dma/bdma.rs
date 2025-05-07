@@ -587,160 +587,83 @@ where
     }
 }
 
-// Macro that creates a struct representing a stream on either BDMA controller
+// A struct representing a stream on either BDMA controller
 //
 // The implementation does the heavy lifting of mapping to the right fields on
 // the stream
-macro_rules! bdma_stream {
-    ($(($name:ident, $number:expr,
-        $ifcr:ident, $tcif:ident, $htif:ident, $teif:ident, $gif:ident,
-        $isr:ident, $tcisr:ident, $htisr:ident, $teisr:ident, $gisr:ident)
-    ),+$(,)*) => {
-        $(
-            impl<I: Instance> InstanceStream for StreamX<I, $number> {
-                #[inline(always)]
-                fn stream_clear_interrupts(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr().write(|w| w
-                                    .$tcif().set_bit() //Clear transfer complete interrupt flag
-                                    .$htif().set_bit() //Clear half transfer interrupt flag
-                                    .$teif().set_bit() //Clear transfer error interrupt flag
-                                    .$gif().set_bit() //Clear global interrupt flag
-                    );
-                    let _ = dma.$isr().read();
-                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
-                }
+impl<I: Instance, const S: u8> InstanceStream for StreamX<I, S> {
+    #[inline(always)]
+    fn stream_clear_interrupts(&mut self) {
+        //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+        // that belongs to the StreamX
+        let dma = unsafe { &*I::ptr() };
+        dma.ifcr().write(
+            |w| {
+                w.ctcif(S)
+                    .set_bit() //Clear transfer complete interrupt flag
+                    .chtif(S)
+                    .set_bit() //Clear half transfer interrupt flag
+                    .cteif(S)
+                    .set_bit() //Clear transfer error interrupt flag
+                    .cgif(S)
+                    .set_bit()
+            }, //Clear global interrupt flag
+        );
+        let _ = dma.isr().read();
+        let _ = dma.isr().read(); // Delay 2 peripheral clocks
+    }
 
-                #[inline(always)]
-                fn stream_clear_transfer_complete_flag(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr().write(|w| w.$tcif().set_bit());
-                }
+    #[inline(always)]
+    fn stream_clear_transfer_complete_flag(&mut self) {
+        //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+        // that belongs to the StreamX
+        let dma = unsafe { &*I::ptr() };
+        dma.ifcr().write(|w| w.ctcif(S).set_bit());
+    }
 
-                #[inline(always)]
-                fn stream_clear_transfer_complete_interrupt(&mut self) {
-                    self.stream_clear_transfer_complete_flag();
-                    //NOTE(unsafe) Atomic read with no side-effects.
-                    let dma = unsafe { &*I::ptr() };
-                    let _ = dma.$isr().read();
-                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
-                }
+    #[inline(always)]
+    fn stream_clear_transfer_complete_interrupt(&mut self) {
+        self.stream_clear_transfer_complete_flag();
+        //NOTE(unsafe) Atomic read with no side-effects.
+        let dma = unsafe { &*I::ptr() };
+        let _ = dma.isr().read();
+        let _ = dma.isr().read(); // Delay 2 peripheral clocks
+    }
 
-                #[inline(always)]
-                fn stream_clear_transfer_error_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr().write(|w| w.$teif().set_bit());
-                    let _ = dma.$isr().read();
-                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
-                }
+    #[inline(always)]
+    fn stream_clear_transfer_error_interrupt(&mut self) {
+        //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+        // that belongs to the StreamX
+        let dma = unsafe { &*I::ptr() };
+        dma.ifcr().write(|w| w.cteif(S).set_bit());
+        let _ = dma.isr().read();
+        let _ = dma.isr().read(); // Delay 2 peripheral clocks
+    }
 
-                #[inline(always)]
-                fn stream_get_transfer_complete_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$isr().read().$tcisr().bit_is_set()
-                }
+    #[inline(always)]
+    fn stream_get_transfer_complete_flag() -> bool {
+        //NOTE(unsafe) Atomic read with no side effects
+        let dma = unsafe { &*I::ptr() };
+        dma.isr().read().tcif(S).bit_is_set()
+    }
 
-                #[inline(always)]
-                fn stream_get_half_transfer_flag() -> bool {
-                    //NOTE(unsafe) Atomic read with no side effects
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$isr().read().$htisr().bit_is_set()
-                }
+    #[inline(always)]
+    fn stream_get_half_transfer_flag() -> bool {
+        //NOTE(unsafe) Atomic read with no side effects
+        let dma = unsafe { &*I::ptr() };
+        dma.isr().read().htif(S).bit_is_set()
+    }
 
-                #[inline(always)]
-                fn stream_clear_half_transfer_interrupt(&mut self) {
-                    //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
-                    // that belongs to the StreamX
-                    let dma = unsafe { &*I::ptr() };
-                    dma.$ifcr().write(|w| w.$htif().set_bit());
-                    let _ = dma.$isr().read();
-                    let _ = dma.$isr().read(); // Delay 2 peripheral clocks
-                }
-            }
-        )+
-    };
+    #[inline(always)]
+    fn stream_clear_half_transfer_interrupt(&mut self) {
+        //NOTE(unsafe) Atomic write with no side-effects and we only access the bits
+        // that belongs to the StreamX
+        let dma = unsafe { &*I::ptr() };
+        dma.ifcr().write(|w| w.chtif(S).set_bit());
+        let _ = dma.isr().read();
+        let _ = dma.isr().read(); // Delay 2 peripheral clocks
+    }
 }
-
-#[cfg(not(feature = "rm0468"))]
-bdma_stream!(
-    // Note: the field names start from one, unlike the RM where they start from
-    // zero. May need updating if it gets fixed upstream.
-    (
-        Stream0, 0, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1,
-        teif1, gif1
-    ),
-    (
-        Stream1, 1, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2,
-        teif2, gif2
-    ),
-    (
-        Stream2, 2, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3,
-        teif3, gif3
-    ),
-    (
-        Stream3, 3, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4,
-        teif4, gif4
-    ),
-    (
-        Stream4, 4, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5,
-        teif5, gif5
-    ),
-    (
-        Stream5, 5, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6,
-        teif6, gif6
-    ),
-    (
-        Stream6, 6, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7,
-        teif7, gif7
-    ),
-    (
-        Stream7, 7, ifcr, ctcif8, chtif8, cteif8, cgif8, isr, tcif8, htif8,
-        teif8, gif8
-    ),
-);
-#[cfg(feature = "rm0468")]
-bdma_stream!(
-    // For this sub-familiy, the field names do match the RM.
-    (
-        Stream0, 0, ifcr, ctcif0, chtif0, cteif0, cgif0, isr, tcif0, htif0,
-        teif0, gif0
-    ),
-    (
-        Stream1, 1, ifcr, ctcif1, chtif1, cteif1, cgif1, isr, tcif1, htif1,
-        teif1, gif1
-    ),
-    (
-        Stream2, 2, ifcr, ctcif2, chtif2, cteif2, cgif2, isr, tcif2, htif2,
-        teif2, gif2
-    ),
-    (
-        Stream3, 3, ifcr, ctcif3, chtif3, cteif3, cgif3, isr, tcif3, htif3,
-        teif3, gif3
-    ),
-    (
-        Stream4, 4, ifcr, ctcif4, chtif4, cteif4, cgif4, isr, tcif4, htif4,
-        teif4, gif4
-    ),
-    (
-        Stream5, 5, ifcr, ctcif5, chtif5, cteif5, cgif5, isr, tcif5, htif5,
-        teif5, gif5
-    ),
-    (
-        Stream6, 6, ifcr, ctcif6, chtif6, cteif6, cgif6, isr, tcif6, htif6,
-        teif6, gif6
-    ),
-    (
-        Stream7, 7, ifcr, ctcif7, chtif7, cteif7, cgif7, isr, tcif7, htif7,
-        teif7, gif7
-    ),
-);
 
 /// Type alias for the DMA Request Multiplexer
 ///

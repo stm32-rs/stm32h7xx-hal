@@ -308,7 +308,7 @@ unsafe impl UsbPeripheral for USB1_ULPI {
             rcc.ahb1enr().modify(|_, w| w.usb1otgen().enabled());
 
             // Enable ULPI Clock
-            rcc.ahb1enr().modify(|_, w| w.usb1ulpien().enabled());
+            rcc.ahb1enr().modify(|_, w| w.usb1otgulpien().enabled());
 
             // Reset USB peripheral
             rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().set_bit());

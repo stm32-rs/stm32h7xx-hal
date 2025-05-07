@@ -130,14 +130,13 @@ macro_rules! busy_wait {
             if isr.$flag().$variant() {
                 break;
             } else if isr.berr().is_error() {
-                $i2c.icr().write(|w| w.berrcf().set_bit());
+                $i2c.icr().write(|w| w.berrcf().clear());
                 return Err(Error::Bus);
             } else if isr.arlo().is_lost() {
-                $i2c.icr().write(|w| w.arlocf().set_bit());
+                $i2c.icr().write(|w| w.arlocf().clear());
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
-                $i2c.icr()
-                    .write(|w| w.stopcf().set_bit().nackcf().set_bit());
+                $i2c.icr().write(|w| w.stopcf().clear().nackcf().clear());
                 flush_txdr!($i2c);
                 return Err(Error::NotAcknowledge);
             } else {
@@ -375,12 +374,12 @@ macro_rules! i2c {
                 pub fn clear_irq(&mut self, event: Event) {
                     self.i2c.icr().write(|w| {
                         match event {
-                            Event::Stop => w.stopcf().set_bit(),
+                            Event::Stop => w.stopcf().clear(),
                             Event::Errors => w
-                                .berrcf().set_bit()
-                                .arlocf().set_bit()
-                                .ovrcf().set_bit(),
-                            Event::NotAcknowledge => w.nackcf().set_bit(),
+                                .berrcf().clear()
+                                .arlocf().clear()
+                                .ovrcf().clear(),
+                            Event::NotAcknowledge => w.nackcf().clear(),
                             _ => w
                         }
                     });

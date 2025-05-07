@@ -197,8 +197,17 @@ impl Rtc {
         rtc.wpr().write(|w| unsafe { w.bits(0x53) });
 
         // Enter initialization mode
-        rtc.isr().modify(|_, w| w.init().set_bit());
-        while rtc.isr().read().initf().bit_is_clear() {}
+        #[cfg(feature = "rm0455")]
+        {
+            rtc.icsr().modify(|_, w| w.init().init_mode());
+            while rtc.icsr().read().initf().is_not_allowed() {}
+        }
+
+        #[cfg(not(feature = "rm0455"))]
+        {
+            rtc.isr().modify(|_, w| w.init().init_mode());
+            while rtc.isr().read().initf().is_not_allowed() {}
+        }
 
         // Enable Shadow Register Bypass
         rtc.cr().modify(|_, w| w.bypshad().set_bit());
@@ -238,6 +247,10 @@ impl Rtc {
         });
 
         // Exit initialization mode
+        #[cfg(feature = "rm0455")]
+        rtc.icsr().modify(|_, w| w.init().free_running_mode());
+
+        #[cfg(not(feature = "rm0455"))]
         rtc.isr().modify(|_, w| w.init().clear_bit());
 
         Rtc { reg: rtc, prec }
@@ -248,6 +261,7 @@ impl Rtc {
     /// # Panics
     ///
     /// Panics if `reg` is greater than 31.
+    #[cfg(not(feature = "rm0455"))] // TODO: How should this be done?
     pub fn read_backup_reg(&self, reg: u8) -> u32 {
         self.reg.bkpr(reg as usize).read().bkp().bits()
     }
@@ -257,6 +271,7 @@ impl Rtc {
     /// # Panics
     ///
     /// Panics if `reg` is greater than 31.
+    #[cfg(not(feature = "rm0455"))] // TODO: How should this be done?
     pub fn write_backup_reg(&mut self, reg: u8, value: u32) {
         self.reg.bkpr(reg as usize).write(|w| w.bkp().set(value));
     }
@@ -269,8 +284,8 @@ impl Rtc {
     /// when debug assertions are enabled.
     pub fn set_date_time(&mut self, date_time: NaiveDateTime) {
         // Enter initialization mode
-        self.reg.isr().modify(|_, w| w.init().set_bit());
-        while self.reg.isr().read().initf().bit_is_clear() {}
+
+        self.enter_init_mode();
 
         let hour = date_time.hour() as u8;
         let ht = hour / 10;
@@ -334,7 +349,7 @@ impl Rtc {
         });
 
         // Exit initialization mode
-        self.reg.isr().modify(|_, w| w.init().clear_bit());
+        self.exit_init_mode();
     }
 
     /// De-initializes the calendar and clock
@@ -342,19 +357,23 @@ impl Rtc {
     /// For when you lose confidince in the stored time e.g. if the LSE clock fails.
     pub fn clear_date_time(&mut self) {
         // Enter initialization mode
-        self.reg.isr().modify(|_, w| w.init().set_bit());
-        while self.reg.isr().read().initf().bit_is_clear() {}
+        self.enter_init_mode();
 
         self.reg.tr().reset();
         self.reg.dr().reset();
 
         // Exit initialization mode
-        self.reg.isr().modify(|_, w| w.init().clear_bit());
+        self.exit_init_mode();
     }
 
     /// Returns `None` if the calendar is uninitialized
     fn calendar_initialized(&self) -> Option<()> {
-        match self.reg.isr().read().inits().bit() {
+        #[cfg(feature = "rm0455")]
+        let is_initalized = self.reg.icsr().read().inits().is_initalized();
+
+        #[cfg(not(feature = "rm0455"))]
+        let is_initalized = self.reg.isr().read().inits().is_initalized();
+        match is_initalized {
             true => Some(()),
             false => None,
         }
@@ -563,8 +582,14 @@ impl Rtc {
     /// Panics if interval is greater than 2¹⁷-1.
     pub fn enable_wakeup(&mut self, interval: u32) {
         self.reg.cr().modify(|_, w| w.wute().clear_bit());
-        self.reg.isr().modify(|_, w| w.wutf().clear_bit());
-        while self.reg.isr().read().wutwf().bit_is_clear() {}
+
+        #[cfg(feature = "rm0455")]
+        self.reg.scr().write(|w| w.cwutf().clear());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.wutf().clear());
+
+        while !self.sr().read().wutf().is_zero() {}
 
         if interval > 1 << 16 {
             self.reg
@@ -590,13 +615,23 @@ impl Rtc {
     /// Disables the wakeup timer
     pub fn disable_wakeup(&mut self) {
         self.reg.cr().modify(|_, w| w.wute().clear_bit());
-        self.reg.isr().modify(|_, w| w.wutf().clear_bit());
+        #[cfg(feature = "rm0455")]
+        self.reg.scr().write(|w| w.cwutf().clear());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.wutf().clear());
     }
 
     /// Configures the timestamp to be captured when the RTC switches to Vbat power
     pub fn enable_vbat_timestamp(&mut self) {
         self.reg.cr().modify(|_, w| w.tse().clear_bit());
-        self.reg.isr().modify(|_, w| w.tsf().clear_bit());
+
+        #[cfg(feature = "rm0455")]
+        self.reg.scr().write(|w| w.ctsf().clear());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.tsf().clear());
+
         self.reg.cr().modify(|_, w| w.itse().set_bit());
         self.reg.cr().modify(|_, w| w.tse().set_bit());
     }
@@ -604,14 +639,19 @@ impl Rtc {
     /// Disables the timestamp
     pub fn disable_timestamp(&mut self) {
         self.reg.cr().modify(|_, w| w.tse().clear_bit());
-        self.reg.isr().modify(|_, w| w.tsf().clear_bit());
+
+        #[cfg(feature = "rm0455")]
+        self.reg.scr().write(|w| w.ctsf().clear());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.tsf().clear());
     }
 
     /// Reads the stored value of the timestamp if present
     ///
     /// Clears the timestamp interrupt flags.
     pub fn read_timestamp(&self) -> Option<NaiveDateTime> {
-        if !self.reg.isr().read().tsf().bit_is_clear() {
+        if self.sr().read().tsf().is_timestamp_event() {
             return None;
         }
 
@@ -641,9 +681,11 @@ impl Rtc {
 
         // Clear timestamp interrupt and internal timestamp interrupt (VBat transition)
         // TODO: Timestamp overflow flag
-        self.reg
-            .isr()
-            .modify(|_, w| w.tsf().clear_bit().itsf().clear_bit());
+        #[cfg(feature = "rm0455")]
+        self.reg.scr().write(|w| w.ctsf().clear().citsf().clear());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.tsf().clear().itsf().clear());
 
         Some(date.and_time(time))
     }
@@ -733,12 +775,18 @@ impl Rtc {
         // unsafe: Only we can do anything with this bit
         let rcc = unsafe { &*RCC::ptr() };
 
+        #[cfg(feature = "rm0455")]
+        let sr = self.reg.sr();
+
+        #[cfg(not(feature = "rm0455"))]
+        let sr = self.reg.isr();
+
         match event {
             Event::LseCss => rcc.cifr().read().lsecssf().bit_is_set(),
-            Event::AlarmA => self.reg.isr().read().alraf().bit_is_set(),
-            Event::AlarmB => self.reg.isr().read().alrbf().bit_is_set(),
-            Event::Wakeup => self.reg.isr().read().wutf().bit_is_set(),
-            Event::Timestamp => self.reg.isr().read().tsf().bit_is_set(),
+            Event::AlarmA => sr.read().alraf().bit_is_set(),
+            Event::AlarmB => sr.read().alrbf().bit_is_set(),
+            Event::Wakeup => sr.read().wutf().bit_is_set(),
+            Event::Timestamp => sr.read().tsf().bit_is_set(),
         }
     }
 
@@ -748,25 +796,50 @@ impl Rtc {
         // unsafe: Only we can do anything with these bits
         let rcc = unsafe { &*RCC::ptr() };
 
+        #[cfg(feature = "rm0455")]
         match event {
             Event::LseCss => {
                 rcc.cicr().write(|w| w.lsecssc().clear());
                 exti.unpend(ExtiEvent::RTC_OTHER);
             }
             Event::AlarmA => {
-                self.reg.isr().modify(|_, w| w.alraf().clear_bit());
+                self.reg.scr().write(|w| w.calraf().clear());
                 exti.unpend(ExtiEvent::RTC_ALARM);
             }
             Event::AlarmB => {
-                self.reg.isr().modify(|_, w| w.alrbf().clear_bit());
+                self.reg.scr().write(|w| w.calrbf().clear());
                 exti.unpend(ExtiEvent::RTC_ALARM);
             }
             Event::Wakeup => {
-                self.reg.isr().modify(|_, w| w.wutf().clear_bit());
+                self.reg.scr().write(|w| w.cwutf().clear());
                 exti.unpend(ExtiEvent::RTC_WAKEUP);
             }
             Event::Timestamp => {
-                self.reg.isr().modify(|_, w| w.tsf().clear_bit());
+                self.reg.scr().write(|w| w.ctsf().clear());
+                exti.unpend(ExtiEvent::RTC_OTHER);
+            }
+        }
+
+        #[cfg(not(feature = "rm0455"))]
+        match event {
+            Event::LseCss => {
+                rcc.cicr().write(|w| w.lsecssc().clear());
+                exti.unpend(ExtiEvent::RTC_OTHER);
+            }
+            Event::AlarmA => {
+                self.reg.isr().modify(|_, w| w.alraf().clear());
+                exti.unpend(ExtiEvent::RTC_ALARM);
+            }
+            Event::AlarmB => {
+                self.reg.isr().modify(|_, w| w.alrbf().clear());
+                exti.unpend(ExtiEvent::RTC_ALARM);
+            }
+            Event::Wakeup => {
+                self.reg.isr().modify(|_, w| w.wutf().clear());
+                exti.unpend(ExtiEvent::RTC_WAKEUP);
+            }
+            Event::Timestamp => {
+                self.reg.isr().modify(|_, w| w.tsf().clear());
                 exti.unpend(ExtiEvent::RTC_OTHER);
             }
         }
@@ -798,5 +871,37 @@ impl Rtc {
     /// Returns a mutable reference to the inner peripheral
     pub fn inner_mut(&mut self) -> &mut RTC {
         &mut self.reg
+    }
+
+    #[cfg(feature = "rm0455")]
+    fn sr(&self) -> &stm32h7::Reg<crate::stm32::rtc::sr::SRrs> {
+        self.reg.sr()
+    }
+
+    #[cfg(not(feature = "rm0455"))]
+    fn sr(&self) -> &stm32h7::Reg<crate::stm32::rtc::isr::ISRrs> {
+        self.reg.isr()
+    }
+
+    fn enter_init_mode(&mut self) {
+        #[cfg(feature = "rm0455")]
+        {
+            self.reg.icsr().modify(|_, w| w.init().init_mode());
+            while self.reg.icsr().read().initf().is_not_allowed() {}
+        }
+
+        #[cfg(not(feature = "rm0455"))]
+        {
+            self.reg.isr().modify(|_, w| w.init().init_mode());
+            while self.reg.isr().read().initf().is_not_allowed() {}
+        }
+    }
+
+    fn exit_init_mode(&mut self) {
+        #[cfg(feature = "rm0455")]
+        self.reg.icsr().modify(|_, w| w.init().free_running_mode());
+
+        #[cfg(not(feature = "rm0455"))]
+        self.reg.isr().modify(|_, w| w.init().free_running_mode());
     }
 }

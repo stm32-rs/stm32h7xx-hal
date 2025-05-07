@@ -87,6 +87,10 @@ pub trait ResetEnable {
     /// Reset this peripheral
     #[allow(clippy::return_self_not_must_use)]
     fn reset(self) -> Self;
+
+    /// # Safety
+    /// Caller has to ensure there are no other instances of this type
+    unsafe fn new() -> Self;
 }
 
 /// The clock gating state of a peripheral in low-power mode
@@ -340,6 +344,11 @@ macro_rules! peripheral_reset_and_enable_control_generator {
                                     [< $p:lower rst >]().clear_bit());
                     });
                     self
+                }
+                /// # Safety
+                /// Caller has to ensure there are no other instances of this type
+                unsafe fn new() -> Self {
+                    Self { _marker: PhantomData }
                 }
             }
             $( #[ $pmeta ] )*

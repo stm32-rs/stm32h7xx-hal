@@ -734,10 +734,10 @@ macro_rules! adc_hal {
                 /// Enable ADC
                 pub fn enable(mut self) -> Adc<$ADC, Enabled> {
                     // Refer to RM0433 Rev 7 - Chapter 25.4.9
-                    self.rb.isr().modify(|_, w| w.adrdy().set_bit());
-                    self.rb.cr().modify(|_, w| w.aden().set_bit());
+                    self.rb.isr().modify(|_, w| w.adrdy().clear());
+                    self.rb.cr().modify(|_, w| w.aden().enabled());
                     while self.rb.isr().read().adrdy().bit_is_clear() {}
-                    self.rb.isr().modify(|_, w| w.adrdy().set_bit());
+                    self.rb.isr().modify(|_, w| w.adrdy().clear());
 
                     self.configure();
 

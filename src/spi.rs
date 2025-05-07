@@ -944,18 +944,18 @@ macro_rules! spi {
                     fn listen(&mut self, event: Event) {
                         match event {
                             Event::Rxp => self.spi.ier().modify(|_, w|
-                                                              w.rxpie().not_masked()),
+                                                              w.rxpie().enabled()),
                             Event::Txp => self.spi.ier().modify(|_, w|
-                                                              w.txpie().not_masked()),
+                                                              w.txpie().enabled()),
                             Event::Error => self.spi.ier().modify(|_, w| {
                                 w.udrie() // Underrun
-                                    .not_masked()
+                                    .enabled()
                                     .ovrie() // Overrun
-                                    .not_masked()
+                                    .enabled()
                                     .crceie() // CRC error
-                                    .not_masked()
+                                    .enabled()
                                     .modfie() // Mode fault
-                                    .not_masked()
+                                    .enabled()
                             }),
                         };
                     }
@@ -967,21 +967,21 @@ macro_rules! spi {
                     fn unlisten(&mut self, event: Event) {
                         match event {
                             Event::Rxp => {
-                                self.spi.ier().modify(|_, w| w.rxpie().masked());
+                                self.spi.ier().modify(|_, w| w.rxpie().disabled());
                             }
                             Event::Txp => {
-                                self.spi.ier().modify(|_, w| w.txpie().masked());
+                                self.spi.ier().modify(|_, w| w.txpie().disabled());
                             }
                             Event::Error => {
                                 self.spi.ier().modify(|_, w| {
                                     w.udrie() // Underrun
-                                        .masked()
+                                        .disabled()
                                         .ovrie() // Overrun
-                                        .masked()
+                                        .disabled()
                                         .crceie() // CRC error
-                                        .masked()
+                                        .disabled()
                                         .modfie() // Mode fault
-                                        .masked()
+                                        .disabled()
                                 });
                             }
                         }

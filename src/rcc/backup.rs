@@ -110,6 +110,15 @@ mod rtc {
             });
             self
         }
+
+        /// # Safety
+        /// Caller has to ensure there are no other instances of this type
+        #[inline(always)]
+        unsafe fn new() -> Self {
+            Rtc {
+                _marker: PhantomData,
+            }
+        }
     }
 
     /// RTC kernel clock source selection

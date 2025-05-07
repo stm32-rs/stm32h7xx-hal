@@ -277,8 +277,10 @@ const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
 
 #[allow(unused_unsafe)]
 fn unlock(bank: &BANK) {
-    bank.keyr().write(|w| unsafe { w.keyr().bits(UNLOCK_KEY1) });
-    bank.keyr().write(|w| unsafe { w.keyr().bits(UNLOCK_KEY2) });
+    bank.keyr()
+        .write(|w| unsafe { w.key1r().bits(UNLOCK_KEY1) });
+    bank.keyr()
+        .write(|w| unsafe { w.key1r().bits(UNLOCK_KEY2) });
     assert!(!bank.cr().read().lock().bit())
 }
 

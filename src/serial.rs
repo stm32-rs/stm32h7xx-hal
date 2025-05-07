@@ -865,7 +865,7 @@ macro_rules! usart {
 
                 /// Clear the line idle status bit
                 pub fn clear_idle(&mut self) {
-                    unsafe { (*$USARTX::ptr()).icr().write(|w| w.idlecf().set_bit()); }
+                    unsafe { (*$USARTX::ptr()).icr().write(|w| w.idlecf().clear()); }
                     let _ = self.usart.isr().read();
                     let _ = self.usart.isr().read(); // Delay 2 peripheral clocks
                 }
@@ -1043,7 +1043,7 @@ macro_rules! usart {
                 /// Clear the line idle status bit
                 pub fn clear_idle(&mut self) {
                     let usart = unsafe { &*$USARTX::ptr() };
-                    usart.icr().write(|w| w.idlecf().set_bit());
+                    usart.icr().write(|w| w.idlecf().clear());
                     let _ = usart.isr().read();
                     let _ = usart.isr().read(); // Delay 2 peripheral clocks
                 }

@@ -15,8 +15,8 @@
 //! let _ = block!(sai.read_data()).unwrap();
 //! ```
 
-use crate::rcc::{rec, CoreClocks, ResetEnable};
-use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE};
+use crate::rcc::CoreClocks;
+use crate::sai::{GetClkSAI, Sai, SaiChannel, INTERFACE, SAI};
 
 use crate::stm32::SAI1;
 #[cfg(not(feature = "rm0455"))]
@@ -164,39 +164,155 @@ pub struct Pdm {
 impl INTERFACE for Pdm {}
 
 /// Trait to extend SAI peripherals
-pub trait SaiPdmExt<SAI>: Sized {
-    type Rec: ResetEnable;
-
+pub trait SaiPdmExt: Sized + GetClkSAI {
     fn pdm<PINS>(
         self,
         _pins: PINS,
         clock: Hertz,
         prec: Self::Rec,
         clocks: &CoreClocks,
-    ) -> Sai<SAI, Pdm>
+    ) -> Sai<Self, Pdm>
     where
         PINS: PulseDensityPins<Self>;
+}
+
+impl<const A: usize> SaiPdmExt for SAI<A>
+where
+    Self: GetClkSAI,
+{
+    fn pdm<PINS>(
+        self,
+        _pins: PINS,
+        clock: Hertz,
+        prec: Self::Rec,
+        clocks: &CoreClocks,
+    ) -> Sai<Self, Pdm>
+    where
+        PINS: PulseDensityPins<Self>,
+    {
+        let micnbr = match PINS::MAX_MICROPHONES {
+            2 => 0, // Up to 2 microphones
+            _ => unimplemented!(),
+        };
+        let frl = (16 * (micnbr + 1)) - 1; // Frame length
+        let ds = 0b100; // 16 bits
+        let nbslot: u8 = 0; // One slot
+
+        // Calculate bit clock SCK_a
+        let sck_a_hz = 2 * clock;
+
+        // Calculate master clock MCLK_a
+        let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
+
+        // Calculate divider
+        let ker_ck_a = SAI::<A>::sai_a_ker_ck(&prec, clocks);
+        let kernel_clock_divider: u8 =
+            (ker_ck_a / mclk_a_hz).try_into().expect(concat!(
+                stringify!($SAIX),
+                ": Kernel clock is out of range for required MCLK"
+            ));
+
+        // Configure SAI peripeheral
+        let mut s = Sai {
+            rb: self,
+            master_channel: SaiChannel::ChannelA,
+            slave_channel: None,
+            interface: Pdm {
+                // count slots for 2 frames
+                invalid_countdown: 2 * (nbslot + 1),
+            },
+        };
+        // RCC enable, reset
+        s.sai_rcc_init(prec);
+
+        // Configure block 1
+        let audio_ch_a = &s.rb.cha();
+
+        unsafe {
+            audio_ch_a.cr1().modify(|_, w| {
+                w.mode()
+                    .master_rx() // Master receiver
+                    .prtcfg()
+                    .free()
+                    .ds()
+                    .bits(ds)
+                    .lsbfirst()
+                    .clear_bit() // MSB first
+                    .ckstr()
+                    .clear_bit() // Rising edge
+                    .mono()
+                    .stereo() // Stereo
+                    .nodiv()
+                    .no_div() // No division from MCLK to SCK
+                    .mckdiv()
+                    .bits(kernel_clock_divider - 1)
+            });
+
+            audio_ch_a.frcr().modify(|_, w| {
+                w.fsoff()
+                    .clear_bit()
+                    .fspol()
+                    .set_bit() // FS active high
+                    .fsdef()
+                    .clear_bit()
+                    .fsall()
+                    .bits(0) // Pulse width = 1 bit clock
+                    .frl()
+                    .bits(frl)
+            });
+
+            audio_ch_a.slotr().modify(|_, w| {
+                w.fboff()
+                    .bits(0) // No offset on slot
+                    .slotsz()
+                    .bits(0) // Equal to ACR1.DS
+                    .nbslot()
+                    .bits(nbslot)
+                    .sloten()
+                    .bits(0x1) // Bitfield
+            });
+
+            // PDM Control Register
+            if PINS::ENABLE_BITSTREAM_CLOCK_1 {
+                s.rb.pdmcr().modify(|_, w| {
+                    w.cken1().set_bit() // CKEN1
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_2 {
+                s.rb.pdmcr().modify(|_, w| {
+                    w.cken2().set_bit() // CKEN2
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_3 {
+                s.rb.pdmcr().modify(|_, w| {
+                    w.cken3().set_bit() // CKEN3
+                });
+            }
+            if PINS::ENABLE_BITSTREAM_CLOCK_4 {
+                s.rb.pdmcr().modify(|_, w| {
+                    w.cken4().set_bit() // CKEN4
+                });
+            }
+            s.rb.pdmcr().modify(|_, w| {
+                w.micnbr()
+                    .bits(micnbr) // 2, 4, 6 or 8 microphones
+                    .pdmen()
+                    .set_bit() // Enabled
+            });
+        }
+
+        // Enable SAI_A
+        audio_ch_a.cr1().modify(|_, w| w.saien().enabled());
+
+        // SAI
+        s
+    }
 }
 
 macro_rules! hal {
     ($($SAIX:ident, $Rec:ident: ($pdm_saiX:ident)),+) => {
         $(
-            impl SaiPdmExt<$SAIX> for $SAIX {
-                type Rec = rec::$Rec;
 
-                fn pdm<PINS>(
-                    self,
-                    _pins: PINS,
-                    clock: Hertz,
-                    prec: rec::$Rec,
-                    clocks: &CoreClocks,
-                ) -> Sai<Self, Pdm>
-                where
-                    PINS: PulseDensityPins<Self>,
-                {
-                    Sai::$pdm_saiX(self, _pins, clock, prec, clocks)
-                }
-            }
             impl Sai<$SAIX, Pdm> {
                 /// Read a single data word (one 'slot')
                 pub fn read_data(&mut self) -> nb::Result<u32, core::convert::Infallible> {
@@ -216,136 +332,6 @@ macro_rules! hal {
                     }
 
                     Ok(self.rb.cha().dr().read().bits() & 0xFFFF)
-                }
-
-                /// Initialise SAI in PDM mode
-                pub fn $pdm_saiX<PINS>(
-                    sai: $SAIX,
-                    _pins: PINS,
-                    clock: Hertz,
-                    prec: rec::$Rec,
-                    clocks: &CoreClocks,
-                ) -> Self
-                where
-                    PINS: PulseDensityPins<$SAIX>,
-                {
-                    let micnbr = match PINS::MAX_MICROPHONES {
-                        2 => 0, // Up to 2 microphones
-                        _ => unimplemented!(),
-                    };
-                    let frl = (16 * (micnbr + 1)) - 1; // Frame length
-                    let ds = 0b100; // 16 bits
-                    let nbslot: u8 = 0; // One slot
-
-                    // Calculate bit clock SCK_a
-                    let sck_a_hz = 2 * clock;
-
-                    // Calculate master clock MCLK_a
-                    let mclk_a_hz = sck_a_hz; // For NODIV = 1, SCK_a = MCLK_a
-
-                    // Calculate divider
-                    let ker_ck_a = $SAIX::sai_a_ker_ck(&prec, clocks);
-                    let kernel_clock_divider: u8 = (ker_ck_a / mclk_a_hz)
-                        .try_into()
-                        .expect(concat!(stringify!($SAIX),
-                                        ": Kernel clock is out of range for required MCLK"
-                        ));
-
-
-                    // Configure SAI peripeheral
-                    let mut s = Sai {
-                        rb: sai,
-                        master_channel: SaiChannel::ChannelA,
-                        slave_channel: None,
-                        interface: Pdm {
-                            // count slots for 2 frames
-                            invalid_countdown: 2 * (nbslot + 1),
-                        },
-                    };
-                    // RCC enable, reset
-                    s.sai_rcc_init(prec);
-
-                    // Configure block 1
-                    let audio_ch_a = &s.rb.cha();
-
-                    unsafe {
-                        audio_ch_a.cr1().modify(|_, w| {
-                            w.mode()
-                                .master_rx() // Master receiver
-                                .prtcfg()
-                                .free()
-                                .ds()
-                                .bits(ds)
-                                .lsbfirst()
-                                .clear_bit() // MSB first
-                                .ckstr()
-                                .clear_bit() // Rising edge
-                                .mono()
-                                .stereo() // Stereo
-                                .nodiv()
-                                .no_div() // No division from MCLK to SCK
-                                .mckdiv()
-                                .bits(kernel_clock_divider - 1)
-                        });
-
-                        audio_ch_a.frcr().modify(|_, w| {
-                            w.fsoff()
-                                .clear_bit()
-                                .fspol()
-                                .set_bit() // FS active high
-                                .fsdef()
-                                .clear_bit()
-                                .fsall()
-                                .bits(0) // Pulse width = 1 bit clock
-                                .frl()
-                                .bits(frl)
-                        });
-
-                        audio_ch_a.slotr().modify(|_, w| {
-                            w.fboff()
-                                .bits(0) // No offset on slot
-                                .slotsz()
-                                .bits(0) // Equal to ACR1.DS
-                                .nbslot()
-                                .bits(nbslot)
-                                .sloten()
-                                .bits(0x1) // Bitfield
-                        });
-
-                        // PDM Control Register
-                        if PINS::ENABLE_BITSTREAM_CLOCK_1 {
-                            s.rb.pdmcr().modify(|_, w| {
-                                w.cken1().set_bit() // CKEN1
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_2 {
-                            s.rb.pdmcr().modify(|_, w| {
-                                w.cken2().set_bit() // CKEN2
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_3 {
-                            s.rb.pdmcr().modify(|_, w| {
-                                w.cken3().set_bit() // CKEN3
-                            });
-                        }
-                        if PINS::ENABLE_BITSTREAM_CLOCK_4 {
-                            s.rb.pdmcr().modify(|_, w| {
-                                w.cken4().set_bit() // CKEN4
-                            });
-                        }
-                        s.rb.pdmcr().modify(|_, w| {
-                            w.micnbr()
-                                .bits(micnbr) // 2, 4, 6 or 8 microphones
-                                .pdmen()
-                                .set_bit() // Enabled
-                        });
-                    }
-
-                    // Enable SAI_A
-                    audio_ch_a.cr1().modify(|_, w| w.saien().enabled());
-
-                    // SAI
-                    s
                 }
             }
         )+

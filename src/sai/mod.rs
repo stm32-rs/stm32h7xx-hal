@@ -9,8 +9,6 @@
 //! - [SAI with DMA](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai_dma_passthru.rs)
 //! - [SAI with I2S](https://github.com/stm32-rs/stm32h7xx-hal/blob/master/examples/sai-i2s-passthru.rs)
 
-use core::marker::PhantomData;
-
 #[cfg(any(feature = "rm0455", feature = "rm0468"))]
 use crate::stm32::sai1::CH;
 #[cfg(any(feature = "rm0433", feature = "rm0399"))]
@@ -186,172 +184,181 @@ pub struct Sai<SAI, INTERFACE> {
     interface: INTERFACE,
 }
 
-macro_rules! sai_hal {
-    ($($SAIX:ident: ($saiX:ident, $Rec:ident),)+) => {
-        $(
-            // Common to all interfaces
-            impl<INTERFACE> Sai<$SAIX, INTERFACE> {
-                /// Low level RCC initialisation
-                fn sai_rcc_init(&mut self, prec: rec::$Rec)
-                {
-                    let _ = prec.enable().reset(); // drop, can be recreated by free method
-                }
-
-                /// Access to the current master channel
-                fn master_channel<F, T>(&self, func: F) -> T
-                    where F: FnOnce(&CH) -> T,
-                {
-                    func(&self.rb.ch(self.master_channel as usize))
-                }
-
-                /// Access to the current slave channel, if set
-                fn slave_channel<F, T>(&self, func: F) -> Option<T>
-                    where F: FnOnce(&CH) -> T,
-                {
-                    match self.slave_channel {
-                        Some(channel) => Some(func(&self.rb.ch(channel as usize))),
-                        None => None
-                    }
-                }
-
-                /// Start listening for `event` on a given `channel`
-                pub fn listen(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch(channel as usize);
-                    match event {
-                        Event::Overdue              => ch.im().modify(|_, w| w.ovrudrie().set_bit()),
-                        Event::Muted                => ch.im().modify(|_, w| w.mutedetie().set_bit()),
-                        Event::WrongClock           => ch.im().modify(|_, w| w.wckcfgie().set_bit()),
-                        Event::Data                 => ch.im().modify(|_, w| w.freqie().set_bit()),
-                        Event::AnticipatedFrameSync => ch.im().modify(|_, w| w.afsdetie().set_bit()),
-                        Event::LateFrameSync        => ch.im().modify(|_, w| w.lfsdetie().set_bit()),
-                    };
-                }
-
-                /// Stop listening for `event` on a given `channel`
-                pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch(channel as usize);
-                    match event {
-                        Event::Overdue              => ch.im().modify(|_, w| w.ovrudrie().clear_bit()),
-                        Event::Muted                => ch.im().modify(|_, w| w.mutedetie().clear_bit()),
-                        Event::WrongClock           => ch.im().modify(|_, w| w.wckcfgie().clear_bit()),
-                        Event::Data                 => ch.im().modify(|_, w| w.freqie().clear_bit()),
-                        Event::AnticipatedFrameSync => ch.im().modify(|_, w| w.afsdetie().clear_bit()),
-                        Event::LateFrameSync        => ch.im().modify(|_, w| w.lfsdetie().clear_bit()),
-                    };
-                    let _ = ch.im().read();
-                    let _ = ch.im().read(); // Delay 2 peripheral clocks
-                }
-
-                /// Clears interrupt flag `event` on the `channel`
-                ///
-                /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
-                pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
-                    let ch = &self.rb.ch(channel as usize);
-                    match event {
-                        Event::Overdue              => ch.clrfr().write(|w| w.covrudr().set_bit()),
-                        Event::Muted                => ch.clrfr().write(|w| w.cmutedet().set_bit()),
-                        Event::WrongClock           => ch.clrfr().write(|w| w.cwckcfg().set_bit()),
-                        Event::Data                 => 0, // Cleared by reading/writing data
-                        Event::AnticipatedFrameSync => ch.clrfr().write(|w| w.cafsdet().set_bit()),
-                        Event::LateFrameSync        => ch.clrfr().write(|w| w.clfsdet().set_bit()),
-                    };
-                    let _ = ch.sr().read();
-                    let _ = ch.sr().read(); // Delay 2 peripheral clocks
-                }
-
-                /// Clears all interrupts on the `channel`
-                pub fn clear_all_irq(&mut self, channel: SaiChannel) {
-                    let ch = &self.rb.ch(channel as usize);
-                    unsafe {
-                        ch.clrfr().write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
-                    }
-                    let _ = ch.sr().read();
-                    let _ = ch.sr().read(); // Delay 2 peripheral clocks
-                }
-
-                /// Mute `channel`, this is checked at the start of each frame
-                /// Meaningful only in Tx mode
-                pub fn mute(&mut self, channel: SaiChannel) {
-                    self.rb.ch(channel as usize).cr2().modify(|_, w| w.mute().enabled());
-                }
-
-                /// Unmute `channel`, this is checked at the start of each frame
-                /// Meaningful only in Tx mode
-                pub fn unmute(&mut self, channel: SaiChannel) {
-                    self.rb.ch(channel as usize).cr2().modify(|_, w| w.mute().disabled());
-                }
-
-                /// Used to operate the audio block(s) with an external SAI for synchronization
-                /// Refer to RM0433 rev 7 section 51.4.4 for valid values
-                ///
-                /// In short 0-3 maps SAI1-4 with the ones pointing to self being reserved.
-                /// e.g. for SAI1 1-3 are valid and 0 is invalid
-                pub fn set_sync_input(&mut self, selection: u8) {
-                    assert!(selection < 0b1_00);
-                    unsafe { self.rb.gcr().modify(|_, w| w.syncout().bits(selection)) };
-                }
-
-                /// Synchronization output for other SAI blocks
-                pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
-                    match channel {
-                        Some(SaiChannel::ChannelA) => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b01) ) },
-                        Some(SaiChannel::ChannelB) => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b10) ) },
-                        None                       => unsafe { &self.rb.gcr().modify(|_, w| w.syncout().bits(0b00) ) },
-                    };
-                }
-
-                /// Enable DMA for the SAI peripheral.
-                pub fn enable_dma(&mut self, channel: SaiChannel) {
-                    self.rb.ch(channel as usize).cr1().modify(|_, w| w.dmaen().enabled());
-                }
-
-                /// Releases the SAI peripheral
-                pub fn free(self) -> ($SAIX, rec::$Rec) {
-                    // Refer to RM0433 Rev 7 51.4.15 Disabling the SAI
-
-                    // Master: Clear SAIEN
-                    self.master_channel(|ch| {
-                        ch.cr1().modify(|_, w| w.saien().disabled())
-                    });
-
-                    // Master: Wait for SAI to clear at the end of the
-                    // frame
-                    while self.master_channel(|ch| {
-                        ch.cr1().read().saien().bit_is_set()
-                    }) {}
-
-                    // Slave: Clear SAIEN
-                    self.slave_channel(|ch| {
-                        ch.cr1().modify(|_, w| w.saien().disabled())
-                    });
-
-                    // Slave: Wait for SAI to clear
-                    while self.slave_channel(|ch| {
-                        ch.cr1().read().saien().bit_is_set()
-                    }).unwrap_or(false) {}
-
-
-                    (self.rb, rec::$Rec { _marker: PhantomData })
-                }
-            }
-        )+
-    }
-}
-
-sai_hal! {
-    SAI1: (sai1, Sai1),
-}
-#[cfg(any(feature = "rm0433", feature = "rm0399"))]
-sai_hal! {
-    SAI2: (sai2, Sai2),
-    SAI3: (sai3, Sai3),
-    SAI4: (sai4, Sai4),
-}
 #[cfg(feature = "rm0455")]
-sai_hal! {
-    SAI2: (sai2, Sai2),
-}
-#[cfg(feature = "rm0468")]
-sai_hal! {
-    SAI4: (sai4, Sai4),
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) type SAI<const A: usize> =
+    stm32h7::Periph<crate::stm32::sai1::RegisterBlock, A>;
+
+#[cfg(not(feature = "rm0455"))]
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) type SAI<const A: usize> =
+    stm32h7::Periph<crate::stm32::sai4::RegisterBlock, A>;
+
+// Common to all interfaces
+impl<INTERFACE, const A: usize> Sai<SAI<A>, INTERFACE>
+where
+    SAI<A>: GetClkSAI,
+{
+    /// Low level RCC initialisation
+    fn sai_rcc_init(&mut self, prec: <SAI<A> as GetClkSAI>::Rec) {
+        let _ = prec.enable().reset(); // drop, can be recreated by free method
+    }
+
+    /// Access to the current master channel
+    fn master_channel<F, T>(&self, func: F) -> T
+    where
+        F: FnOnce(&CH) -> T,
+    {
+        func(self.rb.ch(self.master_channel as usize))
+    }
+
+    /// Access to the current slave channel, if set
+    fn slave_channel<F, T>(&self, func: F) -> Option<T>
+    where
+        F: FnOnce(&CH) -> T,
+    {
+        self.slave_channel
+            .map(|channel| func(self.rb.ch(channel as usize)))
+    }
+
+    /// Start listening for `event` on a given `channel`
+    pub fn listen(&mut self, channel: SaiChannel, event: Event) {
+        let ch = &self.rb.ch(channel as usize);
+        match event {
+            Event::Overdue => ch.im().modify(|_, w| w.ovrudrie().set_bit()),
+            Event::Muted => ch.im().modify(|_, w| w.mutedetie().set_bit()),
+            Event::WrongClock => ch.im().modify(|_, w| w.wckcfgie().set_bit()),
+            Event::Data => ch.im().modify(|_, w| w.freqie().set_bit()),
+            Event::AnticipatedFrameSync => {
+                ch.im().modify(|_, w| w.afsdetie().set_bit())
+            }
+            Event::LateFrameSync => {
+                ch.im().modify(|_, w| w.lfsdetie().set_bit())
+            }
+        };
+    }
+
+    /// Stop listening for `event` on a given `channel`
+    pub fn unlisten(&mut self, channel: SaiChannel, event: Event) {
+        let ch = &self.rb.ch(channel as usize);
+        match event {
+            Event::Overdue => ch.im().modify(|_, w| w.ovrudrie().clear_bit()),
+            Event::Muted => ch.im().modify(|_, w| w.mutedetie().clear_bit()),
+            Event::WrongClock => {
+                ch.im().modify(|_, w| w.wckcfgie().clear_bit())
+            }
+            Event::Data => ch.im().modify(|_, w| w.freqie().clear_bit()),
+            Event::AnticipatedFrameSync => {
+                ch.im().modify(|_, w| w.afsdetie().clear_bit())
+            }
+            Event::LateFrameSync => {
+                ch.im().modify(|_, w| w.lfsdetie().clear_bit())
+            }
+        };
+        let _ = ch.im().read();
+        let _ = ch.im().read(); // Delay 2 peripheral clocks
+    }
+
+    /// Clears interrupt flag `event` on the `channel`
+    ///
+    /// Note: Event::Data is accepted but does nothing as that flag is cleared by reading/writing data
+    pub fn clear_irq(&mut self, channel: SaiChannel, event: Event) {
+        let ch = &self.rb.ch(channel as usize);
+        match event {
+            Event::Overdue => ch.clrfr().write(|w| w.covrudr().set_bit()),
+            Event::Muted => ch.clrfr().write(|w| w.cmutedet().set_bit()),
+            Event::WrongClock => ch.clrfr().write(|w| w.cwckcfg().set_bit()),
+            Event::Data => 0, // Cleared by reading/writing data
+            Event::AnticipatedFrameSync => {
+                ch.clrfr().write(|w| w.cafsdet().set_bit())
+            }
+            Event::LateFrameSync => ch.clrfr().write(|w| w.clfsdet().set_bit()),
+        };
+        let _ = ch.sr().read();
+        let _ = ch.sr().read(); // Delay 2 peripheral clocks
+    }
+
+    /// Clears all interrupts on the `channel`
+    pub fn clear_all_irq(&mut self, channel: SaiChannel) {
+        let ch = &self.rb.ch(channel as usize);
+        unsafe {
+            ch.clrfr().write(|w| w.bits(CLEAR_ALL_FLAGS_BITS));
+        }
+        let _ = ch.sr().read();
+        let _ = ch.sr().read(); // Delay 2 peripheral clocks
+    }
+
+    /// Mute `channel`, this is checked at the start of each frame
+    /// Meaningful only in Tx mode
+    pub fn mute(&mut self, channel: SaiChannel) {
+        self.rb
+            .ch(channel as usize)
+            .cr2()
+            .modify(|_, w| w.mute().enabled());
+    }
+
+    /// Unmute `channel`, this is checked at the start of each frame
+    /// Meaningful only in Tx mode
+    pub fn unmute(&mut self, channel: SaiChannel) {
+        self.rb
+            .ch(channel as usize)
+            .cr2()
+            .modify(|_, w| w.mute().disabled());
+    }
+
+    /// Used to operate the audio block(s) with an external SAI for synchronization
+    /// Refer to RM0433 rev 7 section 51.4.4 for valid values
+    ///
+    /// In short 0-3 maps SAI1-4 with the ones pointing to self being reserved.
+    /// e.g. for SAI1 1-3 are valid and 0 is invalid
+    pub fn set_sync_input(&mut self, selection: u8) {
+        assert!(selection < 0b1_00);
+        unsafe { self.rb.gcr().modify(|_, w| w.syncout().bits(selection)) };
+    }
+
+    /// Synchronization output for other SAI blocks
+    pub fn set_sync_output(&mut self, channel: Option<SaiChannel>) {
+        match channel {
+            Some(SaiChannel::ChannelA) => unsafe {
+                &self.rb.gcr().modify(|_, w| w.syncout().bits(0b01))
+            },
+            Some(SaiChannel::ChannelB) => unsafe {
+                &self.rb.gcr().modify(|_, w| w.syncout().bits(0b10))
+            },
+            None => unsafe {
+                &self.rb.gcr().modify(|_, w| w.syncout().bits(0b00))
+            },
+        };
+    }
+
+    /// Enable DMA for the SAI peripheral.
+    pub fn enable_dma(&mut self, channel: SaiChannel) {
+        self.rb
+            .ch(channel as usize)
+            .cr1()
+            .modify(|_, w| w.dmaen().enabled());
+    }
+
+    /// Releases the SAI peripheral
+    pub fn free(self) -> (SAI<A>, <SAI<A> as GetClkSAI>::Rec) {
+        // Refer to RM0433 Rev 7 51.4.15 Disabling the SAI
+
+        // Master: Clear SAIEN
+        self.master_channel(|ch| ch.cr1().modify(|_, w| w.saien().disabled()));
+
+        // Master: Wait for SAI to clear at the end of the
+        // frame
+        while self.master_channel(|ch| ch.cr1().read().saien().bit_is_set()) {}
+
+        // Slave: Clear SAIEN
+        self.slave_channel(|ch| ch.cr1().modify(|_, w| w.saien().disabled()));
+
+        // Slave: Wait for SAI to clear
+        while self
+            .slave_channel(|ch| ch.cr1().read().saien().bit_is_set())
+            .unwrap_or(false)
+        {}
+
+        (self.rb, unsafe { <SAI<A> as GetClkSAI>::Rec::new() })
+    }
 }

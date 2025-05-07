@@ -53,6 +53,12 @@ impl NorFlashError for Error {
 impl Error {
     fn read(flash_bank: &BANK) -> Option<Self> {
         let sr = flash_bank.sr().read();
+
+        #[cfg(not(feature = "rm0455"))]
+        if sr.operr().bit() {
+            return Some(Error::Operation);
+        }
+
         if sr.pgserr().bit() {
             Some(Error::ProgrammingSequence)
         } else if sr.wrperr().bit() {
@@ -61,8 +67,6 @@ impl Error {
             Some(Error::Strobe)
         } else if sr.incerr().bit() {
             Some(Error::Inconsistency)
-        } else if sr.operr().bit() {
-            Some(Error::Operation)
         } else if sr.rdperr().bit() {
             Some(Error::ReadProtection)
         } else if sr.rdserr().bit() {
@@ -75,22 +79,25 @@ impl Error {
     }
 }
 fn clear_error_flags(regs: &BANK) {
-    regs.sr().modify(|_, w| {
-        w.pgserr()
+    regs.ccr().write(|w| {
+        let w = w
+            .clr_pgserr()
             .set_bit()
-            .wrperr()
+            .clr_wrperr()
             .set_bit()
-            .strberr()
+            .clr_strberr()
             .set_bit()
-            .incerr()
+            .clr_incerr();
+
+        #[cfg(not(feature = "rm0455"))]
+        let w = w.set_bit().clr_operr();
+
+        w.set_bit()
+            .clr_rdperr()
             .set_bit()
-            .operr()
+            .clr_rdserr()
             .set_bit()
-            .rdperr()
-            .set_bit()
-            .rdserr()
-            .set_bit()
-            .dbeccerr()
+            .clr_dbeccerr()
             .set_bit()
     });
 }
@@ -167,15 +174,19 @@ impl UnlockedFlashBank<'_> {
 
         #[rustfmt::skip]
         self.bank.cr().modify(|_, w| unsafe {
-            w
-                // start
-                .start().set_bit()
-                // sector number
-                .snb().bits(sector)
-                // sector erase
-                .ser().set_bit()
+            // sector number
+            #[cfg(feature = "rm0455")]
+            let w = w.ssn().bits(sector);
+
+            #[cfg(not(feature = "rm0455"))]
+            let w = w.snb().bits(sector);
+
+            // sector erase
+            w.ser().set_bit()
                 // not programming
                 .pg().clear_bit()
+                // start
+                .start().set_bit()
         });
         self.wait_ready();
         self.ok()
@@ -214,11 +225,13 @@ impl UnlockedFlashBank<'_> {
             #[rustfmt::skip]
             #[allow(unused_unsafe)]
             self.bank.cr().modify(|_, w| unsafe {
-                w
+                #[cfg(not(feature = "rm0455"))]
+                let w = w
                     // double-word parallelism
-                    .psize().bits(0b11)
-                    // not sector erase
-                    .ser().clear_bit()
+                    .psize().bits(0b11);
+
+                // not sector erase
+                w.ser().clear_bit()
                     // programming
                     .pg().set_bit()
             });
