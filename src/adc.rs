@@ -50,6 +50,10 @@ impl NumberOfBits for Resolution {
             Resolution::TenBit => 10,
             Resolution::TwelveBit => 12,
             Resolution::FourteenBit => 14,
+            #[cfg(feature = "revision_v")]
+            Resolution::TwelveBitV => 12,
+            #[cfg(feature = "revision_v")]
+            Resolution::FourteenBitV => 14,
             _ => 16,
         }
     }
